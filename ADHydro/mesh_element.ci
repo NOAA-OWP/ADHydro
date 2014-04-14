@@ -1,0 +1,13 @@
+module mesh_element
+{
+  array [1D] MeshElement
+  {
+    entry MeshElement();
+    entry void doTimestep(double dtNew);
+    entry void calculateBoundaryConditionFlow();
+    entry void receiveState(int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+    entry void receiveFlow(int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow);
+    entry void receiveSurfacewaterFlowLimited(int edge, double edgeSurfacewaterFlow);
+    entry void receiveGroundwaterFlowLimited(int edge, double edgeGroundwaterFlow);
+  };
+};

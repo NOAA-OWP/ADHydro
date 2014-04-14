@@ -1,0 +1,10 @@
+mainmodule adhydro
+{
+  extern module mesh_element;
+  
+  mainchare ADHydro
+  {
+    entry ADHydro(CkArgMsg* msg);
+    entry [reductiontarget] void timestepDone(double dtNew);
+  };
+};
