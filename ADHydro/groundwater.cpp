@@ -1,6 +1,5 @@
 #include "groundwater.h"
-#include <cstdio>
-#include <cmath>
+#include <charm++.h>
 
 // Comment in .h file.
 bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[4], double vertexY[4], double vertexZSurface[4],
@@ -14,7 +13,7 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      fprintf(stderr, "ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -26,50 +25,49 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!isBoundary(boundary))
     {
-      fprintf(stderr, "ERROR: boundary must be a valid boundary condition value.\n");
+      CkError("ERROR: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(NULL != vertexX))
     {
-      fprintf(stderr, "ERROR: vertexX must not be NULL.\n");
+      CkError("ERROR: vertexX must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexY))
     {
-      fprintf(stderr, "ERROR: vertexY must not be NULL.\n");
+      CkError("ERROR: vertexY must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexZSurface))
     {
-      fprintf(stderr, "ERROR: vertexZSurface must not be NULL.\n");
+      CkError("ERROR: vertexZSurface must not be NULL.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      fprintf(stderr, "ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR: edgeLength must be greater than zero.\n");
       error = true;
     }
   
-  // FIXME this probably needs to be epsilon equal
-  if (!(1.0 == edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY))
+  if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      fprintf(stderr, "ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      CkError("ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0.0 < elementArea))
     {
-      fprintf(stderr, "ERROR: elementArea must be greater than zero.\n");
+      CkError("ERROR: elementArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < conductivity))
     {
-      fprintf(stderr, "ERROR: conductivity must be greater than zero.\n");
+      CkError("ERROR: conductivity must be greater than zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -88,12 +86,12 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 
       if (INFLOW == boundary && 0.0 < *flowRate)
         {
-          fprintf(stderr, "WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
       else if (OUTFLOW == boundary && 0.0 > *flowRate)
         {
-          fprintf(stderr, "WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
     }
@@ -119,7 +117,7 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      fprintf(stderr, "ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -131,55 +129,55 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < edgeLength))
     {
-      fprintf(stderr, "ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(elementZSurface >= elementZBedrock))
     {
-      fprintf(stderr, "ERROR: elementZSurface must be greater than or equal to elementZBedrock");
+      CkError("ERROR: elementZSurface must be greater than or equal to elementZBedrock");
       error = true;
     }
   
   if (!(elementZSurface >= elementGroundwaterHead))
     {
-      fprintf(stderr, "ERROR: elementZSurface must be greater than or equal to elementGroundwaterHead");
+      CkError("ERROR: elementZSurface must be greater than or equal to elementGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < elementConductivity))
     {
-      fprintf(stderr, "ERROR: elementConductivity must be greater than zero.\n");
+      CkError("ERROR: elementConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      fprintf(stderr, "ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborZBedrock))
     {
-      fprintf(stderr, "ERROR: neighborZSurface must be greater than or equal to neighborZBedrock");
+      CkError("ERROR: neighborZSurface must be greater than or equal to neighborZBedrock");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborGroundwaterHead))
     {
-      fprintf(stderr, "ERROR: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
+      CkError("ERROR: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < neighborConductivity))
     {
-      fprintf(stderr, "ERROR: neighborConductivity must be greater than zero.\n");
+      CkError("ERROR: neighborConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      fprintf(stderr, "ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -208,7 +206,7 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
           neighborGroundwaterHead += neighborSurfacewaterDepth;
         }
 
-      // If the higher element is dry there is no flow.
+      // If there is no slope or the higher element is dry there is no flow.
       if ((elementGroundwaterHead > neighborGroundwaterHead && 0.0 < elementGroundwaterHeight) ||
           (elementGroundwaterHead < neighborGroundwaterHead && 0.0 < neighborGroundwaterHeight))
         {

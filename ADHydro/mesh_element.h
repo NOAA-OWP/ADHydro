@@ -5,6 +5,8 @@
 
 class MeshElement : public CBase_MeshElement
 {
+  MeshElement_SDAG_CODE
+  
 public:
   
   // Constructor.
@@ -17,19 +19,56 @@ public:
   // msg - Charm++ migration message.
   MeshElement(CkMigrateMessage* msg);
   
-  // To step forward one timestep, send this message to all MeshElements.
-  // Performs point processes and starts the surfacewater, groundwater, and
-  // channels algorithm.
+  // Pack/unpack method.
+  void pup(PUP::er &p);
+  
+  // Flags to indicate how to interact with neighbors.
+  enum InteractionEnum
+  {
+    I_CALCULATE_FLOW,
+    NEIGHBOR_CALCULATES_FLOW,
+    BOTH_CALCULATE_FLOW,
+  };
+  
+  // Flags to indicate whether temporary flow variables have been updated for
+  // the current timestep.
+  enum FlowReadyEnum
+  {
+    FLOW_NOT_READY,
+    FLOW_CALCULATED,
+    FLOW_LIMITING_CHECK_DONE
+  };
+  
+private:
+  
+  // Step forward one timestep.  Performs point processes and starts the
+  // surfacewater, groundwater, and channels algorithm.
   //
   // Parameters:
   //
-  // dtThisTimestep - Duration for this timestep in seconds.
-  void doTimestep(double dtThisTimestep);
+  // iterationThisTimestep - Iteration number to put on all messages this
+  //                         timestep.
+  // dtThisTimestep        - Duration for this timestep in seconds.
+  void receiveDoTimestep(int iterationThisTimestep, double dtThisTimestep);
   
-  // Calculate flow for all boundary condition edges.  This is only declared
-  // as an entry point so that we can lazily defer this non-critical-path
-  // calculation.
-  void calculateBoundaryConditionFlow();
+  // Perform the snow melt point process.
+  void doSnowMelt();
+
+  // Perform the rainfall point process.
+  void doRainfall();
+
+  // Perform the evapo-transpiration point process.
+  void doEvapoTranspiration();
+
+  // Perform the infiltration point process.
+  void doInfiltration();
+  
+  // Send the state messages that start the surfacewater, groundwater, and
+  // channels algorithm.
+  void sendState();
+  
+  // Calculate flow for all boundary condition edges.
+  void receiveCalculateBoundaryConditionFlow();
   
   // Receive a state message from a neighbor, calculate flow across the edge
   // shared with the neighbor, and possibly send a flow message back to the
@@ -85,15 +124,6 @@ public:
   //                       shared with the neighbor.
   void receiveGroundwaterFlowLimited(int edge, double edgeGroundwaterFlow);
   
-private:
-  
-  // Perform the infiltration point process.
-  void doInfiltration();
-  
-  // Send the state messages that start the surfacewater, groundwater, and
-  // channels algorithm.
-  void sendState();
-  
   // Check the ready state of all flows.  If all flows are calculated do the
   // flow limiting check for outward flows.  If all flow limiting checks are
   // done move water.
@@ -125,15 +155,7 @@ private:
   int neighbor[4]; // Array index into global chare array or NOFLOW, INFLOW, or OUTFLOW.
   
   // Neighbor element's edge number for our shared edge (one based indexing).
-  int neighborReciprocalEdge[4]; // thisProxy[neighbor[edge]].neighbor[neighborReciprocalEdge[edge]] == thisIndex
-  
-  // Flags to indicate how to interact with neighbors.
-  enum InteractionEnum
-  {
-    I_CALCULATE_FLOW,
-    NEIGHBOR_CALCULATES_FLOW,
-    BOTH_CALCULATE_FLOW,
-  };
+  int neighborReciprocalEdge[4]; // forall edge in {1, 2, 3} thisProxy[neighbor[edge]].neighbor[neighborReciprocalEdge[edge]] == thisIndex
   
   // How to interact with neighbors (one based indexing).
   InteractionEnum interaction[4];
@@ -158,26 +180,24 @@ private:
   
   // Water state variables.
   double surfacewaterDepth; // Meters.
+  double surfacewaterError; // Meters.  Positive means water was created.  Negative means water was destroyed.
   double groundwaterHead;   // Meters.
+  double groundwaterError;  // Meters.  Positive means water was created.  Negative means water was destroyed.
   
-  // Flags to indicate whether temporary flow variables have been updated for
-  // the current timestep.
-  enum FlowReadyEnum
-  {
-    FLOW_NOT_READY,
-    FLOW_CALCULATED,
-    FLOW_LIMITING_CHECK_DONE
-  };
-  
-  // Per edge temporary variables (one based indexing).
+  // Per-edge temporary variables (one based indexing).
   double        surfacewaterFlow[4];      // Cubic meters.
   FlowReadyEnum surfacewaterFlowReady[4]; // Whether surfacewaterFlow has been updated for the current timestep.
   double        groundwaterFlow[4];       // Cubic meters.
   FlowReadyEnum groundwaterFlowReady[4];  // Whether groundwaterFlow  has been updated for the current timestep.
   
   // Timestep information.
-  double dt;    // Current timestep duration in seconds.
-  double dtNew; // Suggested value for next timestep duration in seconds.
+  int    iteration;    // Iteration number to put on all messages this timestep.
+  bool   timestepDone; // Flag indicating the current timestep is done.
+  double dt;           // Current timestep duration in seconds.
+  double dtNew;        // Suggested value for next timestep duration in seconds.
 };
+
+PUPbytes(MeshElement::InteractionEnum);
+PUPbytes(MeshElement::FlowReadyEnum);
 
 #endif // __MESH_ELEMENT_H__

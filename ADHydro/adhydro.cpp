@@ -1,6 +1,4 @@
 #include "adhydro.h"
-#include "all.h"
-#include <assert.h>
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
@@ -8,12 +6,13 @@ ADHydro::ADHydro(CkArgMsg* msg)
   
   meshProxy = CProxy_MeshElement::ckNew(2);
   
-  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, timestepDone), thisProxy));
+  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
   
+  iteration   = 1;
   currentTime = 0.0;
   endTime     = 10000.0;
   
-  timestepDone(1.0);
+  doTimestep(1.0);
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -21,32 +20,33 @@ ADHydro::ADHydro(CkMigrateMessage* msg)
   // Do nothing.
 }
 
-void ADHydro::timestepDone(double dtNew)
+void ADHydro::doTimestep(double dtNew)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME how to return an error?
-  assert(0.0 < dtNew);
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR: dtNew must be greater than zero.\n");
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   if (endTime > currentTime)
     {
-      // FIXME remove
-      usleep(100000);
-      
       if (endTime - currentTime < dtNew)
         {
           dtNew = endTime - currentTime;
         }
       
-      printf("currentTime = %lf, dtNew = %lf\n", currentTime, dtNew);
+      CkPrintf("currentTime = %lf, dtNew = %lf\n", currentTime, dtNew);
       
+      iteration++;
       currentTime += dtNew;
       
-      meshProxy.doTimestep(dtNew);
+      meshProxy.sendDoTimestep(iteration, dtNew);
     }
   else
     {
-      printf("currentTime = %lf, simulation finished\n", currentTime);
+      CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
       CkExit();
     }
 }

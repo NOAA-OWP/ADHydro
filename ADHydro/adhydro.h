@@ -22,13 +22,14 @@ public:
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
   
-  // Callback for the new timestep reduction.  Also serves as a barrier at the
-  // end of a timestep.
+  // Do a timestep as long as currentTime is less than endTime otherwise exit.
+  // Also serves as a callback for the dtNew reduction and a barrier at the end
+  // of a timestep.
   //
   // Parameters:
   //
   // dtNew - The minimum new timestep requested by any element.
-  void timestepDone(double dtNew);
+  void doTimestep(double dtNew);
   
 private:
   
@@ -36,6 +37,7 @@ private:
   CProxy_MeshElement meshProxy;
   
   // Time information.
+  int    iteration;   // Iteration number to put on all messages this timestep.
   double currentTime; // Seconds.
   double endTime;     // Seconds.
 };

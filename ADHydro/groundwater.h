@@ -11,6 +11,8 @@
 // INFLOW, flowRate is forced to be non-positive.  If boundary is OUTFLOW,
 // flowRate is forced to be non-negative.
 //
+// Returns: true if there is an error, false otherwise.
+//
 // Parameters:
 //
 // flowRate        - Scalar passed by reference will be filled in with the flow
@@ -47,6 +49,8 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 // K         = hydraulic conductivity, [m/s];
 // R         = Recharge rate,[m/s]; (But we pass the recharge rate in meters.)
 // flux      = -K*h*gradient(H), in [m^2/s];
+//
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //

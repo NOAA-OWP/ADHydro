@@ -71,6 +71,7 @@ enum BoundaryConditionEnum
   OUTFLOW = -3
 };
 
+// Returns: true if x is a boundary condition code, false otherwise.
 inline bool isBoundary(int x)
 {
   return (NOFLOW == x || INFLOW == x || OUTFLOW == x);
@@ -89,5 +90,60 @@ enum LinkTypeEnum
   PRUNED_FAKE                        = 7, // and upstream links are broken, but other structure values are preserved.
   PRUNED_INTERNAL_BOUNDARY_CONDITION = 8
 };
+
+// Utility functions for near-equality testing of doubles. Two doubles are
+// considered near-equal if they are within epsilon.  Epsilon is the larger of
+// 10^-10 or ten orders of magnitude smaller than the number being checked
+// because large doubles might have less resolution than ten digits past the
+// decimal point, but they will always have ten significant digits.
+
+// Returns: the epsilon value to use for near-equality testing with x.
+inline double epsilon(double x)
+{
+  double eps = 1.0e-10;
+  
+  // Don't use library fabs and max to avoid including headers in all.h.
+  if (0.0 > x)
+    {
+      x *= -1;
+    }
+  
+  if (1.0 < x)
+    {
+      eps *= x;
+    }
+  
+  return eps;
+}
+
+// Returns: true if a is less than and not near-equal to b, false otherwise.
+inline bool epsilonLess(double a, double b)
+{
+  return a < b - epsilon(b);
+}
+
+// Returns: true if a is greater than and not near-equal to b, false otherwise.
+inline bool epsilonGreater(double a, double b)
+{
+  return a > b + epsilon(b);
+}
+
+// Returns: true if a is less than or near-equal to b, false otherwise.
+inline bool epsilonLessOrEqual(double a, double b)
+{
+  return !epsilonGreater(a, b);
+}
+
+// Returns: true if a is greater than or near-equal to b, false otherwise.
+inline bool epsilonGreaterOrEqual(double a, double b)
+{
+  return !epsilonLess(a, b);
+}
+
+// Returns: true if a is near-equal to b, false otherwise.
+inline bool epsilonEqual(double a, double b)
+{
+  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+}
 
 #endif // __ALL_H__

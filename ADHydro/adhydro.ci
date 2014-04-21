@@ -5,6 +5,6 @@ mainmodule adhydro
   mainchare ADHydro
   {
     entry ADHydro(CkArgMsg* msg);
-    entry [reductiontarget] void timestepDone(double dtNew);
+    entry [reductiontarget] void doTimestep(double dtNew);
   };
 };

@@ -11,17 +11,21 @@
 // INFLOW, flowRate is forced to be non-positive.  If boundary is OUTFLOW,
 // flowRate is forced to be non-negative.
 //
+// Returns: true if there is an error, false otherwise.
+//
 // Parameters:
 //
 // flowRate          - Scalar passed by reference will be filled in with the
 //                     flow rate in cubic meters per second.
 // boundary          - What type of boundary.
 // inflowXVelocity   - X component of water velocity in meters per second for
-//                     INFLOW boundary.  Ignored for OUTFLOW boundary.
+//                     INFLOW boundary.  Ignored for NOFLOW or OUTFLOW
+//                     boundary.
 // inflowYVelocity   - Y component of water velocity in meters per second for
-//                     INFLOW boundary.  Ignored for OUTFLOW boundary.
+//                     INFLOW boundary.  Ignored for NOFLOW or OUTFLOW
+//                     boundary.
 // inflowHeight      - Flow height in meters for INFLOW boundary.  Ignored for
-//                     OUTFLOW boundary.
+//                     NOFLOW or OUTFLOW boundary.
 // edgeLength        - Length of edge in meters.
 // edgeNormalX       - X component of edge normal unit vector.
 // edgeNormalY       - Y component of edge normal unit vector.
@@ -41,6 +45,8 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
 //  qr     = rainfall rate [m/s]
 //  k      = conductance = h^(2/3)/(manning_n*(grad(Z))^1/2) in [m/s]
 //  the flux across edge = -h*k*grad(Z) in [m^2/s]
+//
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //

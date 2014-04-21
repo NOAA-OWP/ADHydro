@@ -1,6 +1,5 @@
 #include "surfacewater.h"
-#include <cstdio>
-#include <cmath>
+#include <charm++.h>
 
 // Comment in .h file.
 bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity, double inflowHeight,
@@ -11,7 +10,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      fprintf(stderr, "ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -23,32 +22,31 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!isBoundary(boundary))
     {
-      fprintf(stderr, "ERROR: boundary must be a valid boundary condition value.\n");
+      CkError("ERROR: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(0 <= inflowHeight))
     {
-      fprintf(stderr, "ERROR: inflowHeight must be greater than or equal to zero.\n");
+      CkError("ERROR: inflowHeight must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      fprintf(stderr, "ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR: edgeLength must be greater than zero.\n");
       error = true;
     }
   
-  // FIXME this probably needs to be epsilon equal
-  if (!(1.0 == edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY))
+  if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      fprintf(stderr, "ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      CkError("ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0 <= surfacewaterDepth))
     {
-      fprintf(stderr, "ERROR: surfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -62,7 +60,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
           
           if (0.0 < *flowRate)
             {
-              fprintf(stderr, "WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+              CkError("WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
               *flowRate = 0.0;
             }
         }
@@ -72,7 +70,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
           
           if (0.0 > *flowRate)
             {
-              fprintf(stderr, "WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+              CkError("WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
               *flowRate = 0.0;
             }
         }
@@ -99,7 +97,7 @@ bool surfacewaterElementNeighborFlowRate(double* flowRate, double* dtNew, double
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      fprintf(stderr, "ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -111,46 +109,56 @@ bool surfacewaterElementNeighborFlowRate(double* flowRate, double* dtNew, double
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      fprintf(stderr, "ERROR: dtNew must not be NULL and must be greater than zero.\n");
+      CkError("ERROR: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      fprintf(stderr, "ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementManningsN))
     {
-      fprintf(stderr, "ERROR: elementManningsN must be greater than zero.\n");
+      CkError("ERROR: elementManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      fprintf(stderr, "ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < neighborManningsN))
     {
-      fprintf(stderr, "ERROR: neighborManningsN must be greater than zero.\n");
+      CkError("ERROR: neighborManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      fprintf(stderr, "ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
+  
+  if (!(0.0 < distance))
+    {
+      CkError("ERROR: Distance between element and neighbor centers must be greater than zero.\n");
+      error = true;
+    }
+  
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // If there is no depth or no slope there is no flow.  If the higher element is dry there is no flow.
-  if (!error && 0.0 < averageDepth && 0.0 != headSlope &&
-      ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH < elementSurfacewaterDepth) ||
-       (elementSurfacewaterHead < neighborSurfacewaterHead && PONDED_DEPTH < neighborSurfacewaterDepth)))
+  // If there is no slope or the higher element is dry there is no flow.
+  if (!error && ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH < elementSurfacewaterDepth) ||
+                 (elementSurfacewaterHead < neighborSurfacewaterHead && PONDED_DEPTH < neighborSurfacewaterDepth)))
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 < averageDepth && 0.0 != headSlope);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
       *flowRate = (pow(averageDepth, 5.0 / 3.0) / (averageManningsN * sqrt(fabs(headSlope)))) * headSlope * edgeLength;
 
       // Suggest new timestep.

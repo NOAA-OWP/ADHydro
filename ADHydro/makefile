@@ -1,5 +1,4 @@
-CHARMDIR    := /user2/rsteinke/Desktop/charm-6.5.1
-CHARMC      := $(CHARMDIR)/bin/charmc $(OPTS)
+CHARMC      := $(CHARMDIR)/bin/charmc
 EXTRA_FLAGS := -g -Wall
 
 OBJS := adhydro.o      \
