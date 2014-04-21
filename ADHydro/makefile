@@ -1,4 +1,5 @@
-CHARMC      := $(CHARMDIR)/bin/charmc
+CHARMC      := charmc
+CC          := charmc
 EXTRA_FLAGS := -g -Wall
 
 OBJS := adhydro.o      \
