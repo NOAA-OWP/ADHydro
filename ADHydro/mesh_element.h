@@ -1,6 +1,12 @@
 #ifndef __MESH_ELEMENT_H__
 #define __MESH_ELEMENT_H__
 
+// This must be declared before #include "mesh_element.decl.h" to be used as a
+// parameter for the entry method sendInitialize.  Also, it cannot be a member
+// of MeshElement like it should be because C++ doesn't allow scope qualified
+// forward declarations like struct MeshElement::InitStruct;
+struct MeshElementInitStruct;
+
 #include "mesh_element.decl.h"
 
 class MeshElement : public CBase_MeshElement
@@ -21,7 +27,7 @@ public:
   
   // Pack/unpack method.
   void pup(PUP::er &p);
-  
+
   // Flags to indicate how to interact with neighbors.
   enum InteractionEnum
   {
@@ -38,8 +44,18 @@ public:
     FLOW_CALCULATED,
     FLOW_LIMITING_CHECK_DONE
   };
-  
+
 private:
+  
+  // Initialize the member variables of this element.  This is not done in the
+  // constructor because Charm++ passes the same constructor parameters to all
+  // of the elements of an array while we need to initialize each element
+  // differently.
+  //
+  // Parameters:
+  //
+  // initialValues - Member variable initial values.
+  void receiveInitialize(MeshElementInitStruct& initialValues);
   
   // Step forward one timestep.  Performs point processes and starts the
   // surfacewater, groundwater, and channels algorithm.
@@ -133,16 +149,16 @@ private:
   // flows.
   void moveWater();
   
-  // Geometric coordinates of vertices (one based indexing).
-  double vertexX[4];        // Meters.
-  double vertexY[4];        // Meters.
-  double vertexZSurface[4]; // Meters.
-  double vertexZBedrock[4]; // Meters.
+  // Geometric coordinates of vertices.
+  double vertexX[3];        // Meters.
+  double vertexY[3];        // Meters.
+  double vertexZSurface[3]; // Meters.
+  double vertexZBedrock[3]; // Meters.
   
-  // Geometric coordinates of edges (one based indexing).
-  double edgeLength[4];  // Meters.
-  double edgeNormalX[4]; // X component of normal unit vector.
-  double edgeNormalY[4]; // Y component of normal unit vector.
+  // Geometric coordinates of edges.
+  double edgeLength[3];  // Meters.
+  double edgeNormalX[3]; // X component of normal unit vector.
+  double edgeNormalY[3]; // Y component of normal unit vector.
   
   // Geometric coordinates of element center or entire element.
   double elementX;        // Meters.
@@ -151,24 +167,24 @@ private:
   double elementZBedrock; // Meters.
   double elementArea;     // Square meters.
   
-  // Neighbor element or boundary condition code (one based indexing).
-  int neighbor[4]; // Array index into global chare array or NOFLOW, INFLOW, or OUTFLOW.
+  // Neighbor element or boundary condition code.
+  int neighbor[3]; // Array index into global chare array or NOFLOW, INFLOW, or OUTFLOW.
   
-  // Neighbor element's edge number for our shared edge (one based indexing).
-  int neighborReciprocalEdge[4]; // forall edge in {1, 2, 3} thisProxy[neighbor[edge]].neighbor[neighborReciprocalEdge[edge]] == thisIndex
+  // Neighbor element's edge number for our shared edge.
+  int neighborReciprocalEdge[3]; // forall edge in {0, 1, 2}, thisProxy[neighbor[edge]].neighbor[neighborReciprocalEdge[edge]] == thisIndex
   
-  // How to interact with neighbors (one based indexing).
-  InteractionEnum interaction[4];
+  // How to interact with neighbors.
+  InteractionEnum interaction[3];
   
-  // Geometric coordinates of neighbor centers (one based indexing).
-  double neighborX[4];        // Meters.
-  double neighborY[4];        // Meters.
-  double neighborZSurface[4]; // Meters.
-  double neighborZBedrock[4]; // Meters.
+  // Geometric coordinates of neighbor centers.
+  double neighborX[3];        // Meters.
+  double neighborY[3];        // Meters.
+  double neighborZSurface[3]; // Meters.
+  double neighborZBedrock[3]; // Meters.
   
   // Hydraulic parameters of neighbors.
-  double neighborConductivity[4]; // Meters per second.
-  double neighborManningsN[4];    // Seconds/(meters^(1/3)).
+  double neighborConductivity[3]; // Meters per second.
+  double neighborManningsN[3];    // Seconds/(meters^(1/3)).
   
   // Catchment number that this element belongs to.
   int catchment; // ID number.
@@ -184,11 +200,11 @@ private:
   double groundwaterHead;   // Meters.
   double groundwaterError;  // Meters.  Positive means water was created.  Negative means water was destroyed.
   
-  // Per-edge temporary variables (one based indexing).
-  double        surfacewaterFlow[4];      // Cubic meters.
-  FlowReadyEnum surfacewaterFlowReady[4]; // Whether surfacewaterFlow has been updated for the current timestep.
-  double        groundwaterFlow[4];       // Cubic meters.
-  FlowReadyEnum groundwaterFlowReady[4];  // Whether groundwaterFlow  has been updated for the current timestep.
+  // Per-edge temporary variables.
+  double        surfacewaterFlow[3];      // Cubic meters.
+  FlowReadyEnum surfacewaterFlowReady[3]; // Whether surfacewaterFlow has been updated for the current timestep.
+  double        groundwaterFlow[3];       // Cubic meters.
+  FlowReadyEnum groundwaterFlowReady[3];  // Whether groundwaterFlow  has been updated for the current timestep.
   
   // Timestep information.
   int    iteration;    // Iteration number to put on all messages this timestep.
@@ -197,7 +213,28 @@ private:
   double dtNew;        // Suggested value for next timestep duration in seconds.
 };
 
+// Structure for passing values to initialize MeshElement member variables.
+struct MeshElementInitStruct
+{
+  double                       vertexX[3];
+  double                       vertexY[3];
+  double                       vertexZSurface[3];
+  double                       vertexZBedrock[3];
+  int                          neighbor[3];
+  int                          neighborReciprocalEdge[3];
+  MeshElement::InteractionEnum interaction[3];
+  int                          catchment;
+  double                       conductivity;
+  double                       porosity;
+  double                       manningsN;
+  double                       surfacewaterDepth;
+  double                       surfacewaterError;
+  double                       groundwaterHead;
+  double                       groundwaterError;
+};
+
 PUPbytes(MeshElement::InteractionEnum);
 PUPbytes(MeshElement::FlowReadyEnum);
+PUPbytes(MeshElementInitStruct);
 
 #endif // __MESH_ELEMENT_H__

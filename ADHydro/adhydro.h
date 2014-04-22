@@ -1,8 +1,8 @@
 #ifndef __ADHYDRO_H__
 #define __ADHYDRO_H__
 
+#include "mesh_element.h"
 #include "adhydro.decl.h"
-#include "mesh_element.decl.h"
 
 class ADHydro : public CBase_ADHydro
 {

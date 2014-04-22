@@ -1,126 +1,17 @@
 #include "mesh_element.h"
 #include "surfacewater.h"
 #include "groundwater.h"
-#include "all.h"
 
 // FIXME questions and to-do list items
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
 // Will it send out one MPI message per mesh edge rather than all of the ghost node information in a single message?
 // As elements migrate to different nodes update interaction in a way that guarantees both sides agree on the interaction.
 // When you implement groundwater/channel interaction include surfacewater depth in groundwater head.
-// CkAssert all outward flow factors between 0 and 1, or even epsilon equal to 1?
 // Scale channel dx w/ bankfull depth?
 
 MeshElement::MeshElement()
 {
-  // FIXME hardcode simple mesh
-  if (0 == thisIndex)
-    {
-      vertexX[1]                =   0.0;
-      vertexX[2]                = 100.0;
-      vertexX[3]                =   0.0;
-      vertexY[1]                =   0.0;
-      vertexY[2]                = 100.0;
-      vertexY[3]                = 100.0;
-      vertexZSurface[1]         =  10.0;
-      vertexZSurface[2]         =   0.0;
-      vertexZSurface[3]         =  10.0;
-      vertexZBedrock[1]         =   0.0;
-      vertexZBedrock[2]         = -10.0;
-      vertexZBedrock[3]         =   0.0;
-      neighbor[1]               = NOFLOW;
-      neighbor[2]               = INFLOW;
-      neighbor[3]               = 1;
-      neighborReciprocalEdge[3] = 2;
-      //interaction[3]            = BOTH_CALCULATE_FLOW;
-      interaction[3]            = I_CALCULATE_FLOW;
-    }
-  else if (1 == thisIndex)
-    {
-      vertexX[1]                =   0.0;
-      vertexX[2]                = 100.0;
-      vertexX[3]                = 100.0;
-      vertexY[1]                =   0.0;
-      vertexY[2]                =   0.0;
-      vertexY[3]                = 100.0;
-      vertexZSurface[1]         =  10.0;
-      vertexZSurface[2]         =   0.0;
-      vertexZSurface[3]         =   0.0;
-      vertexZBedrock[1]         =   0.0;
-      vertexZBedrock[2]         = -10.0;
-      vertexZBedrock[3]         = -10.0;
-      neighbor[1]               = OUTFLOW;
-      neighbor[2]               = 0;
-      neighbor[3]               = NOFLOW;
-      neighborReciprocalEdge[2] = 3;
-      //interaction[2]            = BOTH_CALCULATE_FLOW;
-      interaction[2]            = NEIGHBOR_CALCULATES_FLOW;
-    }
-  else
-    {
-      CkAssert(false);
-    }
-  
-  // Calculate derived values.
-  
-  // Length of each edge.
-  // Edge 1 goes from vertex 2 to 3 (opposite vertex 1).
-  // Edge 2 goes form vertex 3 to 1 (opposite vertex 2).
-  // Edge 3 goes form vertex 1 to 2 (opposite vertex 3).
-  edgeLength[1] = sqrt((vertexX[2] - vertexX[3]) * (vertexX[2] - vertexX[3]) + (vertexY[2] - vertexY[3]) * (vertexY[2] - vertexY[3]));
-  edgeLength[2] = sqrt((vertexX[3] - vertexX[1]) * (vertexX[3] - vertexX[1]) + (vertexY[3] - vertexY[1]) * (vertexY[3] - vertexY[1]));
-  edgeLength[3] = sqrt((vertexX[1] - vertexX[2]) * (vertexX[1] - vertexX[2]) + (vertexY[1] - vertexY[2]) * (vertexY[1] - vertexY[2]));
-
-  // Unit normal vector of each edge.
-  edgeNormalX[1] = (vertexY[3] - vertexY[2]) / edgeLength[1];
-  edgeNormalY[1] = (vertexX[2] - vertexX[3]) / edgeLength[1];
-  edgeNormalX[2] = (vertexY[1] - vertexY[3]) / edgeLength[2];
-  edgeNormalY[2] = (vertexX[3] - vertexX[1]) / edgeLength[2];
-  edgeNormalX[3] = (vertexY[2] - vertexY[1]) / edgeLength[3];
-  edgeNormalY[3] = (vertexX[1] - vertexX[2]) / edgeLength[3];
-
-  // Geometric coordinates of element center or entire element.
-  elementX        = (vertexX[1]        + vertexX[2]        + vertexX[3])        / 3.0;
-  elementY        = (vertexY[1]        + vertexY[2]        + vertexY[3])        / 3.0;
-  elementZSurface = (vertexZSurface[1] + vertexZSurface[2] + vertexZSurface[3]) / 3.0;
-  elementZBedrock = (vertexZBedrock[1] + vertexZBedrock[2] + vertexZBedrock[3]) / 3.0;
-  elementArea = (vertexX[1] * (vertexY[2] - vertexY[3]) + vertexX[2] * (vertexY[3] - vertexY[1]) + vertexX[3] * (vertexY[1] - vertexY[2])) * 0.5;
-  
-  // Hydraulic parameters of element.
-  conductivity = 1.0e-3;
-  porosity     = 0.5;
-  manningsN    = 0.04;
-  
-  // Send calculated values to neighbors.
-  // FIXME implement message
-  if (0 == thisIndex)
-    {
-      neighborX[3]        = ( 0.0 + 100.0 + 100.0) / 3.0;
-      neighborY[3]        = ( 0.0 +   0.0 + 100.0) / 3.0;
-      neighborZSurface[3] = (10.0 +   0.0 +   0.0) / 3.0;
-      neighborZBedrock[3] = ( 0.0 + -10.0 + -10.0) / 3.0;
-      neighborConductivity[3] = 1.0e-3;
-      neighborManningsN[3]    = 0.04;
-    }
-  else if (1 == thisIndex)
-    {
-      neighborX[2]        = ( 0.0 + 100.0 +   0.0) / 3.0;
-      neighborY[2]        = ( 0.0 + 100.0 + 100.0) / 3.0;
-      neighborZSurface[2] = (10.0 +   0.0 +  10.0) / 3.0;
-      neighborZBedrock[2] = ( 0.0 + -10.0 +   0.0) / 3.0;
-      neighborConductivity[2] = 1.0e-3;
-      neighborManningsN[2]    = 0.04;
-    }
-  else
-    {
-      CkAssert(false);
-    }
-  
-  // Water state variables.
-  surfacewaterDepth = 0.0;
-  surfacewaterError = 0.0;
-  groundwaterHead   = 0.0;
-  groundwaterError  = 0.0;
+  // Do nothing.  Initialization of member variables is handled in receiveInitialize.
 }
 
 MeshElement::MeshElement(CkMigrateMessage* msg)
@@ -132,27 +23,27 @@ void MeshElement::pup(PUP::er &p)
 {
   CBase_MeshElement::pup(p);
   __sdag_pup(p);
-  PUParray(p, vertexX, 4);
-  PUParray(p, vertexY, 4);
-  PUParray(p, vertexZSurface, 4);
-  PUParray(p, vertexZBedrock, 4);
-  PUParray(p, edgeLength, 4);
-  PUParray(p, edgeNormalX, 4);
-  PUParray(p, edgeNormalY, 4);
+  PUParray(p, vertexX, 3);
+  PUParray(p, vertexY, 3);
+  PUParray(p, vertexZSurface, 3);
+  PUParray(p, vertexZBedrock, 3);
+  PUParray(p, edgeLength, 3);
+  PUParray(p, edgeNormalX, 3);
+  PUParray(p, edgeNormalY, 3);
   p | elementX;
   p | elementY;
   p | elementZSurface;
   p | elementZBedrock;
   p | elementArea;
-  PUParray(p, neighbor, 4);
-  PUParray(p, neighborReciprocalEdge, 4);
-  PUParray(p, interaction, 4);
-  PUParray(p, neighborX, 4);
-  PUParray(p, neighborY, 4);
-  PUParray(p, neighborZSurface, 4);
-  PUParray(p, neighborZBedrock, 4);
-  PUParray(p, neighborConductivity, 4);
-  PUParray(p, neighborManningsN, 4);
+  PUParray(p, neighbor, 3);
+  PUParray(p, neighborReciprocalEdge, 3);
+  PUParray(p, interaction, 3);
+  PUParray(p, neighborX, 3);
+  PUParray(p, neighborY, 3);
+  PUParray(p, neighborZSurface, 3);
+  PUParray(p, neighborZBedrock, 3);
+  PUParray(p, neighborConductivity, 3);
+  PUParray(p, neighborManningsN, 3);
   p | catchment;
   p | conductivity;
   p | porosity;
@@ -161,14 +52,180 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterError;
   p | groundwaterHead;
   p | groundwaterError;
-  PUParray(p, surfacewaterFlow, 4);
-  PUParray(p, surfacewaterFlowReady, 4);
-  PUParray(p, groundwaterFlow, 4);
-  PUParray(p, groundwaterFlowReady, 4);
+  PUParray(p, surfacewaterFlow, 3);
+  PUParray(p, surfacewaterFlowReady, 3);
+  PUParray(p, groundwaterFlow, 3);
+  PUParray(p, groundwaterFlowReady, 3);
   p | iteration;
   p | timestepDone;
   p | dt;
   p | dtNew;
+}
+
+void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
+{
+  bool error = false; // Error flag.
+  int  edge;          // Loop counter.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  for (edge = 0; edge < 3; edge++)
+    {
+      if (!(initialValues.vertexZSurface[edge] >= initialValues.vertexZBedrock[edge]))
+        {
+          CkError("ERROR: vertexZSurface must be greater than or equal to vertexZBedrock.\n");
+          error = true;
+        }
+      
+      if (!((0 <= initialValues.neighbor[edge] /* FIXME && initialValues.neighbor[edge] < ADHydro::meshProxySize */ ) ||
+            isBoundary(initialValues.neighbor[edge])))
+        {
+          CkError("ERROR: neighbor must be a valid meshProxy array index or boundary condition code.\n");
+          error = true;
+        }
+      
+      if (!((0 <= initialValues.neighborReciprocalEdge[edge] && 3 > initialValues.neighborReciprocalEdge[edge]) || isBoundary(initialValues.neighbor[edge])))
+        {
+          CkError("ERROR: neighborReciprocalEdge must be zero, one, or two if neighbor is not a boundary condition code.\n");
+          error = true;
+        }
+      
+      if (!((I_CALCULATE_FLOW    == initialValues.interaction[edge] || NEIGHBOR_CALCULATES_FLOW == initialValues.interaction[edge] ||
+             BOTH_CALCULATE_FLOW == initialValues.interaction[edge]) || isBoundary(initialValues.neighbor[edge])))
+        {
+          CkError("ERROR: interaction must be a valid enum value if neighbor is not a boundary condition code.\n");
+          error = true;
+        }
+    }
+  
+  if (!(0.0 < initialValues.conductivity))
+    {
+      CkError("ERROR: conductivity must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < initialValues.porosity))
+    {
+      CkError("ERROR: porosity must be greater than zero.\n");
+      error = true;
+    }
+
+  if (!(0.0 < initialValues.manningsN))
+    {
+      CkError("ERROR: manningsN must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= initialValues.surfacewaterDepth))
+    {
+      CkError("ERROR: surfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      // Store passed parameter values.
+      for (edge = 0; edge < 3; edge++)
+        {
+          vertexX[edge]                = initialValues.vertexX[edge];
+          vertexY[edge]                = initialValues.vertexY[edge];
+          vertexZSurface[edge]         = initialValues.vertexZSurface[edge];
+          vertexZBedrock[edge]         = initialValues.vertexZBedrock[edge];
+          neighbor[edge]               = initialValues.neighbor[edge];
+          neighborReciprocalEdge[edge] = initialValues.neighborReciprocalEdge[edge];
+          interaction[edge]            = initialValues.interaction[edge];
+        }
+
+      catchment         = initialValues.catchment;
+      conductivity      = initialValues.conductivity;
+      porosity          = initialValues.porosity;
+      manningsN         = initialValues.manningsN;
+      surfacewaterDepth = initialValues.surfacewaterDepth;
+      surfacewaterError = initialValues.surfacewaterError;
+      groundwaterHead   = initialValues.groundwaterHead;
+      groundwaterError  = initialValues.groundwaterError;
+
+      // Calculate derived values.
+
+      // Length of each edge.
+      // Edge 0 goes from vertex 1 to 2 (opposite vertex 0).
+      // Edge 1 goes form vertex 2 to 0 (opposite vertex 1).
+      // Edge 2 goes form vertex 0 to 1 (opposite vertex 2).
+      edgeLength[0] = sqrt((vertexX[1] - vertexX[2]) * (vertexX[1] - vertexX[2]) + (vertexY[1] - vertexY[2]) * (vertexY[1] - vertexY[2]));
+      edgeLength[1] = sqrt((vertexX[2] - vertexX[0]) * (vertexX[2] - vertexX[0]) + (vertexY[2] - vertexY[0]) * (vertexY[2] - vertexY[0]));
+      edgeLength[2] = sqrt((vertexX[0] - vertexX[1]) * (vertexX[0] - vertexX[1]) + (vertexY[0] - vertexY[1]) * (vertexY[0] - vertexY[1]));
+      
+      for (edge = 0; edge < 3; edge++)
+        {
+          if (!(0.0 < edgeLength[edge]))
+            {
+              CkError("ERROR: edgeLength must be greater than zero.\n");
+              error = true;
+            }
+        }
+    }
+
+  if (!error)
+    {
+      // Unit normal vector of each edge.
+      edgeNormalX[0] = (vertexY[2] - vertexY[1]) / edgeLength[0];
+      edgeNormalY[0] = (vertexX[1] - vertexX[2]) / edgeLength[0];
+      edgeNormalX[1] = (vertexY[0] - vertexY[2]) / edgeLength[1];
+      edgeNormalY[1] = (vertexX[2] - vertexX[0]) / edgeLength[1];
+      edgeNormalX[2] = (vertexY[1] - vertexY[0]) / edgeLength[2];
+      edgeNormalY[2] = (vertexX[0] - vertexX[1]) / edgeLength[2];
+
+      // Geometric coordinates of element center or entire element.
+      elementX        = (vertexX[0]        + vertexX[1]        + vertexX[2])        / 3.0;
+      elementY        = (vertexY[0]        + vertexY[1]        + vertexY[2])        / 3.0;
+      elementZSurface = (vertexZSurface[0] + vertexZSurface[1] + vertexZSurface[2]) / 3.0;
+      elementZBedrock = (vertexZBedrock[0] + vertexZBedrock[1] + vertexZBedrock[2]) / 3.0;
+      elementArea = (vertexX[0] * (vertexY[1] - vertexY[2]) + vertexX[1] * (vertexY[2] - vertexY[0]) + vertexX[2] * (vertexY[0] - vertexY[1])) * 0.5;
+      
+      if (!(elementZBedrock <= initialValues.groundwaterHead && initialValues.groundwaterHead <= elementZSurface))
+        {
+          CkError("ERROR: groundwaterHead must be between elementZBedrock and elementZSurface.\n");
+          error = true;
+        }
+      
+      if (!(0.0 < elementArea))
+        {
+          CkError("ERROR: elementArea must be greater than zero.\n");
+          error = true;
+        }
+    }
+  
+  if (!error)
+    {
+      // Send calculated values to neighbors.
+      // FIXME implement message
+      if (0 == thisIndex)
+        {
+          neighborX[2]        = ( 0.0 + 100.0 + 100.0) / 3.0;
+          neighborY[2]        = ( 0.0 +   0.0 + 100.0) / 3.0;
+          neighborZSurface[2] = (10.0 +   0.0 +   0.0) / 3.0;
+          neighborZBedrock[2] = ( 0.0 + -10.0 + -10.0) / 3.0;
+          neighborConductivity[2] = 1.0e-3;
+          neighborManningsN[2]    = 0.04;
+        }
+      else if (1 == thisIndex)
+        {
+          neighborX[1]        = ( 0.0 + 100.0 +   0.0) / 3.0;
+          neighborY[1]        = ( 0.0 + 100.0 + 100.0) / 3.0;
+          neighborZSurface[1] = (10.0 +   0.0 +  10.0) / 3.0;
+          neighborZBedrock[1] = ( 0.0 + -10.0 +   0.0) / 3.0;
+          neighborConductivity[1] = 1.0e-3;
+          neighborManningsN[1]    = 0.04;
+        }
+      else
+        {
+          CkAssert(false);
+        }
+    }
+  else
+    {
+      CkExit();
+    }
 }
 
 void MeshElement::receiveDoTimestep(int iterationThisTimestep, double dtThisTimestep)
@@ -196,7 +253,7 @@ void MeshElement::receiveDoTimestep(int iterationThisTimestep, double dtThisTime
   doInfiltration();
 
   // Set the flow states to not ready for this timestep.
-  for (edge = 1; edge <= 3; edge++)
+  for (edge = 0; edge < 3; edge++)
     {
       surfacewaterFlowReady[edge] = FLOW_NOT_READY;
       groundwaterFlowReady[edge]  = FLOW_NOT_READY;
@@ -254,7 +311,7 @@ void MeshElement::sendState()
 {
   int edge; // Loop counter.
   
-  for (edge = 1; edge <= 3; edge++)
+  for (edge = 0; edge < 3; edge++)
     {
       if (!isBoundary(neighbor[edge]))
         {
@@ -279,7 +336,7 @@ void MeshElement::receiveCalculateBoundaryConditionFlow()
   bool error = false; // Error flag.
   int  edge;          // Loop counter.
 
-  for (edge = 1; !error && edge <= 3; edge++)
+  for (edge = 0; !error && edge < 3; edge++)
     {
       if (isBoundary(neighbor[edge]))
         {
@@ -346,21 +403,21 @@ void MeshElement::receiveState(int edge, double neighborSurfacewaterDepth, doubl
   bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(1 <= edge && 3 >= edge))
+  if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR: edge must be one, two, or three.\n");
+      CkError("ERROR: edge must be zero, one, or two.\n");
+      error = true;
+    }
+  // Must be else if because cannot use edge unless it passes the previous test.
+  else if (!(neighborZBedrock[edge] <= neighborGroundwaterHead && neighborGroundwaterHead <= neighborZSurface[edge]))
+    {
+      CkError("ERROR: neighborGroundwaterHead must be between neighborZBedrock and neighborZSurface.\n");
       error = true;
     }
 
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
       CkError("ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
-      error = true;
-    }
-
-  if (!(neighborZBedrock[edge] <= neighborGroundwaterHead && neighborGroundwaterHead <= neighborZSurface[edge]))
-    {
-      CkError("ERROR: neighborGroundwaterHead must be between neighborZBedrock and neighborZSurface.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -464,9 +521,9 @@ void MeshElement::receiveState(int edge, double neighborSurfacewaterDepth, doubl
 void MeshElement::receiveFlow(int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(1 <= edge && 3 >= edge))
+  if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR: edge must be one, two, or three.\n");
+      CkError("ERROR: edge must be zero, one, or two.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -530,13 +587,13 @@ void MeshElement::receiveSurfacewaterFlowLimited(int edge, double edgeSurfacewat
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   bool error = false; // Error flag.
   
-  if (!(1 <= edge && 3 >= edge))
+  if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR: edge must be one, two, or three.\n");
+      CkError("ERROR: edge must be zero, one, or two.\n");
       error = true;
     }
-
-  if (!(0.0 >= edgeSurfacewaterFlow && (FLOW_NOT_READY == surfacewaterFlowReady[edge] || edgeSurfacewaterFlow >= surfacewaterFlow[edge])))
+  // Must be else if because cannot use edge unless it passes the previous test.
+  else if (!(0.0 >= edgeSurfacewaterFlow && (FLOW_NOT_READY == surfacewaterFlowReady[edge] || edgeSurfacewaterFlow >= surfacewaterFlow[edge])))
     {
       CkError("ERROR: A flow limiting message must be for an inflow and it must only reduce the magnitude of the flow.\n");
       error = true;
@@ -564,13 +621,13 @@ void MeshElement::receiveGroundwaterFlowLimited(int edge, double edgeGroundwater
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   bool error = false; // Error flag.
   
-  if (!(1 <= edge && 3 >= edge))
+  if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR: edge must be one, two, or three.\n");
+      CkError("ERROR: edge must be zero, one, or two.\n");
       error = true;
     }
-
-  if (!(0.0 >= edgeGroundwaterFlow && (FLOW_NOT_READY == groundwaterFlowReady[edge] || edgeGroundwaterFlow >= groundwaterFlow[edge])))
+  // Must be else if because cannot use edge unless it passes the previous test.
+  else if (!(0.0 >= edgeGroundwaterFlow && (FLOW_NOT_READY == groundwaterFlowReady[edge] || edgeGroundwaterFlow >= groundwaterFlow[edge])))
     {
       CkError("ERROR: A flow limiting message must be for an inflow and it must only reduce the magnitude of the flow.\n");
       error = true;
@@ -607,7 +664,7 @@ void MeshElement::checkAllFlows()
   bool   allLimited                      = true;  // Whether all flow limiting checks have been done.
   
   // We need to limit outward flows if all flows are at least calculated (not FLOW_NOT_READY) and there is at least one outward flow that is not limited.
-  for (edge = 1; edge <= 3; edge++)
+  for (edge = 0; edge < 3; edge++)
     {
       if (FLOW_NOT_READY == surfacewaterFlowReady[edge])
         {
@@ -638,8 +695,14 @@ void MeshElement::checkAllFlows()
           surfacewaterOutwardFlowFraction = surfacewaterDepth * elementArea / surfacewaterTotalOutwardFlow;
         }
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 <= surfacewaterOutwardFlowFraction && 1.0 >= surfacewaterOutwardFlowFraction);
+      // FIXME Our code doesn't assure this.
+      //CkAssert(epsilonEqual(1.0, surfacewaterOutwardFlowFraction));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
       // Limit outward flows.
-      for (edge = 1; edge <= 3; edge++)
+      for (edge = 0; edge < 3; edge++)
         {
           if (0.0 < surfacewaterFlow[edge])
             {
@@ -667,8 +730,14 @@ void MeshElement::checkAllFlows()
           groundwaterOutwardFlowFraction = (groundwaterHead - elementZBedrock) * porosity * elementArea / groundwaterTotalOutwardFlow;
         }
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 <= groundwaterOutwardFlowFraction && 1.0 >= groundwaterOutwardFlowFraction);
+      // FIXME Our code doesn't assure this.
+      //CkAssert(epsilonEqual(1.0, groundwaterOutwardFlowFraction));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
       // Limit outward flows.
-      for (edge = 1; edge <= 3; edge++)
+      for (edge = 0; edge < 3; edge++)
         {
           if (0.0 < groundwaterFlow[edge])
             {
@@ -689,7 +758,7 @@ void MeshElement::checkAllFlows()
     }
   
   // If the flow limiting check is done for all flows then we have the final value for all flows and can move water now.
-  for (edge = 1; allLimited && edge <= 3; edge++)
+  for (edge = 0; allLimited && edge < 3; edge++)
     {
       allLimited = (FLOW_LIMITING_CHECK_DONE == surfacewaterFlowReady[edge] && FLOW_LIMITING_CHECK_DONE == groundwaterFlowReady[edge]);
     }
@@ -706,7 +775,7 @@ void MeshElement::moveWater()
   double dtTemp; // Temporary variable for suggesting new timestep.
   
   // Calculate new values of surfacewaterDepth and groundwaterHead.
-  for (edge = 1; edge <= 3; edge++)
+  for (edge = 0; edge < 3; edge++)
     {
       surfacewaterDepth -= surfacewaterFlow[edge] /  elementArea;
       groundwaterHead   -= groundwaterFlow[edge]  / (elementArea * porosity);

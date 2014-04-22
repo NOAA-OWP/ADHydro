@@ -1,4 +1,5 @@
-CHARMC      := charmc
+CHARMC      := $(CHARMDIR)/bin/charmc
+#CHARMC      := charmc
 CC          := charmc
 EXTRA_FLAGS := -g -Wall
 
@@ -14,12 +15,14 @@ adhydro.o: adhydro.cpp         \
            adhydro.h           \
            adhydro.decl.h      \
            adhydro.def.h       \
+           mesh_element.h      \
            mesh_element.decl.h \
            all.h
 	$(CHARMC) -o adhydro.o adhydro.cpp $(EXTRA_FLAGS)
 
 adhydro.decl.h \
-adhydro.def.h: adhydro.ci
+adhydro.def.h: adhydro.ci \
+               mesh_element.ci
 	$(CHARMC) adhydro.ci $(EXTRA_FLAGS)
 
 mesh_element.o: mesh_element.cpp    \

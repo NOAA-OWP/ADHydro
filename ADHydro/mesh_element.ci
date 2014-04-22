@@ -4,60 +4,72 @@ module mesh_element
   {
     entry MeshElement();
     
-    entry void sendDoTimestep(int iterationThisTimestep, double dtThisTimestep)
+    entry void sendInitialize(MeshElementInitStruct initialValues)
     {
       serial
       {
-        receiveDoTimestep(iterationThisTimestep, dtThisTimestep);
+        receiveInitialize(initialValues);
       }
       
-      while (!timestepDone)
+      while(true)
       {
-        case
+        when sendDoTimestep(int iterationThisTimestep, double dtThisTimestep)
         {
-          when sendCalculateBoundaryConditionFlow[iteration](int iterationThisMessage)
+          serial
           {
-            serial
-            {
-              receiveCalculateBoundaryConditionFlow();
-            }
+            receiveDoTimestep(iterationThisTimestep, dtThisTimestep);
           }
-          
-          when sendState[iteration](int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+      
+          while (!timestepDone)
           {
-            serial
+            case
             {
-              receiveState(edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
-            }
-          }
+              when sendCalculateBoundaryConditionFlow[iteration](int iterationThisMessage)
+              {
+                serial
+                {
+                  receiveCalculateBoundaryConditionFlow();
+                }
+              }
           
-          when sendFlow[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow)
-          {
-            serial
-            {
-              receiveFlow(edge, edgeSurfacewaterFlow, edgeGroundwaterFlow);
-            }
-          }
+              when sendState[iteration](int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+              {
+                serial
+                {
+                  receiveState(edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
+                }
+              }
           
-          when sendSurfacewaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow)
-          {
-            serial
-            {
-              receiveSurfacewaterFlowLimited(edge, edgeSurfacewaterFlow);
-            }
-          }
+              when sendFlow[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow)
+              {
+                serial
+                {
+                  receiveFlow(edge, edgeSurfacewaterFlow, edgeGroundwaterFlow);
+                }
+              }
           
-          when sendGroundwaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeGroundwaterFlow)
-          {
-            serial
-            {
-              receiveGroundwaterFlowLimited(edge, edgeGroundwaterFlow);
+              when sendSurfacewaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow)
+              {
+                serial
+                {
+                  receiveSurfacewaterFlowLimited(edge, edgeSurfacewaterFlow);
+                }
+              }
+          
+              when sendGroundwaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeGroundwaterFlow)
+              {
+                serial
+                {
+                  receiveGroundwaterFlowLimited(edge, edgeGroundwaterFlow);
+                }
+              }
             }
           }
         }
       }
     };
 
+    entry void sendDoTimestep(int iterationThisTimestep, double dtThisTimestep);
     entry void sendCalculateBoundaryConditionFlow(int iterationThisMessage);
     entry void sendState(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
     entry void sendFlow(int iterationThisMessage, int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow);
