@@ -5,6 +5,7 @@ mainmodule adhydro
   mainchare ADHydro
   {
     entry ADHydro(CkArgMsg* msg);
+    entry [reductiontarget] void meshInitialized();
     entry [reductiontarget] void doTimestep(double dtNew);
   };
 };

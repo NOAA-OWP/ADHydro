@@ -155,6 +155,7 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
       edgeLength[1] = sqrt((vertexX[2] - vertexX[0]) * (vertexX[2] - vertexX[0]) + (vertexY[2] - vertexY[0]) * (vertexY[2] - vertexY[0]));
       edgeLength[2] = sqrt((vertexX[0] - vertexX[1]) * (vertexX[0] - vertexX[1]) + (vertexY[0] - vertexY[1]) * (vertexY[0] - vertexY[1]));
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
       for (edge = 0; edge < 3; edge++)
         {
           if (!(0.0 < edgeLength[edge]))
@@ -163,6 +164,7 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
               error = true;
             }
         }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     }
 
   if (!error)
@@ -182,6 +184,7 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
       elementZBedrock = (vertexZBedrock[0] + vertexZBedrock[1] + vertexZBedrock[2]) / 3.0;
       elementArea = (vertexX[0] * (vertexY[1] - vertexY[2]) + vertexX[1] * (vertexY[2] - vertexY[0]) + vertexX[2] * (vertexY[0] - vertexY[1])) * 0.5;
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
       if (!(elementZBedrock <= initialValues.groundwaterHead && initialValues.groundwaterHead <= elementZSurface))
         {
           CkError("ERROR: groundwaterHead must be between elementZBedrock and elementZSurface.\n");
@@ -193,6 +196,7 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
           CkError("ERROR: elementArea must be greater than zero.\n");
           error = true;
         }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     }
   
   if (!error)
@@ -221,6 +225,8 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
         {
           CkAssert(false);
         }
+      
+      contribute();
     }
   else
     {

@@ -9,7 +9,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   
   meshProxy = CProxy_MeshElement::ckNew(2);
   
-  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
+  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInitialized), thisProxy));
   
   initialValues.vertexX[0]                =   0.0;
   initialValues.vertexX[1]                = 100.0;
@@ -62,13 +62,18 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration   = 1;
   currentTime = 0.0;
   endTime     = 10000.0;
-  
-  doTimestep(1.0);
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
 {
   // Do nothing.
+}
+
+void ADHydro::meshInitialized()
+{
+  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
+  
+  doTimestep(1.0);
 }
 
 void ADHydro::doTimestep(double dtNew)

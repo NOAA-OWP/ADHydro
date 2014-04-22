@@ -22,6 +22,9 @@ public:
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
   
+  // Barrier after the mesh is initialized.
+  void meshInitialized();
+  
   // Do a timestep as long as currentTime is less than endTime otherwise exit.
   // Also serves as a callback for the dtNew reduction and a barrier at the end
   // of a timestep.
