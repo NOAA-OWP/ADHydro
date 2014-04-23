@@ -57,6 +57,25 @@ private:
   // initialValues - Member variable initial values.
   void receiveInitialize(MeshElementInitStruct& initialValues);
   
+  // Initialize the member variables of this element with readonly derived
+  // values from neighbors.
+  //
+  // Parameters:
+  //
+  // neighborIndex               - Neighbor element sending me initialization
+  //                               information.
+  // neighborEdge                - Neighbor elemnt's edge number for our shared
+  //                               edge.
+  // neighborElementX            - Member variable initial value.
+  // neighborElementY            - Member variable initial value.
+  // neighborElementZSurface     - Member variable initial value.
+  // neighborElementZBedrock     - Member variable initial value.
+  // neighborElementConductivity - Member variable initial value.
+  // neighborElementManningsN    - Member variable initial value.
+  void receiveInitializeNeighbor(int neighborIndex, int neighborEdge, double neighborElementX, double neighborElementY,
+                                 double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
+                                 double neighborElementManningsN);
+  
   // Step forward one timestep.  Performs point processes and starts the
   // surfacewater, groundwater, and channels algorithm.
   //
@@ -186,6 +205,10 @@ private:
   double neighborConductivity[3]; // Meters per second.
   double neighborManningsN[3];    // Seconds/(meters^(1/3)).
   
+  // Whether you have received readonly derived values from neighbors.
+  // Set to true if neighbor is a boundary condition code.
+  bool neighborInitialized[3];
+  
   // Catchment number that this element belongs to.
   int catchment; // ID number.
   
@@ -221,7 +244,6 @@ struct MeshElementInitStruct
   double                       vertexZSurface[3];
   double                       vertexZBedrock[3];
   int                          neighbor[3];
-  int                          neighborReciprocalEdge[3];
   MeshElement::InteractionEnum interaction[3];
   int                          catchment;
   double                       conductivity;

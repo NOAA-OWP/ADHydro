@@ -1,4 +1,5 @@
 #include "mesh_element.h"
+#include "adhydro.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 
@@ -44,6 +45,7 @@ void MeshElement::pup(PUP::er &p)
   PUParray(p, neighborZBedrock, 3);
   PUParray(p, neighborConductivity, 3);
   PUParray(p, neighborManningsN, 3);
+  PUParray(p, neighborInitialized, 3);
   p | catchment;
   p | conductivity;
   p | porosity;
@@ -76,16 +78,10 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
           error = true;
         }
       
-      if (!((0 <= initialValues.neighbor[edge] /* FIXME && initialValues.neighbor[edge] < ADHydro::meshProxySize */ ) ||
+      if (!((0 <= initialValues.neighbor[edge] && initialValues.neighbor[edge] < ADHydro::meshProxySize) ||
             isBoundary(initialValues.neighbor[edge])))
         {
           CkError("ERROR: neighbor must be a valid meshProxy array index or boundary condition code.\n");
-          error = true;
-        }
-      
-      if (!((0 <= initialValues.neighborReciprocalEdge[edge] && 3 > initialValues.neighborReciprocalEdge[edge]) || isBoundary(initialValues.neighbor[edge])))
-        {
-          CkError("ERROR: neighborReciprocalEdge must be zero, one, or two if neighbor is not a boundary condition code.\n");
           error = true;
         }
       
@@ -132,7 +128,6 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
           vertexZSurface[edge]         = initialValues.vertexZSurface[edge];
           vertexZBedrock[edge]         = initialValues.vertexZBedrock[edge];
           neighbor[edge]               = initialValues.neighbor[edge];
-          neighborReciprocalEdge[edge] = initialValues.neighborReciprocalEdge[edge];
           interaction[edge]            = initialValues.interaction[edge];
         }
 
@@ -201,37 +196,90 @@ void MeshElement::receiveInitialize(MeshElementInitStruct& initialValues)
   
   if (!error)
     {
-      // Send calculated values to neighbors.
-      // FIXME implement message
-      if (0 == thisIndex)
+      // Send derived values to neighbors.
+      for (edge = 0; edge < 3; edge++)
         {
-          neighborX[2]        = ( 0.0 + 100.0 + 100.0) / 3.0;
-          neighborY[2]        = ( 0.0 +   0.0 + 100.0) / 3.0;
-          neighborZSurface[2] = (10.0 +   0.0 +   0.0) / 3.0;
-          neighborZBedrock[2] = ( 0.0 + -10.0 + -10.0) / 3.0;
-          neighborConductivity[2] = 1.0e-3;
-          neighborManningsN[2]    = 0.04;
+          if (isBoundary(neighbor[edge]))
+            {
+              neighborInitialized[edge] = true;
+            }
+          else
+            {
+              neighborInitialized[edge] = false;
+              
+              thisProxy[neighbor[edge]].sendInitializeNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock, conductivity, manningsN);
+            }
         }
-      else if (1 == thisIndex)
-        {
-          neighborX[1]        = ( 0.0 + 100.0 +   0.0) / 3.0;
-          neighborY[1]        = ( 0.0 + 100.0 + 100.0) / 3.0;
-          neighborZSurface[1] = (10.0 +   0.0 +  10.0) / 3.0;
-          neighborZBedrock[1] = ( 0.0 + -10.0 +   0.0) / 3.0;
-          neighborConductivity[1] = 1.0e-3;
-          neighborManningsN[1]    = 0.04;
-        }
-      else
-        {
-          CkAssert(false);
-        }
-      
-      contribute();
     }
   else
     {
       CkExit();
     }
+}
+
+void MeshElement::receiveInitializeNeighbor(int neighborIndex, int neighborEdge, double neighborElementX, double neighborElementY,
+                                            double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
+                                            double neighborElementManningsN)
+{
+  bool error = false; // Error flag.
+  int  edge  = 0;     // My edge number for our shared edge.
+  
+  while (neighbor[edge] != neighborIndex && edge < 2)
+    {
+      edge++;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0 <= neighborIndex && neighborIndex < ADHydro::meshProxySize))
+    {
+      CkError("ERROR: neighborIndex must be a valid meshProxy array index.\n");
+      error = true;
+    }
+
+  if (!(neighbor[edge] == neighborIndex))
+    {
+      CkError("ERROR: Received an initialize neighbor message from an element that is not my neighbor.\n");
+      error = true;
+    }
+
+  if (!(0 <= neighborEdge && 3 > neighborEdge))
+    {
+      CkError("ERROR: neighborEdge must be zero, one, or two.\n");
+      error = true;
+    }
+
+  if (!(neighborElementZSurface >= neighborElementZBedrock))
+    {
+      CkError("ERROR: neighborElementZSurface must be greater than or equal to neighborElementZBedrock.\n");
+      error = true;
+    }
+
+  if (!(0.0 < neighborElementConductivity))
+    {
+      CkError("ERROR: neighborElementConductivity must be greater than zero.\n");
+      error = true;
+    }
+
+  if (!(0.0 < neighborElementManningsN))
+    {
+      CkError("ERROR: neighborElementManningsN must be greater than zero.\n");
+      error = true;
+    }
+
+  if (error)
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  neighborReciprocalEdge[edge] = neighborEdge;
+  neighborX[edge]              = neighborElementX;
+  neighborY[edge]              = neighborElementY;
+  neighborZSurface[edge]       = neighborElementZSurface;
+  neighborZBedrock[edge]       = neighborElementZBedrock;
+  neighborConductivity[edge]   = neighborElementConductivity;
+  neighborManningsN[edge]      = neighborElementManningsN;
+  neighborInitialized[edge]    = true;
 }
 
 void MeshElement::receiveDoTimestep(int iterationThisTimestep, double dtThisTimestep)
@@ -835,7 +883,6 @@ void MeshElement::moveWater()
   
   // FIXME remove
   CkPrintf("element %d, pe = %d, surfacewaterDepth = %lf, groundwaterHead = %lf\n", thisIndex, CkMyPe(), surfacewaterDepth, groundwaterHead);
-  migrateMe((CkMyPe() + 1) % CkNumPes());
 }
 
 #include "mesh_element.def.h"

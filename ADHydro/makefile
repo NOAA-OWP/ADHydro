@@ -1,7 +1,7 @@
 CHARMC      := $(CHARMDIR)/bin/charmc
 #CHARMC      := charmc
 CC          := charmc
-EXTRA_FLAGS := -g -Wall
+EXTRA_FLAGS := -g -Wall -balancer RotateLB
 
 OBJS := adhydro.o      \
         mesh_element.o \
@@ -29,6 +29,8 @@ mesh_element.o: mesh_element.cpp    \
                 mesh_element.h      \
                 mesh_element.decl.h \
                 mesh_element.def.h  \
+                adhydro.h           \
+                adhydro.decl.h      \
                 surfacewater.h      \
                 groundwater.h       \
                 all.h
