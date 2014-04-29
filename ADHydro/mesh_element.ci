@@ -4,11 +4,16 @@ module mesh_element
   {
     entry MeshElement();
     
-    entry void sendInitialize(MeshElementInitStruct initialValues)
+    entry void sendInitialize(double vertexXInit[3], double vertexYInit[3], double vertexZSurfaceInit[3], double vertexZBedrockInit[3],
+                              int neighborInit[3], InteractionEnum interactionInit[3], int catchmentInit, double conductivityInit, double porosityInit,
+                              double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                              double groundwaterErrorInit, double groundwaterRechargeInit)
     {
       serial
       {
-        receiveInitialize(initialValues);
+        receiveInitialize(vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, neighborInit, interactionInit, catchmentInit, conductivityInit,
+                          porosityInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, groundwaterHeadInit, groundwaterErrorInit,
+                          groundwaterRechargeInit);
       }
       
       while (!neighborInitialized[0] || !neighborInitialized[1] || !neighborInitialized[2])
@@ -38,11 +43,11 @@ module mesh_element
           {
             case
             {
-              when sendCalculateBoundaryConditionFlow[iteration](int iterationThisMessage)
+              when sendCalculateBoundaryConditionFlowRate[iteration](int iterationThisMessage)
               {
                 serial
                 {
-                  receiveCalculateBoundaryConditionFlow();
+                  receiveCalculateBoundaryConditionFlowRate();
                 }
               }
           
@@ -54,27 +59,19 @@ module mesh_element
                 }
               }
           
-              when sendFlow[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow)
+              when sendFlowRate[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
               {
                 serial
                 {
-                  receiveFlow(edge, edgeSurfacewaterFlow, edgeGroundwaterFlow);
+                  receiveFlowRate(edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
                 }
               }
           
-              when sendSurfacewaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlow)
+              when sendSurfacewaterFlowRateLimited[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
               {
                 serial
                 {
-                  receiveSurfacewaterFlowLimited(edge, edgeSurfacewaterFlow);
-                }
-              }
-          
-              when sendGroundwaterFlowLimited[iteration](int iterationThisMessage, int edge, double edgeGroundwaterFlow)
-              {
-                serial
-                {
-                  receiveGroundwaterFlowLimited(edge, edgeGroundwaterFlow);
+                  receiveSurfacewaterFlowRateLimited(edge, edgeSurfacewaterFlowRate);
                 }
               }
             }
@@ -87,10 +84,9 @@ module mesh_element
                                       double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
                                       double neighborElementManningsN);
     entry void sendDoTimestep(int iterationThisTimestep, double dtThisTimestep);
-    entry void sendCalculateBoundaryConditionFlow(int iterationThisMessage);
+    entry void sendCalculateBoundaryConditionFlowRate(int iterationThisMessage);
     entry void sendState(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
-    entry void sendFlow(int iterationThisMessage, int edge, double edgeSurfacewaterFlow, double edgeGroundwaterFlow);
-    entry void sendSurfacewaterFlowLimited(int iterationThisMessage, int edge, double edgeSurfacewaterFlow);
-    entry void sendGroundwaterFlowLimited(int iterationThisMessage, int edge, double edgeGroundwaterFlow);
+    entry void sendFlowRate(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate);
+    entry void sendSurfacewaterFlowRateLimited(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
   };
 };

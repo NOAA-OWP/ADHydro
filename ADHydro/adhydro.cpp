@@ -3,7 +3,12 @@
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  MeshElementInitStruct initialValues;
+  double          vertexXInit[3];
+  double          vertexYInit[3];
+  double          vertexZSurfaceInit[3];
+  double          vertexZBedrockInit[3];
+  int             neighborInit[3];
+  InteractionEnum interactionInit[3];
   
   delete msg;
   
@@ -13,55 +18,47 @@ ADHydro::ADHydro(CkArgMsg* msg)
   
   meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
   
-  initialValues.vertexX[0]        =   0.0;
-  initialValues.vertexX[1]        = 100.0;
-  initialValues.vertexX[2]        =   0.0;
-  initialValues.vertexY[0]        =   0.0;
-  initialValues.vertexY[1]        = 100.0;
-  initialValues.vertexY[2]        = 100.0;
-  initialValues.vertexZSurface[0] =  10.0;
-  initialValues.vertexZSurface[1] =   0.0;
-  initialValues.vertexZSurface[2] =  10.0;
-  initialValues.vertexZBedrock[0] =   0.0;
-  initialValues.vertexZBedrock[1] = -10.0;
-  initialValues.vertexZBedrock[2] =   0.0;
-  initialValues.neighbor[0]       = NOFLOW;
-  initialValues.neighbor[1]       = INFLOW;
-  initialValues.neighbor[2]       = 1;
-  initialValues.interaction[2]    = MeshElement::BOTH_CALCULATE_FLOW;
-  initialValues.catchment         = 0;
-  initialValues.conductivity      = 1.0e-3;
-  initialValues.porosity          = 0.5;
-  initialValues.manningsN         = 0.04;
-  initialValues.surfacewaterDepth = 0.0;
-  initialValues.surfacewaterError = 0.0;
-  initialValues.groundwaterHead   = 0.0;
-  initialValues.groundwaterError  = 0.0;
-
-  meshProxy[0].sendInitialize(initialValues);
+  vertexXInit[0]        =   0.0;
+  vertexXInit[1]        = 100.0;
+  vertexXInit[2]        =   0.0;
+  vertexYInit[0]        =   0.0;
+  vertexYInit[1]        = 100.0;
+  vertexYInit[2]        = 100.0;
+  vertexZSurfaceInit[0] =  10.0;
+  vertexZSurfaceInit[1] =   0.0;
+  vertexZSurfaceInit[2] =  10.0;
+  vertexZBedrockInit[0] =   0.0;
+  vertexZBedrockInit[1] = -10.0;
+  vertexZBedrockInit[2] =   0.0;
+  neighborInit[0]       = NOFLOW;
+  neighborInit[1]       = INFLOW;
+  neighborInit[2]       = 1;
+  interactionInit[2]    = BOTH_CALCULATE_FLOW_RATE;
   
-  initialValues.vertexX[0]        =   0.0;
-  initialValues.vertexX[1]        = 100.0;
-  initialValues.vertexX[2]        = 100.0;
-  initialValues.vertexY[0]        =   0.0;
-  initialValues.vertexY[1]        =   0.0;
-  initialValues.vertexY[2]        = 100.0;
-  initialValues.vertexZSurface[0] =  10.0;
-  initialValues.vertexZSurface[1] =   0.0;
-  initialValues.vertexZSurface[2] =   0.0;
-  initialValues.vertexZBedrock[0] =   0.0;
-  initialValues.vertexZBedrock[1] = -10.0;
-  initialValues.vertexZBedrock[2] = -10.0;
-  initialValues.neighbor[0]       = OUTFLOW;
-  initialValues.neighbor[1]       = 0;
-  initialValues.neighbor[2]       = NOFLOW;
-  initialValues.interaction[1]    = MeshElement::BOTH_CALCULATE_FLOW;
+  meshProxy[0].sendInitialize(vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, neighborInit, interactionInit, 0, 1.0e-3, 0.5, 0.04, 0.0, 0.0, 0.0, 0.0, 0.0);
   
-  meshProxy[1].sendInitialize(initialValues);
+  vertexXInit[0]        =   0.0;
+  vertexXInit[1]        = 100.0;
+  vertexXInit[2]        = 100.0;
+  vertexYInit[0]        =   0.0;
+  vertexYInit[1]        =   0.0;
+  vertexYInit[2]        = 100.0;
+  vertexZSurfaceInit[0] =  10.0;
+  vertexZSurfaceInit[1] =   0.0;
+  vertexZSurfaceInit[2] =   0.0;
+  vertexZBedrockInit[0] =   0.0;
+  vertexZBedrockInit[1] = -10.0;
+  vertexZBedrockInit[2] = -10.0;
+  neighborInit[0]       = OUTFLOW;
+  neighborInit[1]       = 0;
+  neighborInit[2]       = NOFLOW;
+  interactionInit[1]    = BOTH_CALCULATE_FLOW_RATE;
+  
+  meshProxy[1].sendInitialize(vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, neighborInit, interactionInit, 0, 1.0e-3, 0.5, 0.04, 0.0, 0.0, 0.0, 0.0, 0.0);
   
   iteration   = 1;
   currentTime = 0.0;
-  endTime     = 100.0;
+  endTime     = 10000000.0;
   
   doTimestep(1.0);
 }
@@ -96,7 +93,7 @@ void ADHydro::doTimestep(double dtNew)
       meshProxy.sendDoTimestep(iteration, dtNew);
       
       // FIXME remove
-      sleep(1);
+      usleep(10000);
     }
   else
     {
