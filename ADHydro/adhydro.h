@@ -31,6 +31,9 @@ public:
   // dtNew - The minimum new timestep requested by any element.
   void doTimestep(double dtNew);
   
+  // Check invariant on member variables.  Exit if invariant is violated.
+  void checkInvariant();
+  
   // Readonly variable for mesh elements to know the size of their array.
   static int meshProxySize;
   

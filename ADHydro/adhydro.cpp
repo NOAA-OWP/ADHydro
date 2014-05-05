@@ -91,7 +91,6 @@ void ADHydro::doTimestep(double dtNew)
       currentTime += dtNew;
       
       meshProxy.sendDoTimestep(iteration, dtNew);
-      meshProxy.sendCheckInvariant();
       
       // FIXME remove
       usleep(10000);
@@ -99,6 +98,34 @@ void ADHydro::doTimestep(double dtNew)
   else
     {
       CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
+      CkExit();
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+      checkInvariant();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+}
+
+void ADHydro::checkInvariant()
+{
+  bool error = false; // Error flag.
+  
+  if (!(0 < meshProxySize))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: meshProxySize must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(currentTime <= endTime))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: currentTime must be less than or equal to endTime.\n");
+      error = true;
+    }
+  
+  meshProxy.sendCheckInvariant();
+  
+  if (error)
+    {
       CkExit();
     }
 }

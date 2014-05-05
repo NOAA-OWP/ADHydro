@@ -177,11 +177,11 @@ private:
   // surfacewater flow rates.
   void moveSurfacewater();
   
-  // Check invariants on member variables and send information to neighbors to
-  // check relationship invariants.  Exit if invariant is violated.
+  // Check invariant on member variables and send information to neighbors to
+  // check relationship invariant.  Exit if invariant is violated.
   void receiveCheckInvariant();
   
-  // Check relationship invariants on information from a neighbor.
+  // Check relationship invariant on information from a neighbor.
   // Exit if invariant is violated.
   //
   // Parameters:

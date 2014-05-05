@@ -924,6 +924,12 @@ void MeshElement::receiveCheckInvariant()
       CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: groundwaterHead must be between elementZBedrock and elementZSurface.\n", thisIndex);
       error = true;
     }
+  
+  if (!(-1.0 < groundwaterRecharge && groundwaterRecharge < 1.0))
+    {
+      CkError("Warning in MeshElement::receiveCheckInvariant, element %d: "
+              "groundwaterRecharge absolute value greater than one meter.  Something is probably wrong.\n", thisIndex);
+    }
 
   if (!(0.0 < dt))
     {
