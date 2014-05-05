@@ -58,7 +58,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   
   iteration   = 1;
   currentTime = 0.0;
-  endTime     = 10000000.0;
+  endTime     = 5000.0;
   
   doTimestep(1.0);
 }
@@ -73,7 +73,7 @@ void ADHydro::doTimestep(double dtNew)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtNew))
     {
-      CkError("ERROR: dtNew must be greater than zero.\n");
+      CkError("ERROR in ADHydro::doTimestep: dtNew must be greater than zero.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

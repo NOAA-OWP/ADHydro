@@ -14,7 +14,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -26,31 +26,31 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!isBoundary(boundary))
     {
-      CkError("ERROR: boundary must be a valid boundary condition value.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(0 <= inflowHeight))
     {
-      CkError("ERROR: inflowHeight must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      CkError("ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0 <= surfacewaterDepth))
     {
-      CkError("ERROR: surfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -64,7 +64,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
           
           if (0.0 < *flowRate)
             {
-              CkError("WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+              CkError("WARNING in surfacewaterBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
               *flowRate = 0.0;
             }
         }
@@ -74,7 +74,7 @@ bool surfacewaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bounda
           
           if (0.0 > *flowRate)
             {
-              CkError("WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+              CkError("WARNING in surfacewaterBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
               *flowRate = 0.0;
             }
         }
@@ -101,7 +101,7 @@ bool surfacewaterElementNeighborFlowRate(double* flowRate, double* dtNew, double
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -113,43 +113,43 @@ bool surfacewaterElementNeighborFlowRate(double* flowRate, double* dtNew, double
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR: dtNew must not be NULL and must be greater than zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementManningsN))
     {
-      CkError("ERROR: elementManningsN must be greater than zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: elementManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      CkError("ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < neighborManningsN))
     {
-      CkError("ERROR: neighborManningsN must be greater than zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: neighborManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < distance))
     {
-      CkError("ERROR: Distance between element and neighbor centers must be greater than zero.\n");
+      CkError("ERROR in surfacewaterElementNeighborFlowRate: Distance between element and neighbor centers must be greater than zero.\n");
       error = true;
     }
   

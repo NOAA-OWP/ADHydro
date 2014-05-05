@@ -454,7 +454,7 @@ void MeshElement::receiveCalculateBoundaryConditionFlowRate()
 
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterBoundaryFlowRate(&surfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], 0.0, 0.0, 0.0, edgeLength[edge],
+          error = surfacewaterBoundaryFlowRate(&surfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], 1.0, 1.0, 1.0, edgeLength[edge],
                                                edgeNormalX[edge], edgeNormalY[edge], surfacewaterDepth);
           
           if (!error)

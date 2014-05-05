@@ -6,7 +6,7 @@
 #pragma GCC diagnostic warning "-Wsign-compare"
 
 // Comment in .h file.
-bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[4], double vertexY[4], double vertexZSurface[4],
+bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
                                  double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea, double conductivity,
                                  double groundwaterHead)
 {
@@ -17,7 +17,7 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -29,49 +29,49 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!isBoundary(boundary))
     {
-      CkError("ERROR: boundary must be a valid boundary condition value.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(NULL != vertexX))
     {
-      CkError("ERROR: vertexX must not be NULL.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: vertexX must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexY))
     {
-      CkError("ERROR: vertexY must not be NULL.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: vertexY must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexZSurface))
     {
-      CkError("ERROR: vertexZSurface must not be NULL.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: vertexZSurface must not be NULL.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      CkError("ERROR: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0.0 < elementArea))
     {
-      CkError("ERROR: elementArea must be greater than zero.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: elementArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < conductivity))
     {
-      CkError("ERROR: conductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterBoundaryFlowRate: conductivity must be greater than zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -81,21 +81,21 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
     {
       // Calculate assumed slope off the edge of the mesh.
       // FIXME do we want to use vertexZBedrock coordinates to calculate assumed slope of water table?
-      slopeX = ((vertexY[3] - vertexY[1]) * (vertexZSurface[2] - vertexZSurface[1]) +
-                (vertexY[1] - vertexY[2]) * (vertexZSurface[3] - vertexZSurface[1])) / (2.0 * elementArea);
-      slopeY = ((vertexX[1] - vertexX[3]) * (vertexZSurface[2] - vertexZSurface[1]) +
-                (vertexX[2] - vertexX[1]) * (vertexZSurface[3] - vertexZSurface[1])) / (2.0 * elementArea);
+      slopeX = ((vertexY[2] - vertexY[0]) * (vertexZSurface[1] - vertexZSurface[0]) +
+                (vertexY[0] - vertexY[1]) * (vertexZSurface[2] - vertexZSurface[0])) / (2.0 * elementArea);
+      slopeY = ((vertexX[0] - vertexX[2]) * (vertexZSurface[1] - vertexZSurface[0]) +
+                (vertexX[1] - vertexX[0]) * (vertexZSurface[2] - vertexZSurface[0])) / (2.0 * elementArea);
 
       *flowRate = conductivity * (groundwaterHead - elementZBedrock) * -(slopeX * edgeNormalX + slopeY * edgeNormalY) * edgeLength;
 
       if (INFLOW == boundary && 0.0 < *flowRate)
         {
-          CkError("WARNING: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING in groundwaterBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
       else if (OUTFLOW == boundary && 0.0 > *flowRate)
         {
-          CkError("WARNING: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING in groundwaterBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
     }
@@ -121,7 +121,7 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR: flowRate must not be NULL.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -133,55 +133,55 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR: edgeLength must be greater than zero.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(elementZSurface >= elementZBedrock))
     {
-      CkError("ERROR: elementZSurface must be greater than or equal to elementZBedrock");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: elementZSurface must be greater than or equal to elementZBedrock");
       error = true;
     }
   
   if (!(elementZSurface >= elementGroundwaterHead))
     {
-      CkError("ERROR: elementZSurface must be greater than or equal to elementGroundwaterHead");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: elementZSurface must be greater than or equal to elementGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < elementConductivity))
     {
-      CkError("ERROR: elementConductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: elementConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      CkError("ERROR: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborZBedrock))
     {
-      CkError("ERROR: neighborZSurface must be greater than or equal to neighborZBedrock");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborZSurface must be greater than or equal to neighborZBedrock");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborGroundwaterHead))
     {
-      CkError("ERROR: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < neighborConductivity))
     {
-      CkError("ERROR: neighborConductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
