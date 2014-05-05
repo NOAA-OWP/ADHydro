@@ -91,6 +91,7 @@ void ADHydro::doTimestep(double dtNew)
       currentTime += dtNew;
       
       meshProxy.sendDoTimestep(iteration, dtNew);
+      meshProxy.sendCheckInvariant();
       
       // FIXME remove
       usleep(10000);
