@@ -22,6 +22,14 @@ public:
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
   
+  // Set the load balancing mode to manual.  We need to wait for a few
+  // timesteps to generate load statistics, and then we need to load balance
+  // once.  After that we need to load balance very rarely if at all.
+  static void setLoadBalancingToManual(void);
+  
+  // FIXME comment
+  void initializeMesh(const char* filePath);
+  
   // Do a timestep as long as currentTime is less than endTime otherwise exit.
   // Also serves as a callback for the dtNew reduction and a barrier at the end
   // of a timestep.
@@ -33,6 +41,9 @@ public:
   
   // Check invariant on member variables.  Exit if invariant is violated.
   void checkInvariant();
+  
+  // Output the load balancer partitioning as a ShowMe .part file.
+  void outputPartitioning(CkReductionMsg *msg);
   
   // Readonly variable for mesh elements to know the size of their array.
   static int meshProxySize;

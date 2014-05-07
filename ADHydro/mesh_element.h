@@ -211,6 +211,9 @@ private:
                                      double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
                                      double neighborElementManningsN);
   
+  // FIXME comment
+  void receiveReportPartition();
+  
   // Geometric coordinates of vertices.
   double vertexX[3];        // Meters.
   double vertexY[3];        // Meters.

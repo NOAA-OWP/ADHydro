@@ -4,8 +4,10 @@ mainmodule adhydro
   
   mainchare ADHydro
   {
-    entry ADHydro(CkArgMsg* msg);
+    entry                        ADHydro(CkArgMsg* msg);
+    initproc                void setLoadBalancingToManual(void);
     entry [reductiontarget] void doTimestep(double dtNew);
+    entry                   void outputPartitioning(CkReductionMsg *msg);
     
     readonly int meshProxySize;
   };

@@ -1,7 +1,5 @@
 CHARMC      := $(CHARMDIR)/bin/charmc
-#CHARMC      := charmc
-CC          := charmc
-EXTRA_FLAGS := -g -Wall -balancer RotateLB
+EXTRA_FLAGS := -lnetcdf -L/user2/rsteinke/Desktop/metis-5.1.0/build/Linux-x86_64/libmetis -lmetis -g -Wall -balancer MetisLB
 
 OBJS := adhydro.o      \
         mesh_element.o \

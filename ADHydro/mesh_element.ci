@@ -128,5 +128,13 @@ module mesh_element
                                           InteractionEnum neighborInteraction, double neighborElementX, double neighborElementY,
                                           double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
                                           double neighborElementManningsN);
+    
+    entry void sendReportPartition()
+    {
+      serial
+      {
+        receiveReportPartition();
+      }
+    };
   };
 };
