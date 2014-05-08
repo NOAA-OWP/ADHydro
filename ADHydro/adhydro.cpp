@@ -7,11 +7,11 @@ ADHydro::ADHydro(CkArgMsg* msg)
   delete msg;
   
   // FIXME specify input file
-  initializeMesh("../input/mesh_data.nc");
+  initializeMesh("/project/CI-WATER/rsteinke/ADHydro/input/mesh_data.nc");
   
   iteration   = 1;
   currentTime = 0.0;
-  endTime     = 200.0;
+  endTime     = 900.0;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   checkInvariant();
@@ -261,7 +261,7 @@ void ADHydro::outputPartitioning(CkReductionMsg *msg)
   }
   
   // FIXME clean up
-  FILE* partitionFile = fopen("../output/mesh.1.part", "w");
+  FILE* partitionFile = fopen("/project/CI-WATER/rsteinke/ADHydro/output/mesh.1.part", "w");
   
   fprintf(partitionFile, "%d %d\n", meshProxySize, CkNumPes());
   

@@ -1,5 +1,8 @@
+CHARMDIR    := /project/CI-WATER/rsteinke/charm
 CHARMC      := $(CHARMDIR)/bin/charmc
-EXTRA_FLAGS := -lnetcdf -L/user2/rsteinke/Desktop/metis-5.1.0/build/Linux-x86_64/libmetis -lmetis -g -Wall -balancer MetisLB
+NETCDFDIR   := /apps/NETCDF/netcdf-4.2.1.1_pgi
+METISDIR    := /project/CI-WATER/rsteinke/metis-5.1.0
+EXTRA_FLAGS := -I$(NETCDFDIR)/include -L$(NETCDFDIR)/lib -lnetcdf -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -g -Wall -balancer MetisLB
 
 OBJS := adhydro.o      \
         mesh_element.o \
