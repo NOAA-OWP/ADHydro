@@ -2,14 +2,28 @@
 #include "all.h"
 #include <netcdf.h>
 
+// FIXME specify file paths
+//#define MESH_INPUT_FILE "/project/CI-WATER/rsteinke/ADHydro/input/mesh_data.nc"
+#define MESH_INPUT_FILE "/user2/rsteinke/Desktop/ADHydro/input/mesh_data.nc"
+//#define PARTITION_FILE "/project/CI-WATER/rsteinke/ADHydro/output/mesh.1.part"
+#define PARTITION_FILE "/user2/rsteinke/Desktop/ADHydro/output/mesh.1.part"
+//#define CHECKPOINT_DIRECTORY "/project/CI-WATER/rsteinke/ADHydro/output/checkpoint"
+#define CHECKPOINT_DIRECTORY "/user2/rsteinke/Desktop/ADHydro/output/checkpoint"
+
+void ADHydro::setLoadBalancingToManual(void)
+{
+  TurnManualLBOn();
+}
+
 ADHydro::ADHydro(CkArgMsg* msg)
 {
   delete msg;
   
   // FIXME specify input file
-  initializeMesh("/project/CI-WATER/rsteinke/ADHydro/input/mesh_data.nc");
+  initializeMesh(MESH_INPUT_FILE);
   
   iteration   = 1;
+  dt          = 1.0;
   currentTime = 0.0;
   endTime     = 900.0;
   
@@ -17,7 +31,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   checkInvariant();
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   
-  doTimestep(1.0);
+  doTimestep(dt);
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -25,10 +39,120 @@ ADHydro::ADHydro(CkMigrateMessage* msg)
   // Do nothing.
 }
 
-void ADHydro::setLoadBalancingToManual(void)
+void ADHydro::pup(PUP::er &p)
 {
-  TurnManualLBOn();
+  p | meshProxySize;
+  p | meshProxy;
+  p | iteration;
+  p | dt;
+  p | currentTime;
+  p | endTime;
 }
+
+void ADHydro::doTimestep(double dtNew)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in ADHydro::doTimestep: dtNew must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  // Load balance once after a few iterations to generate load statistics.
+  if (5 == iteration)
+    {
+      CkStartLB();
+    }
+  
+  iteration++;
+  dt = dtNew;
+  
+  if (endTime > currentTime)
+    {
+      if (endTime - currentTime < dt)
+        {
+          dt = endTime - currentTime;
+        }
+      
+      CkPrintf("currentTime = %lf, dt = %lf\n", currentTime, dt);
+      
+      currentTime += dt;
+      
+      // FIXME code up real checkpoint control.
+      if (1000 == iteration)
+        {
+          CkCallback cb(CkIndex_ADHydro::resumeFromCheckpoint(), thisProxy);
+          CkStartCheckpoint(CHECKPOINT_DIRECTORY, cb);
+        }
+      else
+        {
+          meshProxy.sendDoTimestep(iteration, dt);
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          checkInvariant();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+        }
+    }
+  else
+    {
+      CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
+      CkExit();
+      
+      // FIXME not currently set to output partitioning, maybe make a command line option?
+      //meshProxy.ckSetReductionClient(new CkCallback(CkIndex_ADHydro::outputPartitioning(NULL), thisProxy));
+      //meshProxy.sendReportPartition();
+    }
+}
+
+void ADHydro::resumeFromCheckpoint()
+{
+  meshProxy.sendDoTimestep(iteration, dt);
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  checkInvariant();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+}
+
+void ADHydro::outputPartitioning(CkReductionMsg *msg)
+{
+  int ii; // Loop counter.
+  int partition[meshProxySize];
+  
+  // Get the initial element in the set.
+  CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
+  
+  // Loop over elements in set.
+  while(current != NULL)
+  {
+    // Get the pointer to the array of ints.
+    int* result = (int*) &current->data;
+    
+    // The first int is the element number.  The second int is its partition assignment.
+    partition[result[0]] = result[1];
+    
+    // Iterate.
+    current = current->next();
+  }
+  
+  // FIXME clean up this code
+  FILE* partitionFile = fopen(PARTITION_FILE, "w");
+  
+  fprintf(partitionFile, "%d %d\n", meshProxySize, CkNumPes());
+  
+  for (ii = 1; ii < meshProxySize; ii++)
+    {
+      fprintf(partitionFile, "%d %d\n", ii, partition[ii]);
+    }
+  
+  fprintf(partitionFile, "%d %d\n", meshProxySize, partition[0]);
+  
+  fclose(partitionFile);
+  
+  CkExit();
+}
+
+int ADHydro::meshProxySize;
 
 void ADHydro::initializeMesh(const char* filePath)
 {
@@ -169,52 +293,6 @@ void ADHydro::initializeMesh(const char* filePath)
     }
 }
 
-void ADHydro::doTimestep(double dtNew)
-{
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(0.0 < dtNew))
-    {
-      CkError("ERROR in ADHydro::doTimestep: dtNew must be greater than zero.\n");
-      CkExit();
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-  // Load balance once after a few iterations to generate load statistics.
-  if (5 == iteration)
-    {
-      CkStartLB();
-    }
-  
-  if (endTime > currentTime)
-    {
-      if (endTime - currentTime < dtNew)
-        {
-          dtNew = endTime - currentTime;
-        }
-      
-      CkPrintf("currentTime = %lf, dtNew = %lf\n", currentTime, dtNew);
-      
-      iteration++;
-      currentTime += dtNew;
-      
-      meshProxy.sendDoTimestep(iteration, dtNew);
-      
-      // FIXME remove
-      usleep(10000);
-    }
-  else
-    {
-      CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
-      
-      meshProxy.ckSetReductionClient(new CkCallback(CkIndex_ADHydro::outputPartitioning(NULL), thisProxy));
-      meshProxy.sendReportPartition();
-    }
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-  checkInvariant();
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-}
-
 void ADHydro::checkInvariant()
 {
   bool error = false; // Error flag.
@@ -225,58 +303,26 @@ void ADHydro::checkInvariant()
       error = true;
     }
   
+  if (!(0.0 < dt))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: dt must be greater than zero.\n");
+      error = true;
+    }
+  
   if (!(currentTime <= endTime))
     {
       CkError("ERROR in ADHydro::checkInvariant: currentTime must be less than or equal to endTime.\n");
       error = true;
     }
   
-  meshProxy.sendCheckInvariant();
-  
-  if (error)
+  if (!error)
+    {
+      meshProxy.sendCheckInvariant();
+    }
+  else
     {
       CkExit();
     }
 }
-
-void ADHydro::outputPartitioning(CkReductionMsg *msg)
-{
-  int ii; // Loop counter.
-  int partition[meshProxySize];
-  
-  // Get the initial element in the set.
-  CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
-  
-  // Loop over elements in set.
-  while(current != NULL)
-  {
-    // Get the pointer to the array of ints.
-    int* result = (int*) &current->data;
-    
-    // The first int is the element number.  The second int is its partition assignment.
-    partition[result[0]] = result[1];
-    
-    // Iterate.
-    current = current->next();
-  }
-  
-  // FIXME clean up
-  FILE* partitionFile = fopen("/project/CI-WATER/rsteinke/ADHydro/output/mesh.1.part", "w");
-  
-  fprintf(partitionFile, "%d %d\n", meshProxySize, CkNumPes());
-  
-  for (ii = 1; ii < meshProxySize; ii++)
-    {
-      fprintf(partitionFile, "%d %d\n", ii, partition[ii]);
-    }
-  
-  fprintf(partitionFile, "%d %d\n", meshProxySize, partition[0]);
-  
-  fclose(partitionFile);
-  
-  CkExit();
-}
-
-int ADHydro::meshProxySize;
 
 #include "adhydro.def.h"

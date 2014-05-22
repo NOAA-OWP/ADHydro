@@ -1,0 +1,38 @@
+module file_manager
+{
+  group FileManager
+  {
+    entry FileManager();
+
+    // Dummy function for structured dagger infinite loop.
+    entry void runForever()
+    {
+      while (true)
+      {
+        when openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsInit, FileManagerActionEnum geometryAction,
+                       int geometryIdentifier, FileManagerActionEnum parameterAction, int parameterIdentifier, FileManagerActionEnum stateAction,
+                       int stateIdentifier)
+        {
+          serial
+          {
+            handleOpenFiles(directoryLength, directory, numberOfMeshElementsInit, geometryAction, geometryIdentifier, parameterAction, parameterIdentifier,
+                            stateAction, stateIdentifier);
+          }
+
+          when closeFiles()
+          {
+            serial
+            {
+              handleCloseFiles();
+            }
+          }
+        }
+      }
+    };
+
+    entry void openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsInit, FileManagerActionEnum geometryAction,
+                         int geometryIdentifier, FileManagerActionEnum parameterAction, int parameterIdentifier, FileManagerActionEnum stateAction,
+                         int stateIdentifier);
+    entry void closeFiles();
+  };
+};

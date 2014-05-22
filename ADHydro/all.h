@@ -1,31 +1,30 @@
 #ifndef __ALL_H__
 #define __ALL_H__
 
-/* Error checking, assertions, and invariants
- *
- * Error checking is the process of checking for invalid input.  Even bug free
- * code needs to perform error checking because the code cannot control what it
- * is given for input.  Code should handle invalid input gracefully.  Ideally
- * it should not crash or seg fault on any input and should print a helpful
- * error message.
- * 
- * Assertions check within the code for things that the code should be
- * guaranteeing to be true.  By definition, bug free code will never fire an
- * assertion on any input.  This code does not satisfy that condition if any
- * error checking is turned off.  Assertions are only needed for finding bugs
- * and can be compiled out of production code.
- * 
- * Invariants are conditions that should always be true.  Invariants are
- * usually written on complex data structures like a mesh or chanel network.
- * Invariants can be used for both error checking and assertions.  For example,
- * when reading in a mesh the code may check the invariant and throw an error
- * if the input mesh does not satisfy the invariant.  Thereafter, the code may
- * continue to check the invariant periodically as an assertion.
- * 
- * After error checking and assertions the rest of the code is written assuming
- * that those checks pass.  For example, if statement cases may be omitted if
- * they would be forbidden by an assertion.
- */
+// Error checking, assertions, and invariants
+//
+// Error checking is the process of checking for invalid input.  Even bug free
+// code needs to perform error checking because the code cannot control what it
+// is given for input.  Code should handle invalid input gracefully.  Ideally
+// it should not crash or seg fault on any input and should print a helpful
+// error message.
+// 
+// Assertions check within the code for things that the code should be
+// guaranteeing to be true.  By definition, bug free code will never fire an
+// assertion on any input.  This code does not satisfy that condition if any
+// error checking is turned off.  Assertions are only needed for finding bugs
+// and can be compiled out of production code.
+// 
+// Invariants are conditions that should always be true.  Invariants are
+// usually written on complex data structures like a mesh or chanel network.
+// Invariants can be used for both error checking and assertions.  For example,
+// when reading in a mesh the code may check the invariant and throw an error
+// if the input mesh does not satisfy the invariant.  Thereafter, the code may
+// continue to check the invariant periodically as an assertion.
+// 
+// After error checking and assertions the rest of the code is written assuming
+// that those checks pass.  For example, if statement cases may be omitted if
+// they would be forbidden by an assertion.
 #define DEBUG_LEVEL_LIBRARY_ERRORS               (1 << 0) // Error checking of return values of library calls.
 #define DEBUG_LEVEL_USER_INPUT_SIMPLE            (1 << 1) // Error checking of simple conditions on user inputs.
 #define DEBUG_LEVEL_USER_INPUT_INVARIANTS        (1 << 2) // Error checking of invariants        on user inputs.

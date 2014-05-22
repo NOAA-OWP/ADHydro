@@ -1,13 +1,15 @@
 mainmodule adhydro
 {
   extern module mesh_element;
+  extern module file_manager;
   
-  mainchare ADHydro
+  mainchare [migratable] ADHydro
   {
-    entry                        ADHydro(CkArgMsg* msg);
-    initproc                void setLoadBalancingToManual(void);
+    initproc void setLoadBalancingToManual();
+    entry ADHydro(CkArgMsg* msg);
     entry [reductiontarget] void doTimestep(double dtNew);
-    entry                   void outputPartitioning(CkReductionMsg *msg);
+    entry void resumeFromCheckpoint();
+    entry void outputPartitioning(CkReductionMsg *msg);
     
     readonly int meshProxySize;
   };
