@@ -1,0 +1,11 @@
+mainmodule adhydro_input_preprocessing
+{
+  extern module file_manager;
+  
+  mainchare ADHydroInputPreprocessing
+  {
+    entry ADHydroInputPreprocessing(CkArgMsg* msg);
+    entry [reductiontarget] void filesOpened();
+    entry [reductiontarget] void filesClosed();
+  };
+};

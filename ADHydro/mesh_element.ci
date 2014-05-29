@@ -2,139 +2,120 @@ module mesh_element
 {
   array [1D] MeshElement
   {
-    entry MeshElement();
+    entry MeshElement(CProxy_FileManager fileManagerProxyInit);
     
-    entry void sendInitialize(double vertexXInit[3], double vertexYInit[3], double vertexZSurfaceInit[3], double vertexZBedrockInit[3],
-                              int neighborInit[3], InteractionEnum interactionInit[3], int catchmentInit, double conductivityInit, double porosityInit,
-                              double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
-                              double groundwaterErrorInit, double groundwaterRechargeInit)
+    // Dummy function for structured dagger infinite loop.
+    entry void runForever()
     {
       serial
       {
-        receiveInitialize(vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, neighborInit, interactionInit, catchmentInit, conductivityInit,
-                          porosityInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, groundwaterHeadInit, groundwaterErrorInit,
-                          groundwaterRechargeInit);
+        initialize();
       }
       
-      while (!neighborInitialized[0] || !neighborInitialized[1] || !neighborInitialized[2])
+      while (true)
       {
-        when sendInitializeNeighbor(int neighborIndex, int neighborEdge, double neighborElementX, double neighborElementY,
-                                    double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
-                                    double neighborElementManningsN)
+        case
         {
-          serial
-          {
-            receiveInitializeNeighbor(neighborIndex, neighborEdge, neighborElementX, neighborElementY, neighborElementZSurface, neighborElementZBedrock,
-                                      neighborElementConductivity, neighborElementManningsN);
-          }
-        }
-      }
-      
-      overlap
-      {
-        while (true)
-        {
-          when sendDoTimestep(int iterationThisTimestep, double dtThisTimestep)
+          when doTimestep(int iterationThisTimestep, double dtThisTimestep)
           {
             serial
             {
-              receiveDoTimestep(iterationThisTimestep, dtThisTimestep);
+              handleDoTimestep(iterationThisTimestep, dtThisTimestep);
             }
 
-            while (!timestepDone)
+            while (!phaseDone)
             {
               case
               {
-                when sendCalculateBoundaryConditionFlowRate[iteration](int iterationThisMessage)
+                when calculateBoundaryConditionFlowRate[iteration](int iterationThisMessage)
                 {
                   serial
                   {
-                    receiveCalculateBoundaryConditionFlowRate();
+                    handleCalculateBoundaryConditionFlowRate();
                   }
                 }
 
-                when sendState[iteration](int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+                when stateMessage[iteration](int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
                 {
                   serial
                   {
-                    receiveState(edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
+                    handleStateMessage(edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
                   }
                 }
 
-                when sendFlowRate[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
+                when flowRateMessage[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
                 {
                   serial
                   {
-                    receiveFlowRate(edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
+                    handleFlowRateMessage(edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
                   }
                 }
 
-                when sendSurfacewaterFlowRateLimited[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+                when surfacewaterFlowRateLimitedMessage[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
                 {
                   serial
                   {
-                    receiveSurfacewaterFlowRateLimited(edge, edgeSurfacewaterFlowRate);
+                    handleSurfacewaterFlowRateLimitedMessage(edge, edgeSurfacewaterFlowRate);
                   }
                 }
               }
             }
           }
-        }
 
-        while (true)
-        {
-          case
+          when output()
           {
-            when sendCheckInvariant()
+            serial
             {
-              serial
-              {
-                receiveCheckInvariant();
-              }
-            }
-
-            when sendCheckInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
-                                            double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
-                                            double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                            InteractionEnum neighborInteraction, double neighborElementX, double neighborElementY,
-                                            double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
-                                            double neighborElementManningsN)
-            {
-              serial
-              {
-                receiveCheckInvariantNeighbor(neighborIndex, neighborEdge, neighborsNeighborReciprocalEdge, neighborVertexX1, neighborVertexX2,
-                                              neighborVertexY1, neighborVertexY2, neighborVertexZSurface1, neighborVertexZSurface2, neighborVertexZBedrock1,
-                                              neighborVertexZBedrock2, neighborInteraction, neighborElementX, neighborElementY, neighborElementZSurface,
-                                              neighborElementZBedrock, neighborElementConductivity, neighborElementManningsN);
-              }
+              handleOutput();
             }
           }
-        }
-      }
-    };
-
-    entry void sendInitializeNeighbor(int neighborIndex, int neighborEdge, double neighborElementX, double neighborElementY,
-                                      double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
-                                      double neighborElementManningsN);
-    entry void sendDoTimestep(int iterationThisTimestep, double dtThisTimestep);
-    entry void sendCalculateBoundaryConditionFlowRate(int iterationThisMessage);
-    entry void sendState(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
-    entry void sendFlowRate(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate);
-    entry void sendSurfacewaterFlowRateLimited(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
-    entry void sendCheckInvariant();
-    entry void sendCheckInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
+        
+          when checkInvariant()
+          {
+            serial
+            {
+              handleCheckInvariant();
+            }
+            
+            while (!phaseDone)
+            {
+              when checkInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
                                           double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
                                           double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                          InteractionEnum neighborInteraction, double neighborElementX, double neighborElementY,
-                                          double neighborElementZSurface, double neighborElementZBedrock, double neighborElementConductivity,
-                                          double neighborElementManningsN);
-    
-    entry void sendReportPartition()
-    {
-      serial
-      {
-        receiveReportPartition();
+                                          double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                          InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
+                                          double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                          double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt)
+              {
+                serial
+                {
+                  handleCheckInvariantNeighbor(neighborIndex, neighborEdge, neighborsNeighborReciprocalEdge, neighborVertexX1, neighborVertexX2,
+                                               neighborVertexY1, neighborVertexY2, neighborVertexZSurface1, neighborVertexZSurface2, neighborVertexZBedrock1,
+                                               neighborVertexZBedrock2, neighborElementX, neighborElementY, neighborElementZSurface, neighborElementZBedrock,
+                                               neighborsNeighborInteraction, neighborElementConductivity, neighborElementManningsN,
+                                               neighborSurfacewaterFlowRate, neighborSurfacewaterCumulativeFlow, neighborGroundwaterFlowRate,
+                                               neighborGroundwaterCumulativeFlow, neighborIteration, neighborDt);
+                }
+              }
+            }
+          }
+        }
       }
     };
+
+    entry void doTimestep(int iterationThisTimestep, double dtThisTimestep);
+    entry void calculateBoundaryConditionFlowRate(int iterationThisMessage);
+    entry void stateMessage(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+    entry void flowRateMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate);
+    entry void surfacewaterFlowRateLimitedMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void output();
+    entry void checkInvariant();
+    entry void checkInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
+                                      double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
+                                      double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
+                                      double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                      InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
+                                      double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                      double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt);
   };
 };

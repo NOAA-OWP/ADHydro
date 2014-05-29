@@ -13,13 +13,23 @@ METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer Me
 CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -language charm++ -g -Wall
 
-OBJS := adhydro.o      \
-        mesh_element.o \
-        file_manager.o \
-        surfacewater.o \
-        groundwater.o
+EXES := adhydro \
+        adhydro_input_preprocessing
 
-adhydro: $(OBJS)
+ADHYDRO_OBJS := adhydro.o      \
+                mesh_element.o \
+                file_manager.o \
+                surfacewater.o \
+                groundwater.o
+
+ADHYDRO_INPUT_PREPROCESSING_OBJS := adhydro_input_preprocessing.o \
+                                    file_manager.o
+
+all: $(EXES)
+
+.PHONY: all
+
+adhydro: $(ADHYDRO_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
 
 adhydro.o: adhydro.cpp         \
@@ -37,6 +47,23 @@ adhydro.decl.h \
 adhydro.def.h: adhydro.ci      \
                mesh_element.ci \
                file_manager.ci
+	$(CHARMC) $<
+
+adhydro_input_preprocessing: $(ADHYDRO_INPUT_PREPROCESSING_OBJS)
+	$(CHARMC) $^ -o $@ $(LDFLAGS)
+
+adhydro_input_preprocessing.o: adhydro_input_preprocessing.cpp         \
+                               adhydro_input_preprocessing.h           \
+                               adhydro_input_preprocessing.decl.h      \
+                               adhydro_input_preprocessing.def.h       \
+                               file_manager.h                          \
+                               file_manager.decl.h                     \
+                               all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
+
+adhydro_input_preprocessing.decl.h \
+adhydro_input_preprocessing.def.h: adhydro_input_preprocessing.ci \
+                                   file_manager.ci
 	$(CHARMC) $<
 
 mesh_element.o: mesh_element.cpp    \
@@ -76,6 +103,6 @@ groundwater.o: groundwater.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun adhydro $(OBJS) adhydro.decl.h adhydro.def.h mesh_element.decl.h mesh_element.def.h file_manager.decl.h file_manager.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_INPUT_PREPROCESSING_OBJS) *.decl.h *.def.h
 
 .PHONY: clean

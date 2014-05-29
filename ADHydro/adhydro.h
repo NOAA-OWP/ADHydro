@@ -1,7 +1,6 @@
 #ifndef __ADHYDRO_H__
 #define __ADHYDRO_H__
 
-#include "mesh_element.h"
 #include "file_manager.h"
 #include "adhydro.decl.h"
 

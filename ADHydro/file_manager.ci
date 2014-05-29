@@ -9,30 +9,30 @@ module file_manager
     {
       while (true)
       {
-        when openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsInit, FileManagerActionEnum geometryAction,
-                       int geometryIdentifier, FileManagerActionEnum parameterAction, int parameterIdentifier, FileManagerActionEnum stateAction,
-                       int stateIdentifier)
+        when openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
+                       FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
+                       FileManagerActionEnum stateAction, int stateGroup)
         {
           serial
           {
-            handleOpenFiles(directoryLength, directory, numberOfMeshElementsInit, geometryAction, geometryIdentifier, parameterAction, parameterIdentifier,
-                            stateAction, stateIdentifier);
+            handleOpenFiles(directoryLength, directory, numberOfMeshElementsToCreate, numberOfMeshNodesToCreate, geometryAction, geometryGroup,
+                            parameterAction, parameterGroup, stateAction, stateGroup);
           }
+        }
 
-          when closeFiles()
+        when closeFiles()
+        {
+          serial
           {
-            serial
-            {
-              handleCloseFiles();
-            }
+            handleCloseFiles();
           }
         }
       }
     };
 
-    entry void openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsInit, FileManagerActionEnum geometryAction,
-                         int geometryIdentifier, FileManagerActionEnum parameterAction, int parameterIdentifier, FileManagerActionEnum stateAction,
-                         int stateIdentifier);
+    entry void openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
+                         FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
+                         FileManagerActionEnum stateAction, int stateGroup);
     entry void closeFiles();
   };
 };
