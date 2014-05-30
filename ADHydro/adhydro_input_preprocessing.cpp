@@ -21,7 +21,7 @@ ADHydroInputPreprocessing::ADHydroInputPreprocessing(CkArgMsg* msg)
   neighborFile = NULL;
   
   // Print usage message if number of arguments is incorrect or first argument is any flag.
-  if (3 != msg->argc || '-' == msg->argv[1][0])
+  if (!(3 == msg->argc && '-' != msg->argv[1][0]))
     {
       CkPrintf("\nUsage:\n\nadhydro_input_preprocessing <input file path and prefix> <output directory>\n\n");
       CkPrintf("E.g.:\n\nadhydro_input_preprocessing ../input/mesh.1 ../output\n\n");
@@ -865,7 +865,7 @@ void ADHydroInputPreprocessing::filesOpened()
       // Calculate Y component of unit normal vector of edge 0.  Edge 0 goes from vertex 1 to 2 (opposite vertex 0).
       if (!error)
         {
-          coordinate = (vertex1Y - vertex2Y) / edgeLength0;
+          coordinate = (vertex1X - vertex2X) / edgeLength0;
           
           ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalYVarID, netCDFIndex, &coordinate);
           
@@ -901,7 +901,7 @@ void ADHydroInputPreprocessing::filesOpened()
       // Calculate Y component of unit normal vector of edge 1.  Edge 1 goes from vertex 2 to 0 (opposite vertex 1).
       if (!error)
         {
-          coordinate = (vertex2Y - vertex0Y) / edgeLength1;
+          coordinate = (vertex2X - vertex0X) / edgeLength1;
           
           ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalYVarID, netCDFIndex, &coordinate);
           
@@ -937,7 +937,7 @@ void ADHydroInputPreprocessing::filesOpened()
       // Calculate Y component of unit normal vector of edge 2.  Edge 2 goes from vertex 0 to 1 (opposite vertex 2).
       if (!error)
         {
-          coordinate = (vertex0Y - vertex1Y) / edgeLength2;
+          coordinate = (vertex0X - vertex1X) / edgeLength2;
           
           ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalYVarID, netCDFIndex, &coordinate);
           
@@ -1143,7 +1143,7 @@ void ADHydroInputPreprocessing::filesOpened()
       
       if (!error)
         {
-          coordinate = 0.0;
+          coordinate = 0.01; // 1 cm of surfacewater.
           
           ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementSurfacewaterDepthVarID, netCDFIndex,
                                            &coordinate);

@@ -1,5 +1,7 @@
 module mesh_element
 {
+  extern module file_manager;
+  
   array [1D] MeshElement
   {
     entry MeshElement(CProxy_FileManager fileManagerProxyInit);
@@ -23,7 +25,7 @@ module mesh_element
               handleDoTimestep(iterationThisTimestep, dtThisTimestep);
             }
 
-            while (!phaseDone)
+            while (!timestepDone)
             {
               case
               {
@@ -61,6 +63,34 @@ module mesh_element
               }
             }
           }
+          
+          // Receive stale messages that were not received in previous timesteps because they were not needed.
+          when calculateBoundaryConditionFlowRate(int iterationThisMessage)
+          {
+            serial
+            {
+              // Disabling this message because it is too verbose.
+              //CkPrintf("NOTE: Discarding unneeded stale calculateBoundaryConditionFlowRate message for iteration %d.\n", iterationThisMessage);
+            }
+          }
+
+          // Receive stale messages that were not received in previous timesteps because they were not needed.
+          when stateMessage(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+          {
+            serial
+            {
+              CkPrintf("NOTE: Discarding unneeded stale state message for iteration %d.\n", iterationThisMessage);
+            }
+          }
+
+          // Receive stale messages that were not received in previous timesteps because they were not needed.
+          when flowRateMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
+          {
+            serial
+            {
+              CkPrintf("NOTE: Discarding unneeded stale flow rate message for iteration %d.\n", iterationThisMessage);
+            }
+          }
 
           when output()
           {
@@ -77,26 +107,32 @@ module mesh_element
               handleCheckInvariant();
             }
             
-            while (!phaseDone)
+            while (!(neighborInvariantChecked[0] && neighborInvariantChecked[1] && neighborInvariantChecked[2]))
             {
-              when checkInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
-                                          double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
-                                          double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                          double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                          InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
-                                          double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+              when checkInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
+                                          int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
+                                          double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
+                                          double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
+                                          double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                          double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
+                                          double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
                                           double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt)
               {
                 serial
                 {
-                  handleCheckInvariantNeighbor(neighborIndex, neighborEdge, neighborsNeighborReciprocalEdge, neighborVertexX1, neighborVertexX2,
-                                               neighborVertexY1, neighborVertexY2, neighborVertexZSurface1, neighborVertexZSurface2, neighborVertexZBedrock1,
-                                               neighborVertexZBedrock2, neighborElementX, neighborElementY, neighborElementZSurface, neighborElementZBedrock,
-                                               neighborsNeighborInteraction, neighborElementConductivity, neighborElementManningsN,
-                                               neighborSurfacewaterFlowRate, neighborSurfacewaterCumulativeFlow, neighborGroundwaterFlowRate,
-                                               neighborGroundwaterCumulativeFlow, neighborIteration, neighborDt);
+                  handleCheckInvariantNeighbor(neighborIndex, neighborsNeighborInteraction, neighborEdge, neighborsNeighborReciprocalEdge, neighborVertexX1,
+                                               neighborVertexX2, neighborVertexY1, neighborVertexY2, neighborVertexZSurface1, neighborVertexZSurface2,
+                                               neighborVertexZBedrock1, neighborVertexZBedrock2, neighborElementX, neighborElementY, neighborElementZSurface,
+                                               neighborElementZBedrock, neighborElementConductivity, neighborElementManningsN, neighborSurfacewaterFlowRate,
+                                               neighborSurfacewaterCumulativeFlow, neighborGroundwaterFlowRate, neighborGroundwaterCumulativeFlow,
+                                               neighborIteration, neighborDt);
                 }
               }
+            }
+            
+            serial
+            {
+              contribute();
             }
           }
         }
@@ -110,12 +146,13 @@ module mesh_element
     entry void surfacewaterFlowRateLimitedMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void output();
     entry void checkInvariant();
-    entry void checkInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
-                                      double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
-                                      double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                      double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                      InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
-                                      double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+    entry void checkInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
+                                      int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
+                                      double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
+                                      double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
+                                      double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                      double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
+                                      double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
                                       double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt);
   };
 };

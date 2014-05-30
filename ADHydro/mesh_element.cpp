@@ -17,11 +17,6 @@ MeshElement::MeshElement(CProxy_FileManager fileManagerProxyInit)
   
   // Remaining initialization will be done in initialize.
   thisProxy[thisIndex].runForever();
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // Because of structured dagger code, this message will not be received until after initialize is done.
-  thisProxy[thisIndex].checkInvariant();
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
 }
 
 MeshElement::MeshElement(CkMigrateMessage* msg)
@@ -47,12 +42,12 @@ void MeshElement::pup(PUP::er &p)
   p | elementZBedrock;
   p | elementArea;
   PUParray(p, neighbor, 3);
+  PUParray(p, neighborInteraction, 3);
   PUParray(p, neighborReciprocalEdge, 3);
   PUParray(p, neighborX, 3);
   PUParray(p, neighborY, 3);
   PUParray(p, neighborZSurface, 3);
   PUParray(p, neighborZBedrock, 3);
-  PUParray(p, neighborInteraction, 3);
   PUParray(p, neighborConductivity, 3);
   PUParray(p, neighborManningsN, 3);
   p | catchment;
@@ -70,7 +65,8 @@ void MeshElement::pup(PUP::er &p)
   PUParray(p, groundwaterFlowRate, 3);
   PUParray(p, groundwaterFlowRateReady, 3);
   PUParray(p, groundwaterCumulativeFlow, 3);
-  p | phaseDone;
+  p | timestepDone;
+  PUParray(p, neighborInvariantChecked, 3);
   p | iteration;
   p | dt;
   p | dtNew;
@@ -109,14 +105,14 @@ void MeshElement::initialize()
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBIC_FUNCTIONS_SIMPLE)
   
-  // Load vertex geometric coordinates.
+  // Load vertex and edge geometric coordinates.
   for (vertex = 0; !error && vertex < 3; vertex++)
     {
-      index[0]    = thisIndex;
-      index[1]    = vertex;
+      index[0] = thisIndex;
+      index[1] = vertex;
+      
       ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementNodeIndicesVarID, index, &node);
-      index[0]    = node;
-
+      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
@@ -128,6 +124,7 @@ void MeshElement::initialize()
       
       if (!error)
         {
+          index[0] = node;
           index[1] = 0;
 
           ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNodeXYZSurfaceCoordinatesVarID, index,
@@ -191,38 +188,443 @@ void MeshElement::initialize()
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
+  
+      if (!error)
+        {
+          index[0] = thisIndex;
+          index[1] = vertex;
+          
+          ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeLengthVarID, index, &edgeLength[vertex]);
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get edge length.  NetCDF error message: %s.\n",
+                      thisIndex, vertex, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalXVarID, index, &edgeNormalX[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get X component of unit normal vector.  NetCDF error message: %s.\n",
+                      thisIndex, vertex, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalYVarID, index, &edgeNormalY[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get Y component of unit normal vector.  NetCDF error message: %s.\n",
+                      thisIndex, vertex, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  // Load element geometric coordinates.
+  if (!error)
+    {
+      index[0] = thisIndex;
+      
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementXVarID, index, &elementX);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get X coordinate.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
   if (!error)
     {
-      // FIXME read edge and element geometric coordinates instead of computing
-      // Length of each edge.
-      // Edge 0 goes from vertex 1 to 2 (opposite vertex 0).
-      // Edge 1 goes form vertex 2 to 0 (opposite vertex 1).
-      // Edge 2 goes form vertex 0 to 1 (opposite vertex 2).
-      edgeLength[0] = sqrt((vertexX[1] - vertexX[2]) * (vertexX[1] - vertexX[2]) + (vertexY[1] - vertexY[2]) * (vertexY[1] - vertexY[2]));
-      edgeLength[1] = sqrt((vertexX[2] - vertexX[0]) * (vertexX[2] - vertexX[0]) + (vertexY[2] - vertexY[0]) * (vertexY[2] - vertexY[0]));
-      edgeLength[2] = sqrt((vertexX[0] - vertexX[1]) * (vertexX[0] - vertexX[1]) + (vertexY[0] - vertexY[1]) * (vertexY[0] - vertexY[1]));
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementYVarID, index, &elementY);
 
-      // Unit normal vector of each edge.
-      edgeNormalX[0] = (vertexY[2] - vertexY[1]) / edgeLength[0];
-      edgeNormalY[0] = (vertexX[1] - vertexX[2]) / edgeLength[0];
-      edgeNormalX[1] = (vertexY[0] - vertexY[2]) / edgeLength[1];
-      edgeNormalY[1] = (vertexX[2] - vertexX[0]) / edgeLength[1];
-      edgeNormalX[2] = (vertexY[1] - vertexY[0]) / edgeLength[2];
-      edgeNormalY[2] = (vertexX[0] - vertexX[1]) / edgeLength[2];
-
-      // Geometric coordinates of element center or entire element.
-      elementX        = (vertexX[0]        + vertexX[1]        + vertexX[2])        / 3.0;
-      elementY        = (vertexY[0]        + vertexY[1]        + vertexY[2])        / 3.0;
-      elementZSurface = (vertexZSurface[0] + vertexZSurface[1] + vertexZSurface[2]) / 3.0;
-      elementZBedrock = (vertexZBedrock[0] + vertexZBedrock[1] + vertexZBedrock[2]) / 3.0;
-      elementArea = (vertexX[0] * (vertexY[1] - vertexY[2]) + vertexX[1] * (vertexY[2] - vertexY[0]) + vertexX[2] * (vertexY[0] - vertexY[1])) * 0.5;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get Y coordinate.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
-  // FIXME read rest of variables
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZSurfaceVarID, index, &elementZSurface);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get Z surface coordinate.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
-  if (error)
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZBedrockVarID, index, &elementZBedrock);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get Z bedrock coordinate.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementAreaVarID, index, &elementArea);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get area.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Load neighbor geometric coordinates and parameters.
+  for (vertex = 0; !error && vertex < 3; vertex++)
+    {
+      index[0] = thisIndex;
+      index[1] = vertex;
+      
+      ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborIndicesVarID, index, &neighbor[vertex]);
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get neighbor index.  NetCDF error message: %s.\n",
+                  thisIndex, vertex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      
+      if (!error && !isBoundary(neighbor[vertex]))
+        {
+          // Default to both calculating flow.
+          neighborInteraction[vertex] = BOTH_CALCULATE_FLOW_RATE;
+
+          ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborReciprocalEdgeVarID, index,
+                                        &neighborReciprocalEdge[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor reciprocal edge.  "
+                      "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          
+          if (!error)
+            {
+              index[0] = neighbor[vertex];
+
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementXVarID, index, &neighborX[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor X coordinate.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementYVarID, index, &neighborY[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor Y coordinate.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZSurfaceVarID, index,
+                                               &neighborZSurface[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor Z surface coordinate.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZBedrockVarID, index,
+                                               &neighborZBedrock[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor Z bedrock coordinate.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementConductivityVarID, index,
+                                               &neighborConductivity[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor conductivity.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementManningsNVarID, index,
+                                               &neighborManningsN[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::initialize, element %d, edge %d, neighbor %d: unable to get neighbor Manning's n.  "
+                          "NetCDF error message: %s.\n", thisIndex, vertex, neighbor[vertex], nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+    }
+  
+  // Load element parameters.
+  if (!error)
+    {
+      index[0] = thisIndex;
+      
+      ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementCatchmentVarID, index, &catchment);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get catchment.  NetCDF error message: %s.\n", thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementConductivityVarID, index, &conductivity);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get conductivity.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementPorosityVarID, index, &porosity);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get porosity.  NetCDF error message: %s.\n", thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementManningsNVarID, index, &manningsN);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get Manning's n.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Load element state
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementSurfacewaterDepthVarID, index,
+                                       &surfacewaterDepth);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get surfacewater depth.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementSurfacewaterErrorVarID, index,
+                                       &surfacewaterError);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get surfacewater error.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterHeadVarID, index,
+                                       &groundwaterHead);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get groundwater head.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterErrorVarID, index,
+                                       &groundwaterError);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get groundwater error.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterRechargeVarID, index,
+                                       &groundwaterRecharge);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d: unable to get groundwater recharge.  NetCDF error message: %s.\n",
+                  thisIndex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  for (vertex = 0; !error && vertex < 3; vertex++)
+    {
+      index[1] = vertex;
+      
+      ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeSurfacewaterFlowRateVarID, index,
+                                       &surfacewaterFlowRate[vertex]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get surfacewater flow rate.  NetCDF error message: %s.\n",
+                  thisIndex, vertex, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      
+      if (!error)
+        {
+          surfacewaterFlowRateReady[vertex] = FLOW_RATE_LIMITING_CHECK_DONE;
+          
+          // Cumulative flow is reset to zero at each initialization and output event.
+          surfacewaterCumulativeFlow[vertex] = 0.0;
+          
+          ncErrorCode = nc_get_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeGroundwaterFlowRateVarID, index,
+                                           &groundwaterFlowRate[vertex]);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::initialize, element %d, edge %d: unable to get groundwater flow rate.  NetCDF error message: %s.\n",
+                      thisIndex, vertex, nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          groundwaterFlowRateReady[vertex] = FLOW_RATE_LIMITING_CHECK_DONE;
+          
+          // Cumulative flow is reset to zero at each initialization and output event.
+          groundwaterCumulativeFlow[vertex] = 0.0;
+        }
+    }
+  
+  if (!error)
+    {
+      // Dummy values to make the invariant pass, unused.
+      iteration = 0;
+      dt        = 1.0;
+      dtNew     = 1.0;
+    }
+  
+  if (!error)
+    {
+      contribute();
+    }
+  else
     {
       CkExit();
     }
@@ -235,16 +637,16 @@ void MeshElement::handleDoTimestep(int iterationThisTimestep, double dtThisTimes
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
     {
-      CkError("ERROR in MeshElement::receiveDoTimestep, element %d: dtThisTimestep must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleDoTimestep, element %d: dtThisTimestep must be greater than zero.\n", thisIndex);
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
   // Save sequencing and timestep information.
-  phaseDone = false;
-  iteration = iterationThisTimestep;
-  dt        = dtThisTimestep;
-  dtNew     = 2.0 * dt;
+  timestepDone = false;
+  iteration    = iterationThisTimestep;
+  dt           = dtThisTimestep;
+  dtNew        = 2.0 * dt;
 
   // Do point processes.
   doSnowMelt();
@@ -255,16 +657,13 @@ void MeshElement::handleDoTimestep(int iterationThisTimestep, double dtThisTimes
   // Move groundwater including groundwater recharge from infiltration.
   moveGroundwater();
 
-  // Set the flow rate states to not ready for this timestep.
   for (edge = 0; edge < 3; edge++)
     {
+      // Set the flow rate states to not ready for this timestep.
       surfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       groundwaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
-    }
-
-  // Send the state messages that start the surfacewater, groundwater, and channels algorithm.
-  for (edge = 0; edge < 3; edge++)
-    {
+      
+      // Send the state messages that start the surfacewater, groundwater, and channels algorithm.
       if (!isBoundary(neighbor[edge]))
         {
           switch (neighborInteraction[edge])
@@ -423,20 +822,20 @@ void MeshElement::handleStateMessage(int edge, double neighborSurfacewaterDepth,
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR in MeshElement::receiveState, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
+      CkError("ERROR in MeshElement::handleStateMessage, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
       error = true;
     }
   // Must be else if because cannot use edge unless it passes the previous test.
   else if (!(neighborZBedrock[edge] <= neighborGroundwaterHead && neighborGroundwaterHead <= neighborZSurface[edge]))
     {
-      CkError("ERROR in MeshElement::receiveState, element %d, edge %d: neighborGroundwaterHead must be between neighborZBedrock and neighborZSurface.\n",
+      CkError("ERROR in MeshElement::handleStateMessage, element %d, edge %d: neighborGroundwaterHead must be between neighborZBedrock and neighborZSurface.\n",
               thisIndex, edge);
       error = true;
     }
 
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR in MeshElement::receiveState, element %d, edge %d: neighborSurfacewaterDepth must be greater than or equal to zero.\n", thisIndex, edge);
+      CkError("ERROR in MeshElement::handleStateMessage, element %d, edge %d: neighborSurfacewaterDepth must be greater than or equal to zero.\n", thisIndex, edge);
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -521,7 +920,7 @@ void MeshElement::handleFlowRateMessage(int edge, double edgeSurfacewaterFlowRat
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR in MeshElement::receiveFlowRate, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
+      CkError("ERROR in MeshElement::handleFlowRateMessage, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -575,14 +974,14 @@ void MeshElement::handleSurfacewaterFlowRateLimitedMessage(int edge, double edge
   
   if (!(0 <= edge && 3 > edge))
     {
-      CkError("ERROR in MeshElement::receiveSurfacewaterFlowRateLimited, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
+      CkError("ERROR in MeshElement::handleSurfacewaterFlowRateLimitedMessage, element %d, edge %d: edge must be zero, one, or two.\n", thisIndex, edge);
       error = true;
     }
   // Must be else if because cannot use edge unless it passes the previous test.
   else if (!(0.0 >= edgeSurfacewaterFlowRate &&
              (FLOW_RATE_NOT_READY == surfacewaterFlowRateReady[edge] || edgeSurfacewaterFlowRate >= surfacewaterFlowRate[edge])))
     {
-      CkError("ERROR in MeshElement::receiveSurfacewaterFlowRateLimited, element %d, edge %d: "
+      CkError("ERROR in MeshElement::handleSurfacewaterFlowRateLimitedMessage, element %d, edge %d: "
               "A flow limiting message must be for an inflow and it must only reduce the magnitude of the flow.\n", thisIndex, edge);
       error = true;
     }
@@ -616,7 +1015,7 @@ void MeshElement::checkAllFlowRates()
   // For surfacewater, we need to limit outward flows if all flows are at least calculated (not FLOW_NOT_READY) and there is at least one outward flow that is
   // not limited.  We are not currently doing outward flow limiting checks for groundwater and may never do them.  The primary reason is that groundwater
   // movement and groundwater recharge from infiltration must be done together.  To do this we calculate the groundwater rate this timestep and use that rate
-  // to move groundwater in the infiltration step next timestep.  This creates problems for limiting groundwater outward flows without another round of
+  // to move groundwater after the infiltration step next timestep.  This creates problems for limiting groundwater outward flows without another round of
   // messages.  Another reason is that groundwater moves so slowly that we are very unlikely to overshoot and move more groundwater than an element has.
   for (edge = 0; edge < 3; edge++)
     {
@@ -702,7 +1101,7 @@ void MeshElement::moveSurfacewater()
     }
   
   // Timestep done.
-  phaseDone = true;
+  timestepDone = true;
   
   // Perform min reduction on dtNew.  This also serves as a barrier at the end of the timestep.
   contribute(sizeof(double), &dtNew, CkReduction::min_double);
@@ -721,7 +1120,6 @@ void MeshElement::handleCheckInvariant()
   int  edgeVertex1;   // Vertex index for edge.
   int  edgeVertex2;   // Vertex index for edge.
   
-  // FIXME review
   for (edge = 0; edge < 3; edge++)
     {
       edgeVertex1 = (edge + 1) % 3;
@@ -729,7 +1127,7 @@ void MeshElement::handleCheckInvariant()
       
       if (!(vertexZSurface[edge] >= vertexZBedrock[edge]))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, vertex %d: vertexZSurface must be greater than or equal to vertexZBedrock.\n",
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, vertex %d: vertexZSurface must be greater than or equal to vertexZBedrock.\n",
                   thisIndex, edge);
           error = true;
         }
@@ -737,31 +1135,31 @@ void MeshElement::handleCheckInvariant()
       if (!(sqrt((vertexX[edgeVertex1] - vertexX[edgeVertex2]) * (vertexX[edgeVertex1] - vertexX[edgeVertex2]) +
                  (vertexY[edgeVertex1] - vertexY[edgeVertex2]) * (vertexY[edgeVertex1] - vertexY[edgeVertex2])) == edgeLength[edge]))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: edgeLength inconsistent with vertexX and vertexY.\n", thisIndex, edge);
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: edgeLength inconsistent with vertexX and vertexY.\n", thisIndex, edge);
           error = true;
         }
 
       if (!(0.0 < edgeLength[edge]))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: edgeLength must be greater than zero.\n", thisIndex, edge);
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: edgeLength must be greater than zero.\n", thisIndex, edge);
           error = true;
         }
 
       if (!((vertexY[edgeVertex2] - vertexY[edgeVertex1]) / edgeLength[edge] == edgeNormalX[edge]))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: edgeNormalX inconsistent with vertexX and vertexY.\n", thisIndex, edge);
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: edgeNormalX inconsistent with vertexX and vertexY.\n", thisIndex, edge);
           error = true;
         }
 
       if (!((vertexX[edgeVertex1] - vertexX[edgeVertex2]) / edgeLength[edge] == edgeNormalY[edge]))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: edgeNormalY inconsistent with vertexX and vertexY.\n", thisIndex, edge);
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: edgeNormalY inconsistent with vertexX and vertexY.\n", thisIndex, edge);
           error = true;
         }
       
       if (!(epsilonEqual(1.0, edgeNormalX[edge] * edgeNormalX[edge] + edgeNormalY[edge] * edgeNormalY[edge])))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: edgeNormalX and edgeNormalY do not make a unit vector.\n",
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: edgeNormalX and edgeNormalY do not make a unit vector.\n",
                   thisIndex, edge);
           error = true;
         }
@@ -769,108 +1167,118 @@ void MeshElement::handleCheckInvariant()
       if (!((0 <= neighbor[edge] && neighbor[edge] < ADHydro::meshProxySize) ||
             isBoundary(neighbor[edge])))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: "
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: "
                   "neighbor must be a valid meshProxy array index or boundary condition code.\n", thisIndex, edge);
-          error = true;
-        }
-      
-      if (!((0 <= neighborReciprocalEdge[edge] && neighborReciprocalEdge[edge] < 3) || isBoundary(neighbor[edge])))
-        {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: "
-                  "neighborReciprocalEdge must be zero, one, or two if neighborInit is not a boundary condition code.\n", thisIndex, edge);
           error = true;
         }
       
       if (!((I_CALCULATE_FLOW_RATE    == neighborInteraction[edge]  || NEIGHBOR_CALCULATES_FLOW_RATE == neighborInteraction[edge] ||
              BOTH_CALCULATE_FLOW_RATE == neighborInteraction[edge]) || isBoundary(neighbor[edge])))
         {
-          CkError("ERROR in MeshElement::receiveCheckInvariant, element %d, edge %d: "
-                  "interaction must be a valid enum value if neighborInit is not a boundary condition code.\n", thisIndex, edge);
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: "
+                  "interaction must be a valid enum value if neighbor is not a boundary condition code.\n", thisIndex, edge);
           error = true;
+        }
+      
+      if (!((0 <= neighborReciprocalEdge[edge] && neighborReciprocalEdge[edge] < 3) || isBoundary(neighbor[edge])))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: "
+                  "neighborReciprocalEdge must be zero, one, or two if neighbor is not a boundary condition code.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == surfacewaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: Incorrect value of surfacewaterFlowRateReady.\n", thisIndex, edge);
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == groundwaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: Incorrect value of groundwaterFlowRateReady.\n", thisIndex, edge);
         }
     }
 
   if (!((vertexX[0] + vertexX[1] + vertexX[2]) / 3.0 == elementX))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementX inconsistent with vertexX.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementX inconsistent with vertexX.\n", thisIndex);
       error = true;
     }
 
   if (!((vertexY[0] + vertexY[1] + vertexY[2]) / 3.0 == elementY))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementY inconsistent with vertexY.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementY inconsistent with vertexY.\n", thisIndex);
       error = true;
     }
 
   if (!((vertexZSurface[0] + vertexZSurface[1] + vertexZSurface[2]) / 3.0 == elementZSurface))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementZSurface inconsistent with vertexZSurface.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementZSurface inconsistent with vertexZSurface.\n", thisIndex);
       error = true;
     }
 
   if (!((vertexZBedrock[0] + vertexZBedrock[1] + vertexZBedrock[2]) / 3.0 == elementZBedrock))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementZBedrock inconsistent with vertexZBedrock.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementZBedrock inconsistent with vertexZBedrock.\n", thisIndex);
       error = true;
     }
 
   if (!((vertexX[0] * (vertexY[1] - vertexY[2]) + vertexX[1] * (vertexY[2] - vertexY[0]) + vertexX[2] * (vertexY[0] - vertexY[1])) * 0.5 == elementArea))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementArea inconsistent with vertexX and vertexY.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementArea inconsistent with vertexX and vertexY.\n", thisIndex);
       error = true;
     }
 
   if (!(0.0 < elementArea))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: elementArea must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementArea must be greater than zero.\n", thisIndex);
       error = true;
     }
 
   if (!(0.0 < conductivity))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: conductivity must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: conductivity must be greater than zero.\n", thisIndex);
       error = true;
     }
   
   if (!(0.0 < porosity))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: porosity must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: porosity must be greater than zero.\n", thisIndex);
       error = true;
     }
 
   if (!(0.0 < manningsN))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: manningsN must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: manningsN must be greater than zero.\n", thisIndex);
       error = true;
     }
   
   if (!(0.0 <= surfacewaterDepth))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: surfacewaterDepth must be greater than or equal to zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacewaterDepth must be greater than or equal to zero.\n", thisIndex);
       error = true;
     }
   
   if (!(elementZBedrock <= groundwaterHead && groundwaterHead <= elementZSurface))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: groundwaterHead must be between elementZBedrock and elementZSurface.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: groundwaterHead must be between elementZBedrock and elementZSurface.\n", thisIndex);
       error = true;
     }
   
   if (!(-1.0 < groundwaterRecharge && groundwaterRecharge < 1.0))
     {
-      CkError("Warning in MeshElement::receiveCheckInvariant, element %d: "
+      CkError("WARNING in MeshElement::handleCheckInvariant, element %d: "
               "groundwaterRecharge absolute value greater than one meter.  Something is probably wrong.\n", thisIndex);
     }
 
   if (!(0.0 < dt))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: dt must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: dt must be greater than zero.\n", thisIndex);
       error = true;
     }
   
   if (!(0.0 < dtNew))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariant, element %d: dtNew must be greater than zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: dtNew must be greater than zero.\n", thisIndex);
       error = true;
     }
   
@@ -878,18 +1286,23 @@ void MeshElement::handleCheckInvariant()
     {
       for (edge = 0; edge < 3; edge++)
         {
-          if (!isBoundary(neighbor[edge]))
+          if (isBoundary(neighbor[edge]))
             {
+              neighborInvariantChecked[edge] = true;
+            }
+          else
+            {
+              neighborInvariantChecked[edge] = false;
+              
               edgeVertex1 = (edge + 1) % 3;
               edgeVertex2 = (edge + 2) % 3;
               
-              /* FIXME
-              thisProxy[neighbor[edge]].checkInvariantNeighbor(thisIndex, edge, neighborReciprocalEdge[edge], vertexX[edgeVertex1], vertexX[edgeVertex2],
-                                                                   vertexY[edgeVertex1], vertexY[edgeVertex2], vertexZSurface[edgeVertex1],
-                                                                   vertexZSurface[edgeVertex2], vertexZBedrock[edgeVertex1], vertexZBedrock[edgeVertex2],
-                                                                   neighborInteraction[edge], elementX, elementY, elementZSurface, elementZBedrock, conductivity,
-                                                                   manningsN);
-                                                                   */
+              thisProxy[neighbor[edge]].checkInvariantNeighbor(thisIndex, neighborInteraction[edge], edge, neighborReciprocalEdge[edge], vertexX[edgeVertex1],
+                                                               vertexX[edgeVertex2], vertexY[edgeVertex1], vertexY[edgeVertex2], vertexZSurface[edgeVertex1],
+                                                               vertexZSurface[edgeVertex2], vertexZBedrock[edgeVertex1], vertexZBedrock[edgeVertex2], elementX,
+                                                               elementY, elementZSurface, elementZBedrock, conductivity, manningsN, surfacewaterFlowRate[edge],
+                                                               surfacewaterCumulativeFlow[edge], groundwaterFlowRate[edge], groundwaterCumulativeFlow[edge],
+                                                               iteration, dt);
             }
         }
     }
@@ -899,133 +1312,179 @@ void MeshElement::handleCheckInvariant()
     }
 }
 
-void MeshElement::handleCheckInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
-                                               double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
-                                               double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                               double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                               InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
-                                               double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+void MeshElement::handleCheckInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
+                                               int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
+                                               double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
+                                               double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
+                                               double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                               double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
+                                               double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
                                                double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt)
 {
   bool error       = false;                                     // Error flag.
   int  edgeVertex1 = (neighborsNeighborReciprocalEdge + 1) % 3; // Vertex index for edge.
   int  edgeVertex2 = (neighborsNeighborReciprocalEdge + 2) % 3; // Vertex index for edge.
 
-  // FIXME review
-  if (!(vertexX[edgeVertex1] == neighborVertexX2))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexX different from neighbor.\n", thisIndex, edgeVertex1);
-      error = true;
-    }
-  
-  if (!(vertexX[edgeVertex2] == neighborVertexX1))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexX different from neighbor.\n", thisIndex, edgeVertex2);
-      error = true;
-    }
-  
-  if (!(vertexY[edgeVertex1] == neighborVertexY2))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexY different from neighbor.\n", thisIndex, edgeVertex1);
-      error = true;
-    }
-  
-  if (!(vertexY[edgeVertex2] == neighborVertexY1))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexY different from neighbor.\n", thisIndex, edgeVertex2);
-      error = true;
-    }
-  
-  if (!(vertexZSurface[edgeVertex1] == neighborVertexZSurface2))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexZSurface different from neighbor.\n", thisIndex, edgeVertex1);
-      error = true;
-    }
-  
-  if (!(vertexZSurface[edgeVertex2] == neighborVertexZSurface1))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexZSurface different from neighbor.\n", thisIndex, edgeVertex2);
-      error = true;
-    }
-  
-  if (!(vertexZBedrock[edgeVertex1] == neighborVertexZBedrock2))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexZBedrock different from neighbor.\n", thisIndex, edgeVertex1);
-      error = true;
-    }
-  
-  if (!(vertexZBedrock[edgeVertex2] == neighborVertexZBedrock1))
-    {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, vertex %d: vertexZBedrock different from neighbor.\n", thisIndex, edgeVertex2);
-      error = true;
-    }
-  
   if (!(neighbor[neighborsNeighborReciprocalEdge] == neighborIndex))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect reciprocal neighbor.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: neighbor is %d, but %d thinks he is my neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge, neighbor[neighborsNeighborReciprocalEdge], neighborIndex);
+      error = true;
+    }
+
+  if (!((I_CALCULATE_FLOW_RATE         == neighborInteraction[neighborsNeighborReciprocalEdge] && NEIGHBOR_CALCULATES_FLOW_RATE == neighborsNeighborInteraction) ||
+        (NEIGHBOR_CALCULATES_FLOW_RATE == neighborInteraction[neighborsNeighborReciprocalEdge] && I_CALCULATE_FLOW_RATE         == neighborsNeighborInteraction) ||
+        (BOTH_CALCULATE_FLOW_RATE      == neighborInteraction[neighborsNeighborReciprocalEdge] && BOTH_CALCULATE_FLOW_RATE      == neighborsNeighborInteraction)))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborInteraction.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborReciprocalEdge[neighborsNeighborReciprocalEdge] == neighborEdge))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborReciprocalEdge.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborReciprocalEdge.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
-  if (!((I_CALCULATE_FLOW_RATE         == neighborInteraction[neighborsNeighborReciprocalEdge] && NEIGHBOR_CALCULATES_FLOW_RATE == neighborsNeighborInteraction) ||
-        (NEIGHBOR_CALCULATES_FLOW_RATE == neighborInteraction[neighborsNeighborReciprocalEdge] && I_CALCULATE_FLOW_RATE         == neighborsNeighborInteraction) ||
-        (BOTH_CALCULATE_FLOW_RATE      == neighborInteraction[neighborsNeighborReciprocalEdge] && BOTH_CALCULATE_FLOW_RATE      == neighborsNeighborInteraction)))
+  if (!(vertexX[edgeVertex1] == neighborVertexX2))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect interaction.\n",
-              thisIndex, neighborsNeighborReciprocalEdge);
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexX different from neighbor.\n", thisIndex, edgeVertex1);
+      error = true;
+    }
+  
+  if (!(vertexX[edgeVertex2] == neighborVertexX1))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexX different from neighbor.\n", thisIndex, edgeVertex2);
+      error = true;
+    }
+  
+  if (!(vertexY[edgeVertex1] == neighborVertexY2))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexY different from neighbor.\n", thisIndex, edgeVertex1);
+      error = true;
+    }
+  
+  if (!(vertexY[edgeVertex2] == neighborVertexY1))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexY different from neighbor.\n", thisIndex, edgeVertex2);
+      error = true;
+    }
+  
+  if (!(vertexZSurface[edgeVertex1] == neighborVertexZSurface2))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexZSurface different from neighbor.\n", thisIndex, edgeVertex1);
+      error = true;
+    }
+  
+  if (!(vertexZSurface[edgeVertex2] == neighborVertexZSurface1))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexZSurface different from neighbor.\n", thisIndex, edgeVertex2);
+      error = true;
+    }
+  
+  if (!(vertexZBedrock[edgeVertex1] == neighborVertexZBedrock2))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexZBedrock different from neighbor.\n", thisIndex, edgeVertex1);
+      error = true;
+    }
+  
+  if (!(vertexZBedrock[edgeVertex2] == neighborVertexZBedrock1))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, vertex %d: vertexZBedrock different from neighbor.\n", thisIndex, edgeVertex2);
       error = true;
     }
   
   if (!(neighborX[neighborsNeighborReciprocalEdge] == neighborElementX))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborX.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborX.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborY[neighborsNeighborReciprocalEdge] == neighborElementY))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborY.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborY.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborZSurface[neighborsNeighborReciprocalEdge] == neighborElementZSurface))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborZSurface.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborZSurface.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborZBedrock[neighborsNeighborReciprocalEdge] == neighborElementZBedrock))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborZBedrock.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborZBedrock.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborConductivity[neighborsNeighborReciprocalEdge] == neighborElementConductivity))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborConductivity.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborConductivity.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
   if (!(neighborManningsN[neighborsNeighborReciprocalEdge] == neighborElementManningsN))
     {
-      CkError("ERROR in MeshElement::receiveCheckInvariantNeighbor, element %d, edge %d: incorrect neighborManningsN.\n",
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: incorrect neighborManningsN.\n",
               thisIndex, neighborsNeighborReciprocalEdge);
       error = true;
     }
   
-  if (error)
+  if (!(surfacewaterFlowRate[neighborsNeighborReciprocalEdge] == -neighborSurfacewaterFlowRate))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: surfacewaterFlowRate different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!(surfacewaterCumulativeFlow[neighborsNeighborReciprocalEdge] == -neighborSurfacewaterCumulativeFlow))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: surfacewaterCumulativeFlow different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!(groundwaterFlowRate[neighborsNeighborReciprocalEdge] == -neighborGroundwaterFlowRate))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: groundwaterFlowRate different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!(groundwaterCumulativeFlow[neighborsNeighborReciprocalEdge] == -neighborGroundwaterCumulativeFlow))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: groundwaterCumulativeFlow different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!(iteration == neighborIteration))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: iteration different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!(dt == neighborDt))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariantNeighbor, element %d, edge %d: dt different from neighbor.\n",
+              thisIndex, neighborsNeighborReciprocalEdge);
+      error = true;
+    }
+  
+  if (!error)
+    {
+      neighborInvariantChecked[neighborsNeighborReciprocalEdge] = true;
+    }
+  else
     {
       CkExit();
     }

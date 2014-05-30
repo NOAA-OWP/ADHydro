@@ -1,8 +1,7 @@
 #include <mpi.h>
 #include "file_manager.h"
 #include "all.h"
-// FIXME netcdf_par.h needed for netcdf built with parallel I/O, but doesn't exist in netcdf built without parallel I/O
-//#include <netcdf_par.h>
+#include <netcdf_par.h>
 
 FileManager::FileManager()
 {

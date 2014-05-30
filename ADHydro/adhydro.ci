@@ -7,9 +7,11 @@ mainmodule adhydro
   {
     initproc void setLoadBalancingToManual();
     entry ADHydro(CkArgMsg* msg);
-    entry [reductiontarget] void doTimestep(double dtNew);
-    entry void resumeFromCheckpoint();
-    entry void outputPartitioning(CkReductionMsg *msg);
+    entry [reductiontarget] void inputFilesOpened();
+    entry [reductiontarget] void inputFilesRead();
+    entry [reductiontarget] void filesClosed();
+    entry [reductiontarget] void doTimestep();
+    entry [reductiontarget] void timestepDone(double dtNew);
     
     readonly int meshProxySize;
   };

@@ -1,12 +1,13 @@
 #CHARMDIR       := /project/CI-WATER/rsteinke/charm
 CHARMDIR       := /user2/rsteinke/Desktop/charm
 CHARMC         := $(CHARMDIR)/bin/charmc
-HDF5DIR        := /apps/HDF5-mpi/intel/14.0.0/1.8.12
-NETCDFDIR      := /apps/netcdf-mpi/intel/14.0.0/4.3.2
-#NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFCPPFLAGS :=
+#HDF5DIR        := /apps/HDF5-mpi/intel/14.0.0/1.8.12
+HDF5DIR        := /user2/rsteinke/Desktop/hdf5-1.8.12
+#NETCDFDIR      := /apps/netcdf-mpi/intel/14.0.0/4.3.2
+NETCDFDIR      := /user2/rsteinke/Desktop/netcdf-4.3.2
+NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 #NETCDFLDFLAGS  := -L$(HDF5DIR)/lib -L$(NETCDFDIR)/lib -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-NETCDFLDFLAGS  := -lnetcdf
+NETCDFLDFLAGS  := -L$(HDF5DIR)/src/.libs -L$(NETCDFDIR)/liblib/.libs -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 #METISDIR       := /project/CI-WATER/rsteinke/metis-5.1.0
 METISDIR       := /user2/rsteinke/Desktop/metis-5.1.0
 METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
@@ -72,13 +73,16 @@ mesh_element.o: mesh_element.cpp    \
                 mesh_element.def.h  \
                 adhydro.h           \
                 adhydro.decl.h      \
+                file_manager.h      \
+                file_manager.decl.h \
                 surfacewater.h      \
                 groundwater.h       \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 mesh_element.decl.h \
-mesh_element.def.h: mesh_element.ci
+mesh_element.def.h: mesh_element.ci \
+                    file_manager.ci
 	$(CHARMC) $<
 
 file_manager.o: file_manager.cpp    \

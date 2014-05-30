@@ -17,8 +17,12 @@ class MeshElement : public CBase_MeshElement
   
 public:
   
-  // Constructor.  The FileManager files must already be opened for read.
-  // Exit on error.
+  // Constructor.  The constructor initializes the object by reading from the
+  // FileManager.  The FileManager files must already be opened for read.  The
+  // constructor does not perform an invariant check on the input because at
+  // the end of an invariant check it contributes to an empty reduction as a
+  // barrier.  The calling program should send a checkInvariant message to the
+  // entire chare array after initialization.  Exit on error.
   MeshElement(CProxy_FileManager fileManagerProxyInit);
   
   // Charm++ migration constructor.
@@ -39,7 +43,8 @@ private:
   
   // Initialize the member variables of this element. Initialization data comes
   // from the FileManager passed to the constructor.  Files must already be
-  // opened for read.  Exit on error.
+  // opened for read.  Contribute to an empty reduction as a barrier when
+  // complete or exit on error.
   void initialize();
   
   // Step forward one timestep.  Performs point processes and starts the
@@ -127,15 +132,20 @@ private:
   void handleOutput();
   
   // Check invariant on member variables and send information to neighbors to
-  // check relationship invariant.  Exit if invariant is violated.
+  // check relationship invariant.  When all relationship invariants have been
+  // checked the structured dagger code will contribute to an empty reduction
+  // as a barrier.  Exit if invariant is violated.
   void handleCheckInvariant();
   
-  // Check relationship invariant on information from a neighbor.
-  // Exit if invariant is violated.
+  // Check relationship invariant on information from a neighbor.  When all
+  // relationship invariants have been checked the structured dagger code will
+  // contribute to an empty reduction as a barrier. Exit if invariant is
+  // violated.
   //
   // Parameters:
   //
   // neighborIndex                      - Neighbor value for invariant check.
+  // neighborsNeighborInteraction       - Neighbor value for invariant check.
   // neighborEdge                       - Neighbor value for invariant check.
   // neighborsNeighborReciprocalEdge    - Neighbor value for invariant check.
   // neighborVertexX1                   - Neighbor value for invariant check.
@@ -150,7 +160,6 @@ private:
   // neighborElementY                   - Neighbor value for invariant check.
   // neighborElementZSurface            - Neighbor value for invariant check.
   // neighborElementZBedrock            - Neighbor value for invariant check.
-  // neighborsNeighborInteraction       - Neighbor value for invariant check.
   // neighborElementConductivity        - Neighbor value for invariant check.
   // neighborElementManningsN           - Neighbor value for invariant check.
   // neighborSurfacewaterFlowRate       - Neighbor value for invariant check.
@@ -159,12 +168,13 @@ private:
   // neighborGroundwaterCumulativeFlow  - Neighbor value for invariant check.
   // neighborIteration                  - Neighbor value for invariant check.
   // neighborDt                         - Neighbor value for invariant check.
-  void handleCheckInvariantNeighbor(int neighborIndex, int neighborEdge, int neighborsNeighborReciprocalEdge, double neighborVertexX1,
-                                    double neighborVertexX2, double neighborVertexY1, double neighborVertexY2, double neighborVertexZSurface1,
-                                    double neighborVertexZSurface2, double neighborVertexZBedrock1, double neighborVertexZBedrock2,
-                                    double neighborElementX, double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                    InteractionEnum neighborsNeighborInteraction, double neighborElementConductivity, double neighborElementManningsN,
-                                    double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+  void handleCheckInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
+                                    int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
+                                    double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
+                                    double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
+                                    double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
+                                    double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
+                                    double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
                                     double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt);
   
   // File manager for I/O.
@@ -191,6 +201,9 @@ private:
   // Neighbor element or boundary condition code.
   int neighbor[3]; // Array index into global chare array or NOFLOW, INFLOW, or OUTFLOW.
   
+  // How to interact with neighbors.
+  InteractionEnum neighborInteraction[3];
+  
   // Neighbor element's edge number for our shared edge.
   int neighborReciprocalEdge[3]; // forall edge in {0, 1, 2}, thisProxy[neighbor[edge]].neighbor[neighborReciprocalEdge[edge]] == thisIndex
   
@@ -199,9 +212,6 @@ private:
   double neighborY[3];        // Meters.
   double neighborZSurface[3]; // Meters.
   double neighborZBedrock[3]; // Meters.
-  
-  // How to interact with neighbors.
-  InteractionEnum neighborInteraction[3];
   
   // Hydraulic parameters of neighbors.
   double neighborConductivity[3]; // Meters per second.
@@ -233,10 +243,12 @@ private:
                                                    // Gets set to zero at initialization and each I/O phase.
   
   // Sequencing and timestep information.
-  bool   phaseDone; // Flag indicating the current phase (timestep or invariant check) is done.
-  int    iteration; // Iteration number to put on all messages this timestep.
-  double dt;        // Current timestep duration in seconds.
-  double dtNew;     // Suggested value for next timestep duration in seconds.
+  bool   timestepDone;                // Flag indicating the current timestep is done, or undefined if not in a timestep.
+  bool   neighborInvariantChecked[3]; // Flags indicating if the relationship invariant with each neighbor has been checked, or undefined if not checking
+                                      // invariant.
+  int    iteration;                   // Iteration number to put on all messages this timestep or most recent timestep.
+  double dt;                          // Current or most recent timestep duration in seconds.
+  double dtNew;                       // Suggested value for next timestep duration in seconds.
 };
 
 #endif // __MESH_ELEMENT_H__
