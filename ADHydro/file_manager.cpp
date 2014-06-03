@@ -14,6 +14,8 @@ FileManager::FileManager()
   thisProxy[CkMyPe()].runForever();
 }
 
+// Suppress warning enum value not handled in switch.
+#pragma GCC diagnostic ignored "-Wswitch"
 void FileManager::handleOpenFiles(int directoryLength, char* directory, int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
                                   FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
                                   FileManagerActionEnum stateAction, int stateGroup)
@@ -687,6 +689,7 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
       CkExit();
     }
 }
+#pragma GCC diagnostic warning "-Wswitch"
 
 bool FileManager::getIDOfOrCreateVariable(FileManagerActionEnum action, const char* fileName, int groupID, const char* variableName, int* variableID,
                                           nc_type variableType, int numDims, int dimID0, int dimID1, int sizeToCreate, int* sizeShouldBe)

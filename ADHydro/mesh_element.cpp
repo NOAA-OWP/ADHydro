@@ -10,6 +10,8 @@
 // As elements migrate to different nodes update interaction in a way that guarantees both sides agree on the interaction.
 // When you implement groundwater/channel interaction include surfacewater depth in groundwater head.
 // Scale channel dx w/ bankfull depth?
+// When a chare migrates it calls the constructor doesn't it?  It calls the migration constructor.  Think about implications of this.
+// Think about implications of file manager files being open or closed when checkpointing.
 
 MeshElement::MeshElement(CProxy_FileManager fileManagerProxyInit)
 {
@@ -630,6 +632,8 @@ void MeshElement::initialize()
     }
 }
 
+// Suppress warning enum value not handled in switch.
+#pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleDoTimestep(int iterationThisTimestep, double dtThisTimestep)
 {
   int edge; // Loop counter.
@@ -686,6 +690,7 @@ void MeshElement::handleDoTimestep(int iterationThisTimestep, double dtThisTimes
   //handleCalculateBoundaryConditionFlowRate();
   thisProxy[thisIndex].calculateBoundaryConditionFlowRate(iteration);
 }
+#pragma GCC diagnostic warning "-Wswitch"
 
 void MeshElement::doSnowMelt()
 {
@@ -815,6 +820,8 @@ void MeshElement::handleCalculateBoundaryConditionFlowRate()
     }
 }
 
+// Suppress warning enum value not handled in switch.
+#pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleStateMessage(int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
 {
   bool error = false; // Error flag.
@@ -914,6 +921,7 @@ void MeshElement::handleStateMessage(int edge, double neighborSurfacewaterDepth,
       CkExit();
     }
 }
+#pragma GCC diagnostic warning "-Wswitch"
 
 void MeshElement::handleFlowRateMessage(int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
 {
@@ -1109,8 +1117,472 @@ void MeshElement::moveSurfacewater()
 
 void MeshElement::handleOutput()
 {
-  // FIXME implement
-  contribute();
+  bool         error = false;                                             // Error flag.
+  int          ii;                                                        // Loop counter.
+  FileManager* fileManagerLocalBranch = fileManagerProxy.ckLocalBranch(); // Can't cache local branch because of migration.  Get it from the proxy each time.
+  int          ncErrorCode;                                               // Return value of NetCDF functions.
+  size_t       netCDFIndex[2];                                            // Index for writing to NetCDF files.
+  int          node;                                                      // For writing node indices.
+  
+  if (FileManager::OPEN_FOR_READ_WRITE == fileManagerLocalBranch->geometryFileStatus)
+    {
+      for (ii = 0; !error && ii < 3; ii++)
+        {
+          // Output node coordinates.
+          netCDFIndex[0] = thisIndex * 3 + ii; // Node index for iith vertex of element thisIndex.
+          netCDFIndex[1] = 0;                  // X coordinate.
+          
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNodeXYZSurfaceCoordinatesVarID, netCDFIndex,
+                                           &vertexX[ii]);
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNodeXYZSurfaceCoordinates in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          
+          if (!error)
+            {
+              netCDFIndex[1] = 1; // Y coordinate.
+
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNodeXYZSurfaceCoordinatesVarID,
+                                               netCDFIndex, &vertexY[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNodeXYZSurfaceCoordinates in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              netCDFIndex[1] = 2; // Z surface coordinate.
+
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNodeXYZSurfaceCoordinatesVarID,
+                                               netCDFIndex, &vertexZSurface[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNodeXYZSurfaceCoordinates in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNodeZBedrockCoordinatesVarID,
+                                               netCDFIndex, &vertexZBedrock[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNodeZBedrockCoordinates in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          // Output node indices.
+          if (!error)
+            {
+              netCDFIndex[0] = thisIndex;
+              netCDFIndex[1] = ii;
+              node           = thisIndex * 3 + ii; // Node index for iith vertex of element thisIndex.
+
+              ncErrorCode = nc_put_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementNodeIndicesVarID, netCDFIndex, &node);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementNodeIndices in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          // Output edge geometry.
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeLengthVarID, netCDFIndex,
+                                               &edgeLength[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeLength in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalXVarID, netCDFIndex,
+                                               &edgeNormalX[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeNormalX in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshEdgeNormalYVarID, netCDFIndex,
+                                               &edgeNormalY[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeNormalY in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          // Output neighbor indices.
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborIndicesVarID, netCDFIndex,
+                                            &neighbor[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNeighborIndices in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborReciprocalEdgeVarID, netCDFIndex,
+                                            &neighborReciprocalEdge[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshNeighborReciprocalEdge in NetCDF geometry file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+      
+      // Output element geometry.
+      if (!error)
+        {
+          netCDFIndex[0] = thisIndex;
+
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementXVarID, netCDFIndex, &elementX);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementX in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementYVarID, netCDFIndex, &elementY);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementY in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZSurfaceVarID, netCDFIndex,
+                                           &elementZSurface);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementZSurface in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementZBedrockVarID, netCDFIndex,
+                                           &elementZBedrock);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementZBedrock in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshElementAreaVarID, netCDFIndex, &elementArea);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementArea in NetCDF geometry file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  if (FileManager::OPEN_FOR_READ_WRITE == fileManagerLocalBranch->parameterFileStatus)
+    {
+      // Output element parameters.
+      if (!error)
+        {
+          netCDFIndex[0] = thisIndex;
+
+          ncErrorCode = nc_put_var1_int(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementCatchmentVarID, netCDFIndex, &catchment);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementCatchment in NetCDF parameter file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementConductivityVarID, netCDFIndex,
+                                           &conductivity);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementConductivity in NetCDF parameter file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementPorosityVarID, netCDFIndex,
+                                           &porosity);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementPorosity in NetCDF parameter file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->parameterGroupID, fileManagerLocalBranch->meshElementManningsNVarID, netCDFIndex,
+                                           &manningsN);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementManningsN in NetCDF parameter file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  if (FileManager::OPEN_FOR_READ_WRITE == fileManagerLocalBranch->stateFileStatus)
+    {
+      // Output element state.
+      if (!error)
+        {
+          netCDFIndex[0] = thisIndex;
+
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementSurfacewaterDepthVarID, netCDFIndex,
+                                           &surfacewaterDepth);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementSurfacewaterDepth in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementSurfacewaterErrorVarID, netCDFIndex,
+                                           &surfacewaterError);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementSurfacewaterError in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterHeadVarID, netCDFIndex,
+                                           &groundwaterHead);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementGroundwaterHead in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterErrorVarID, netCDFIndex,
+                                           &groundwaterError);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementGroundwaterError in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshElementGroundwaterRechargeVarID, netCDFIndex,
+                                           &groundwaterRecharge);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshElementGroundwaterRecharge in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      for (ii = 0; !error && ii < 3; ii++)
+        {
+          netCDFIndex[0] = thisIndex;
+          netCDFIndex[1] = ii;
+
+          ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeSurfacewaterFlowRateVarID, netCDFIndex,
+                                           &surfacewaterFlowRate[ii]);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeSurfacewaterFlowRate in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeSurfacewaterCumulativeFlowVarID,
+                                               netCDFIndex, &surfacewaterCumulativeFlow[ii]);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeSurfacewaterCumulativeFlow in NetCDF state file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeGroundwaterFlowRateVarID, netCDFIndex,
+                                               &groundwaterFlowRate[ii]);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeGroundwaterFlowRate in NetCDF state file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          
+          if (!error)
+            {
+              ncErrorCode = nc_put_var1_double(fileManagerLocalBranch->stateGroupID, fileManagerLocalBranch->meshEdgeGroundwaterCumulativeFlowVarID,
+                                               netCDFIndex, &groundwaterCumulativeFlow[ii]);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in MeshElement::handleOutput: unable to write to variable meshEdgeGroundwaterCumulativeFlow in NetCDF state file.  "
+                          "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                  error = true;
+                }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+    }
+  
+  if (!error)
+    {
+      contribute();
+    }
+  else
+    {
+      CkExit();
+    }
 }
 
 void MeshElement::handleCheckInvariant()

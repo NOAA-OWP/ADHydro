@@ -9,9 +9,14 @@ mainmodule adhydro
     entry ADHydro(CkArgMsg* msg);
     entry [reductiontarget] void inputFilesOpened();
     entry [reductiontarget] void inputFilesRead();
-    entry [reductiontarget] void filesClosed();
-    entry [reductiontarget] void doTimestep();
+    entry [reductiontarget] void inputFilesClosed();
+    entry [reductiontarget] void createOutputFiles();
+    entry [reductiontarget] void checkOutputTime();
+    entry [reductiontarget] void writeOutputFiles();
+    entry [reductiontarget] void outputFilesWritten();
+    entry [reductiontarget] void outputFilesClosed();
     entry [reductiontarget] void timestepDone(double dtNew);
+    entry void endProgram();
     
     readonly int meshProxySize;
   };

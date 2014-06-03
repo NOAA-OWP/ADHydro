@@ -9,7 +9,7 @@
 #include "adhydro.decl.h"
 #pragma GCC diagnostic warning "-Wsign-compare"
 
-// Here is a call graph for the operation of the adhydro program:
+// Here is a call graph for the normal operation of the adhydro program:
 //
 //              |
 // _______>  or | = call
@@ -19,27 +19,52 @@
 // ------->  or : = callback
 //              V
 //
-//              ADHydro(CkArgMsg* msg)
-//                     :
-//                     :
-//                     :
-//                     V
-//              inputFilesOpened()
-//                     :
-//                     :
-//                     :
-//                     V
-//              inputFilesRead()
-//              |            |
-//              |            |
-//              |            |
-//              V            V
-// checkInvariant() -------> doTimestep() _______> CkExit()
-//              ^            ^    :
-//              |            |    :
-//              |            |    :
-//              |            |    V
-//          timestepDone(double dtNew)
+//         ADHydro(CkArgMsg* msg)
+//                :
+//                :
+//                :
+//                V
+//         inputFilesOpened()
+//                :
+//                :
+//                :
+//                V
+//         inputFilesRead()
+//                :
+//                :
+//                :
+//                V
+//         inputFilesClosed()
+//         |      |
+//         |      |
+//         |      |
+//         |      V
+//         |    checkInvariant() <________________
+//         |      :       :                       |
+//         |      :       :                       |
+//         |      :       :                       |
+//         V      V       V                       |
+// createOutputFiles()    checkOutputTime() <_____|
+//                :       :          |            |
+//                :       :          |            |
+//                :       :          |            |
+//                V       V          |            |
+//         writeOutputFiles()        |            |
+//                :                  |            |
+//                :                  |            |
+//                :                  |            |
+//                V                  |            |
+//         outputFilesWritten()      |            |
+//                |                  |            |
+//                |  ________________|            |
+//                | |                             |
+//                V V                             |
+//         doTimestep() _____> endProgram()       |
+//                :                               |
+//                :                               |
+//                :                               |
+//                V                               |
+//         timestepDone(double dtNew) ____________|
 class ADHydro : public CBase_ADHydro
 {
 public:
@@ -71,46 +96,85 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
 
-  // Callback from file manager after input files are opened for read.
+  // Callback from file manager after input files are opened.
   // Will cause a callback on inputFilesRead.
   void inputFilesOpened();
   
   // Callback from mesh after input files are read to initialize mesh.
+  // Will cause a callback on inputFilesClosed.
   void inputFilesRead();
   
-  // Callback from file manager after files are closed.
-  void filesClosed();
+  // Callback from file manager after input files are closed.
+  // Will call checkInvariant or createOutputFiles.
+  void inputFilesClosed();
+  
+  // Check invariant on member variables and mesh.  Will cause a callback to
+  // the default reduction client set for meshProxy or exit if invariant is
+  // violated.  Default reduction client for meshProxy must already be set to
+  // createOutputFiles or checkOutputTime before calling checkInvariant.
+  void checkInvariant();
+  
+  // Callback from mesh after invariant is checked on user input, or is called
+  // directly if invariant is skipped.  Will cause a callback on
+  // writeOutputFiles.
+  void createOutputFiles();
+  
+  // Callback from mesh after invariant is checked as an internal assertion, or
+  // is called directly if invariant is skipped.  Will cause a callback on
+  // writeOutputFiles.
+  void checkOutputTime();
+  
+  // Callback from file manager after output files are created or opened.
+  // Will cause a callback on outputFilesWritten.
+  void writeOutputFiles();
+  
+  // Callback from Mesh after output files are written.  Will cause a callback
+  // on outputFilesClosed and call doTimestep.
+  void outputFilesWritten();
+  
+  // Callback from file manager after output files are closed.  Does nothing.
+  // We don't need to wait for output files to be closed or trigger anything
+  // when they are closed.
+  void outputFilesClosed();
   
   // If currentTime is less than endTime do a timestep otherwise exit.
-  // Will cause a callback to timestepDone or exit on error.
+  // Will cause a callback to timestepDone.
   void doTimestep();
   
-  // Callback for the dtNew reduction at the end of a timestep.  Exit on error.
+  // Callback for the dtNew reduction at the end of a timestep.  Will call
+  // checkInvariant or checkOutputTime or exit on error.
   //
   // Parameters:
   //
   // dtNew - The minimum new timestep requested by any element.
   void timestepDone(double dtNew);
   
+  // Wait until file manager closes all files and then end program.
+  void endProgram();
+  
   // Readonly variable for mesh elements to know the size of their array.
   static int meshProxySize;
   
 private:
   
-  // Check invariant on member variables.  Exit if invariant is violated.
-  void checkInvariant();
+  // Chare proxies.
+  CProxy_MeshElement meshProxy;        // Array of mesh elements.
+  CProxy_FileManager fileManagerProxy; // Group of file managers.
   
-  // Array of mesh elements.
-  CProxy_MeshElement meshProxy;
-  
-  // Group of file managers.
-  CProxy_FileManager fileManagerProxy;
+  // I/O information
+  CkArgMsg* commandLineArguments; // Contains the input and output directory paths.
+  int       geometryGroup;        // The NetCDF group number to use in the geometry file.
+  int       parameterGroup;       // The NetCDF group number to use in the parameter file.
+  int       stateGroup;           // The NetCDF group number to use in the state file.
+  bool      waitForFilesToClose;  // Whether we need to wait for a callback that the file manager has closed all files.
   
   // Time information.
-  double currentTime; // Seconds.
-  double endTime;     // Seconds.
-  double dt;          // Next timestep duration in seconds.
-  int    iteration;   // Iteration number to put on all messages next timestep.
+  double currentTime;    // Seconds.
+  double endTime;        // Seconds.
+  double dt;             // Next timestep duration in seconds.
+  double outputPeriod;   // Duration between output phases in seconds.
+  double nextOutputTime; // Time of next output phase in seconds.
+  int    iteration;      // Iteration number to put on all messages next timestep.
 };
 
 #endif // __ADHYDRO_H__

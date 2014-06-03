@@ -11,7 +11,7 @@ NETCDFLDFLAGS  := -L$(HDF5DIR)/src/.libs -L$(NETCDFDIR)/liblib/.libs -Wl,--start
 #METISDIR       := /project/CI-WATER/rsteinke/metis-5.1.0
 METISDIR       := /user2/rsteinke/Desktop/metis-5.1.0
 METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall
+CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -language charm++ -g -Wall
 
 EXES := adhydro \
