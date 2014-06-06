@@ -212,11 +212,65 @@ void ADHydro::checkOutputTime()
 
 void ADHydro::writeOutputFiles()
 {
-  // Set callback.
-  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, outputFilesWritten), thisProxy));
+  bool         error                  = false;                            // Error flag.
+  FileManager* fileManagerLocalBranch = fileManagerProxy.ckLocalBranch(); // For accessing public member variables.
+  int          ncErrorCode;                                               // Return value of NetCDF functions.
   
-  // Write NetCDF output files.
-  meshProxy.output();
+  // Write attributes.
+  if (FileManager::OPEN_FOR_READ_WRITE == fileManagerLocalBranch->stateFileStatus)
+    {
+      ncErrorCode = nc_put_att_double(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &currentTime);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in ADHydro::writeOutputFiles: unable to write time attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &geometryGroup);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in ADHydro::writeOutputFiles: unable to write geometryGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &parameterGroup);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in ADHydro::writeOutputFiles: unable to write parameterGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  if (!error)
+    {
+      // Set callback.
+      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, outputFilesWritten), thisProxy));
+
+      // Write NetCDF output files.
+      meshProxy.output();
+    }
+  else
+    {
+      CkExit();
+    }
 }
 
 void ADHydro::outputFilesWritten()

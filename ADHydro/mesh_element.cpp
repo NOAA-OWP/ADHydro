@@ -1117,7 +1117,7 @@ void MeshElement::moveSurfacewater()
 
 void MeshElement::handleOutput()
 {
-  bool         error = false;                                             // Error flag.
+  bool         error                  = false;                            // Error flag.
   int          ii;                                                        // Loop counter.
   FileManager* fileManagerLocalBranch = fileManagerProxy.ckLocalBranch(); // Can't cache local branch because of migration.  Get it from the proxy each time.
   int          ncErrorCode;                                               // Return value of NetCDF functions.

@@ -125,7 +125,7 @@ public:
   void checkOutputTime();
   
   // Callback from file manager after output files are created or opened.
-  // Will cause a callback on outputFilesWritten.
+  // Will cause a callback on outputFilesWritten or exit on error.
   void writeOutputFiles();
   
   // Callback from Mesh after output files are written.  Will cause a callback
