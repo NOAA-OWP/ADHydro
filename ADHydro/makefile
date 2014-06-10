@@ -14,9 +14,10 @@ METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer Me
 CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -language charm++ -g -Wall
 
-EXES := adhydro \
-        adhydro_input_preprocessing
-
+EXES := adhydro                     \
+        adhydro_input_preprocessing \
+        adhydro_create_xmf_file
+	
 ADHYDRO_OBJS := adhydro.o      \
                 mesh_element.o \
                 file_manager.o \
@@ -61,6 +62,9 @@ adhydro_input_preprocessing.o: adhydro_input_preprocessing.cpp         \
                                file_manager.decl.h                     \
                                all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
+
+adhydro_create_xmf_file: adhydro_create_xmf_file.c
+	gcc -lnetcdf adhydro_create_xmf_file.c -o adhydro_create_xmf_file
 
 adhydro_input_preprocessing.decl.h \
 adhydro_input_preprocessing.def.h: adhydro_input_preprocessing.ci \
