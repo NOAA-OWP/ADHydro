@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">
+<Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <Domain>
+    <Grid CollectionType="Temporal" GridType="Collection" Name="Mesh">
+
+      <Grid GridType="Uniform">
+        <Time Value="0.000000"/>
+        <Topology NumberOfElements="36861" Type="Triangle">
+          <DataItem DataType="Int" Dimensions="36861 3" Format="HDF">geometry.nc:/0/meshElementNodeIndices</DataItem>
+        </Topology>
+        <Geometry Type="XYZ">
+          <DataItem DataType="Float" Dimensions="19337 3" Format="HDF" Precision="8">geometry.nc:/0/meshNodeXYZSurfaceCoordinates</DataItem>
+        </Geometry>
+        <Attribute AttributeType="Scalar" Center="Node" Name="NodeZBedrock">
+          <DataItem DataType="Float" Dimensions="19337" Format="HDF" Precision=" 8">geometry.nc:/0/meshNodeZBedrockCoordinates</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeLength">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeLength</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeNormalX">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeNormalX</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeNormalY">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeNormalY</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementX">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementX</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementY">
+          
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementY</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementZSurface">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementZSurface</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementZBedrock">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementZBedrock</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementArea">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementArea</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementCatchment">
+          <DataItem DataType="Int" Dimensions="36861" Format="HDF">parameter.nc:/0/meshElementCatchment</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementConductivity">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">parameter.nc:/0/meshElementConductivity</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementPorosity">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">parameter.nc:/0/meshElementPorosity</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementManningsN">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">parameter.nc:/0/meshElementManningsN</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementSurfacewaterDepth">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementSurfacewaterDepth</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementSurfacewaterError">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementSurfacewaterError</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementGroundwaterHead">
+           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterHead</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementGroundwaterError">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterError</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Cell" Name="ElementGroundwaterRecharge">
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterRecharge</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeSurfacewaterFlowRate">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">state.nc:/0/meshEdgeSurfacewaterFlowRate</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeSurfacewaterCumulativeFlow">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">state.nc:/0/meshEdgeSurfacewaterCumulativeFlow</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeGroundwaterFlowRate">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">state.nc:/0/meshEdgeGroundwaterFlowRate</DataItem>
+        </Attribute>
+        <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeGroundwaterCumulativeFlow">
+          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">state.nc:/0/meshEdgeGroundwaterCumulativeFlow</DataItem>
+        </Attribute>
+      </Grid>
+
+    </Grid>
+  </Domain>
+</Xdmf>
