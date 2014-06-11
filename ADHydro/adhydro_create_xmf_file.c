@@ -60,6 +60,7 @@ fprintf(fp,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 fprintf(fp,"<!DOCTYPE Xdmf SYSTEM \"Xdmf.dtd\">\n");
 fprintf(fp,"<Xdmf Version=\"2.0\" xmlns:xi=\"http://www.w3.org/2001/XInclude\">\n");
 fprintf(fp,"  <Domain>\n");
+fprintf(fp,"    <Grid CollectionType=\"Temporal\" GridType=\"Collection\" Name=\"Mesh\">\n\n"); 
  
  
  for (n = 0; n < numgrps_stt; n++)
@@ -88,7 +89,6 @@ fprintf(fp,"  <Domain>\n");
   	printf("# nodes %i\n", nnode);
 
 // for all groups
-fprintf(fp,"    <Grid CollectionType=\"Temporal\" GridType=\"Collection\" Name=\"Mesh\">\n\n"); 
 fprintf(fp,"      <Grid GridType=\"Uniform\">\n");
 fprintf(fp,"        <Time Value=\"%f\"/>\n",time);
 fprintf(fp,"        <Topology NumberOfElements=\"%i\" Type=\"Triangle\">\n",nele);
