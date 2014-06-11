@@ -11,7 +11,7 @@
 int main(int argc, char*argv[])
 {
  char *namestring;
- int status,n;
+ int err_status,n;
  int ncid_stt, ncid_geo, ncid_par;
  int numgrps_stt, numgrps_geo, numgrps_par;
  int *grpid_stt = NULL, *grpid_geo = NULL;
@@ -21,39 +21,61 @@ int main(int argc, char*argv[])
  size_t nele, nnode;
  
  namestring = malloc( sizeof( char )*( 1+ strlen(argv[1]) + strlen("parameter.nc") ) );
-
+ 
  sprintf(namestring, "%s%s",argv[1],"mesh.xmf");
  FILE * fp;
  fp = fopen (namestring, "w");
    
  // Openning the state.nc file
  sprintf(namestring, "%s%s",argv[1],"state.nc");
- status = nc_open(namestring, 0, &ncid_stt);
-
+ err_status = nc_open(namestring, 0, &ncid_stt);
+ if (err_status != NC_NOERR)
+ {
+      printf("Problem openning file %s\n", namestring);
+      exit(0);
+ }
+ 
  // Getting the # of groups and the groups Ids 
- status = nc_inq_grps(ncid_stt, &numgrps_stt, NULL);
- printf("# groups %i\n", numgrps_stt);
+ err_status = nc_inq_grps(ncid_stt, &numgrps_stt, NULL);
+ if (err_status != NC_NOERR)
+ {
+      printf("Problem getting the # of groups of state.nc\n" );
+      exit(0);
+ }
+ 
  grpid_stt = malloc(sizeof(int)*numgrps_stt);
- status = nc_inq_grps(ncid_stt, NULL, grpid_stt);
+ err_status = nc_inq_grps(ncid_stt, NULL, grpid_stt);
+ if (err_status != NC_NOERR)
+ {
+      printf("Problem getting the groups ids of state.nc\n" );
+      exit(0);
+ }
  
   // Openning the geometry.nc file
  sprintf(namestring, "%s%s",argv[1],"geometry.nc");
- status = nc_open(namestring, 0, &ncid_geo);
+ err_status = nc_open(namestring, 0, &ncid_geo);
+ if (err_status != NC_NOERR)
+ {
+      fprintf("Problem openning file %s\n", namestring);
+      exit(0);
+ }
  
  // Getting the # of groups and the groups Ids 
- status = nc_inq_grps(ncid_geo, &numgrps_geo, NULL);
+ err_status = nc_inq_grps(ncid_geo, &numgrps_geo, NULL);
+ if (err_status != NC_NOERR)
+ {
+       printf("Problem getting the # of groups of geometry.nc\n" );
+       exit(0);
+ }
+ 
  grpid_geo = malloc(sizeof(int)*numgrps_geo);
- status = nc_inq_grps(ncid_geo, NULL, grpid_geo);
- 
-  // Openning the parameter.nc file
- sprintf(namestring, "%s%s",argv[1],"parameter.nc");
- status = nc_open(namestring, 0, &ncid_par);
- 
- // Getting the # of groups and the groups Ids 
- //status = nc_inq_grps(ncid_par, &numgrps_par, NULL);
- //grpid_par = malloc(sizeof(int)*numgrps_par);
- //status = nc_inq_grps(ncid_par, NULL, grpid_par);
- 
+ err_status = nc_inq_grps(ncid_geo, NULL, grpid_geo);
+ if (err_status != NC_NOERR)
+ {
+      printf("Problem getting the groups ids of geometry.nc\n" );
+      exit(0);
+ }
+
  free(namestring);
   
 fprintf(fp,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -65,27 +87,57 @@ fprintf(fp,"  <Domain>\n");
  for (n = 0; n < numgrps_stt; n++)
  {
  	// time step
- 	printf("group %i ",n);
- 	status = nc_get_att_double (grpid_stt[n], NC_GLOBAL, "time", &time);
- 	printf("time %f\n", time);
-
- 	status = nc_get_att_int (grpid_stt[n], NC_GLOBAL, "geometryGroup", &grp_geo);
- 	printf("group geo %i\n", grp_geo);
+ 	err_status = nc_get_att_double (grpid_stt[n], NC_GLOBAL, "time", &time);
+ 	if (err_status != NC_NOERR)
+ 	{
+ 	     printf("Problem getting attributes of state.nc\n");
+ 	     exit(0);
+ 	}
 	
-	status = nc_get_att_int (grpid_stt[n], NC_GLOBAL, "parameterGroup", &grp_par);
- 	printf("group par %i\n", grp_par);
- 
+ 	err_status = nc_get_att_int (grpid_stt[n], NC_GLOBAL, "geometryGroup", &grp_geo);
+ 	
+ 	if (err_status != NC_NOERR)
+ 	{
+ 	     printf("Problem getting attributes of state.nc\n");
+      	     exit(0);
+ 	}
+	
+	err_status = nc_get_att_int (grpid_stt[n], NC_GLOBAL, "parameterGroup", &grp_par);
+ 	if (err_status != NC_NOERR)
+ 	{
+     	    printf("Problem getting attributes of state.nc\n");
+	    exit(0);
+ 	}
 
- 	status = nc_inq_dimid (grpid_geo[ grp_geo ],"numberOfMeshElements" , &neleID);
+ 	err_status = nc_inq_dimid (grpid_geo[ grp_geo ],"numberOfMeshElements" , &neleID);
+ 	if (err_status != NC_NOERR)
+ 	{
+      	    printf("Problem getting dimmesion id from geometry.nc\n");
+   	    exit(0);
+ 	}
+ 	
  	// # elements  
- 	status = nc_inq_dimlen  (grpid_geo[ grp_geo], neleID, &nele);
-  	printf("# ele %i\n", nele);
+ 	err_status = nc_inq_dimlen  (grpid_geo[ grp_geo], neleID, &nele);
+  	if (err_status != NC_NOERR)
+ 	{
+	    printf("Problem getting dimmesion from geometry.nc\n");
+      	    exit(0);
+ 	}
   	
-  	status = nc_inq_dimid (grpid_geo[ grp_geo ],"numberOfMeshNodes" , &nnodeID);
-  	
+  	err_status = nc_inq_dimid (grpid_geo[ grp_geo ],"numberOfMeshNodes" , &nnodeID);
+  	if (err_status != NC_NOERR)
+ 	{
+      	   printf("Problem getting dimmesion id from geometry.nc\n");
+           exit(0);
+ 	}
+ 	
  	// dimension size  
- 	status = nc_inq_dimlen  (grpid_geo[ grp_geo ], nnodeID, &nnode);
-  	printf("# nodes %i\n", nnode);
+ 	err_status = nc_inq_dimlen  (grpid_geo[ grp_geo ], nnodeID, &nnode);
+  	if (err_status != NC_NOERR)
+ 	{
+    	    printf("Problem getting dimmesion from geometry.nc\n");
+      	    exit(0);
+ 	}
 
 // for all groups
 fprintf(fp,"    <Grid CollectionType=\"Temporal\" GridType=\"Collection\" Name=\"Mesh\">\n\n"); 
