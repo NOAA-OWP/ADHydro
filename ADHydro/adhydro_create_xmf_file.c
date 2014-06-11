@@ -82,6 +82,7 @@ fprintf(fp,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 fprintf(fp,"<!DOCTYPE Xdmf SYSTEM \"Xdmf.dtd\">\n");
 fprintf(fp,"<Xdmf Version=\"2.0\" xmlns:xi=\"http://www.w3.org/2001/XInclude\">\n");
 fprintf(fp,"  <Domain>\n");
+fprintf(fp,"    <Grid CollectionType=\"Temporal\" GridType=\"Collection\" Name=\"Mesh\">\n\n"); 
  
  
  for (n = 0; n < numgrps_stt; n++)
@@ -140,7 +141,6 @@ fprintf(fp,"  <Domain>\n");
  	}
 
 // for all groups
-fprintf(fp,"    <Grid CollectionType=\"Temporal\" GridType=\"Collection\" Name=\"Mesh\">\n\n"); 
 fprintf(fp,"      <Grid GridType=\"Uniform\">\n");
 fprintf(fp,"        <Time Value=\"%f\"/>\n",time);
 fprintf(fp,"        <Topology NumberOfElements=\"%i\" Type=\"Triangle\">\n",nele);
@@ -149,7 +149,7 @@ fprintf(fp,"        </Topology>\n");
 fprintf(fp,"        <Geometry Type=\"XYZ\">\n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshNodeXYZSurfaceCoordinates</DataItem>\n",nnode,grp_geo);
 fprintf(fp,"        </Geometry>\n");
-fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Node\" Name=\"ZBedrock\">\n");
+fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Node\" Name=\"NodeZBedrock\">\n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\" 8\">geometry.nc:/%i/meshNodeZBedrockCoordinates</DataItem>\n",nnode,grp_geo);
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"EdgeLength\">\n");
@@ -159,7 +159,7 @@ fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"E
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshEdgeNormalX</DataItem>\n",nele,grp_geo);
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"EdgeNormalY\">\n");
-fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementY</DataItem>\n",nele,grp_geo);
+fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshEdgeNormalY</DataItem>\n",nele,grp_geo);
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"ElementX\">\n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementX</DataItem>\n",nele,grp_geo);
@@ -169,7 +169,7 @@ fprintf(fp,"          \n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementY</DataItem>\n",nele,grp_geo);
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"ElementZSurface\">\n");
-fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementZSurface</DataItem>\n");
+fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementZSurface</DataItem>\n",nele,grp_geo);
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"ElementZBedrock\">\n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/meshElementZBedrock</DataItem>\n",nele,grp_geo);
@@ -209,6 +209,12 @@ fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"
 fprintf(fp,"        </Attribute>\n"); 
 fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"EdgeSurfacewaterCumulativeFlow\">\n");
 fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"HDF\" Precision=\"8\">state.nc:/%i/meshEdgeSurfacewaterCumulativeFlow</DataItem>\n",nele,n); 
+fprintf(fp,"        </Attribute>\n");
+fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"EdgeGroundwaterFlowRate\">\n"); 
+fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"HDF\" Precision=\"8\">state.nc:/%i/meshEdgeGroundwaterFlowRate</DataItem>\n",nele,n);
+fprintf(fp,"        </Attribute>\n"); 
+fprintf(fp,"        <Attribute AttributeType=\"Scalar\" Center=\"Edge\" Name=\"EdgeGroundwaterCumulativeFlow\">\n");
+fprintf(fp,"          <DataItem DataType=\"Float\" Dimensions=\"%i 3\" Format=\"HDF\" Precision=\"8\">state.nc:/%i/meshEdgeGroundwaterCumulativeFlow</DataItem>\n",nele,n); 
 fprintf(fp,"        </Attribute>\n");
 fprintf(fp,"      </Grid>\n\n");
  

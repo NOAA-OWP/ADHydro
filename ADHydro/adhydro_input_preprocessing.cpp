@@ -312,6 +312,51 @@ void ADHydroInputPreprocessing::filesOpened()
   int          neighbor2;                                                 // Element index of element neighbor.
   bool         foundIt;                                                   // Flag to indicate element found in neighbor list.
   
+  // Stata data is for time 0.
+  coordinate = 0.0;
+  
+  ncErrorCode = nc_put_att_double(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &coordinate);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(NC_NOERR == ncErrorCode))
+    {
+      CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write time attribute in NetCDF state file.  NetCDF error message: %s.\n",
+              nc_strerror(ncErrorCode));
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  
+  if (!error)
+    {
+      // State data corresponds to geometry group 0 and parameter group 0.
+      index = 0;
+      
+      ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &index);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write geometryGroup attribute in NetCDF state file.  "
+                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &index);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write parameterGroup attribute in NetCDF state file.  "
+                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
   for (ii = 0; !error && ii < fileManagerLocalBranch->numberOfMeshNodes; ii++)
     {
       // Read node file.

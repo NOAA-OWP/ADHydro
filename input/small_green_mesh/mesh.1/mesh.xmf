@@ -3,16 +3,17 @@
 <Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
   <Domain>
     <Grid CollectionType="Temporal" GridType="Collection" Name="Mesh">
+
       <Grid GridType="Uniform">
-        <Time Value="0.0"/>
+        <Time Value="0.000000"/>
         <Topology NumberOfElements="36861" Type="Triangle">
           <DataItem DataType="Int" Dimensions="36861 3" Format="HDF">geometry.nc:/0/meshElementNodeIndices</DataItem>
         </Topology>
         <Geometry Type="XYZ">
           <DataItem DataType="Float" Dimensions="19337 3" Format="HDF" Precision="8">geometry.nc:/0/meshNodeXYZSurfaceCoordinates</DataItem>
         </Geometry>
-        <Attribute AttributeType="Scalar" Center="Node" Name="ZBedrock">
-          <DataItem DataType="Float" Dimensions="19337" Format="HDF" Precision="8">geometry.nc:/0/meshNodeZBedrockCoordinates</DataItem>
+        <Attribute AttributeType="Scalar" Center="Node" Name="NodeZBedrock">
+          <DataItem DataType="Float" Dimensions="19337" Format="HDF" Precision=" 8">geometry.nc:/0/meshNodeZBedrockCoordinates</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeLength">
           <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeLength</DataItem>
@@ -21,12 +22,13 @@
           <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeNormalX</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Edge" Name="EdgeNormalY">
-          <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeNormalY</DataItem>
+          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshEdgeNormalY</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Cell" Name="ElementX">
           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementX</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Cell" Name="ElementY">
+          
           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">geometry.nc:/0/meshElementY</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Cell" Name="ElementZSurface">
@@ -57,7 +59,7 @@
           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementSurfacewaterError</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Cell" Name="ElementGroundwaterHead">
-          <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterHead</DataItem>
+           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterHead</DataItem>
         </Attribute>
         <Attribute AttributeType="Scalar" Center="Cell" Name="ElementGroundwaterError">
           <DataItem DataType="Float" Dimensions="36861" Format="HDF" Precision="8">state.nc:/0/meshElementGroundwaterError</DataItem>
@@ -78,7 +80,7 @@
           <DataItem DataType="Float" Dimensions="36861 3" Format="HDF" Precision="8">state.nc:/0/meshEdgeGroundwaterCumulativeFlow</DataItem>
         </Attribute>
       </Grid>
+
     </Grid>
   </Domain>
 </Xdmf>
-
