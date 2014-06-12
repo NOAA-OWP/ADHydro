@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <netcdf.h>
+#include <string.h>
 
 // Program to convert netcdf files to txt
 // IMPORTANT: Considers that the name of the groups
@@ -11,35 +12,38 @@
 int main(int argc, char*argv[])
 {
  char *namestring;
+ char tmp;
  int err_status,n;
- int ncid_stt, ncid_geo, ncid_par;
- int numgrps_stt, numgrps_geo, numgrps_par;
+ int ncid_stt, ncid_geo;
+ int numgrps_stt, numgrps_geo;
  int *grpid_stt = NULL, *grpid_geo = NULL;
  double time;
  int grp_geo, grp_par, grp_stt;
  int neleID, nnodeID;
  size_t nele, nnode;
  
- namestring = malloc( sizeof( char )*( 1+ strlen(argv[1]) + strlen("parameter.nc") ) );
+ if (argc != 2)
+ {
+	printf("Path to the directory of the input files not included or too many parameters passed.\n");
+	exit(0); 
+ }
  
- sprintf(namestring, "%s%s",argv[1],"mesh.xmf");
- FILE * fp;
- fp = fopen (namestring, "w");
-   
+ namestring = malloc( sizeof( char )*( 1+ strlen(argv[1]) + strlen("/parameter.nc") ) );
+  
  // Openning the state.nc file
- sprintf(namestring, "%s%s",argv[1],"state.nc");
+ sprintf(namestring, "%s%s",argv[1],"/state.nc");
  err_status = nc_open(namestring, 0, &ncid_stt);
  if (err_status != NC_NOERR)
  {
-      printf("Problem openning file %s\n", namestring);
-      exit(0);
+        printf("Problem openning file %s\n", namestring);
+        exit(0);
  }
  
  // Getting the # of groups and the groups Ids 
  err_status = nc_inq_grps(ncid_stt, &numgrps_stt, NULL);
  if (err_status != NC_NOERR)
  {
-      printf("Problem getting the # of groups of state.nc\n" );
+      printf("Problem getting the # of groups of %s\n",namestring );
       exit(0);
  }
  
@@ -52,19 +56,19 @@ int main(int argc, char*argv[])
  }
  
   // Openning the geometry.nc file
- sprintf(namestring, "%s%s",argv[1],"geometry.nc");
+ sprintf(namestring, "%s%s",argv[1],"/geometry.nc");
  err_status = nc_open(namestring, 0, &ncid_geo);
  if (err_status != NC_NOERR)
  {
-      fprintf("Problem openning file %s\n", namestring);
-      exit(0);
+      		printf("Problem openning file %s\n", namestring);
+     		 exit(0);
  }
  
  // Getting the # of groups and the groups Ids 
  err_status = nc_inq_grps(ncid_geo, &numgrps_geo, NULL);
  if (err_status != NC_NOERR)
  {
-       printf("Problem getting the # of groups of geometry.nc\n" );
+       printf("Problem getting the # of groups of %s\n",namestring);
        exit(0);
  }
  
@@ -72,10 +76,14 @@ int main(int argc, char*argv[])
  err_status = nc_inq_grps(ncid_geo, NULL, grpid_geo);
  if (err_status != NC_NOERR)
  {
-      printf("Problem getting the groups ids of geometry.nc\n" );
+       printf("Problem getting the # of groups of %s\n",namestring);
       exit(0);
  }
 
+ sprintf(namestring, "%s%s",argv[1],"mesh.xmf");
+ FILE * fp;
+ fp = fopen (namestring, "w");
+ 
  free(namestring);
   
 fprintf(fp,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -227,6 +235,19 @@ fprintf(fp,"</Xdmf>\n");
  free(grpid_geo);
  free(grpid_stt);
  
+ err_status = nc_close(ncid_stt);
+ if (err_status != NC_NOERR)
+ 	{
+      	   printf("Problem closing ../state.nc\n");
+           exit(0);
+ 	}
+
+ if (err_status != NC_NOERR)
+ 	{
+      	   printf("Problem closing ../geometry.nc\n");
+           exit(0);
+ 	}
+ 	
  return 0;
  }
   
