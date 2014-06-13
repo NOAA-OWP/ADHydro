@@ -31,6 +31,7 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
                                               // Used for three vertices and edges for each element and three coordinates (X, Y, Z) for each node.
   int     parameterNumberOfMeshElementsDimID; // NetCDF Dimension ID in parameter file for number of mesh elements.
   int     stateNumberOfMeshElementsDimID;     // NetCDF Dimension ID in state file for number of mesh elements.
+  int     stateNumberOfMeshNodesDimID;        // NetCDF Dimension ID in state file for number of mesh nodes.
   int     stateThreeDimID;                    // NetCDF Dimension ID in state file for dimension size of three.  Used for three edges for each element.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -598,6 +599,21 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
           if (!(NC_NOERR == ncErrorCode))
             {
               CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshElements in NetCDF state file.  "
+                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      // numberOfMeshNodes is not used for any variables in the state file, but it makes creating a .xmf file easier to have it here.
+      if (!error)
+        {
+          ncErrorCode = nc_def_dim(stateGroupID, "numberOfMeshNodes", numberOfMeshNodesToCreate, &stateNumberOfMeshNodesDimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshNodes in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
