@@ -1,12 +1,12 @@
 #CHARMDIR       := /project/CI-WATER/rsteinke/charm
 CHARMC         := $(CHARMDIR)/bin/charmc
 #HDF5DIR        := /apps/HDF5-mpi/intel/14.0.0/1.8.12
-HDF5DIR        := /user2/rsteinke/Desktop/hdf5-1.8.12
+HDF5DIR        := /opt
 #NETCDFDIR      := /apps/netcdf-mpi/intel/14.0.0/4.3.2
-NETCDFDIR      := /user2/rsteinke/Desktop/netcdf-4.3.2
+NETCDFDIR      := /opt
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 #NETCDFLDFLAGS  := -L$(HDF5DIR)/lib -L$(NETCDFDIR)/lib -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-NETCDFLDFLAGS  := -L$(HDF5DIR)/src/.libs -L$(NETCDFDIR)/liblib/.libs -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+NETCDFLDFLAGS  := -L$(HDF5DIR)/lib64 -L$(NETCDFDIR)/lib64 -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 #METISDIR       := /project/CI-WATER/rsteinke/metis-5.1.0
 #METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
 METISLDFLAGS   := -lmetis -balancer MetisLB
