@@ -2,6 +2,20 @@
 #include "all.h"
 #include <netcdf.h>
 
+static void progressBar(int currentProgress, int maxProgress)
+{
+  static const char* progressMessage = "--10---20---30---40---50---60---70---80---90--Done";
+  double             previousProgressFraction   = (double)(currentProgress - 1) / maxProgress;
+  int                previousProgressCharacters = strlen(progressMessage) * previousProgressFraction;
+  double             currentProgressFraction    = (double) currentProgress      / maxProgress;
+  int                currentProgressCharacters  = strlen(progressMessage) * currentProgressFraction;
+  
+  while (previousProgressCharacters < currentProgressCharacters)
+    {
+      CkPrintf("%c", progressMessage[previousProgressCharacters++]);
+    }
+}
+
 ADHydroInputPreprocessing::ADHydroInputPreprocessing(CkArgMsg* msg)
 {
   bool  error      = false; // Error flag.
@@ -357,6 +371,8 @@ void ADHydroInputPreprocessing::filesOpened()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
+  CkPrintf("Writing nodes:          ");
+  
   for (ii = 0; !error && ii < fileManagerLocalBranch->numberOfMeshNodes; ii++)
     {
       // Read node file.
@@ -488,7 +504,11 @@ void ADHydroInputPreprocessing::filesOpened()
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
+      
+      progressBar(ii + 1, fileManagerLocalBranch->numberOfMeshNodes);
     }
+  
+  CkPrintf("\nWriting elements:       ");
   
   for (ii = 0; !error && ii < fileManagerLocalBranch->numberOfMeshElements; ii++)
     {
@@ -1447,7 +1467,11 @@ void ADHydroInputPreprocessing::filesOpened()
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
+      
+      progressBar(ii + 1, fileManagerLocalBranch->numberOfMeshElements);
     }
+  
+  CkPrintf("\nWriting neighbor edges: ");
   
   // Fill in neighbor reciprocal edges.
   for (ii = 0; !error && ii < fileManagerLocalBranch->numberOfMeshElements; ii++)
@@ -1518,7 +1542,11 @@ void ADHydroInputPreprocessing::filesOpened()
                 }
             }
         }
+      
+      progressBar(ii + 1, fileManagerLocalBranch->numberOfMeshElements);
     }
+  
+  CkPrintf("\n");
   
   // Even if there is an error attempt to close all files.  We can't CkExit here because we need to wait for the fileManagerProxy.closeFiles message to finish.
   closeFiles();
