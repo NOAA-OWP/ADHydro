@@ -79,8 +79,6 @@ mesh_element.o: mesh_element.cpp    \
                 mesh_element.h      \
                 mesh_element.decl.h \
                 mesh_element.def.h  \
-                adhydro.h           \
-                adhydro.decl.h      \
                 file_manager.h      \
                 file_manager.decl.h \
                 surfacewater.h      \
