@@ -33,6 +33,8 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
   int     stateNumberOfMeshElementsDimID;     // NetCDF Dimension ID in state file for number of mesh elements.
   int     stateNumberOfMeshNodesDimID;        // NetCDF Dimension ID in state file for number of mesh nodes.
   int     stateThreeDimID;                    // NetCDF Dimension ID in state file for dimension size of three.  Used for three edges for each element.
+  double  doubleZero = 0.0;                   // Default value for attributes.
+  int     intZero    = 0;                     // Default value for attributes.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -588,9 +590,9 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
-  // Create dimensions.
   if (FILE_MANAGER_WRITE == stateAction || FILE_MANAGER_CREATE == stateAction)
     {
+      // Create dimensions.
       if (!error)
         {
           ncErrorCode = nc_def_dim(stateGroupID, "numberOfMeshElements", numberOfMeshElementsToCreate, &stateNumberOfMeshElementsDimID);
@@ -632,6 +634,49 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      // Create attributes.
+      if (!error)
+        {
+          ncErrorCode = nc_put_att_double(stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::handleOpenFiles: unable to create time attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &intZero);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::handleOpenFiles: unable to create geometryGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &intZero);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::handleOpenFiles: unable to create parameterGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
     }
 
