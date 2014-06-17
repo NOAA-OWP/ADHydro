@@ -332,7 +332,7 @@ void ADHydro::timestepDone(double dtNew)
   iteration++;
   
   // Load balance once after waiting a few iterations to generate load statistics.
-  if (5 == iteration)
+  if (5 == iteration && 1 < CkNumPes())
     {
       CkStartLB();
     }

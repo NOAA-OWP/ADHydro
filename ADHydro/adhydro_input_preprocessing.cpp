@@ -4,7 +4,7 @@
 
 static void progressBar(int currentProgress, int maxProgress)
 {
-  static const char* progressMessage = "--10---20---30---40---50---60---70---80---90--Done";
+  static const char* progressMessage = "--10%--20%--30%--40%--50%--60%--70%--80%--90%-Done";
   double             previousProgressFraction   = (double)(currentProgress - 1) / maxProgress;
   int                previousProgressCharacters = strlen(progressMessage) * previousProgressFraction;
   double             currentProgressFraction    = (double) currentProgress      / maxProgress;
