@@ -40,7 +40,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
 
   // Open NetCDF input files.
   fileManagerProxy.openFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], 0, 0,
-                             FILE_MANAGER_READ, geometryGroup, FILE_MANAGER_READ, parameterGroup, FILE_MANAGER_READ, stateGroup);
+                             FILE_MANAGER_READ, geometryGroup, FILE_MANAGER_READ, parameterGroup, FILE_MANAGER_READ, stateGroup, currentTime);
   
   waitForFilesToClose = true;
 }
@@ -55,7 +55,7 @@ void ADHydro::pup(PUP::er &p)
   bool commandLineArgumentsNonNULL = (NULL != commandLineArguments);
   
   CBase_ADHydro::pup(p);
-  p | meshProxySize;
+  p | meshSize;
   p | meshProxy;
   p | fileManagerProxy;
   p | commandLineArgumentsNonNULL;
@@ -89,10 +89,10 @@ void ADHydro::pup(PUP::er &p)
 void ADHydro::inputFilesOpened()
 {
   // Get mesh size.
-  meshProxySize = fileManagerProxy.ckLocalBranch()->numberOfMeshElements;
+  meshSize = fileManagerProxy.ckLocalBranch()->numberOfMeshElements;
 
   // Create mesh.  MeshElement constructor will read NetCDF input files.
-  meshProxy = CProxy_MeshElement::ckNew(fileManagerProxy, meshProxySize);
+  meshProxy = CProxy_MeshElement::ckNew(fileManagerProxy, meshSize);
 
   // Set callback.
   meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, inputFilesRead), thisProxy));
@@ -127,9 +127,9 @@ void ADHydro::checkInvariant()
 {
   bool error = false; // Error flag.
   
-  if (!(0 < meshProxySize))
+  if (!(0 < meshSize))
     {
-      CkError("ERROR in ADHydro::checkInvariant: meshProxySize must be greater than zero.\n");
+      CkError("ERROR in ADHydro::checkInvariant: meshSize must be greater than zero.\n");
       error = true;
     }
   
@@ -174,8 +174,8 @@ void ADHydro::createOutputFiles()
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeOutputFiles), thisProxy));
 
   // Create NetCDF output files.
-  fileManagerProxy.openFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], meshProxySize, meshProxySize * 3,
-                             FILE_MANAGER_CREATE, geometryGroup, FILE_MANAGER_CREATE, parameterGroup, FILE_MANAGER_CREATE, stateGroup);
+  fileManagerProxy.openFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], meshSize, meshSize * 3,
+                             FILE_MANAGER_CREATE, geometryGroup, FILE_MANAGER_CREATE, parameterGroup, FILE_MANAGER_CREATE, stateGroup, currentTime);
   
   waitForFilesToClose = true;
 }
@@ -198,8 +198,8 @@ void ADHydro::checkOutputTime()
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeOutputFiles), thisProxy));
 
       // Open NetCDF output files.
-      fileManagerProxy.openFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], meshProxySize, meshProxySize * 3,
-                                 FILE_MANAGER_NO_ACTION, geometryGroup, FILE_MANAGER_NO_ACTION, parameterGroup, FILE_MANAGER_WRITE, stateGroup);
+      fileManagerProxy.openFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], meshSize, meshSize * 3,
+                                 FILE_MANAGER_NO_ACTION, geometryGroup, FILE_MANAGER_NO_ACTION, parameterGroup, FILE_MANAGER_WRITE, stateGroup, currentTime);
       
       waitForFilesToClose = true;
     }
@@ -212,65 +212,11 @@ void ADHydro::checkOutputTime()
 
 void ADHydro::writeOutputFiles()
 {
-  bool         error                  = false;                            // Error flag.
-  FileManager* fileManagerLocalBranch = fileManagerProxy.ckLocalBranch(); // For accessing public member variables.
-  int          ncErrorCode;                                               // Return value of NetCDF functions.
-  
-  // Write attributes.
-  if (FileManager::OPEN_FOR_READ_WRITE == fileManagerLocalBranch->stateFileStatus)
-    {
-      ncErrorCode = nc_put_att_double(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &currentTime);
+  // Set callback.
+  meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, outputFilesWritten), thisProxy));
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in ADHydro::writeOutputFiles: unable to write time attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      
-      if (!error)
-        {
-          ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &geometryGroup);
-
-    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in ADHydro::writeOutputFiles: unable to write geometryGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      if (!error)
-        {
-          ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &parameterGroup);
-
-    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in ADHydro::writeOutputFiles: unable to write parameterGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-    }
-  
-  if (!error)
-    {
-      // Set callback.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, outputFilesWritten), thisProxy));
-
-      // Write NetCDF output files.
-      meshProxy.output();
-    }
-  else
-    {
-      CkExit();
-    }
+  // Write NetCDF output files.
+  meshProxy.output();
 }
 
 void ADHydro::outputFilesWritten()
@@ -332,7 +278,7 @@ void ADHydro::timestepDone(double dtNew)
   iteration++;
   
   // Load balance once after waiting a few iterations to generate load statistics.
-  if (5 == iteration)
+  if (5 == iteration && 1 < CkNumPes())
     {
       CkStartLB();
     }
@@ -361,8 +307,6 @@ void ADHydro::endProgram()
       CkExit();
     }
 }
-
-int ADHydro::meshProxySize;
 
 // Suppress warnings in the The Charm++ autogenerated code.
 #pragma GCC diagnostic ignored "-Wunused-variable"

@@ -17,7 +17,5 @@ mainmodule adhydro
     entry [reductiontarget] void outputFilesClosed();
     entry [reductiontarget] void timestepDone(double dtNew);
     entry void endProgram();
-    
-    readonly int meshProxySize;
   };
 };

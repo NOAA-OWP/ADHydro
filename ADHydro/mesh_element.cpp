@@ -1,5 +1,4 @@
 #include "mesh_element.h"
-#include "adhydro.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 #include <netcdf.h>
@@ -1636,7 +1635,7 @@ void MeshElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!((0 <= neighbor[edge] && neighbor[edge] < ADHydro::meshProxySize) ||
+      if (!((0 <= neighbor[edge] /* FIXME check against meshSize && neighbor[edge] < ADHydro::meshSize */) ||
             isBoundary(neighbor[edge])))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: "

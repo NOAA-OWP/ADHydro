@@ -152,12 +152,10 @@ public:
   // Wait until file manager closes all files and then end program.
   void endProgram();
   
-  // Readonly variable for mesh elements to know the size of their array.
-  static int meshProxySize;
-  
 private:
   
   // Chare proxies.
+  int                meshSize;         // Number of mesh elements.
   CProxy_MeshElement meshProxy;        // Array of mesh elements.
   CProxy_FileManager fileManagerProxy; // Group of file managers.
   

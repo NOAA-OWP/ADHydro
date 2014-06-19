@@ -1,23 +1,22 @@
 #CHARMDIR       := /project/CI-WATER/rsteinke/charm
-CHARMDIR       := /user2/rsteinke/Desktop/charm
 CHARMC         := $(CHARMDIR)/bin/charmc
 #HDF5DIR        := /apps/HDF5-mpi/intel/14.0.0/1.8.12
-HDF5DIR        := /user2/rsteinke/Desktop/hdf5-1.8.12
+HDF5DIR        := /opt
 #NETCDFDIR      := /apps/netcdf-mpi/intel/14.0.0/4.3.2
-NETCDFDIR      := /user2/rsteinke/Desktop/netcdf-4.3.2
+NETCDFDIR      := /opt
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 #NETCDFLDFLAGS  := -L$(HDF5DIR)/lib -L$(NETCDFDIR)/lib -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-NETCDFLDFLAGS  := -L$(HDF5DIR)/src/.libs -L$(NETCDFDIR)/liblib/.libs -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+NETCDFLDFLAGS  := -L$(HDF5DIR)/lib64 -L$(NETCDFDIR)/lib64 -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 #METISDIR       := /project/CI-WATER/rsteinke/metis-5.1.0
-METISDIR       := /user2/rsteinke/Desktop/metis-5.1.0
-METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
+#METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
+METISLDFLAGS   := -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
-LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -language charm++ -g -Wall
+LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -g -Wall -language charm++
 
 EXES := adhydro                     \
         adhydro_input_preprocessing \
         adhydro_create_xmf_file
-	
+
 ADHYDRO_OBJS := adhydro.o      \
                 mesh_element.o \
                 file_manager.o \
@@ -26,6 +25,8 @@ ADHYDRO_OBJS := adhydro.o      \
 
 ADHYDRO_INPUT_PREPROCESSING_OBJS := adhydro_input_preprocessing.o \
                                     file_manager.o
+
+ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
 
 all: $(EXES)
 
@@ -63,20 +64,21 @@ adhydro_input_preprocessing.o: adhydro_input_preprocessing.cpp         \
                                all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
-adhydro_create_xmf_file: adhydro_create_xmf_file.c
-	gcc -lnetcdf adhydro_create_xmf_file.c -o adhydro_create_xmf_file
-
 adhydro_input_preprocessing.decl.h \
 adhydro_input_preprocessing.def.h: adhydro_input_preprocessing.ci \
                                    file_manager.ci
 	$(CHARMC) $<
 
+adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
+	$(CC) $^ -o $@ -lnetcdf -g -Wall
+
+adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
+	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+
 mesh_element.o: mesh_element.cpp    \
                 mesh_element.h      \
                 mesh_element.decl.h \
                 mesh_element.def.h  \
-                adhydro.h           \
-                adhydro.decl.h      \
                 file_manager.h      \
                 file_manager.decl.h \
                 surfacewater.h      \
@@ -111,6 +113,6 @@ groundwater.o: groundwater.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_INPUT_PREPROCESSING_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_INPUT_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) *.decl.h *.def.h
 
 .PHONY: clean

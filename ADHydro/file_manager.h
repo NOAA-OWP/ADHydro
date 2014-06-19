@@ -169,9 +169,11 @@ private:
   // parameterGroup               - The name for the group in the parameter file.
   // stateAction                  - What to do for the state file.
   // stateGroup                   - The name for the group in the state file.
+  // time                         - The value for the time attribute in the
+  //                                state file.
   void handleOpenFiles(int directoryLength, char* directory, int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
                        FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
-                       FileManagerActionEnum stateAction, int stateGroup);
+                       FileManagerActionEnum stateAction, int stateGroup, double time);
   
   // Helper function to get the ID of a variable if reading or create a variable if writing.
   //
