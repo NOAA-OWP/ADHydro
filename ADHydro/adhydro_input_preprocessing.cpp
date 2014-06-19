@@ -264,7 +264,8 @@ ADHydroInputPreprocessing::ADHydroInputPreprocessing(CkArgMsg* msg)
 
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydroInputPreprocessing, filesOpened), thisProxy));
 
-      fileManagerProxy.openFiles(strlen(msg->argv[2]) + 1, msg->argv[2], numberOfElements, numberOfNodes, FILE_MANAGER_CREATE, 0, FILE_MANAGER_CREATE, 0, FILE_MANAGER_CREATE, 0);
+      fileManagerProxy.openFiles(strlen(msg->argv[2]) + 1, msg->argv[2], numberOfElements, numberOfNodes, FILE_MANAGER_CREATE, 0, FILE_MANAGER_CREATE, 0,
+                                 FILE_MANAGER_CREATE, 0, 0.0);
     }
   
   // Delete command line argument message.
@@ -325,51 +326,6 @@ void ADHydroInputPreprocessing::filesOpened()
   int          neighbor1;                                                 // Element index of element neighbor.
   int          neighbor2;                                                 // Element index of element neighbor.
   bool         foundIt;                                                   // Flag to indicate element found in neighbor list.
-  
-  // Stata data is for time 0.
-  coordinate = 0.0;
-  
-  ncErrorCode = nc_put_att_double(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &coordinate);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NC_NOERR == ncErrorCode))
-    {
-      CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write time attribute in NetCDF state file.  NetCDF error message: %s.\n",
-              nc_strerror(ncErrorCode));
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  
-  if (!error)
-    {
-      // State data corresponds to geometry group 0 and parameter group 0.
-      index = 0;
-      
-      ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &index);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write geometryGroup attribute in NetCDF state file.  "
-                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  if (!error)
-    {
-      ncErrorCode = nc_put_att_int(fileManagerLocalBranch->stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &index);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to write parameterGroup attribute in NetCDF state file.  "
-                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
   
   CkPrintf("Writing nodes:          ");
   

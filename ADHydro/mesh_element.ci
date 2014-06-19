@@ -69,8 +69,19 @@ module mesh_element
           {
             serial
             {
-              // Disabling this message because it is too verbose.
-              //CkPrintf("NOTE: Discarding unneeded stale calculateBoundaryConditionFlowRate message for iteration %d.\n", iterationThisMessage);
+              // At this point, iteration is the value for the previous timestep that was completed.  
+              if (iteration < iterationThisMessage)
+              {
+                // If a message for the next timestep arrives requeue it.
+                thisProxy[thisIndex].calculateBoundaryConditionFlowRate(iterationThisMessage);
+              }
+              else
+              {
+                // If a message for an earlier timestep arrives discard it.
+                // Disabling this message because it is too verbose.  Any element with no boundary edges discards one of these messages every timestep.
+                //CkPrintf("NOTE: Element %d, completed iteration %d: "
+                //         "Discarding unneeded stale calculateBoundaryConditionFlowRate message for iteration %d.\n", iterationThisMessage);
+              }
             }
           }
 
@@ -79,7 +90,17 @@ module mesh_element
           {
             serial
             {
-              CkPrintf("NOTE: Discarding unneeded stale state message for iteration %d.\n", iterationThisMessage);
+              // At this point, iteration is the value for the previous timestep that was completed.  
+              if (iteration < iterationThisMessage)
+              {
+                // If a message for the next timestep arrives requeue it.
+                thisProxy[thisIndex].stateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
+              }
+              else
+              {
+                // If a message for an earlier timestep arrives discard it.
+                CkPrintf("NOTE: Element %d, completed iteration %d: Discarding unneeded stale state message for iteration %d.\n", iterationThisMessage);
+              }
             }
           }
 
@@ -88,7 +109,17 @@ module mesh_element
           {
             serial
             {
-              CkPrintf("NOTE: Discarding unneeded stale flow rate message for iteration %d.\n", iterationThisMessage);
+              // At this point, iteration is the value for the previous timestep that was completed.  
+              if (iteration < iterationThisMessage)
+              {
+                // If a message for the next timestep arrives requeue it.
+                thisProxy[thisIndex].flowRateMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
+              }
+              else
+              {
+                // If a message for an earlier timestep arrives discard it.
+                CkPrintf("NOTE: Element %d, completed iteration %d: Discarding unneeded stale flow rate message for iteration %d.\n", iterationThisMessage);
+              }
             }
           }
 

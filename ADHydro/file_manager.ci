@@ -11,12 +11,12 @@ module file_manager
       {
         when openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
                        FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
-                       FileManagerActionEnum stateAction, int stateGroup)
+                       FileManagerActionEnum stateAction, int stateGroup, double time)
         {
           serial
           {
             handleOpenFiles(directoryLength, directory, numberOfMeshElementsToCreate, numberOfMeshNodesToCreate, geometryAction, geometryGroup,
-                            parameterAction, parameterGroup, stateAction, stateGroup);
+                            parameterAction, parameterGroup, stateAction, stateGroup, time);
           }
         }
 
@@ -32,7 +32,7 @@ module file_manager
 
     entry void openFiles(int directoryLength, char directory[directoryLength], int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
                          FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
-                         FileManagerActionEnum stateAction, int stateGroup);
+                         FileManagerActionEnum stateAction, int stateGroup, double time);
     entry void closeFiles();
   };
 };

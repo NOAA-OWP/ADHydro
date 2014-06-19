@@ -18,7 +18,7 @@ FileManager::FileManager()
 #pragma GCC diagnostic ignored "-Wswitch"
 void FileManager::handleOpenFiles(int directoryLength, char* directory, int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
                                   FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
-                                  FileManagerActionEnum stateAction, int stateGroup)
+                                  FileManagerActionEnum stateAction, int stateGroup, double time)
 {
   bool    error      = false;                 // Error flag.
   char*   nameString = NULL;                  // Temporary string for file and group names.
@@ -33,8 +33,6 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
   int     stateNumberOfMeshElementsDimID;     // NetCDF Dimension ID in state file for number of mesh elements.
   int     stateNumberOfMeshNodesDimID;        // NetCDF Dimension ID in state file for number of mesh nodes.
   int     stateThreeDimID;                    // NetCDF Dimension ID in state file for dimension size of three.  Used for three edges for each element.
-  double  doubleZero = 0.0;                   // Default value for attributes.
-  int     intZero    = 0;                     // Default value for attributes.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -639,7 +637,7 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
       // Create attributes.
       if (!error)
         {
-          ncErrorCode = nc_put_att_double(stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &doubleZero);
+          ncErrorCode = nc_put_att_double(stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &time);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
@@ -653,7 +651,7 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
       
       if (!error)
         {
-          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &intZero);
+          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &geometryGroup);
 
     #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
@@ -667,7 +665,7 @@ void FileManager::handleOpenFiles(int directoryLength, char* directory, int numb
       
       if (!error)
         {
-          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &intZero);
+          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &parameterGroup);
 
     #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
