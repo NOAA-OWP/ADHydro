@@ -1,0 +1,5 @@
+*.f
+*.mod
+libsmda.a
+consolidate_grib.exe
+Noah_hrldas_beta
