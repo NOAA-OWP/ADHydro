@@ -79,7 +79,7 @@ program consolidate
 #ifndef _GFORTRAN_
   ! For some reason, gfortran does not like this declared external,
   ! but everyone else wants it declared external.  So we use #ifndef
-  integer, external :: iargc
+  integer           :: iargc
 #endif
 
 

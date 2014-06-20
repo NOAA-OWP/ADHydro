@@ -23,9 +23,31 @@
 #  Options for Linux with gfortran
 #
 
-# COMPILERF90	=	gfortran
-# FREESOURCE	=	-ffree-form  -ffree-line-length-none
-# F90FLAGS	=       -g -fconvert=big-endian -fbounds-check
+ COMPILERF90	=	mpif90
+ FREESOURCE	=	-ffree-form  -ffree-line-length-none
+ F90FLAGS	=       -g -fconvert=big-endian -fbounds-check -fno-range-check
+ MODFLAG	=	-I
+ LDFLAGS	=	
+ CPP		=	cpp
+ CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+ LIBS		=	
+ LIBJASPER     =       -ljpeg -ljasper
+ INCJASPER     =       
+ NETCDFMOD	=	-I/opt/include
+ NETCDFLIB	=	-L/opt/lib64 -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+ BZIP2		=       YES
+ BZIP2_LIB	=       -lbz2
+ BZIP2_INCLUDE	=       -I/usr/include
+ RM		= 	rm -f
+ CC		=	mpicc
+#
+#
+#  Options for Linux with pgf90
+#
+
+# COMPILERF90	=	pgf90
+# FREESOURCE	=	-Mfree
+# F90FLAGS	=       -g -byteswapio 
 # MODFLAG	=	-I
 # LDFLAGS	=	
 # CPP		=	cpp
@@ -33,37 +55,11 @@
 # LIBS		=	
 # LIBJASPER     =       -ljpeg -L/usr/lib -ljasper
 # INCJASPER     =       -I/usr/include
-# LIBJASPER     =       -ljpeg -L/scholar/kmanning/jasper/lib -ljasper
-# INCJASPER     =       -I/scholar/kmanning/jasper/include
-# NETCDFMOD	=	-I/scholar/kmanning/netcdf-3.6.3-gfortran/include
-# NETCDFLIB	=	-L/scholar/kmanning/netcdf-3.6.3-gfortran/lib -lnetcdf
-# NETCDFMOD      =       -I/d3/mukul/netcdf413/netcdf-4.1.3-pgi/include
-# NETCDFLIB      =       -L/d3/mukul/netcdf413/netcdf-4.1.3-pgi/lib -lnetcdf
-# BZIP2		=       YES
-# BZIP2_LIB	=       -lbz2
-# BZIP2_INCLUDE	=       -I/usr/include
-# RM		= 	rm -f
-# CC		=	cc
-#
-#
-#  Options for Linux with pgf90
-#
-
- COMPILERF90	=	pgf90
- FREESOURCE	=	-Mfree
- F90FLAGS	=       -g -byteswapio 
- MODFLAG	=	-I
- LDFLAGS	=	
- CPP		=	cpp
- CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
- LIBS		=	
- LIBJASPER     =       -ljpeg -L/usr/lib -ljasper
- INCJASPER     =       -I/usr/include
- NETCDFMOD      =       -I/usr/local/netcdf4-pgi/include
- NETCDFLIB      =       -L/usr/local/netcdf4-pgi/lib -lnetcdf -lnetcdff
- BZIP2          =       YES
- BZIP2_LIB      =       -lbz2
- BZIP2_INCLUDE  =       -I/usr/include
- RM             =       rm -f
- CC             =       cc
+# NETCDFMOD      =       -I/usr/local/netcdf4-pgi/include
+# NETCDFLIB      =       -L/usr/local/netcdf4-pgi/lib -lnetcdf -lnetcdff
+# BZIP2          =       YES
+# BZIP2_LIB      =       -lbz2
+# BZIP2_INCLUDE  =       -I/usr/include
+# RM             =       rm -f
+# CC             =       cc
 
