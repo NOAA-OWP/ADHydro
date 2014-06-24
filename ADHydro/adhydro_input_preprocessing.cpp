@@ -1449,31 +1449,46 @@ void ADHydroInputPreprocessing::filesOpened()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           
           // Search for me in my neighbor's neighbor list.
-          if (!error && !isBoundary(neighbor0))
+          if (!error)
             {
-              foundIt        = false;
-              netCDFIndex[0] = neighbor0;
-
-              for (kk = 0; !error && !foundIt && kk < 3; kk++)
+              if (isBoundary(neighbor0))
                 {
-                  netCDFIndex[1] = kk;
+                  foundIt = true;
+                  kk      = -1; // Write -1 for neighbor reciprocal edge of all boundary edges.
+                }
+              else
+                {
+                  foundIt        = false;
+                  netCDFIndex[0] = neighbor0;
 
-                  ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborIndicesVarID, netCDFIndex,
-                                                &neighbor1);
+                  for (kk = 0; !error && !foundIt && kk < 3; kk++)
+                    {
+                      netCDFIndex[1] = kk;
+
+                      ncErrorCode = nc_get_var1_int(fileManagerLocalBranch->geometryGroupID, fileManagerLocalBranch->meshNeighborIndicesVarID, netCDFIndex,
+                                                    &neighbor1);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-                  if (!(NC_NOERR == ncErrorCode))
-                    {
-                      CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to read variable meshNeighborIndices in NetCDF geometry file.  "
-                              "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-                      error = true;
-                    }
+                      if (!(NC_NOERR == ncErrorCode))
+                        {
+                          CkError("ERROR in ADHydroInputPreprocessing::filesOpened: unable to read variable meshNeighborIndices in NetCDF geometry file.  "
+                                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+                          error = true;
+                        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
-                  // If my neighbor's kkth neighbor is me then neighbor reciprocal edge is kk.
-                  if (!error && neighbor1 == ii)
+                      // If my neighbor's kkth neighbor is me then neighbor reciprocal edge is kk.
+                      if (!error && neighbor1 == ii)
+                        {
+                          foundIt = true;
+                        }
+                    }
+                }
+              
+              if (!error)
+                {
+                  if (foundIt)
                     {
-                      foundIt        = true;
                       netCDFIndex[0] = ii;
                       netCDFIndex[1] = jj;
 
@@ -1489,12 +1504,11 @@ void ADHydroInputPreprocessing::filesOpened()
                         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                     }
-                }
-
-              if (!error && !foundIt)
-                {
-                  CkError("ERROR in ADHydroInputPreprocessing::filesOpened: element %d is not in the neighbor list of its neighbor %d.\n", ii, neighbor0);
-                  error = true;
+                  else
+                    {
+                      CkError("ERROR in ADHydroInputPreprocessing::filesOpened: element %d is not in the neighbor list of its neighbor %d.\n", ii, neighbor0);
+                      error = true;
+                    }
                 }
             }
         }
