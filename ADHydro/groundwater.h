@@ -3,7 +3,7 @@
 
 #include "all.h"
 
-// Calculate the groundwater flow rate in cubic meters per second across a
+// Calculate the groundwater flow rate in cubic meters per second across a mesh
 // boundary edge.  Positive means flow out of the element across the edge.
 // Negative means flow into the element across the edge.
 //
@@ -22,22 +22,23 @@
 //                   meters.
 // vertexY         - Array containing y coordinates of element vertices in
 //                   meters.
-// vertexZSurface  - Array containing surface z coordinates of element vertices
+// vertexZSurface  - Array containing surface Z coordinates of element vertices
 //                   in meters.
 // edgeLength      - Length of edge in meters.
 // edgeNormalX     - X component of edge normal unit vector.
 // edgeNormalY     - Y component of edge normal unit vector.
-// elementZBedrock - Bedrock z coordinate of element center in meters.
+// elementZBedrock - Bedrock Z coordinate of element center in meters.
 // elementArea     - Area of element in square meters.
 // conductivity    - Hydraulic conductivity of element in meters per second.
 // groundwaterHead - Groundwater head of element in meters.
-bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[4], double vertexY[4], double vertexZSurface[4],
-                                 double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea, double conductivity,
-                                 double groundwaterHead);
+bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
+                                     double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea,
+                                     double conductivity, double groundwaterHead);
 
-// Calculate the groundwater flow rate in cubic meters per second between an
-// element and its neighbor.  Positive means flow out of the element into the
-// neighbor.  Negative means flow into the element out of the neighbor.
+// Calculate the groundwater flow rate in cubic meters per second between a
+// mesh element and its mesh neighbor.  Positive means flow out of the element
+// into the neighbor.  Negative means flow into the element out of the
+// neighbor.
 //
 // The governing equation for 2D groundwater flow in an unconfined aquifer is
 // the Boussinesq equation:
@@ -59,9 +60,9 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 // edgeLength                - Length of edge in meters.
 // elementX                  - X coordinate of element center in meters.
 // elementY                  - Y coordinate of element center in meters.
-// elementZSurface           - Surface z coordinate of element center in
+// elementZSurface           - Surface Z coordinate of element center in
 //                             meters.
-// elementZBedrock           - Bedrock z coordinate of element center in
+// elementZBedrock           - Bedrock Z coordinate of element center in
 //                             meters.
 // elementConductivity       - Hydraulic conductivity of element in meters per
 //                             second.
@@ -69,17 +70,47 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 // elementGroundwaterHead    - Groundwater head of element in meters.
 // neighborX                 - X coordinate of neighbor center in meters.
 // neighborY                 - Y coordinate of neighbor center in meters.
-// neighborZSurface          - Surface z coordinate of neighbor center in
+// neighborZSurface          - Surface Z coordinate of neighbor center in
 //                             meters.
-// neighborZBedrock          - Bedrock z coordinate of neighbor center in
+// neighborZBedrock          - Bedrock Z coordinate of neighbor center in
 //                             meters.
 // neighborConductivity      - Hydraulic conductivity of neighbor in meters per
 //                             second.
 // neighborSurfacewaterDepth - Surfacewater depth of neighbor in meters.
 // neighborGroundwaterHead   - Groundwater head of neighbor in meters.
-bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, double elementX, double elementY, double elementZSurface, double elementZBedrock,
-                                        double elementConductivity, double elementSurfacewaterDepth, double elementGroundwaterHead, double neighborX,
-                                        double neighborY, double neighborZSurface, double neighborZBedrock, double neighborConductivity,
-                                        double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+bool groundwaterMeshMeshFlowRate(double* flowRate, double edgeLength, double elementX, double elementY, double elementZSurface, double elementZBedrock,
+                                 double elementConductivity, double elementSurfacewaterDepth, double elementGroundwaterHead, double neighborX,
+                                 double neighborY, double neighborZSurface, double neighborZBedrock, double neighborConductivity,
+                                 double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+
+// Calculate the groundwater flow rate in cubic meters per second between a
+// mesh element and a channel element.  Positive means flow out of the mesh
+// element into the channel element.  Negative means flow out of the channel
+// element into the mesh element.
+//
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// flowRate               - Scalar passed by reference will be filled in with
+//                          the flow rate in cubic meters per second.
+// meshZSurface           - Surface Z coordinate of mesh element center in
+//                          meters.
+// meshZBedrock           - Bedrock Z coordinate of mesh element center in
+//                          meters.
+// meshSurfacewaterDepth  - Surfacewater depth of mesh element in meters.
+// meshGroundwaterHead    - Groundwater head of mesh element in meters.
+// channelZBank           - Bank Z coordinate of channel element in meters.
+// channel ZBed           - Bed Z coordinate of channel element in meters.
+// channelLength          - Length of intersection of mesh and channel elements
+//                          in meters.
+// channelBaseWidth       - Base width of channel element in meters.
+// channelSideSlope       - Side slope of channel element, unitless.
+// channelBedConductivity - Conductivity of channel bed in meters per second.
+// channelBedThickness    - Thickness of channel bed in meters.
+// channelwaterDepth      - Water depth of channel element in meters.
+bool groundwaterMeshChannelFlowRate(double* flowRate, double meshZSurface, double meshZBedrock, double meshSurfacewaterDepth, double meshGroundwaterHead,
+                                    double channelZBank, double channelZBed, double channelLength, double channelBaseWidth, double channelSideSlope,
+                                    double channelBedConductivity, double channelBedThickness, double channelwaterDepth);
 
 #endif // __GROUNDWATER_H__

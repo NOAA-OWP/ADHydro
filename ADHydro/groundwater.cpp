@@ -1,8 +1,8 @@
 #include "groundwater.h"
 
-bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
-                                 double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea, double conductivity,
-                                 double groundwaterHead)
+bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
+                                     double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea,
+                                     double conductivity, double groundwaterHead)
 {
   bool   error = false; // Error flag.
   double slopeX;        // X component of slope off the edge of the mesh.
@@ -11,7 +11,7 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: flowRate must not be NULL.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -23,55 +23,54 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!isBoundary(boundary))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(NULL != vertexX))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: vertexX must not be NULL.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexX must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexY))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: vertexY must not be NULL.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexY must not be NULL.\n");
       error = true;
     }
   
   if (!(NULL != vertexZSurface))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: vertexZSurface must not be NULL.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexZSurface must not be NULL.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: edgeLength must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0.0 < elementArea))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: elementArea must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: elementArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < conductivity))
     {
-      CkError("ERROR in groundwaterBoundaryFlowRate: conductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshBoundaryFlowRate: conductivity must be greater than zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
-  // If boundary is NOFLOW flowRate has already been assigned to zero above.
-  if (!error && (INFLOW == boundary || OUTFLOW == boundary) && groundwaterHead > elementZBedrock)
+  if (!error && (INFLOW == boundary || OUTFLOW == boundary) && elementZBedrock < groundwaterHead)
     {
       // Calculate assumed slope off the edge of the mesh.
       // FIXME do we want to use vertexZBedrock coordinates to calculate assumed slope of water table?
@@ -84,23 +83,25 @@ bool groundwaterBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundar
 
       if (INFLOW == boundary && 0.0 < *flowRate)
         {
-          CkError("WARNING in groundwaterBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING in groundwaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
       else if (OUTFLOW == boundary && 0.0 > *flowRate)
         {
-          CkError("WARNING in groundwaterBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+          CkError("WARNING in groundwaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
           *flowRate = 0.0;
         }
     }
+  // else if (NOFLOW == boundary || elementZBedrock >= groundwaterHead))
+  //   flowRate has already been assigned to zero above.
 
   return error;
 }
 
-bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, double elementX, double elementY, double elementZSurface, double elementZBedrock,
-                                        double elementConductivity, double elementSurfacewaterDepth, double elementGroundwaterHead, double neighborX,
-                                        double neighborY, double neighborZSurface, double neighborZBedrock, double neighborConductivity,
-                                        double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+bool groundwaterMeshMeshFlowRate(double* flowRate, double edgeLength, double elementX, double elementY, double elementZSurface, double elementZBedrock,
+                                 double elementConductivity, double elementSurfacewaterDepth, double elementGroundwaterHead, double neighborX,
+                                 double neighborY, double neighborZSurface, double neighborZBedrock, double neighborConductivity,
+                                 double neighborSurfacewaterDepth, double neighborGroundwaterHead)
 {
   bool   error                     = false;                                                         // Error flag.
   double elementGroundwaterHeight  = elementGroundwaterHead  - elementZBedrock;                     // Groundwater height of element.
@@ -114,7 +115,7 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: flowRate must not be NULL.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -126,55 +127,55 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: edgeLength must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(elementZSurface >= elementZBedrock))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: elementZSurface must be greater than or equal to elementZBedrock");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: elementZSurface must be greater than or equal to elementZBedrock");
       error = true;
     }
   
   if (!(elementZSurface >= elementGroundwaterHead))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: elementZSurface must be greater than or equal to elementGroundwaterHead");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: elementZSurface must be greater than or equal to elementGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < elementConductivity))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: elementConductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: elementConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborZBedrock))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborZSurface must be greater than or equal to neighborZBedrock");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: neighborZSurface must be greater than or equal to neighborZBedrock");
       error = true;
     }
   
   if (!(neighborZSurface >= neighborGroundwaterHead))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: neighborZSurface must be greater than or equal to neighborGroundwaterHead");
       error = true;
     }
   
   if (!(0.0 < neighborConductivity))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborConductivity must be greater than zero.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: neighborConductivity must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR in groundwaterElementNeighborFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in groundwaterMeshMeshFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -203,12 +204,200 @@ bool groundwaterElementNeighborFlowRate(double* flowRate, double edgeLength, dou
           neighborGroundwaterHead += neighborSurfacewaterDepth;
         }
 
-      // If there is no slope or the higher element is dry there is no flow.
       if ((elementGroundwaterHead > neighborGroundwaterHead && 0.0 < elementGroundwaterHeight) ||
           (elementGroundwaterHead < neighborGroundwaterHead && 0.0 < neighborGroundwaterHeight))
         {
           *flowRate = averageConductivity * averageHeight * headSlope * edgeLength;
         }
+      // else if there is no slope or the higher element is dry there is no flow.
+    }
+
+  return error;
+}
+
+bool groundwaterMeshChannelFlowRate(double* flowRate, double meshZSurface, double meshZBedrock, double meshSurfacewaterDepth, double meshGroundwaterHead,
+                                    double channelZBank, double channelZBed, double channelLength, double channelBaseWidth, double channelSideSlope,
+                                    double channelBedConductivity, double channelBedThickness, double channelwaterDepth)
+{
+  bool   error            = false;                           // Error flag.
+  double channelwaterHead = channelwaterDepth + channelZBed; // Water head in channel.
+  double wettedPerimeterHighPoint;                           // For calculating wetted perimeter.
+  double wettedPerimeterLowPoint;                            // For calculating wetted perimeter.
+  double wettedPerimeterHeight;                              // For calculating wetted perimeter.
+  double wettedPerimeter;                                    // Perimeter of channel through which water can flow.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != flowRate))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: flowRate must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *flowRate = 0.0;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(meshZSurface >= meshZBedrock))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: meshZSurface must be greater than or equal to meshZBedrock");
+      error = true;
+    }
+  
+  if (!(meshZSurface >= meshGroundwaterHead))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: meshZSurface must be greater than or equal to meshGroundwaterHead");
+      error = true;
+    }
+  
+  if (!(0.0 <= meshSurfacewaterDepth))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: meshSurfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(channelZBank >= channelZBed))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelZBank must be greater than or equal to channelZBed");
+      error = true;
+    }
+  
+  if (!(0.0 < channelLength))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= channelBaseWidth))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelBaseWidth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= channelSideSlope))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelSideSlope must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(epsilonGreater(channelBaseWidth, 0.0) || epsilonGreater(channelSideSlope, 0.0)))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: at least one of channelBaseWidth or channelSideSlope must be epsilon greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < channelBedConductivity))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelBedConductivity must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < channelBedThickness))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelBedThickness must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= channelwaterDepth))
+    {
+      CkError("ERROR in groundwaterMeshChannelFlowRate: channelwaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  if (!error)
+    {
+      // If groundwater is at the surface add surfacewater depth to find the real head.
+      if (meshGroundwaterHead == meshZSurface)
+        {
+          meshGroundwaterHead += meshSurfacewaterDepth;
+        }
+
+      // If channel bank is below the surface use the surface elevation instead.
+      if (channelZBank < meshZSurface)
+        {
+          channelZBank = meshZSurface;
+        }
+
+      if (meshGroundwaterHead > channelwaterHead)
+        {
+          // Flow direction is in to the channel.
+
+          // Limit head difference at bedrock.
+          if (channelwaterHead < meshZBedrock)
+            {
+              channelwaterHead = meshZBedrock;
+            }
+
+          // Determine the high point of the wetted perimeter.
+          if (channelZBank < meshGroundwaterHead)
+            {
+              wettedPerimeterHighPoint = channelZBank - channelZBed; // Meters above channel bed.
+            }
+          else
+            {
+              wettedPerimeterHighPoint = meshGroundwaterHead - channelZBed; // Meters above channel bed.
+            }
+        }
+      else
+        {
+          // Flow direction is out of the channel.
+
+          // Limit head difference at bedrock.
+          if (meshGroundwaterHead < meshZBedrock)
+            {
+              meshGroundwaterHead = meshZBedrock;
+            }
+
+          // Limit head difference at bottom of channel bed.
+          if (meshGroundwaterHead < channelZBed - channelBedThickness)
+            {
+              meshGroundwaterHead = channelZBed - channelBedThickness;
+            }
+
+          // Determine the high point of the wetted perimeter.
+          if (channelZBank < channelwaterHead)
+            {
+              wettedPerimeterHighPoint = channelZBank - channelZBed; // Meters above channel bed.
+            }
+          else
+            {
+              wettedPerimeterHighPoint = channelwaterHead - channelZBed; // Meters above channel bed.
+            }
+        }
+
+      // Determine the low point of the wetted perimeter.
+      if (channelZBed < meshZBedrock)
+        {
+          wettedPerimeterLowPoint = meshZBedrock - channelZBed; // Meters above channel bed.
+        }
+      else
+        {
+          wettedPerimeterLowPoint = 0.0; // Meters above channel bed.
+        }
+
+      // Determine the wetted perimeter.
+      wettedPerimeterHeight = wettedPerimeterHighPoint - wettedPerimeterLowPoint;
+
+      if (0.0 < wettedPerimeterHeight)
+        {
+          // Slope length of channel side.
+          wettedPerimeter = wettedPerimeterHeight * sqrt(1 + channelSideSlope * channelSideSlope);
+
+          // Add near side (half) of channel base if wetted.
+          if (0.0 == wettedPerimeterLowPoint)
+            {
+              // FIXME should we have an effective contribution of base width if the bed is really close to bedrock?
+              wettedPerimeter += 0.5 * channelBaseWidth;
+            }
+        }
+      else
+        {
+          wettedPerimeter = 0.0;
+        }
+
+      *flowRate = channelBedConductivity * ((meshGroundwaterHead - channelwaterHead) / channelBedThickness) * channelLength * wettedPerimeter;
     }
 
   return error;

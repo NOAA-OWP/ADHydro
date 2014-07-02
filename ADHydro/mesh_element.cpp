@@ -783,8 +783,8 @@ void MeshElement::handleCalculateBoundaryConditionFlowRate()
 
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterBoundaryFlowRate(&surfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], 1.0, 1.0, 1.0, edgeLength[edge],
-                                               edgeNormalX[edge], edgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&surfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], 1.0, 1.0, 1.0, edgeLength[edge],
+                                                   edgeNormalX[edge], edgeNormalY[edge], surfacewaterDepth);
           
           if (!error)
             {
@@ -799,9 +799,9 @@ void MeshElement::handleCalculateBoundaryConditionFlowRate()
                 }
 
               // Calculate groundwater flow rate.
-              error = groundwaterBoundaryFlowRate(&groundwaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], vertexX, vertexY, vertexZSurface,
-                                                  edgeLength[edge], edgeNormalX[edge], edgeNormalY[edge], elementZBedrock, elementArea, conductivity,
-                                                  groundwaterHead);
+              error = groundwaterMeshBoundaryFlowRate(&groundwaterFlowRate[edge], (BoundaryConditionEnum)neighbor[edge], vertexX, vertexY, vertexZSurface,
+                                                      edgeLength[edge], edgeNormalX[edge], edgeNormalY[edge], elementZBedrock, elementArea, conductivity,
+                                                      groundwaterHead);
               
               // Groundwater flows are not limited.
               groundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
@@ -853,9 +853,9 @@ void MeshElement::handleStateMessage(int edge, double neighborSurfacewaterDepth,
       if (FLOW_RATE_NOT_READY == surfacewaterFlowRateReady[edge])
         {
           // Calculate surfacewater flow rate.
-          error = surfacewaterElementNeighborFlowRate(&surfacewaterFlowRate[edge], &dtNew, edgeLength[edge], elementX, elementY, elementZSurface, elementArea,
-                                                      manningsN, surfacewaterDepth, neighborX[edge], neighborY[edge], neighborZSurface[edge],
-                                                      neighborManningsN[edge], neighborSurfacewaterDepth);
+          error = surfacewaterMeshMeshFlowRate(&surfacewaterFlowRate[edge], &dtNew, edgeLength[edge], elementX, elementY, elementZSurface, elementArea,
+                                               manningsN, surfacewaterDepth, neighborX[edge], neighborY[edge], neighborZSurface[edge], neighborManningsN[edge],
+                                               neighborSurfacewaterDepth);
 
           if (!error)
             {
@@ -885,10 +885,9 @@ void MeshElement::handleStateMessage(int edge, double neighborSurfacewaterDepth,
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
       // Calculate groundwater flow rate.
-      error = groundwaterElementNeighborFlowRate(&groundwaterFlowRate[edge], edgeLength[edge], elementX, elementY, elementZSurface, elementZBedrock,
-                                                 conductivity, surfacewaterDepth, groundwaterHead, neighborX[edge], neighborY[edge],
-                                                 neighborZSurface[edge], neighborZBedrock[edge], neighborConductivity[edge], neighborSurfacewaterDepth,
-                                                 neighborGroundwaterHead);
+      error = groundwaterMeshMeshFlowRate(&groundwaterFlowRate[edge], edgeLength[edge], elementX, elementY, elementZSurface, elementZBedrock, conductivity,
+                                          surfacewaterDepth, groundwaterHead, neighborX[edge], neighborY[edge], neighborZSurface[edge], neighborZBedrock[edge],
+                                          neighborConductivity[edge], neighborSurfacewaterDepth, neighborGroundwaterHead);
 
       // Groundwater flows are not limited.
       groundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
