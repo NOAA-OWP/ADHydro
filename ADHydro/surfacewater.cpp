@@ -79,11 +79,11 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
 }
 
 bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowVelocity, double inflowHeight,
-                                         double length, double baseWidth, double sideSlope, double waterDepth)
+                                         double elementLength, double baseWidth, double sideSlope, double surfacewaterDepth)
 {
   bool   error = false;   // Error flag.
-  double topWidth;        // Meters.  Width of channel at water surface.
-  double area;            // Square meters.  Cross sectional area of trapezoidal channel.
+  double topWidth;        // Width of channel at water surface in meters.
+  double area;            // Cross sectional area of water in trapezoidal channel in square meters.
   double outflowVelocity; // Meters per second.
   double dtTemp;          // Temporary variable for suggesting new timestep.
   
@@ -124,9 +124,9 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
       error = true;
     }
   
-  if (!(0 < length))
+  if (!(0 < elementLength))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: length must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: elementLength must be greater than or equal to zero.\n");
       error = true;
     }
   
@@ -148,9 +148,9 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
       error = true;
     }
   
-  if (!(0 <= waterDepth))
+  if (!(0 <= surfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: waterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -160,7 +160,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
       if (INFLOW == boundary)
         {
           area      = inflowHeight * (baseWidth + sideSlope * inflowHeight);
-          *flowRate = -inflowVelocity * area; // Negative velocity because inflow is defined as negative flow.
+          *flowRate = -inflowVelocity * area; // Negative velocity because flow into the element is defined as negative flow.
           
           if (0.0 < *flowRate)
             {
@@ -168,10 +168,10 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
               *flowRate = 0.0;
             }
         }
-      else if (OUTFLOW == boundary && PONDED_DEPTH < waterDepth)
+      else if (OUTFLOW == boundary && PONDED_DEPTH < surfacewaterDepth)
         {
-          topWidth = baseWidth + 2.0 * sideSlope * waterDepth;
-          area     = waterDepth * (baseWidth + sideSlope * waterDepth);
+          topWidth = baseWidth + 2.0 * sideSlope * surfacewaterDepth;
+          area     = surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth);
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           // We have already checked that waterDepth is greater than zero and at least one of baseWidth or sideSlope is greater than zero therefore we do not
@@ -190,11 +190,11 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           // This denominator also cannot be zero.
-          CkAssert(0.0 < *flowRate / area + sqrt(GRAVITY * waterDepth));
+          CkAssert(0.0 < *flowRate / area + sqrt(GRAVITY * surfacewaterDepth));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           // Suggest new timestep.
-          dtTemp = 0.1 * length / (*flowRate / area + sqrt(GRAVITY * waterDepth));
+          dtTemp = 0.1 * elementLength / (*flowRate / area + sqrt(GRAVITY * surfacewaterDepth));
           
           if (*dtNew > dtTemp)
             {
@@ -210,17 +210,18 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
 
 bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLength, double elementX, double elementY, double elementZSurface,
                                   double elementArea, double elementManningsN, double elementSurfacewaterDepth, double neighborX, double neighborY,
-                                  double neighborZSurface, double neighborManningsN, double neighborSurfacewaterDepth)
+                                  double neighborZSurface, double neighborArea, double neighborManningsN, double neighborSurfacewaterDepth)
 {
   bool   error                    = false;                                                           // Error flag.
-  double elementSurfacewaterHead  = elementSurfacewaterDepth  + elementZSurface;                     // Surfacewater head of element.
-  double neighborSurfacewaterHead = neighborSurfacewaterDepth + neighborZSurface;                    // Surfacewater head of neighbor.
+  double distance                 = sqrt((elementX - neighborX) * (elementX - neighborX) +           // Distance between element and neighbor centers in meters.
+                                         (elementY - neighborY) * (elementY - neighborY));
+  double averageArea              = 0.5 * (elementArea + neighborArea);                              // Area to use in flow calculation in square meters.
   double averageManningsN         = 0.5 * (elementManningsN + neighborManningsN);                    // Manning's n to use in flow calculation.
-  double averageDepth             = 0.5 * (elementSurfacewaterDepth + neighborSurfacewaterDepth);    // Depth to use in flow calculation.
-  double distance                 = sqrt((elementX - neighborX) * (elementX - neighborX) + (elementY - neighborY) * (elementY - neighborY));
-                                                                                                     // Distance between element and neighbor centers.
-  double headSlope                = (elementSurfacewaterHead - neighborSurfacewaterHead) / distance; // Slope of water surface.
-  double dtTemp;                                                                                     // Temporary variable for suggesting new timestep.
+  double averageDepth             = 0.5 * (elementSurfacewaterDepth + neighborSurfacewaterDepth);    // Depth to use in flow calculation in meters.
+  double elementSurfacewaterHead  = elementSurfacewaterDepth  + elementZSurface;                     // Surfacewater head of element in meters.
+  double neighborSurfacewaterHead = neighborSurfacewaterDepth + neighborZSurface;                    // Surfacewater head of neighbor in meters.
+  double headSlope                = (elementSurfacewaterHead - neighborSurfacewaterHead) / distance; // Slope of water surface, unitless.
+  double dtTemp;                                                                                     // Temporary variable for suggesting new timestep in seconds.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -247,6 +248,18 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
       error = true;
     }
   
+  if (!(0.0 < distance))
+    {
+      CkError("ERROR in surfacewaterMeshMeshFlowRate: Distance between element and neighbor centers must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < elementArea))
+    {
+      CkError("ERROR in surfacewaterMeshMeshFlowRate: elementArea must be greater than zero.\n");
+      error = true;
+    }
+  
   if (!(0.0 < elementManningsN))
     {
       CkError("ERROR in surfacewaterMeshMeshFlowRate: elementManningsN must be greater than zero.\n");
@@ -256,6 +269,12 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
   if (!(0.0 <= elementSurfacewaterDepth))
     {
       CkError("ERROR in surfacewaterMeshMeshFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborArea))
+    {
+      CkError("ERROR in surfacewaterMeshMeshFlowRate: neighborArea must be greater than zero.\n");
       error = true;
     }
   
@@ -270,12 +289,6 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
       CkError("ERROR in surfacewaterMeshMeshFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
-  
-  if (!(0.0 < distance))
-    {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: Distance between element and neighbor centers must be greater than zero.\n");
-      error = true;
-    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
   if (!error && ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH < elementSurfacewaterDepth) ||
@@ -288,8 +301,7 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
       *flowRate = (pow(averageDepth, 5.0 / 3.0) / (averageManningsN * sqrt(fabs(headSlope)))) * headSlope * edgeLength;
 
       // Suggest new timestep.
-      // FIXME if this calculation is only done by one of the neighbors only that neighbor's area will be used to limit the timestep, but neighbors should have similar sizes.
-      dtTemp = 0.1 * sqrt(2.0 * elementArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY * averageDepth));
+      dtTemp = 0.1 * sqrt(2.0 * averageArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY * averageDepth));
 
       if (*dtNew > dtTemp)
         {
@@ -297,27 +309,259 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
         }
     }
   // else if there is no slope or the higher element is dry there is no flow.
+  //   flowRate has already been assigned to zero above.
 
   return error;
 }
 
-bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double surfacewaterDepth)
+bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshSurfacewaterDepth)
 {
-  return surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, surfacewaterDepth);
+  // Do not repeat error checking for straight passthrough.
+  
+  return surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);
 }
 
-bool surfacewaterChannelChannelFlowRate(double* flowRate, double* dtNew, double elementZBed, double elementWaterDepth, double neighborZBed,
-                                        double neighborWaterDepth, double distance, double manningsN, double area, double radius)
+// Calculate the surfacewater flow rate in cubic meters per second between a
+// stream element and its stream neighbor.  Positive means flow out of the
+// element into the neighbor.  Negative means flow into the element out of the
+// neighbor.
+//
+// Currently, this function only calculates diffusive wave flow.
+//
+// The governing equation for diffusive wave is:
+//
+//        Q   = - R^(2/3) * A * Z_x / (n * sqrt(abs(Z_x)));
+// where  Q   = flow rate (flux),   in [m^3/s];
+//        R   = hydraulic radius,   in [m];
+//        A   = cross section area, in [m^2];
+//        Z   = water surface elevation, in [m];
+//        Z_x = slope of water surface elevation, [-].
+//        n   = Manning's roughness coefficint, in [s/m^(-1/3)];
+//
+// Parameters:
+//
+// flowRate                  - Scalar passed by reference will be filled in
+//                             with the flow rate in cubic meters per second.
+// dtNew                     - Scalar passed by reference containing the
+//                             suggested value for the next timestep duration
+//                             in seconds.  May be updated to be shorter.
+// elementZBed               - Bed Z coordinate of element in meters.
+// elementLength             - Length of element in meters.  Can be zero if it
+//                             is an imaginary stream element representing the
+//                             mouth of a waterbody.
+// elementBaseWidth          - Base width of element in meters.
+// elementSideSlope          - Side slope of element, unitless.
+// elementManningsN          - Surface roughness of element.
+// elementSurfacewaterDepth  - Surfacewater depth of element in meters.
+// neighborZBed              - Bed Z coordinate of neighbor in meters.
+// neighborLength            - Length of neighbor in meters.
+// neighborBaseWidth         - Base width of neighbor in meters.
+// neighborSideSlope         - Side slope of neighbor, unitless.
+// neighborManningsN         - Surface roughness of neighbor.
+// neighborSurfacewaterDepth - Surfacewater depth of neighbor in meters.
+void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double elementZBed, double elementLength, double elementBaseWidth,
+                                      double elementSideSlope, double elementManningsN, double elementSurfacewaterDepth, double neighborZBed,
+                                      double neighborLength, double neighborBaseWidth, double neighborSideSlope, double neighborManningsN,
+                                      double neighborSurfacewaterDepth)
 {
-  bool   error             = false;                                                      // Error flag.
-  double elementWaterHead  = elementWaterDepth  + elementZBed;                           // Water head of element.
-  double neighborWaterHead = neighborWaterDepth + neighborZBed;                          // Water head of neighbor.
-  double averageDepth      = 0.5 * (elementWaterDepth + neighborWaterDepth);             // Depth to use in flow calculation.
-  double headSlope         = (elementWaterHead - neighborWaterHead) / distance;          // Slope of water surface.
-  double velocityDirection = (0.0 <= headSlope) ? 1.0 : -1.0;                            // Direction of flow
-  double velocityMagnitude = pow(radius, 2.0 / 3.0) * sqrt(fabs(headSlope)) / manningsN; // Magnitude of flow velocity.
-  double criticalVelocity  = sqrt(GRAVITY * averageDepth);                               // Critical flow velocity.
-  double dtTemp;                                                                         // Temporary variable for suggesting new timestep.
+  double distance                 = 0.5 * (elementLength + neighborLength);                          // Distance along channel between element and neighbor in
+                                                                                                     // meters.
+  double averageManningsN         = 0.5 * (elementManningsN + neighborManningsN);                    // Manning's n to use in flow calculation.
+  double averageDepth             = 0.5 * (elementSurfacewaterDepth + neighborSurfacewaterDepth);    // Depth to use in flow calculation in meters.
+  double elementSurfacewaterHead  = elementSurfacewaterDepth + elementZBed;                          // Surfacewater head of element in meters.
+  double neighborSurfacewaterHead = neighborSurfacewaterDepth + neighborZBed;                        // Surfacewater head of neighbor in meters.
+  double headSlope                = (elementSurfacewaterHead - neighborSurfacewaterHead) / distance; // Slope of water surface, unitless.
+  double elementArea;                                                                                // Cross sectional area of water in trapezoidal channel in
+                                                                                                     // square meters.
+  double neighborArea;                                                                               // Cross sectional area of water in trapezoidal channel in
+                                                                                                     // square meters.
+  double averageArea;                                                                                // Area to use in flow calculation in square meters.
+  double elementRadius;                                                                              // Hydraulic radius of element in meters.
+  double neighborRadius;                                                                             // Hydraulic radius of neighbor in meters.
+  double averageRadius;                                                                              // Hydraulic radius to use in flow calculation in meters.
+  double velocityDirection;                                                                          // Direction of flow, unitless.
+  double velocityMagnitude;                                                                          // Magnitude of flow velocity in meters per second.
+  double criticalVelocity;                                                                           // Critical flow velocity in meters per second.
+  double dtTemp;                                                                                     // Temporary variable for suggesting new timestep in
+                                                                                                     // seconds.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && 0.0 <= elementLength && 0.0 <= elementBaseWidth && 0.0 <= elementSideSlope &&
+           (epsilonLess(0.0, elementBaseWidth) || epsilonLess(0.0, elementSideSlope)) && 0.0 < elementManningsN && 0.0 <= elementSurfacewaterDepth &&
+           0.0 < neighborLength && 0.0 <= neighborBaseWidth && 0.0 <= neighborSideSlope &&
+           (epsilonLess(0.0, neighborBaseWidth) || epsilonLess(0.0, neighborSideSlope)) && 0.0 < neighborManningsN && 0.0 <= neighborSurfacewaterDepth);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH < elementSurfacewaterDepth) ||
+      (elementSurfacewaterHead < neighborSurfacewaterHead && PONDED_DEPTH < neighborSurfacewaterDepth))
+    {
+      elementArea  = elementSurfacewaterDepth * (elementBaseWidth + elementSideSlope * elementSurfacewaterDepth);
+      neighborArea = neighborSurfacewaterDepth * (neighborBaseWidth + neighborSideSlope * neighborSurfacewaterDepth);
+      averageArea  = 0.5 * (elementArea + neighborArea);
+      
+      if (0.0 < elementSurfacewaterDepth)
+        {
+          elementRadius = elementArea / (elementBaseWidth + 2.0 * elementSurfacewaterDepth * sqrt(1.0 + elementSideSlope * elementSideSlope));
+        }
+      else
+        {
+          elementRadius = 0.0;
+        }
+      
+      if (0.0 < neighborSurfacewaterDepth)
+        {
+          neighborRadius = neighborArea / (neighborBaseWidth + 2.0 * neighborSurfacewaterDepth * sqrt(1.0 + neighborSideSlope * neighborSideSlope));
+        }
+      else
+        {
+          neighborRadius = 0.0;
+        }
+      
+      averageRadius     = 0.5 * (elementRadius + neighborRadius);
+      velocityDirection = (0.0 <= headSlope) ? 1.0 : -1.0;
+      velocityMagnitude = pow(averageRadius, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN;
+      criticalVelocity  = sqrt(GRAVITY * averageDepth);
+      
+      // diffusive wave flow assumes small velocities.  Cap the velocity at the critical velocity.
+      // FIXME discuss what we want to do here.  The really right thing to do is implement dynamic wave.
+      if (velocityMagnitude > criticalVelocity)
+        {
+          velocityMagnitude = criticalVelocity;
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 < averageDepth && 0.0 != headSlope && 0.0 < averageArea && 0.0 < averageRadius && 0.0 < criticalVelocity);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      // Calculate flow rate.
+      *flowRate = velocityDirection * velocityMagnitude * averageArea;
+      
+      // Suggest new timestep.
+      dtTemp = 0.1 * distance / (fabs(*flowRate) / averageArea + criticalVelocity);
+
+      if (*dtNew > dtTemp)
+        {
+          *dtNew = dtTemp;
+        }
+    }
+  else // if there is no slope or the higher element is dry there is no flow.
+    {
+      *flowRate = 0.0;
+    }
+}
+
+// Calculate the surfacewater flow rate in cubic meters per second between a
+// waterbody element and its stream neighbor.  Positive means flow out of the
+// waterbody into the stream.  Negative means flow into the waterbody out of
+// the stream.
+//
+// This function calculates the flow between an imaginary stream element
+// representing the mouth of the waterbody and the stream neighbor.  The mouth
+// of the waterbody is assumed to have the same base width, side slope, and
+// Manning's n as the stream neighbor.  Its bed is assumed to be as far below
+// the bank of the waterbody as the channel depth of the stream neighbor,
+// although never below the waterbody's bed.  Its water depth is calculated as
+// the elevation of the water in the waterbody minus the elevation of its bed,
+// although never less than zero.  Its length is set to zero so that the
+// distance from the mouth of the waterbody to the center of the stream
+// neighbor will just be half of the length of the stream neighbor.
+//
+// Parameters:
+//
+// flowRate                   - Scalar passed by reference will be filled in
+//                              with the flow rate in cubic meters per second.
+// dtNew                      - Scalar passed by reference containing the
+//                              suggested value for the next timestep duration
+//                              in seconds.  May be updated to be shorter.
+// waterbodyZBank             - Bank Z coordinate of waterbody in meters.
+// waterbodyZBed              - Bed Z coordinate of waterbody in meters.
+// waterbodySurfacewaterDepth - Surfacewater depth of stream in meters.
+// streamZBank                - Bank Z coordinate of stream in meters.
+// streamZBed                 - Bed Z coordinate of stream in meters.
+// streamLength               - Length of stream in meters.
+// streamBaseWidth            - Base width of stream in meters.
+// streamSideSlope            - Side slope of stream, unitless.
+// streamManningsN            - Surface roughness of stream.
+// streamSurfacewaterDepth    - Surfacewater depth of stream in meters.
+void surfacewaterWaterbodyStreamFlowRate(double* flowRate, double* dtNew, double waterbodyZBank, double waterbodyZBed, double waterbodySurfacewaterDepth,
+                                         double streamZBank, double streamZBed, double streamLength, double streamBaseWidth, double streamSideSlope,
+                                         double streamManningsN, double streamSurfacewaterDepth)
+{
+  double waterbodyMouthZBed;              // Channel bed Z coordinate of waterbody mouth in meters.
+  double waterbodyMouthSurfacewaterDepth; // Surfacewater depth of waterbody mouth in meters.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && waterbodyZBank >= waterbodyZBed && 0.0 <= waterbodySurfacewaterDepth &&
+           streamZBank >= streamZBed && 0.0 < streamLength && 0.0 <= streamBaseWidth && 0.0 <= streamSideSlope &&
+           (epsilonLess(0.0, streamBaseWidth) || epsilonLess(0.0, streamSideSlope)) && 0.0 < streamManningsN && 0.0 <= streamSurfacewaterDepth);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Find the bed elevation and surfacewater depth of the mouth of the waterbody.
+  waterbodyMouthZBed = waterbodyZBank - (streamZBank - streamZBed);
+  
+  if (waterbodyMouthZBed < waterbodyZBed)
+    {
+      waterbodyMouthZBed = waterbodyZBed;
+    }
+  
+  waterbodyMouthSurfacewaterDepth = waterbodySurfacewaterDepth - (waterbodyMouthZBed - waterbodyZBed);
+  
+  if (0.0 > waterbodyMouthSurfacewaterDepth)
+    {
+      waterbodyMouthSurfacewaterDepth = 0.0;
+    }
+  
+  // Calculate flow rate between an imaginary stream element representing the waterbody mouth and the stream neighbor.
+  surfacewaterStreamStreamFlowRate(flowRate, dtNew, waterbodyMouthZBed, 0.0, streamBaseWidth, streamSideSlope, streamManningsN,
+                                   waterbodyMouthSurfacewaterDepth, streamZBed, streamLength, streamBaseWidth, streamSideSlope, streamManningsN,
+                                   streamSurfacewaterDepth);
+}
+
+// Calculate the surfacewater flow rate in cubic meters per second between a
+// waterbody element and its waterbody neighbor.  Positive means flow out of
+// the element into the neighbor.  Negative means flow into the element out of
+// the neighbor.
+//
+// Currently, this function just treats the waterbodies as two big fat stream
+// elements.  We may do something different in the future.
+//
+// Parameters:
+//
+// flowRate                  - Scalar passed by reference will be filled in
+//                             with the flow rate in cubic meters per second.
+// dtNew                     - Scalar passed by reference containing the
+//                             suggested value for the next timestep duration
+//                             in seconds.  May be updated to be shorter.
+// elementZBed               - Bed Z coordinate of element in meters.
+// elementLength             - Length of element in meters.
+// elementBaseWidth          - Base width of element in meters.
+// elementSideSlope          - Side slope of element, unitless.
+// elementManningsN          - Surface roughness of element.
+// elementSurfacewaterDepth  - Surfacewater depth of element in meters.
+// neighborZBed              - Bed Z coordinate of neighbor in meters.
+// neighborLength            - Length of neighbor in meters.
+// neighborBaseWidth         - Base width of neighbor in meters.
+// neighborSideSlope         - Side slope of neighbor, unitless.
+// neighborManningsN         - Surface roughness of neighbor.
+// neighborSurfacewaterDepth - Surfacewater depth of neighbor in meters.
+void surfacewaterWaterbodyWaterbodyFlowRate(double* flowRate, double* dtNew, double elementZBed, double elementLength, double elementBaseWidth,
+                                            double elementSideSlope, double elementManningsN, double elementSurfacewaterDepth, double neighborZBed,
+                                            double neighborLength, double neighborBaseWidth, double neighborSideSlope, double neighborManningsN,
+                                            double neighborSurfacewaterDepth)
+{
+  // Do not repeat assert for straight passthrough.
+  
+  surfacewaterStreamStreamFlowRate(flowRate, dtNew, elementZBed, elementLength, elementBaseWidth, elementSideSlope, elementManningsN, elementSurfacewaterDepth,
+                                   neighborZBed, neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN, neighborSurfacewaterDepth);
+}
+
+bool surfacewaterChannelChannelFlowRate(double* flowRate, double* dtNew, ChannelTypeEnum elementChannelType, double elementZBank, double elementZBed,
+                                        double elementLength, double elementBaseWidth, double elementSideSlope, double elementManningsN,
+                                        double elementSurfacewaterDepth, ChannelTypeEnum neighborChannelType, double neighborZBank, double neighborZBed,
+                                        double neighborLength, double neighborBaseWidth, double neighborSideSlope, double neighborManningsN,
+                                        double neighborSurfacewaterDepth)
+{
+  bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -338,71 +582,131 @@ bool surfacewaterChannelChannelFlowRate(double* flowRate, double* dtNew, double 
       error = true;
     }
   
-  if (!(0.0 <= elementWaterDepth))
+  if (!(STREAM == elementChannelType || WATERBODY == elementChannelType || ICEMASS == elementChannelType))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementWaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementChannelType must be a valid channel type value.\n");
       error = true;
     }
   
-  if (!(0.0 <= neighborWaterDepth))
+  if (!(elementZBank >= elementZBed))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborWaterDepth must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementZBank must be greater than or equal to elementZBed");
       error = true;
     }
   
-  if (!(0.0 < distance))
+  if (!(0.0 < elementLength))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: distance must be greater than zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementLength must be greater than zero.\n");
       error = true;
     }
   
-  if (!(0.0 < manningsN))
+  if (!(0 <= elementBaseWidth))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: manningsN must be greater than zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementBaseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0.0 <= area))
+  if (!(0 <= elementSideSlope))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: area must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementSideSlope must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0.0 <= radius))
+  if (!(epsilonGreater(elementBaseWidth, 0.0) || epsilonGreater(elementSideSlope, 0.0)))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: radius must be greater than or equal to zero.\n");
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: at least one of elementBaseWidth or elementSideSlope must be epsilon greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < elementManningsN))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementManningsN must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= elementSurfacewaterDepth))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborChannelType must be a valid channel type value.\n");
+      error = true;
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborZBank must be greater than or equal to neighborZBed");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborLength))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborBaseWidth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= neighborSideSlope))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborSideSlope must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(epsilonGreater(neighborBaseWidth, 0.0) || epsilonGreater(neighborSideSlope, 0.0)))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: at least one of neighborBaseWidth or neighborSideSlope must be epsilon greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborManningsN))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborManningsN must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= neighborSurfacewaterDepth))
+    {
+      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // If there is no slope or the higher element is dry there is no flow.
-  if (!error && ((elementWaterHead > neighborWaterHead && PONDED_DEPTH < elementWaterDepth) ||
-                 (elementWaterHead < neighborWaterHead && PONDED_DEPTH < neighborWaterDepth)))
+  if (!error)
     {
-      // diffusive wave flow assumes small velocities.  Cap the velocity at the critical velocity.  FIXME discuss what we want to do here.
-      if (velocityMagnitude > criticalVelocity)
+      if (STREAM == elementChannelType && STREAM == neighborChannelType)
         {
-          velocityMagnitude = criticalVelocity;
+          surfacewaterStreamStreamFlowRate(flowRate, dtNew, elementZBed, elementLength, elementBaseWidth, elementSideSlope, elementManningsN,
+                                           elementSurfacewaterDepth, neighborZBed, neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN,
+                                           neighborSurfacewaterDepth);
         }
-      
-      *flowRate = velocityDirection * velocityMagnitude * area;
-      
-      // Suggest new timestep.
-      if (0.0 < area)
+      else if ((WATERBODY == elementChannelType || ICEMASS == elementChannelType) && STREAM == neighborChannelType)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          // This denominator cannot be zero.
-          CkAssert(0.0 < fabs(*flowRate) / area + sqrt(GRAVITY * averageDepth));
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
-          dtTemp = 0.1 * distance / (fabs(*flowRate) / area + sqrt(GRAVITY * averageDepth));
-
-          if (*dtNew > dtTemp)
-            {
-              *dtNew = dtTemp;
-            }
+          surfacewaterWaterbodyStreamFlowRate(flowRate, dtNew, elementZBank, elementZBed, elementSurfacewaterDepth, neighborZBank, neighborZBed,
+                                              neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN, neighborSurfacewaterDepth);
         }
+      else if (STREAM == elementChannelType && (WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+        {
+          surfacewaterWaterbodyStreamFlowRate(flowRate, dtNew, neighborZBank, neighborZBed, neighborSurfacewaterDepth, elementZBank, elementZBed,
+                                              elementLength, elementBaseWidth, elementSideSlope, elementManningsN, elementSurfacewaterDepth);
+          *flowRate *= -1.0; // Make flow out of the stream element be positive and flow out of the waterbody neighbor be negative.
+        }
+      else if ((WATERBODY == elementChannelType || ICEMASS == elementChannelType) && (WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+        {
+          surfacewaterWaterbodyWaterbodyFlowRate(flowRate, dtNew, elementZBed, elementLength, elementBaseWidth, elementSideSlope, elementManningsN,
+                                                 elementSurfacewaterDepth, neighborZBed, neighborLength, neighborBaseWidth, neighborSideSlope,
+                                                 neighborManningsN, neighborSurfacewaterDepth);
+        }
+      // else this would be something like an internal boundary condition, which we haven't implemented yet.
+      //   flowRate has already been assigned to zero above.
     }
-
+  
   return error;
 }

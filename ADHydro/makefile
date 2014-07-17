@@ -17,10 +17,11 @@ EXES := adhydro                     \
         adhydro_input_preprocessing \
         adhydro_create_xmf_file
 
-ADHYDRO_OBJS := adhydro.o      \
-                mesh_element.o \
-                file_manager.o \
-                surfacewater.o \
+ADHYDRO_OBJS := adhydro.o         \
+                mesh_element.o    \
+                channel_element.o \
+                file_manager.o    \
+                surfacewater.o    \
                 groundwater.o
 
 ADHYDRO_INPUT_PREPROCESSING_OBJS := adhydro_input_preprocessing.o \
@@ -75,20 +76,36 @@ adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
 
-mesh_element.o: mesh_element.cpp    \
-                mesh_element.h      \
-                mesh_element.decl.h \
-                mesh_element.def.h  \
-                file_manager.h      \
-                file_manager.decl.h \
-                surfacewater.h      \
-                groundwater.h       \
+mesh_element.o: mesh_element.cpp       \
+                mesh_element.h         \
+                mesh_element.decl.h    \
+                mesh_element.def.h     \
+                channel_element.decl.h \
+                file_manager.h         \
+                file_manager.decl.h    \
+                surfacewater.h         \
+                groundwater.h          \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 mesh_element.decl.h \
-mesh_element.def.h: mesh_element.ci \
-                    file_manager.ci
+mesh_element.def.h: mesh_element.ci
+	$(CHARMC) $<
+
+channel_element.o: channel_element.cpp    \
+                   channel_element.h      \
+                   channel_element.decl.h \
+                   channel_element.def.h  \
+                   mesh_element.decl.h    \
+                   file_manager.h         \
+                   file_manager.decl.h    \
+                   surfacewater.h         \
+                   groundwater.h          \
+                   all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
+
+channel_element.decl.h \
+channel_element.def.h: channel_element.ci
 	$(CHARMC) $<
 
 file_manager.o: file_manager.cpp    \

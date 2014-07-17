@@ -18,9 +18,9 @@
 // flowRate        - Scalar passed by reference will be filled in with the flow
 //                   rate in cubic meters per second.
 // boundary        - What type of boundary.
-// vertexX         - Array containing x coordinates of element vertices in
+// vertexX         - Array containing X coordinates of element vertices in
 //                   meters.
-// vertexY         - Array containing y coordinates of element vertices in
+// vertexY         - Array containing Y coordinates of element vertices in
 //                   meters.
 // vertexZSurface  - Array containing surface Z coordinates of element vertices
 //                   in meters.
@@ -57,7 +57,7 @@ bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bou
 //
 // flowRate                  - Scalar passed by reference will be filled in
 //                             with the flow rate in cubic meters per second.
-// edgeLength                - Length of edge in meters.
+// edgeLength                - Length of common edge in meters.
 // elementX                  - X coordinate of element center in meters.
 // elementY                  - Y coordinate of element center in meters.
 // elementZSurface           - Surface Z coordinate of element center in
@@ -92,25 +92,23 @@ bool groundwaterMeshMeshFlowRate(double* flowRate, double edgeLength, double ele
 //
 // Parameters:
 //
-// flowRate               - Scalar passed by reference will be filled in with
-//                          the flow rate in cubic meters per second.
-// meshZSurface           - Surface Z coordinate of mesh element center in
-//                          meters.
-// meshZBedrock           - Bedrock Z coordinate of mesh element center in
-//                          meters.
-// meshSurfacewaterDepth  - Surfacewater depth of mesh element in meters.
-// meshGroundwaterHead    - Groundwater head of mesh element in meters.
-// channelZBank           - Bank Z coordinate of channel element in meters.
-// channel ZBed           - Bed Z coordinate of channel element in meters.
-// channelLength          - Length of intersection of mesh and channel elements
-//                          in meters.
-// channelBaseWidth       - Base width of channel element in meters.
-// channelSideSlope       - Side slope of channel element, unitless.
-// channelBedConductivity - Conductivity of channel bed in meters per second.
-// channelBedThickness    - Thickness of channel bed in meters.
-// channelwaterDepth      - Water depth of channel element in meters.
-bool groundwaterMeshChannelFlowRate(double* flowRate, double meshZSurface, double meshZBedrock, double meshSurfacewaterDepth, double meshGroundwaterHead,
-                                    double channelZBank, double channelZBed, double channelLength, double channelBaseWidth, double channelSideSlope,
-                                    double channelBedConductivity, double channelBedThickness, double channelwaterDepth);
+// flowRate                 - Scalar passed by reference will be filled in with
+//                            the flow rate in cubic meters per second.
+// edgeLength               - Length of intersection of mesh and channel
+//                            elements in meters.
+// meshZSurface             - Surface Z coordinate of mesh element in meters.
+// meshZBedrock             - Bedrock Z coordinate of mesh element in meters.
+// meshSurfacewaterDepth    - Surfacewater depth of mesh element in meters.
+// meshGroundwaterHead      - Groundwater head of mesh element in meters.
+// channelZBank             - Bank Z coordinate of channel element in meters.
+// channelZBed              - Bed Z coordinate of channel element in meters.
+// channelBaseWidth         - Base width of channel element in meters.
+// channelSideSlope         - Side slope of channel element, unitless.
+// channelBedConductivity   - Conductivity of channel bed in meters per second.
+// channelBedThickness      - Thickness of channel bed in meters.
+// channelSurfacewaterDepth - Surfacewater depth of channel element in meters.
+bool groundwaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshZBedrock, double meshSurfacewaterDepth,
+                                    double meshGroundwaterHead, double channelZBank, double channelZBed, double channelBaseWidth, double channelSideSlope,
+                                    double channelBedConductivity, double channelBedThickness, double channelSurfacewaterDepth);
 
 #endif // __GROUNDWATER_H__

@@ -67,11 +67,11 @@
 #define GRAVITY      (9.81) // Meters per second squared.
 #define PONDED_DEPTH (0.01) // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
 
-// Special cases of element boundaries.  Used for mesh edges and channel upstream/downstream links.
+// Special cases of element boundaries.
 enum BoundaryConditionEnum
 {
   NOFLOW  = -1, // This must be -1 because Triangle and TauDEM both use -1 to indicate no neighbor.
-  INFLOW  = -2, // Others must be non-positive because positive numbers are used for neighbor indices.
+  INFLOW  = -2, // Others must be non-positive because positive numbers are used for neighbor array indices.
   OUTFLOW = -3
 };
 
@@ -102,7 +102,8 @@ enum FlowRateReadyEnum
 PUPbytes(FlowRateReadyEnum);
 
 // Used for the type of channel links.
-enum LinkTypeEnum
+// FIXME scrub this when redoing channel preprocessing.
+enum ChannelTypeEnum
 {
   NOT_USED                           = 0, // Not all link numbers are used.
   STREAM                             = 1, // Stream link.
@@ -115,8 +116,10 @@ enum LinkTypeEnum
   PRUNED_INTERNAL_BOUNDARY_CONDITION = 8,
 };
 
-// Utility functions for near-equality testing of doubles. Two doubles are
-// considered near-equal if they are within epsilon.  Epsilon is the larger of
+PUPbytes(ChannelTypeEnum);
+
+// Utility functions for near equality testing of doubles. Two doubles are
+// considered near equal if they are within epsilon.  Epsilon is the larger of
 // 10^-10 or ten orders of magnitude smaller than the number being checked
 // because large doubles might have less resolution than ten digits past the
 // decimal point, but they will always have ten significant digits.
@@ -140,31 +143,31 @@ inline double epsilon(double x)
   return eps;
 }
 
-// Returns: true if a is less than and not near-equal to b, false otherwise.
+// Returns: true if a is less than and not near equal to b, false otherwise.
 inline bool epsilonLess(double a, double b)
 {
   return a < b - epsilon(b);
 }
 
-// Returns: true if a is greater than and not near-equal to b, false otherwise.
+// Returns: true if a is greater than and not near equal to b, false otherwise.
 inline bool epsilonGreater(double a, double b)
 {
   return a > b + epsilon(b);
 }
 
-// Returns: true if a is less than or near-equal to b, false otherwise.
+// Returns: true if a is less than or near equal to b, false otherwise.
 inline bool epsilonLessOrEqual(double a, double b)
 {
   return !epsilonGreater(a, b);
 }
 
-// Returns: true if a is greater than or near-equal to b, false otherwise.
+// Returns: true if a is greater than or near equal to b, false otherwise.
 inline bool epsilonGreaterOrEqual(double a, double b)
 {
   return !epsilonLess(a, b);
 }
 
-// Returns: true if a is near-equal to b, false otherwise.
+// Returns: true if a is near equal to b, false otherwise.
 inline bool epsilonEqual(double a, double b)
 {
   return !epsilonLess(a, b) && !epsilonGreater(a, b);

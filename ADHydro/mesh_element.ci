@@ -1,189 +1,524 @@
+// FIXME document communication pattern here?
 module mesh_element
 {
-  extern module file_manager;
-  
   array [1D] MeshElement
   {
-    entry MeshElement(CProxy_FileManager fileManagerProxyInit);
+    entry MeshElement();
     
     // Dummy function for structured dagger infinite loop.
     entry void runForever()
     {
-      serial
+      when initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit, double vertexXInit[3], double vertexYInit[3],
+                      double vertexZSurfaceInit[3], double vertexZBedrockInit[3], double edgeLengthInit[3], double edgeNormalXInit[3],
+                      double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double elementZBedrockInit,
+                      double elementAreaInit, int meshNeighborsInit[MeshElement::meshNeighborsSize],
+                      int meshNeighborsReciprocalEdgeInit[MeshElement::meshNeighborsSize],
+                      InteractionEnum  meshNeighborsInteractionInit[MeshElement::meshNeighborsSize],
+                      int channelNeighborsInit[MeshElement::channelNeighborsSize],
+                      int channelNeighborsReciprocalEdgeInit[MeshElement::channelNeighborsSize],
+                      InteractionEnum  channelNeighborsInteractionInit[MeshElement::channelNeighborsSize],
+                      double meshNeighborsXInit[MeshElement::meshNeighborsSize], double meshNeighborsYInit[MeshElement::meshNeighborsSize],
+                      double meshNeighborsZSurfaceInit[MeshElement::meshNeighborsSize], double meshNeighborsZBedrockInit[MeshElement::meshNeighborsSize],
+                      double meshNeighborsAreaInit[MeshElement::meshNeighborsSize], double channelNeighborsZBankInit[MeshElement::channelNeighborsSize],
+                      double channelNeighborsZBedInit[MeshElement::channelNeighborsSize],
+                      double channelNeighborsEdgeLengthInit[MeshElement::channelNeighborsSize],
+                      double meshNeighborsConductivityInit[MeshElement::meshNeighborsSize],
+                      double meshNeighborsManningsNInit[MeshElement::meshNeighborsSize],
+                      double channelNeighborsBaseWidthInit[MeshElement::channelNeighborsSize],
+                      double channelNeighborsSideSlopeInit[MeshElement::channelNeighborsSize],
+                      double channelNeighborsBedConductivityInit[MeshElement::channelNeighborsSize],
+                      double channelNeighborsBedThicknessInit[MeshElement::channelNeighborsSize], int catchmentInit, double conductivityInit,
+                      double porosityInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                      double groundwaterErrorInit)
       {
-        initialize();
+        serial
+        {
+          handleInitialize(channelProxyInit, fileManagerProxyInit, vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, edgeLengthInit,
+                           edgeNormalXInit, edgeNormalYInit, elementXInit, elementYInit, elementZSurfaceInit, elementZBedrockInit, elementAreaInit,
+                           meshNeighborsInit, meshNeighborsReciprocalEdgeInit, meshNeighborsInteractionInit, channelNeighborsInit,
+                           channelNeighborsReciprocalEdgeInit, channelNeighborsInteractionInit, meshNeighborsXInit, meshNeighborsYInit,
+                           meshNeighborsZSurfaceInit, meshNeighborsZBedrockInit, meshNeighborsAreaInit, channelNeighborsZBankInit, channelNeighborsZBedInit,
+                           channelNeighborsEdgeLengthInit, meshNeighborsConductivityInit, meshNeighborsManningsNInit, channelNeighborsBaseWidthInit,
+                           channelNeighborsSideSlopeInit, channelNeighborsBedConductivityInit, channelNeighborsBedThicknessInit, catchmentInit,
+                           conductivityInit, porosityInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, groundwaterHeadInit,
+                           groundwaterErrorInit);
+        }
       }
       
-      while (true)
+      while(true)
       {
         case
         {
-          when doTimestep(int iterationThisTimestep, double dtThisTimestep)
+          when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
           {
             serial
             {
               handleDoTimestep(iterationThisTimestep, dtThisTimestep);
             }
-
-            while (!timestepDone)
+            
+            while (!groundwaterDone)
             {
               case
               {
-                when calculateBoundaryConditionFlowRate[iteration](int iterationThisMessage)
+                when calculateGroundwaterBoundaryConditionsMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage)
                 {
                   serial
                   {
-                    handleCalculateBoundaryConditionFlowRate();
+                    handleCalculateGroundwaterBoundaryConditionsMessage(iterationThisMessage);
                   }
                 }
-
-                when stateMessage[iteration](int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
+                
+                // Calculate groundwater boundary conditions messages also calculate infiltration, which is needed for every mesh element, so they can never be
+                // unneeded so no need to discard stale messages.
+                
+                when meshGroundwaterStateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
+                                                                        double neighborGroundwaterHead)
                 {
                   serial
                   {
-                    handleStateMessage(edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
+                    handleMeshGroundwaterStateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
                   }
                 }
-
-                when flowRateMessage[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when meshGroundwaterStateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
+                                                                            double neighborGroundwaterHead)
                 {
                   serial
                   {
-                    handleFlowRateMessage(edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
                   }
                 }
-
-                when surfacewaterFlowRateLimitedMessage[iteration](int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+                
+                when meshGroundwaterStateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
+                                                                            double neighborGroundwaterHead)
                 {
                   serial
                   {
-                    handleSurfacewaterFlowRateLimitedMessage(edge, edgeSurfacewaterFlowRate);
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
                   }
                 }
-              }
-            }
-          }
+                
+                when meshGroundwaterStateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
+                                                                            double neighborGroundwaterHead)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterStateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    handleChannelGroundwaterStateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when channelGroundwaterStateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                               double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterStateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                               double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterStateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                               double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshGroundwaterFlowRateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    handleMeshGroundwaterFlowRateMessage(iterationThisMessage, edge, edgeGroundwaterFlowRate);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when meshGroundwaterFlowRateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshGroundwaterFlowRateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshGroundwaterFlowRateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterFlowRateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    handleChannelGroundwaterFlowRateMessage(iterationThisMessage, edge, edgeGroundwaterFlowRate);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when channelGroundwaterFlowRateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                  double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterFlowRateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                  double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelGroundwaterFlowRateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                  double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelGroundwaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshGroundwaterFlowRateLimitedMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                  double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    handleMeshGroundwaterFlowRateLimitedMessage(iterationThisMessage, edge, edgeGroundwaterFlowRate);
+                  }
+                }
+                
+                // Flow rate limited messages can never be unneeded so no need to discard stale messages.
+                
+                when channelGroundwaterFlowRateLimitedMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                     double edgeGroundwaterFlowRate)
+                {
+                  serial
+                  {
+                    handleChannelGroundwaterFlowRateLimitedMessage(iterationThisMessage, edge, edgeGroundwaterFlowRate);
+                  }
+                }
+                
+                // Flow rate limited messages can never be unneeded so no need to discard stale messages.
+              } // End case within while (!groundwaterDone).
+            } // End while (!groundwaterDone).
+            
+            while (!surfacewaterDone)
+            {
+              case
+              {
+                when calculateSurfacewaterBoundaryConditionsMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage)
+                {
+                  serial
+                  {
+                    handleCalculateSurfacewaterBoundaryConditionsMessage(iterationThisMessage);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when calculateSurfacewaterBoundaryConditionsMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                             "for iteration %d.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when calculateSurfacewaterBoundaryConditionsMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                             "for iteration %d.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when calculateSurfacewaterBoundaryConditionsMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                             "for iteration %d.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterStateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    handleMeshSurfacewaterStateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when meshSurfacewaterStateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterStateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterStateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterStateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    handleChannelSurfacewaterStateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when channelSurfacewaterStateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterStateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterStateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double neighborSurfacewaterDepth)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterFlowRateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    handleMeshSurfacewaterFlowRateMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when meshSurfacewaterFlowRateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterFlowRateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterFlowRateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterFlowRateMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    handleChannelSurfacewaterFlowRateMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate);
+                  }
+                }
+                
+                // Discard unneeded stale messages.  There is no way to receive messages whose reference number is not equal to a given number so instead we
+                // receive any message whose reference number is equal to the past three timesteps.
+                when channelSurfacewaterFlowRateMessage[iterationThisTimestep - 1](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                   double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterFlowRateMessage[iterationThisTimestep - 2](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                   double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when channelSurfacewaterFlowRateMessage[iterationThisTimestep - 3](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                   double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %d.\n",
+                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                  }
+                }
+                
+                when meshSurfacewaterFlowRateLimitedMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                   double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    handleMeshSurfacewaterFlowRateLimitedMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate);
+                  }
+                }
+                
+                // Flow rate limited messages can never be unneeded so no need to discard stale messages.
+                
+                when channelSurfacewaterFlowRateLimitedMessage[iterationThisTimestep](CMK_REFNUM_TYPE iterationThisMessage, int edge,
+                                                                                      double edgeSurfacewaterFlowRate)
+                {
+                  serial
+                  {
+                    handleChannelSurfacewaterFlowRateLimitedMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate);
+                  }
+                }
+                
+                // Flow rate limited messages can never be unneeded so no need to discard stale messages.
+              } // End case within while (!surfacewaterDone).
+            } // End while (!surfacewaterDone).
+          } // End when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep).
           
-          // Receive stale messages that were not received in previous timesteps because they were not needed.
-          when calculateBoundaryConditionFlowRate(int iterationThisMessage)
-          {
-            serial
-            {
-              // At this point, iteration is the value for the previous timestep that was completed.  
-              if (iteration < iterationThisMessage)
-              {
-                // If a message for the next timestep arrives requeue it.
-                thisProxy[thisIndex].calculateBoundaryConditionFlowRate(iterationThisMessage);
-              }
-              else
-              {
-                // If a message for an earlier timestep arrives discard it.
-                // Disabling this message because it is too verbose.  Any element with no boundary edges discards one of these messages every timestep.
-                //CkPrintf("NOTE: Element %d, completed iteration %d: "
-                //         "Discarding unneeded stale calculateBoundaryConditionFlowRate message for iteration %d.\n", iterationThisMessage);
-              }
-            }
-          }
-
-          // Receive stale messages that were not received in previous timesteps because they were not needed.
-          when stateMessage(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead)
-          {
-            serial
-            {
-              // At this point, iteration is the value for the previous timestep that was completed.  
-              if (iteration < iterationThisMessage)
-              {
-                // If a message for the next timestep arrives requeue it.
-                thisProxy[thisIndex].stateMessage(iterationThisMessage, edge, neighborSurfacewaterDepth, neighborGroundwaterHead);
-              }
-              else
-              {
-                // If a message for an earlier timestep arrives discard it.
-                CkPrintf("NOTE: Element %d, completed iteration %d: Discarding unneeded stale state message for iteration %d.\n", iterationThisMessage);
-              }
-            }
-          }
-
-          // Receive stale messages that were not received in previous timesteps because they were not needed.
-          when flowRateMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate)
-          {
-            serial
-            {
-              // At this point, iteration is the value for the previous timestep that was completed.  
-              if (iteration < iterationThisMessage)
-              {
-                // If a message for the next timestep arrives requeue it.
-                thisProxy[thisIndex].flowRateMessage(iterationThisMessage, edge, edgeSurfacewaterFlowRate, edgeGroundwaterFlowRate);
-              }
-              else
-              {
-                // If a message for an earlier timestep arrives discard it.
-                CkPrintf("NOTE: Element %d, completed iteration %d: Discarding unneeded stale flow rate message for iteration %d.\n", iterationThisMessage);
-              }
-            }
-          }
-
-          when output()
-          {
-            serial
-            {
-              handleOutput();
-            }
-          }
-        
-          when checkInvariant()
-          {
-            serial
-            {
-              handleCheckInvariant();
-            }
-            
-            while (!(neighborInvariantChecked[0] && neighborInvariantChecked[1] && neighborInvariantChecked[2]))
-            {
-              when checkInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
-                                          int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
-                                          double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
-                                          double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
-                                          double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                          double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
-                                          double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
-                                          double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt)
-              {
-                serial
-                {
-                  handleCheckInvariantNeighbor(neighborIndex, neighborsNeighborInteraction, neighborEdge, neighborsNeighborReciprocalEdge, neighborVertexX1,
-                                               neighborVertexX2, neighborVertexY1, neighborVertexY2, neighborVertexZSurface1, neighborVertexZSurface2,
-                                               neighborVertexZBedrock1, neighborVertexZBedrock2, neighborElementX, neighborElementY, neighborElementZSurface,
-                                               neighborElementZBedrock, neighborElementConductivity, neighborElementManningsN, neighborSurfacewaterFlowRate,
-                                               neighborSurfacewaterCumulativeFlow, neighborGroundwaterFlowRate, neighborGroundwaterCumulativeFlow,
-                                               neighborIteration, neighborDt);
-                }
-              }
-            }
-            
-            serial
-            {
-              contribute();
-            }
-          }
-        }
-      }
-    };
-
-    entry void doTimestep(int iterationThisTimestep, double dtThisTimestep);
-    entry void calculateBoundaryConditionFlowRate(int iterationThisMessage);
-    entry void stateMessage(int iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
-    entry void flowRateMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate, double edgeGroundwaterFlowRate);
-    entry void surfacewaterFlowRateLimitedMessage(int iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
-    entry void output();
-    entry void checkInvariant();
-    entry void checkInvariantNeighbor(int neighborIndex, InteractionEnum neighborsNeighborInteraction, int neighborEdge,
-                                      int neighborsNeighborReciprocalEdge, double neighborVertexX1, double neighborVertexX2, double neighborVertexY1,
-                                      double neighborVertexY2, double neighborVertexZSurface1, double neighborVertexZSurface2,
-                                      double neighborVertexZBedrock1, double neighborVertexZBedrock2, double neighborElementX,
-                                      double neighborElementY, double neighborElementZSurface, double neighborElementZBedrock,
-                                      double neighborElementConductivity, double neighborElementManningsN, double neighborSurfacewaterFlowRate,
-                                      double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
-                                      double neighborGroundwaterCumulativeFlow, int neighborIteration, double neighborDt);
-  };
-};
+          // FIXME handle output
+          
+          // FIXME handle check invariant
+        } // End case within while(true).
+      } // End while(true).
+    }; // End entry void runForever().
+    
+    entry void initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit, double vertexXInit[3], double vertexYInit[3],
+                          double vertexZSurfaceInit[3], double vertexZBedrockInit[3], double edgeLengthInit[3], double edgeNormalXInit[3],
+                          double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double elementZBedrockInit,
+                          double elementAreaInit, int meshNeighborsInit[MeshElement::meshNeighborsSize],
+                          int meshNeighborsReciprocalEdgeInit[MeshElement::meshNeighborsSize],
+                          InteractionEnum  meshNeighborsInteractionInit[MeshElement::meshNeighborsSize],
+                          int channelNeighborsInit[MeshElement::channelNeighborsSize],
+                          int channelNeighborsReciprocalEdgeInit[MeshElement::channelNeighborsSize],
+                          InteractionEnum  channelNeighborsInteractionInit[MeshElement::channelNeighborsSize],
+                          double meshNeighborsXInit[MeshElement::meshNeighborsSize], double meshNeighborsYInit[MeshElement::meshNeighborsSize],
+                          double meshNeighborsZSurfaceInit[MeshElement::meshNeighborsSize], double meshNeighborsZBedrockInit[MeshElement::meshNeighborsSize],
+                          double meshNeighborsAreaInit[MeshElement::meshNeighborsSize], double channelNeighborsZBankInit[MeshElement::channelNeighborsSize],
+                          double channelNeighborsZBedInit[MeshElement::channelNeighborsSize],
+                          double channelNeighborsEdgeLengthInit[MeshElement::channelNeighborsSize],
+                          double meshNeighborsConductivityInit[MeshElement::meshNeighborsSize],
+                          double meshNeighborsManningsNInit[MeshElement::meshNeighborsSize],
+                          double channelNeighborsBaseWidthInit[MeshElement::channelNeighborsSize],
+                          double channelNeighborsSideSlopeInit[MeshElement::channelNeighborsSize],
+                          double channelNeighborsBedConductivityInit[MeshElement::channelNeighborsSize],
+                          double channelNeighborsBedThicknessInit[MeshElement::channelNeighborsSize], int catchmentInit, double conductivityInit,
+                          double porosityInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                          double groundwaterErrorInit);
+    entry void doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep);
+    entry void calculateGroundwaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage);
+    entry void meshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+    entry void channelGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth);
+    entry void meshGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+    entry void channelGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+    entry void meshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+    entry void channelGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+    entry void calculateSurfacewaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage);
+    entry void meshSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth);
+    entry void channelSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth);
+    entry void meshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void channelSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void meshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void channelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+  }; // End array [1D] MeshElement.
+}; // End module mesh_element.
