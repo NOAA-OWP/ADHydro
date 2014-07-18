@@ -53,6 +53,34 @@ adhydro.def.h: adhydro.ci      \
                file_manager.ci
 	$(CHARMC) $<
 
+test_adhydro: test_adhydro.o    \
+              mesh_element.o    \
+              channel_element.o \
+              file_manager.o    \
+              surfacewater.o    \
+              groundwater.o
+	$(CHARMC) $^ -o $@ $(LDFLAGS)
+
+test_adhydro.o: test_adhydro.cpp       \
+                test_adhydro.h         \
+                test_adhydro.decl.h    \
+                test_adhydro.def.h     \
+                mesh_element.h         \
+                mesh_element.decl.h    \
+                channel_element.h      \
+                channel_element.decl.h \
+                file_manager.h         \
+                file_manager.decl.h    \
+                all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
+
+test_adhydro.decl.h \
+test_adhydro.def.h: test_adhydro.ci    \
+                    mesh_element.ci    \
+                    channel_element.ci \
+                    file_manager.ci
+	$(CHARMC) $<
+
 adhydro_input_preprocessing: $(ADHYDRO_INPUT_PREPROCESSING_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
 

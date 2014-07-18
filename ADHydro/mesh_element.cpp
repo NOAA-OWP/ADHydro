@@ -596,7 +596,7 @@ void MeshElement::handleMeshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE it
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeGroundwaterFlowRate &&
+  else if (!(0.0 >= edgeGroundwaterFlowRate &&
              (FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge] || edgeGroundwaterFlowRate >= meshNeighborsGroundwaterFlowRate[edge])))
     {
       CkError("ERROR in MeshElement::handleMeshGroundwaterFlowRateLimitedMessage, element %d, edge %d: "
@@ -628,7 +628,7 @@ void MeshElement::handleChannelGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeGroundwaterFlowRate &&
+  else if (!(0.0 >= edgeGroundwaterFlowRate &&
              (FLOW_RATE_NOT_READY == channelNeighborsGroundwaterFlowRateReady[edge] || edgeGroundwaterFlowRate >= channelNeighborsGroundwaterFlowRate[edge])))
     {
       CkError("ERROR in MeshElement::handleChannelGroundwaterFlowRateLimitedMessage, element %d, edge %d: "
@@ -1193,7 +1193,7 @@ void MeshElement::handleMeshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE i
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeSurfacewaterFlowRate &&
+  else if (!(0.0 >= edgeSurfacewaterFlowRate &&
              (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge] || edgeSurfacewaterFlowRate >= meshNeighborsSurfacewaterFlowRate[edge])))
     {
       CkError("ERROR in ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage, element %d, edge %d: "
@@ -1225,7 +1225,7 @@ void MeshElement::handleChannelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYP
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeSurfacewaterFlowRate &&
+  else if (!(0.0 >= edgeSurfacewaterFlowRate &&
              (FLOW_RATE_NOT_READY == channelNeighborsSurfacewaterFlowRateReady[edge] ||
               edgeSurfacewaterFlowRate >= channelNeighborsSurfacewaterFlowRate[edge])))
     {

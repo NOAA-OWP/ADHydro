@@ -32,7 +32,7 @@ void ChannelElement::pup(PUP::er &p)
   PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
   PUParray(p, channelNeighborsZBank, channelNeighborsSize);
   PUParray(p, channelNeighborsZBed, channelNeighborsSize);
-  PUParray(p, channelNeighborsElementLength, channelNeighborsSize);
+  PUParray(p, channelNeighborsLength, channelNeighborsSize);
   PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
   PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
   PUParray(p, meshNeighborsEdgeLength, meshNeighborsSize);
@@ -70,7 +70,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                                       InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], int meshNeighborsInit[meshNeighborsSize],
                                       int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
                                       double channelNeighborsZBankInit[channelNeighborsSize], double channelNeighborsZBedInit[channelNeighborsSize],
-                                      double channelNeighborsElementLengthInit[channelNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
+                                      double channelNeighborsLengthInit[channelNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
                                       double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsEdgeLengthInit[meshNeighborsSize],
                                       ChannelTypeEnum channelNeighborsChannelTypeInit[channelNeighborsSize],
                                       double channelNeighborsBaseWidthInit[channelNeighborsSize], double channelNeighborsSideSlopeInit[channelNeighborsSize],
@@ -88,7 +88,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
   elementY         = elementYInit;
   elementZBank     = elementZBankInit;
   elementZBed      = elementZBedInit;
-  elementLength    = elementLength;
+  elementLength    = elementLengthInit;
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
@@ -97,7 +97,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
       channelNeighborsInteraction[edge]                = channelNeighborsInteractionInit[edge];
       channelNeighborsZBank[edge]                      = channelNeighborsZBankInit[edge];
       channelNeighborsZBed[edge]                       = channelNeighborsZBedInit[edge];
-      channelNeighborsElementLength[edge]              = channelNeighborsElementLengthInit[edge];
+      channelNeighborsLength[edge]                     = channelNeighborsLengthInit[edge];
       channelNeighborsChannelType[edge]                = channelNeighborsChannelTypeInit[edge];
       channelNeighborsBaseWidth[edge]                  = channelNeighborsBaseWidthInit[edge];
       channelNeighborsSideSlope[edge]                  = channelNeighborsSideSlopeInit[edge];
@@ -226,10 +226,13 @@ void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iteration
       // In that case, the flow limited message already had the correct flow value and you can ignore the state message.
       if (FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge])
         {
-          // Calculate groundwater flow rate.  Use negative of function so that positive means flow out of the channel.
-          error = -groundwaterMeshChannelFlowRate(&meshNeighborsGroundwaterFlowRate[edge], meshNeighborsEdgeLength[edge], meshNeighborsZSurface[edge],
+          // Calculate groundwater flow rate.
+          error = groundwaterMeshChannelFlowRate(&meshNeighborsGroundwaterFlowRate[edge], meshNeighborsEdgeLength[edge], meshNeighborsZSurface[edge],
                                                   meshNeighborsZBedrock[edge], neighborSurfacewaterDepth, neighborGroundwaterHead, elementZBank, elementZBed,
                                                   baseWidth, sideSlope, bedConductivity, bedThickness, surfacewaterDepth);
+          
+          // Use negative of value so that positive means flow out of the channel.
+          meshNeighborsGroundwaterFlowRate[edge] *= -1.0;
           
           if (!error)
             {
@@ -334,7 +337,7 @@ void ChannelElement::handleMeshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeGroundwaterFlowRate &&
+  else if (!(0.0 >= edgeGroundwaterFlowRate &&
              (FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge] || edgeGroundwaterFlowRate >= meshNeighborsGroundwaterFlowRate[edge])))
     {
       CkError("ERROR in ChannelElement::handleMeshGroundwaterFlowRateLimitedMessage, element %d, edge %d: "
@@ -599,7 +602,7 @@ void ChannelElement::handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE itera
           // Calculate surfacewater flow rate.
           error = surfacewaterChannelChannelFlowRate(&channelNeighborsSurfacewaterFlowRate[edge], &dtNew, channelType, elementZBank, elementZBed,
                                                      elementLength, baseWidth, sideSlope, manningsN, surfacewaterDepth, channelNeighborsChannelType[edge],
-                                                     channelNeighborsZBank[edge], channelNeighborsZBed[edge], channelNeighborsElementLength[edge],
+                                                     channelNeighborsZBank[edge], channelNeighborsZBed[edge], channelNeighborsLength[edge],
                                                      channelNeighborsBaseWidth[edge], channelNeighborsSideSlope[edge], channelNeighborsManningsN[edge],
                                                      neighborSurfacewaterDepth);
           
@@ -678,8 +681,11 @@ void ChannelElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iteratio
       // In that case, the flow limited message already had the correct flow value and you can ignore the state message.
       if (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge])
         {
-          // Calculate surfacewater flow rate.  Use negative of function so that positive means flow out of the channel.
+          // Calculate surfacewater flow rate.
           error = -surfacewaterMeshChannelFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsEdgeLength[edge], neighborSurfacewaterDepth);
+          
+          // Use negative of value so that positive means flow out of the channel.
+          meshNeighborsSurfacewaterFlowRate[edge] *= -1.0;
           
           if (!error)
             {
@@ -827,7 +833,7 @@ void ChannelElement::handleChannelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeSurfacewaterFlowRate &&
+  else if (!(0.0 >= edgeSurfacewaterFlowRate &&
              (FLOW_RATE_NOT_READY == channelNeighborsSurfacewaterFlowRateReady[edge] ||
               edgeSurfacewaterFlowRate >= channelNeighborsSurfacewaterFlowRate[edge])))
     {
@@ -860,7 +866,7 @@ void ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYP
       CkExit();
     }
   // Must be else if because cannot use edge unless it passes the previous test.
-  else if (!(0.0 > edgeSurfacewaterFlowRate &&
+  else if (!(0.0 >= edgeSurfacewaterFlowRate &&
              (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge] || edgeSurfacewaterFlowRate >= meshNeighborsSurfacewaterFlowRate[edge])))
     {
       CkError("ERROR in ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage, element %d, edge %d: "

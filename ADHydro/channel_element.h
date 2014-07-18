@@ -43,8 +43,8 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
-  static const int channelNeighborsSize = 16; // Maximum number of channel neighbors.
-  static const int meshNeighborsSize    = 4;  // Maximum number of mesh neighbors.
+  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 4; // Maximum number of mesh neighbors.
   
 private:
 
@@ -55,7 +55,7 @@ private:
                         InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], int meshNeighborsInit[meshNeighborsSize],
                         int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
                         double channelNeighborsZBankInit[channelNeighborsSize], double channelNeighborsZBedInit[channelNeighborsSize],
-                        double channelNeighborsElementLengthInit[channelNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
+                        double channelNeighborsLengthInit[channelNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
                         double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsEdgeLengthInit[meshNeighborsSize],
                         ChannelTypeEnum channelNeighborsChannelTypeInit[channelNeighborsSize],
                         double channelNeighborsBaseWidthInit[channelNeighborsSize], double channelNeighborsSideSlopeInit[channelNeighborsSize],
@@ -288,12 +288,12 @@ private:
   InteractionEnum meshNeighborsInteraction[meshNeighborsSize];          // Communication pattern to calculate flows.
   
   // Neighbor geometric coordinates.
-  double channelNeighborsZBank[channelNeighborsSize];         // Meters.
-  double channelNeighborsZBed[channelNeighborsSize];          // Meters.
-  double channelNeighborsElementLength[channelNeighborsSize]; // Meters.
-  double meshNeighborsZSurface[meshNeighborsSize];            // Meters.
-  double meshNeighborsZBedrock[meshNeighborsSize];            // Meters.
-  double meshNeighborsEdgeLength[meshNeighborsSize];          // Meters.
+  double channelNeighborsZBank[channelNeighborsSize];  // Meters.
+  double channelNeighborsZBed[channelNeighborsSize];   // Meters.
+  double channelNeighborsLength[channelNeighborsSize]; // Meters.
+  double meshNeighborsZSurface[meshNeighborsSize];     // Meters.
+  double meshNeighborsZBedrock[meshNeighborsSize];     // Meters.
+  double meshNeighborsEdgeLength[meshNeighborsSize];   // Meters.
   
   // Neighbor parameters.
   ChannelTypeEnum channelNeighborsChannelType[channelNeighborsSize]; // What type of channel is neighbor.
