@@ -118,19 +118,26 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 // element into the mesh element.
 //
 // For now we are assuming flow is one way from the mesh element into the
-// channel element and the flow rate is the same as if it were a mesh outflow
-// boundary.
+// channel element.  We calculate the flow rate as if it were a mesh outflow
+// boundary except that the water depth is taken as the depth above the highest
+// of the mesh element surface, channel element bank, or channel element water
+// height.
 //
 // Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //
-// flowRate              - Scalar passed by reference will be filled in with
-//                         the flow rate in cubic meters per second.
-// edgeLength            - Length of intersection of mesh and channel elements
-//                         in meters.
-// meshSurfacewaterDepth - Surfacewater depth of element in meters.
-bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshSurfacewaterDepth);
+// flowRate                 - Scalar passed by reference will be filled in with
+//                            the flow rate in cubic meters per second.
+// edgeLength               - Length of intersection of mesh and channel
+//                            elements in meters.
+// meshZSurface             - Surface Z coordinate of mesh element in meters.
+// meshSurfacewaterDepth    - Surfacewater depth of mesh element in meters.
+// channelZBank             - Bank Z coordinate of channel element in meters.
+// channelZBed              - Bed Z coordinate of channel element in meters.
+// channelSurfacewaterDepth - Surfacewater depth of channel element in meters.
+bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshSurfacewaterDepth, double channelZBank,
+                                     double channelZBed, double channelSurfacewaterDepth);
 
 // Calculate the surfacewater flow rate in cubic meters per second between a
 // channel element and its chanel neighbor.  Positive means flow out of the

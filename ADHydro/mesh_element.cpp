@@ -41,6 +41,7 @@ void MeshElement::pup(PUP::er &p)
   PUParray(p, meshNeighbors, meshNeighborsSize);
   PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
   PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
+  PUParray(p, channelEdge, meshNeighborsSize);
   PUParray(p, channelNeighbors, channelNeighborsSize);
   PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
   PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
@@ -92,7 +93,8 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                                    double edgeNormalXInit[3], double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit,
                                    double elementZBedrockInit, double elementAreaInit, int meshNeighborsInit[meshNeighborsSize],
                                    int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
-                                   int channelNeighborsInit[channelNeighborsSize], int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
+                                   bool channelEdgeInit[meshNeighborsSize], int channelNeighborsInit[channelNeighborsSize],
+                                   int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
                                    InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], double meshNeighborsXInit[meshNeighborsSize],
                                    double meshNeighborsYInit[meshNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
                                    double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsAreaInit[meshNeighborsSize],
@@ -134,6 +136,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       meshNeighbors[edge]                           = meshNeighborsInit[edge];
       meshNeighborsReciprocalEdge[edge]             = meshNeighborsReciprocalEdgeInit[edge];
       meshNeighborsInteraction[edge]                = meshNeighborsInteractionInit[edge];
+      channelEdge[edge]                             = channelEdgeInit[edge];
       meshNeighborsX[edge]                          = meshNeighborsXInit[edge];
       meshNeighborsY[edge]                          = meshNeighborsYInit[edge];
       meshNeighborsZSurface[edge]                   = meshNeighborsZSurfaceInit[edge];
@@ -214,7 +217,7 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
       // Set the flow rate state for this timestep to not ready.
-      meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
+      meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
       if (!isBoundary(meshNeighbors[edge]))
         {
@@ -840,7 +843,7 @@ void MeshElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
       // Set the flow rate state for this timestep to not ready.
       meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
-      if (!isBoundary(meshNeighbors[edge]))
+      if (!(isBoundary(meshNeighbors[edge]) || channelEdge[edge]))
         {
           // Send my state to my neighbor.
           switch (meshNeighborsInteraction[edge])
@@ -895,21 +898,32 @@ void MeshElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
 
 void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage)
 {
-  bool error = false; // Error flag.
-  int  edge;          // Loop counter.
+  bool                  error = false; // Error flag.
+  int                   edge;          // Loop counter.
+  BoundaryConditionEnum boundary;      // Boundary condition code to pass to the function to calculate flow rate.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]))
+      if (isBoundary(meshNeighbors[edge]) || channelEdge[edge])
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
+          if (isBoundary(meshNeighbors[edge]))
+            {
+              boundary = (BoundaryConditionEnum)meshNeighbors[edge];
+            }
+          else
+            {
+              // Channel edge.  No direct flow to/from mesh neighbor on other side of channel.
+              boundary = NOFLOW;
+            }
+          
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], (BoundaryConditionEnum)meshNeighbors[edge], 0.0, 0.0, 0.0,
-                                                   edgeLength[edge], edgeNormalX[edge], edgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, edgeLength[edge], edgeNormalX[edge],
+                                                   edgeNormalY[edge], surfacewaterDepth);
           
           if (!error)
             {
@@ -1045,7 +1059,8 @@ void MeshElement::handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE iteratio
       if (FLOW_RATE_NOT_READY == channelNeighborsSurfacewaterFlowRateReady[edge])
         {
           // Calculate surfacewater flow rate.
-          error = surfacewaterMeshChannelFlowRate(&channelNeighborsSurfacewaterFlowRate[edge], channelNeighborsEdgeLength[edge], surfacewaterDepth);
+          error = surfacewaterMeshChannelFlowRate(&channelNeighborsSurfacewaterFlowRate[edge], channelNeighborsEdgeLength[edge], elementZSurface,
+                                                  surfacewaterDepth, channelNeighborsZBank[edge], channelNeighborsZBed[edge], neighborSurfacewaterDepth);
           
           if (!error)
             {
@@ -1313,7 +1328,7 @@ void MeshElement::checkSurfacewaterFlowRates(CMK_REFNUM_TYPE iterationThisMessag
               meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
               
               // Send flow limited message.
-              if (!isBoundary(meshNeighbors[edge]))
+              if (!(isBoundary(meshNeighbors[edge]) || channelEdge[edge]))
                 {
                   thisProxy[meshNeighbors[edge]].meshSurfacewaterFlowRateLimitedMessage(iterationThisMessage, meshNeighborsReciprocalEdge[edge],
                                                                                         -meshNeighborsSurfacewaterFlowRate[edge]);

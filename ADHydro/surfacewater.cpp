@@ -24,7 +24,7 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
       error = true;
     }
   
-  if (!(0 <= inflowHeight))
+  if (!(0.0 <= inflowHeight))
     {
       CkError("ERROR in surfacewaterMeshBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
       error = true;
@@ -42,7 +42,7 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
       error = true;
     }
   
-  if (!(0 <= surfacewaterDepth))
+  if (!(0.0 <= surfacewaterDepth))
     {
       CkError("ERROR in surfacewaterMeshBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
@@ -112,31 +112,31 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
       error = true;
     }
   
-  if (!(0 <= inflowVelocity))
+  if (!(0.0 <= inflowVelocity))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: inflowVelocity must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0 <= inflowHeight))
+  if (!(0.0 <= inflowHeight))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0 < elementLength))
+  if (!(0.0 < elementLength))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: elementLength must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0 <= baseWidth))
+  if (!(0.0 <= baseWidth))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: baseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
-  if (!(0 <= sideSlope))
+  if (!(0.0 <= sideSlope))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: sideSlope must be greater than or equal to zero.\n");
       error = true;
@@ -148,7 +148,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
       error = true;
     }
   
-  if (!(0 <= surfacewaterDepth))
+  if (!(0.0 <= surfacewaterDepth))
     {
       CkError("ERROR in surfacewaterChannelBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
@@ -314,11 +314,75 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
   return error;
 }
 
-bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshSurfacewaterDepth)
+bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshSurfacewaterDepth, double channelZBank,
+                                     double channelZBed, double channelSurfacewaterDepth)
 {
-  // Do not repeat error checking for straight passthrough.
+  bool   error                          = false;                 // Error flag.
+  double effectiveMeshZSurface          = meshZSurface;          // The highest of meshZSurface, channelZBank, or channelZBed plus channelSurfacewaterDepth.
+  double effectiveMeshSurfacewaterDepth = meshSurfacewaterDepth; // The depth of water above effectiveMeshZSurface.
   
-  return surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != flowRate))
+    {
+      CkError("ERROR in surfacewaterMeshChannelFlowRate: flowRate must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *flowRate = 0.0;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 < edgeLength))
+    {
+      CkError("ERROR in surfacewaterMeshChannelFlowRate: edgeLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= meshSurfacewaterDepth))
+    {
+      CkError("ERROR in surfacewaterMeshChannelFlowRate: meshSurfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(channelZBank >= channelZBed))
+    {
+      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelZBank must be greater than or equal to channelZBed");
+      error = true;
+    }
+  
+  if (!(0.0 <= channelSurfacewaterDepth))
+    {
+      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelSurfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      if (effectiveMeshZSurface < channelZBank)
+        {
+          effectiveMeshZSurface = channelZBank;
+        }
+
+      if (effectiveMeshZSurface < channelZBed + channelSurfacewaterDepth)
+        {
+          effectiveMeshZSurface = channelZBed + channelSurfacewaterDepth;
+        }
+
+      effectiveMeshSurfacewaterDepth -= effectiveMeshZSurface - meshZSurface;
+
+      if (0.0 > effectiveMeshSurfacewaterDepth)
+        {
+          effectiveMeshSurfacewaterDepth = 0.0;
+        }
+
+      error =  surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);
+    }
+  
+  return error;
 }
 
 // Calculate the surfacewater flow rate in cubic meters per second between a

@@ -682,7 +682,8 @@ void ChannelElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iteratio
       if (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge])
         {
           // Calculate surfacewater flow rate.
-          error = -surfacewaterMeshChannelFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsEdgeLength[edge], neighborSurfacewaterDepth);
+          error = surfacewaterMeshChannelFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsEdgeLength[edge], meshNeighborsZSurface[edge],
+                                                  neighborSurfacewaterDepth, elementZBank, elementZBed, surfacewaterDepth);
           
           // Use negative of value so that positive means flow out of the channel.
           meshNeighborsSurfacewaterFlowRate[edge] *= -1.0;

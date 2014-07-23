@@ -53,7 +53,8 @@ private:
                         double edgeNormalXInit[3], double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit,
                         double elementZBedrockInit, double elementAreaInit, int meshNeighborsInit[meshNeighborsSize],
                         int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
-                        int channelNeighborsInit[channelNeighborsSize], int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
+                        bool channelEdgeInit[meshNeighborsSize], int channelNeighborsInit[channelNeighborsSize],
+                        int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
                         InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], double meshNeighborsXInit[meshNeighborsSize],
                         double meshNeighborsYInit[meshNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
                         double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsAreaInit[meshNeighborsSize],
@@ -341,6 +342,9 @@ private:
   int             meshNeighbors[meshNeighborsSize];                     // Array index into meshProxy or boundary condition code.
   int             meshNeighborsReciprocalEdge[meshNeighborsSize];       // Array index of me in neighbor's neighbor list.
   InteractionEnum meshNeighborsInteraction[meshNeighborsSize];          // Communication pattern to calculate flows.
+  bool            channelEdge[meshNeighborsSize];                       // If true the edge to this mesh neighbor has a channel on it.  The edge is treated as
+                                                                        // a NOFLOW boundary for mesh neighbor surfacewater interactions.  All surfacewater
+                                                                        // flow goes through the channel neighbors.
   int             channelNeighbors[channelNeighborsSize];               // Array index into thisProxy or boundary condition code
   int             channelNeighborsReciprocalEdge[channelNeighborsSize]; // Array index of me in neighbor's neighbor list.
   InteractionEnum channelNeighborsInteraction[channelNeighborsSize];    // Communication pattern to calculate flows.
