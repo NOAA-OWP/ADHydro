@@ -36,6 +36,7 @@ void ChannelElement::pup(PUP::er &p)
   PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
   PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
   PUParray(p, meshNeighborsEdgeLength, meshNeighborsSize);
+  PUParray(p, meshNeighborsZOffset, meshNeighborsSize);
   PUParray(p, channelNeighborsChannelType, channelNeighborsSize);
   PUParray(p, channelNeighborsBaseWidth, channelNeighborsSize);
   PUParray(p, channelNeighborsSideSlope, channelNeighborsSize);
@@ -115,6 +116,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
       meshNeighborsZSurface[edge]                   = meshNeighborsZSurfaceInit[edge];
       meshNeighborsZBedrock[edge]                   = meshNeighborsZBedrockInit[edge];
       meshNeighborsEdgeLength[edge]                 = meshNeighborsEdgeLengthInit[edge];
+      meshNeighborsZOffset[edge]                    = 0.0;
       meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
       meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
       meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
@@ -227,9 +229,11 @@ void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iteration
       if (FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge])
         {
           // Calculate groundwater flow rate.
-          error = groundwaterMeshChannelFlowRate(&meshNeighborsGroundwaterFlowRate[edge], meshNeighborsEdgeLength[edge], meshNeighborsZSurface[edge],
-                                                  meshNeighborsZBedrock[edge], neighborSurfacewaterDepth, neighborGroundwaterHead, elementZBank, elementZBed,
-                                                  baseWidth, sideSlope, bedConductivity, bedThickness, surfacewaterDepth);
+          error = groundwaterMeshChannelFlowRate(&meshNeighborsGroundwaterFlowRate[edge], meshNeighborsEdgeLength[edge],
+                                                 meshNeighborsZSurface[edge] + meshNeighborsZOffset[edge],
+                                                 meshNeighborsZBedrock[edge] + meshNeighborsZOffset[edge], neighborSurfacewaterDepth,
+                                                 neighborGroundwaterHead + meshNeighborsZOffset[edge], elementZBank, elementZBed, baseWidth, sideSlope,
+                                                 bedConductivity, bedThickness, surfacewaterDepth);
           
           // Use negative of value so that positive means flow out of the channel.
           meshNeighborsGroundwaterFlowRate[edge] *= -1.0;
@@ -682,8 +686,9 @@ void ChannelElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iteratio
       if (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge])
         {
           // Calculate surfacewater flow rate.
-          error = surfacewaterMeshChannelFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsEdgeLength[edge], meshNeighborsZSurface[edge],
-                                                  neighborSurfacewaterDepth, elementZBank, elementZBed, surfacewaterDepth);
+          error = surfacewaterMeshChannelFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsEdgeLength[edge],
+                                                  meshNeighborsZSurface[edge] + meshNeighborsZOffset[edge], neighborSurfacewaterDepth, elementZBank,
+                                                  elementZBed, surfacewaterDepth);
           
           // Use negative of value so that positive means flow out of the channel.
           meshNeighborsSurfacewaterFlowRate[edge] *= -1.0;

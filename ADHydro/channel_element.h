@@ -294,6 +294,10 @@ private:
   double meshNeighborsZSurface[meshNeighborsSize];     // Meters.
   double meshNeighborsZBedrock[meshNeighborsSize];     // Meters.
   double meshNeighborsEdgeLength[meshNeighborsSize];   // Meters.
+  double meshNeighborsZOffset[meshNeighborsSize];      // Meters.  The Z coordinate at the center of a mesh element is not the same as the Z coordinate at
+                                                       // the edge of the element next to its channel neighbor.  This Z offset, which can be positive or
+                                                       // negative, is added to all mesh element center Z coordinates when used for interaction with this
+                                                       // channel neighbor.
   
   // Neighbor parameters.
   ChannelTypeEnum channelNeighborsChannelType[channelNeighborsSize]; // What type of channel is neighbor.
