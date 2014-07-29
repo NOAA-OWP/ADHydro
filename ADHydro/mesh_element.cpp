@@ -1,4 +1,5 @@
 #include "mesh_element.h"
+#include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 
@@ -26,40 +27,13 @@ void MeshElement::pup(PUP::er &p)
   __sdag_pup(p);
   p | channelProxy;
   p | fileManagerProxy;
-  PUParray(p, vertexX, 3);
-  PUParray(p, vertexY, 3);
-  PUParray(p, vertexZSurface, 3);
-  PUParray(p, vertexZBedrock, 3);
-  PUParray(p, edgeLength, 3);
-  PUParray(p, edgeNormalX, 3);
-  PUParray(p, edgeNormalY, 3);
   p | elementX;
   p | elementY;
   p | elementZSurface;
   p | elementZBedrock;
   p | elementArea;
-  PUParray(p, meshNeighbors, meshNeighborsSize);
-  PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
-  PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
-  PUParray(p, channelEdge, meshNeighborsSize);
-  PUParray(p, channelNeighbors, channelNeighborsSize);
-  PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
-  PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
-  PUParray(p, meshNeighborsX, meshNeighborsSize);
-  PUParray(p, meshNeighborsY, meshNeighborsSize);
-  PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
-  PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
-  PUParray(p, meshNeighborsArea, meshNeighborsSize);
-  PUParray(p, channelNeighborsZBank, channelNeighborsSize);
-  PUParray(p, channelNeighborsZBed, channelNeighborsSize);
-  PUParray(p, channelNeighborsEdgeLength, channelNeighborsSize);
-  PUParray(p, channelNeighborsZOffset, channelNeighborsSize);
-  PUParray(p, meshNeighborsConductivity, meshNeighborsSize);
-  PUParray(p, meshNeighborsManningsN, meshNeighborsSize);
-  PUParray(p, channelNeighborsBaseWidth, channelNeighborsSize);
-  PUParray(p, channelNeighborsSideSlope, channelNeighborsSize);
-  PUParray(p, channelNeighborsBedConductivity, channelNeighborsSize);
-  PUParray(p, channelNeighborsBedThickness, channelNeighborsSize);
+  p | elementSlopeX;
+  p | elementSlopeY;
   p | catchment;
   p | conductivity;
   p | porosity;
@@ -68,18 +42,6 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterError;
   p | groundwaterHead;
   p | groundwaterError;
-  PUParray(p, meshNeighborsSurfacewaterFlowRateReady, meshNeighborsSize);
-  PUParray(p, meshNeighborsSurfacewaterFlowRate, meshNeighborsSize);
-  PUParray(p, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsSize);
-  PUParray(p, meshNeighborsGroundwaterFlowRateReady, meshNeighborsSize);
-  PUParray(p, meshNeighborsGroundwaterFlowRate, meshNeighborsSize);
-  PUParray(p, meshNeighborsGroundwaterCumulativeFlow, meshNeighborsSize);
-  PUParray(p, channelNeighborsSurfacewaterFlowRateReady, channelNeighborsSize);
-  PUParray(p, channelNeighborsSurfacewaterFlowRate, channelNeighborsSize);
-  PUParray(p, channelNeighborsSurfacewaterCumulativeFlow, channelNeighborsSize);
-  PUParray(p, channelNeighborsGroundwaterFlowRateReady, channelNeighborsSize);
-  PUParray(p, channelNeighborsGroundwaterFlowRate, channelNeighborsSize);
-  PUParray(p, channelNeighborsGroundwaterCumulativeFlow, channelNeighborsSize);
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | groundwaterDone;
@@ -87,108 +49,721 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterDone;
   p | dt;
   p | dtNew;
+  PUParray(p, meshNeighbors, meshNeighborsSize);
+  PUParray(p, meshNeighborsChannelEdge, meshNeighborsSize);
+  PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
+  PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
+  PUParray(p, meshNeighborsInitialized, meshNeighborsSize);
+  PUParray(p, meshNeighborsX, meshNeighborsSize);
+  PUParray(p, meshNeighborsY, meshNeighborsSize);
+  PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
+  PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
+  PUParray(p, meshNeighborsArea, meshNeighborsSize);
+  PUParray(p, meshNeighborsEdgeLength, meshNeighborsSize);
+  PUParray(p, meshNeighborsEdgeNormalX, meshNeighborsSize);
+  PUParray(p, meshNeighborsEdgeNormalY, meshNeighborsSize);
+  PUParray(p, meshNeighborsConductivity, meshNeighborsSize);
+  PUParray(p, meshNeighborsManningsN, meshNeighborsSize);
+  PUParray(p, meshNeighborsSurfacewaterFlowRateReady, meshNeighborsSize);
+  PUParray(p, meshNeighborsSurfacewaterFlowRate, meshNeighborsSize);
+  PUParray(p, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsSize);
+  PUParray(p, meshNeighborsGroundwaterFlowRateReady, meshNeighborsSize);
+  PUParray(p, meshNeighborsGroundwaterFlowRate, meshNeighborsSize);
+  PUParray(p, meshNeighborsGroundwaterCumulativeFlow, meshNeighborsSize);
+  PUParray(p, channelNeighbors, channelNeighborsSize);
+  PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
+  PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
+  PUParray(p, channelNeighborsInitialized, channelNeighborsSize);
+  PUParray(p, channelNeighborsZBank, channelNeighborsSize);
+  PUParray(p, channelNeighborsZBed, channelNeighborsSize);
+  PUParray(p, channelNeighborsZOffset, channelNeighborsSize);
+  PUParray(p, channelNeighborsEdgeLength, channelNeighborsSize);
+  PUParray(p, channelNeighborsBaseWidth, channelNeighborsSize);
+  PUParray(p, channelNeighborsSideSlope, channelNeighborsSize);
+  PUParray(p, channelNeighborsBedConductivity, channelNeighborsSize);
+  PUParray(p, channelNeighborsBedThickness, channelNeighborsSize);
+  PUParray(p, channelNeighborsSurfacewaterFlowRateReady, channelNeighborsSize);
+  PUParray(p, channelNeighborsSurfacewaterFlowRate, channelNeighborsSize);
+  PUParray(p, channelNeighborsSurfacewaterCumulativeFlow, channelNeighborsSize);
+  PUParray(p, channelNeighborsGroundwaterFlowRateReady, channelNeighborsSize);
+  PUParray(p, channelNeighborsGroundwaterFlowRate, channelNeighborsSize);
+  PUParray(p, channelNeighborsGroundwaterCumulativeFlow, channelNeighborsSize);
 }
 
-void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit, double vertexXInit[3],
-                                   double vertexYInit[3], double vertexZSurfaceInit[3], double vertexZBedrockInit[3], double edgeLengthInit[3],
-                                   double edgeNormalXInit[3], double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit,
-                                   double elementZBedrockInit, double elementAreaInit, int meshNeighborsInit[meshNeighborsSize],
-                                   int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
-                                   bool channelEdgeInit[meshNeighborsSize], int channelNeighborsInit[channelNeighborsSize],
-                                   int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
-                                   InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], double meshNeighborsXInit[meshNeighborsSize],
-                                   double meshNeighborsYInit[meshNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
-                                   double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsAreaInit[meshNeighborsSize],
-                                   double channelNeighborsZBankInit[channelNeighborsSize], double channelNeighborsZBedInit[channelNeighborsSize],
-                                   double channelNeighborsEdgeLengthInit[channelNeighborsSize], double meshNeighborsConductivityInit[meshNeighborsSize],
-                                   double meshNeighborsManningsNInit[meshNeighborsSize], double channelNeighborsBaseWidthInit[channelNeighborsSize],
-                                   double channelNeighborsSideSlopeInit[channelNeighborsSize],
-                                   double channelNeighborsBedConductivityInit[channelNeighborsSize],
-                                   double channelNeighborsBedThicknessInit[channelNeighborsSize], int catchmentInit, double conductivityInit,
-                                   double porosityInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
-                                   double groundwaterHeadInit, double groundwaterErrorInit)
+bool MeshElement::allInitialized()
 {
-  int edge; // Loop counter.
+  int  edge;               // Loop counter.
+  bool initialized = true; // Flag to record whether we have found an uninitialized neighbor.
   
-  // Parameter values will be error checked by the invariant.
-  
-  channelProxy     = channelProxyInit;
-  fileManagerProxy = fileManagerProxyInit;
-  
-  for (edge = 0; edge < 3; edge++)
+  for (edge = 0; initialized && edge < meshNeighborsSize; edge++)
     {
-      vertexX[edge]        = vertexXInit[edge];
-      vertexY[edge]        = vertexYInit[edge];
-      vertexZSurface[edge] = vertexZSurfaceInit[edge];
-      vertexZBedrock[edge] = vertexZBedrockInit[edge];
-      edgeLength[edge]     = edgeLengthInit[edge];
-      edgeNormalX[edge]    = edgeNormalXInit[edge];
-      edgeNormalY[edge]    = edgeNormalYInit[edge];
+      initialized = meshNeighborsInitialized[edge];
     }
   
-  elementX        = elementXInit;
-  elementY        = elementYInit;
-  elementZSurface = elementZSurfaceInit;
-  elementZBedrock = elementZBedrockInit;
-  elementArea     = elementAreaInit;
-  
-  for (edge = 0; edge < meshNeighborsSize; edge++)
+  for (edge = 0; initialized && edge < channelNeighborsSize; edge++)
     {
-      meshNeighbors[edge]                           = meshNeighborsInit[edge];
-      meshNeighborsReciprocalEdge[edge]             = meshNeighborsReciprocalEdgeInit[edge];
-      meshNeighborsInteraction[edge]                = meshNeighborsInteractionInit[edge];
-      channelEdge[edge]                             = channelEdgeInit[edge];
-      meshNeighborsX[edge]                          = meshNeighborsXInit[edge];
-      meshNeighborsY[edge]                          = meshNeighborsYInit[edge];
-      meshNeighborsZSurface[edge]                   = meshNeighborsZSurfaceInit[edge];
-      meshNeighborsZBedrock[edge]                   = meshNeighborsZBedrockInit[edge];
-      meshNeighborsArea[edge]                       = meshNeighborsAreaInit[edge];
-      meshNeighborsConductivity[edge]               = meshNeighborsConductivityInit[edge];
-      meshNeighborsManningsN[edge]                  = meshNeighborsManningsNInit[edge];
-      meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
-      meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
-      meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
-      meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
-      meshNeighborsGroundwaterFlowRate[edge]        = 0.0;
-      meshNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+      initialized = channelNeighborsInitialized[edge];
     }
   
-  for (edge = 0; edge < channelNeighborsSize; edge++)
+  return initialized;
+}
+
+void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit)
+{
+  bool         error                  = false;                                                     // Error flag.
+  int          edge;                                                                               // Loop counter.
+  FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                      // Used for access to local public member variables.
+  int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localMeshElementStart; // Index of this element in file manager arrays.
+  double       coordinate;                                                                         // Used for calculating derived coordinates.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfMeshElements))
     {
-      channelNeighbors[edge]                           = channelNeighborsInit[edge];
-      channelNeighborsReciprocalEdge[edge]             = channelNeighborsReciprocalEdgeInit[edge];
-      channelNeighborsInteraction[edge]                = channelNeighborsInteractionInit[edge];
-      channelNeighborsZBank[edge]                      = channelNeighborsZBankInit[edge];
-      channelNeighborsZBed[edge]                       = channelNeighborsZBedInit[edge];
-      channelNeighborsEdgeLength[edge]                 = channelNeighborsEdgeLengthInit[edge];
-      channelNeighborsZOffset[edge]                    = 0.0;
-      channelNeighborsBaseWidth[edge]                  = channelNeighborsBaseWidthInit[edge];
-      channelNeighborsSideSlope[edge]                  = channelNeighborsSideSlopeInit[edge];
-      channelNeighborsBedConductivity[edge]            = channelNeighborsBedConductivityInit[edge];
-      channelNeighborsBedThickness[edge]               = channelNeighborsBedThicknessInit[edge];
-      channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
-      channelNeighborsSurfacewaterFlowRate[edge]       = 0.0;
-      channelNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
-      channelNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
-      channelNeighborsGroundwaterFlowRate[edge]        = 0.0;
-      channelNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+      CkError("ERROR in MeshElement::handleInitialize, element %d: initialization information not available from local file manager.\n", thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      channelProxy     = channelProxyInit;
+      fileManagerProxy = fileManagerProxyInit;
+      
+      if (NULL != fileManagerLocalBranch->meshElementX)
+        {
+          elementX = fileManagerLocalBranch->meshElementX[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX)
+        {
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge];
+            }
+          
+          elementX = coordinate / meshNeighborsSize;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementX initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
-  catchment                = catchmentInit;
-  conductivity             = conductivityInit;
-  porosity                 = porosityInit;
-  manningsN                = manningsNInit;
-  surfacewaterDepth        = surfacewaterDepthInit;
-  surfacewaterError        = surfacewaterErrorInit;
-  groundwaterHead          = groundwaterHeadInit;
-  groundwaterError         = groundwaterErrorInit;
-  surfacewaterInfiltration = 0.0;
-  groundwaterRecharge      = 0.0;
-  groundwaterDone          = false;
-  infiltrationDone         = false;
-  surfacewaterDone         = false;
-  dt                       = 1.0;
-  dtNew                    = 2.0 * dt;
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementY)
+        {
+          elementY = fileManagerLocalBranch->meshElementY[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              coordinate += fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge];
+            }
+          
+          elementY = coordinate / meshNeighborsSize;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementY initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementZSurface)
+        {
+          elementZSurface = fileManagerLocalBranch->meshElementZSurface[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexZSurface)
+        {
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              coordinate += fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][edge];
+            }
+          
+          elementZSurface = coordinate / meshNeighborsSize;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementZSurface initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementZBedrock)
+        {
+          elementZBedrock = fileManagerLocalBranch->meshElementZBedrock[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexZBedrock)
+        {
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              coordinate += fileManagerLocalBranch->meshVertexZBedrock[fileManagerLocalIndex][edge];
+            }
+          
+          elementZBedrock = coordinate / meshNeighborsSize;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementZBedrock initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementArea)
+        {
+          elementArea = fileManagerLocalBranch->meshElementArea[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] *
+                            (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]);
+            }
+          
+          elementArea = coordinate * 0.5;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementArea initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementSlopeX)
+        {
+          elementSlopeX = fileManagerLocalBranch->meshElementSlopeX[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
+               NULL != fileManagerLocalBranch->meshVertexZSurface)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
+            {
+              coordinate += (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
+                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge]) *
+                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
+            }
+          
+          elementSlopeX = coordinate / (2.0 * elementArea);
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementSlopeX initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshElementSlopeY)
+        {
+          elementSlopeY = fileManagerLocalBranch->meshElementSlopeY[fileManagerLocalIndex];
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
+               NULL != fileManagerLocalBranch->meshVertexZSurface)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          coordinate = 0.0;
+          
+          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
+            {
+              coordinate += (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] -
+                             fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
+                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
+            }
+          
+          elementSlopeY = coordinate / (2.0 * elementArea);
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: elementSlopeY initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshCatchment)
+        {
+          catchment = fileManagerLocalBranch->meshCatchment[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: catchment initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshConductivity)
+        {
+          conductivity = fileManagerLocalBranch->meshConductivity[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: conductivity initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshPorosity)
+        {
+          porosity = fileManagerLocalBranch->meshPorosity[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: porosity initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshManningsN)
+        {
+          manningsN = fileManagerLocalBranch->meshManningsN[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: manningsN initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSurfacewaterDepth)
+        {
+          surfacewaterDepth = fileManagerLocalBranch->meshSurfacewaterDepth[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: surfacewaterDepth initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSurfacewaterError)
+        {
+          surfacewaterError = fileManagerLocalBranch->meshSurfacewaterError[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: surfacewaterError initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshGroundwaterHead)
+        {
+          groundwaterHead = fileManagerLocalBranch->meshGroundwaterHead[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: groundwaterHead initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshGroundwaterError)
+        {
+          groundwaterError = fileManagerLocalBranch->meshGroundwaterError[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: groundwaterError initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      surfacewaterInfiltration = 0.0;
+      groundwaterRecharge      = 0.0;
+      groundwaterDone          = false;
+      infiltrationDone         = false;
+      surfacewaterDone         = false;
+      dt                       = 1.0;
+      dtNew                    = 1.0;
+      
+      if (NULL != fileManagerLocalBranch->meshMeshNeighbors && NULL != fileManagerLocalBranch->meshMeshNeighborsChannelEdge)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighbors[edge]                           = fileManagerLocalBranch->meshMeshNeighbors[fileManagerLocalIndex][edge];
+              meshNeighborsChannelEdge[edge]                = fileManagerLocalBranch->meshMeshNeighborsChannelEdge[fileManagerLocalIndex][edge];
+              meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
+              meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
+              meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
+              meshNeighborsGroundwaterFlowRate[edge]        = 0.0;
+              meshNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+              
+              if (isBoundary(meshNeighbors[edge]))
+                {
+                  meshNeighborsInitialized[edge] = true;
+                  
+                  // Unused, but initialize for completeness.
+                  meshNeighborsReciprocalEdge[edge] = 0;
+                  meshNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
+                  meshNeighborsX[edge]              = 0.0;
+                  meshNeighborsY[edge]              = 0.0;
+                  meshNeighborsZSurface[edge]       = 0.0;
+                  meshNeighborsZBedrock[edge]       = 0.0;
+                  meshNeighborsArea[edge]           = 1.0;
+                  meshNeighborsConductivity[edge]   = 1.0;
+                  meshNeighborsManningsN[edge]      = 1.0;
+                }
+              else
+                {
+                  meshNeighborsInitialized[edge] = false;
+                  
+                  thisProxy[meshNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock, elementArea,
+                                                                        conductivity, manningsN);
+                }
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: meshNeighbors initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshMeshNeighborsEdgeLength)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighborsEdgeLength[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeLength[fileManagerLocalIndex][edge];
+            }
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              // This works for triangles.  Don't know about other shapes.
+              meshNeighborsEdgeLength[edge] = sqrt((fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
+                                                   (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) +
+                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
+                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]));
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: meshNeighborsEdgeLength initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshMeshNeighborsEdgeNormalX)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighborsEdgeNormalX[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalX[fileManagerLocalIndex][edge];
+            }
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              // This works for triangles.  Don't know about other shapes.
+              meshNeighborsEdgeNormalX[edge] = (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
+                                                fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize]) /
+                                               meshNeighborsEdgeLength[edge];
+             }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: meshNeighborsEdgeNormalX initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshMeshNeighborsEdgeNormalY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighborsEdgeNormalY[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalY[fileManagerLocalIndex][edge];
+            }
+        }
+      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              // This works for triangles.  Don't know about other shapes.
+              meshNeighborsEdgeNormalY[edge] = (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
+                                                fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) /
+                                               meshNeighborsEdgeLength[edge];
+             }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: meshNeighborsEdgeNormalY initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshChannelNeighbors)
+        {
+          for (edge = 0; edge < channelNeighborsSize; edge++)
+            {
+              channelNeighbors[edge]                           = fileManagerLocalBranch->meshChannelNeighbors[fileManagerLocalIndex][edge];
+              channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              channelNeighborsSurfacewaterFlowRate[edge]       = 0.0;
+              channelNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
+              channelNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
+              channelNeighborsGroundwaterFlowRate[edge]        = 0.0;
+              channelNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+              
+              if (isBoundary(channelNeighbors[edge]))
+                {
+                  channelNeighborsInitialized[edge] = true;
+                  
+                  // Unused, but initialize for completeness.
+                  channelNeighborsReciprocalEdge[edge]  = 0;
+                  channelNeighborsInteraction[edge]     = BOTH_CALCULATE_FLOW_RATE;
+                  channelNeighborsZBank[edge]           = 0.0;
+                  channelNeighborsZBed[edge]            = 0.0;
+                  channelNeighborsZOffset[edge]         = 0.0;
+                  channelNeighborsBaseWidth[edge]       = 1.0;
+                  channelNeighborsSideSlope[edge]       = 1.0;
+                  channelNeighborsBedConductivity[edge] = 1.0;
+                  channelNeighborsBedThickness[edge]    = 1.0;
+                }
+              else
+                {
+                  channelNeighborsInitialized[edge] = false;
+                  
+                  channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock,
+                                                                              elementSlopeX, elementSlopeY);
+                }
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: channelNeighbors initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshChannelNeighborsEdgeLength)
+        {
+          for (edge = 0; edge < channelNeighborsSize; edge++)
+            {
+              channelNeighborsEdgeLength[edge] = fileManagerLocalBranch->meshChannelNeighborsEdgeLength[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: channelNeighborsEdgeLength initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void MeshElement::handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
+                                               double neighborZBedrock, double neighborArea, double neighborConductivity, double neighborManningsN)
+{
+  bool error = false; // Error flag.
+  int  edge  = 0;     // Loop counter.
+  
+  while (edge < meshNeighborsSize - 1 && meshNeighbors[edge] != neighbor)
+    {
+      edge++;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(meshNeighbors[edge] == neighbor))
+    {
+      CkError("ERROR in MeshElement::handleInitializeMeshNeighbor, element %d: received an initialization message from an element that is not my neighbor.\n",
+              thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      meshNeighborsInitialized[edge]    = true;
+      meshNeighborsReciprocalEdge[edge] = neighborReciprocalEdge;
+      meshNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
+      meshNeighborsX[edge]              = neighborX;
+      meshNeighborsY[edge]              = neighborY;
+      meshNeighborsZSurface[edge]       = neighborZSurface;
+      meshNeighborsZBedrock[edge]       = neighborZBedrock;
+      meshNeighborsArea[edge]           = neighborArea;
+      meshNeighborsConductivity[edge]   = neighborConductivity;
+      meshNeighborsManningsN[edge]      = neighborManningsN;
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
+                                                  double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                                  double neighborBedThickness)
+{
+  bool error = false; // Error flag.
+  int  edge  = 0;     // Loop counter.
+  
+  while (edge < channelNeighborsSize - 1 && channelNeighbors[edge] != neighbor)
+    {
+      edge++;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(channelNeighbors[edge] == neighbor))
+    {
+      CkError("ERROR in MeshElement::handleInitializeChannelNeighbor, element %d: received an initialization message from an element that is not my "
+              "neighbor.\n", thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      channelNeighborsInitialized[edge]     = true;
+      channelNeighborsReciprocalEdge[edge]  = neighborReciprocalEdge;
+      channelNeighborsInteraction[edge]     = BOTH_CALCULATE_FLOW_RATE;
+      channelNeighborsZBank[edge]           = neighborZBank;
+      channelNeighborsZBed[edge]            = neighborZBed;
+      channelNeighborsZOffset[edge]         = (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY;
+      channelNeighborsBaseWidth[edge]       = neighborBaseWidth;
+      channelNeighborsSideSlope[edge]       = neighborSideSlope;
+      channelNeighborsBedConductivity[edge] = neighborBedConductivity;
+      channelNeighborsBedThickness[edge]    = neighborBedThickness;
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
 }
 
 // Suppress warning enum value not handled in switch.
@@ -290,9 +865,9 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(CMK_REFNUM
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
           // Calculate groundwater flow rate.
-          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)meshNeighbors[edge], vertexX, vertexY,
-                                                  vertexZSurface, edgeLength[edge], edgeNormalX[edge], edgeNormalY[edge], elementZBedrock, elementArea,
-                                                  conductivity, groundwaterHead);
+          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)meshNeighbors[edge],
+                                                  meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
+                                                  elementZBedrock, elementArea, elementSlopeX, elementSlopeY, conductivity, groundwaterHead);
           
           if (!error)
             {
@@ -370,9 +945,12 @@ void MeshElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThi
       if (FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge])
         {
           // Calculate groundwater flow rate.
-          error = groundwaterMeshMeshFlowRate(&meshNeighborsGroundwaterFlowRate[edge], edgeLength[edge], elementX, elementY, elementZSurface, elementZBedrock,
-                                              conductivity, surfacewaterDepth, groundwaterHead, meshNeighborsX[edge], meshNeighborsY[edge],
-                                              meshNeighborsZSurface[edge], meshNeighborsZBedrock[edge], meshNeighborsConductivity[edge], neighborSurfacewaterDepth, neighborGroundwaterHead);
+          error = groundwaterMeshMeshFlowRate(&meshNeighborsGroundwaterFlowRate[edge], meshNeighborsEdgeLength[edge], elementX, elementY, elementZSurface,
+                                              elementZBedrock, conductivity, surfacewaterDepth, groundwaterHead, meshNeighborsX[edge], meshNeighborsY[edge],
+                                              meshNeighborsZSurface[edge], meshNeighborsZBedrock[edge], meshNeighborsConductivity[edge],
+                                              neighborSurfacewaterDepth, neighborGroundwaterHead);
+          
+          
           
           if (!error)
             {
@@ -846,7 +1424,7 @@ void MeshElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
       // Set the flow rate state for this timestep to not ready.
       meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
-      if (!(isBoundary(meshNeighbors[edge]) || channelEdge[edge]))
+      if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge]))
         {
           // Send my state to my neighbor.
           switch (meshNeighborsInteraction[edge])
@@ -907,7 +1485,7 @@ void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_REFNU
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]) || channelEdge[edge])
+      if (isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge])
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge]);
@@ -925,8 +1503,8 @@ void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_REFNU
           
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, edgeLength[edge], edgeNormalX[edge],
-                                                   edgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, meshNeighborsEdgeLength[edge],
+                                                   meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], surfacewaterDepth);
           
           if (!error)
             {
@@ -982,8 +1560,8 @@ void MeshElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationTh
       if (FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge])
         {
           // Calculate surfacewater flow rate.
-          error = surfacewaterMeshMeshFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], &dtNew, edgeLength[edge], elementX, elementY, elementZSurface,
-                                               elementArea, manningsN, surfacewaterDepth, meshNeighborsX[edge], meshNeighborsY[edge],
+          error = surfacewaterMeshMeshFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], &dtNew, meshNeighborsEdgeLength[edge], elementX, elementY,
+                                               elementZSurface, elementArea, manningsN, surfacewaterDepth, meshNeighborsX[edge], meshNeighborsY[edge],
                                                meshNeighborsZSurface[edge], meshNeighborsArea[edge], meshNeighborsManningsN[edge], neighborSurfacewaterDepth);
           
           if (!error)
@@ -1332,7 +1910,7 @@ void MeshElement::checkSurfacewaterFlowRates(CMK_REFNUM_TYPE iterationThisMessag
               meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
               
               // Send flow limited message.
-              if (!(isBoundary(meshNeighbors[edge]) || channelEdge[edge]))
+              if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge]))
                 {
                   thisProxy[meshNeighbors[edge]].meshSurfacewaterFlowRateLimitedMessage(iterationThisMessage, meshNeighborsReciprocalEdge[edge],
                                                                                         -meshNeighborsSurfacewaterFlowRate[edge]);
@@ -1423,7 +2001,5 @@ void MeshElement::moveSurfacewater()
 
 // Suppress warnings in the The Charm++ autogenerated code.
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wsign-compare"
 #include "mesh_element.def.h"
-#pragma GCC diagnostic warning "-Wsign-compare"
 #pragma GCC diagnostic warning "-Wunused-variable"

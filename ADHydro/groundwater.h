@@ -18,22 +18,18 @@
 // flowRate        - Scalar passed by reference will be filled in with the flow
 //                   rate in cubic meters per second.
 // boundary        - What type of boundary.
-// vertexX         - Array containing X coordinates of element vertices in
-//                   meters.
-// vertexY         - Array containing Y coordinates of element vertices in
-//                   meters.
-// vertexZSurface  - Array containing surface Z coordinates of element vertices
-//                   in meters.
 // edgeLength      - Length of edge in meters.
 // edgeNormalX     - X component of edge normal unit vector.
 // edgeNormalY     - Y component of edge normal unit vector.
 // elementZBedrock - Bedrock Z coordinate of element center in meters.
 // elementArea     - Area of element in square meters.
+// elementSlopeX   - Surface slope in X direction, unitless.
+// elementSlopeY   - Surface slope in Y direction, unitless.
 // conductivity    - Hydraulic conductivity of element in meters per second.
 // groundwaterHead - Groundwater head of element in meters.
-bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
-                                     double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea,
-                                     double conductivity, double groundwaterHead);
+bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double edgeLength, double edgeNormalX, double edgeNormalY,
+                                     double elementZBedrock, double elementArea, double elementSlopeX, double elementSlopeY, double conductivity,
+                                     double groundwaterHead);
 
 // Calculate the groundwater flow rate in cubic meters per second between a
 // mesh element and its mesh neighbor.  Positive means flow out of the element

@@ -1,4 +1,5 @@
 #include "channel_element.h"
+#include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 
@@ -24,23 +25,6 @@ void ChannelElement::pup(PUP::er &p)
   p | elementZBank;
   p | elementZBed;
   p | elementLength;
-  PUParray(p, channelNeighbors, channelNeighborsSize);
-  PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
-  PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
-  PUParray(p, meshNeighbors, meshNeighborsSize);
-  PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
-  PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
-  PUParray(p, channelNeighborsZBank, channelNeighborsSize);
-  PUParray(p, channelNeighborsZBed, channelNeighborsSize);
-  PUParray(p, channelNeighborsLength, channelNeighborsSize);
-  PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
-  PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
-  PUParray(p, meshNeighborsEdgeLength, meshNeighborsSize);
-  PUParray(p, meshNeighborsZOffset, meshNeighborsSize);
-  PUParray(p, channelNeighborsChannelType, channelNeighborsSize);
-  PUParray(p, channelNeighborsBaseWidth, channelNeighborsSize);
-  PUParray(p, channelNeighborsSideSlope, channelNeighborsSize);
-  PUParray(p, channelNeighborsManningsN, channelNeighborsSize);
   p | channelType;
   p | permanentCode;
   p | baseWidth;
@@ -50,94 +34,500 @@ void ChannelElement::pup(PUP::er &p)
   p | manningsN;
   p | surfacewaterDepth;
   p | surfacewaterError;
+  p | groundwaterDone;
+  p | surfacewaterDone;
+  p | dt;
+  p | dtNew;
+  PUParray(p, channelNeighbors, channelNeighborsSize);
+  PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
+  PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
+  PUParray(p, channelNeighborsInitialized, channelNeighborsSize);
+  PUParray(p, channelNeighborsZBank, channelNeighborsSize);
+  PUParray(p, channelNeighborsZBed, channelNeighborsSize);
+  PUParray(p, channelNeighborsLength, channelNeighborsSize);
+  PUParray(p, channelNeighborsChannelType, channelNeighborsSize);
+  PUParray(p, channelNeighborsBaseWidth, channelNeighborsSize);
+  PUParray(p, channelNeighborsSideSlope, channelNeighborsSize);
+  PUParray(p, channelNeighborsManningsN, channelNeighborsSize);
   PUParray(p, channelNeighborsSurfacewaterFlowRateReady, channelNeighborsSize);
   PUParray(p, channelNeighborsSurfacewaterFlowRate, channelNeighborsSize);
   PUParray(p, channelNeighborsSurfacewaterCumulativeFlow, channelNeighborsSize);
+  PUParray(p, meshNeighbors, meshNeighborsSize);
+  PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
+  PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
+  PUParray(p, meshNeighborsInitialized, meshNeighborsSize);
+  PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
+  PUParray(p, meshNeighborsZBedrock, meshNeighborsSize);
+  PUParray(p, meshNeighborsZOffset, meshNeighborsSize);
+  PUParray(p, meshNeighborsEdgeLength, meshNeighborsSize);
   PUParray(p, meshNeighborsSurfacewaterFlowRateReady, meshNeighborsSize);
   PUParray(p, meshNeighborsSurfacewaterFlowRate, meshNeighborsSize);
   PUParray(p, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsSize);
   PUParray(p, meshNeighborsGroundwaterFlowRateReady, meshNeighborsSize);
   PUParray(p, meshNeighborsGroundwaterFlowRate, meshNeighborsSize);
   PUParray(p, meshNeighborsGroundwaterCumulativeFlow, meshNeighborsSize);
-  p | groundwaterDone;
-  p | surfacewaterDone;
-  p | dt;
-  p | dtNew;
 }
 
-void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit, double elementXInit, double elementYInit,
-                                      double elementZBankInit, double elementZBedInit, double elementLengthInit,
-                                      int channelNeighborsInit[channelNeighborsSize], int channelNeighborsReciprocalEdgeInit[channelNeighborsSize],
-                                      InteractionEnum channelNeighborsInteractionInit[channelNeighborsSize], int meshNeighborsInit[meshNeighborsSize],
-                                      int meshNeighborsReciprocalEdgeInit[meshNeighborsSize], InteractionEnum meshNeighborsInteractionInit[meshNeighborsSize],
-                                      double channelNeighborsZBankInit[channelNeighborsSize], double channelNeighborsZBedInit[channelNeighborsSize],
-                                      double channelNeighborsLengthInit[channelNeighborsSize], double meshNeighborsZSurfaceInit[meshNeighborsSize],
-                                      double meshNeighborsZBedrockInit[meshNeighborsSize], double meshNeighborsEdgeLengthInit[meshNeighborsSize],
-                                      ChannelTypeEnum channelNeighborsChannelTypeInit[channelNeighborsSize],
-                                      double channelNeighborsBaseWidthInit[channelNeighborsSize], double channelNeighborsSideSlopeInit[channelNeighborsSize],
-                                      double channelNeighborsManningsNInit[channelNeighborsSize], ChannelTypeEnum channelTypeInit, int permanentCodeInit,
-                                      double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit, double manningsNInit,
-                                      double surfacewaterDepthInit, double surfacewaterErrorInit)
+bool ChannelElement::allInitialized()
 {
-  int edge; // Loop counter.
+  int  edge;               // Loop counter.
+  bool initialized = true; // Flag to record whether we have found an uninitialized neighbor.
   
-  // Parameter values will be error checked by the invariant.
-  
-  meshProxy        = meshProxyInit;
-  fileManagerProxy = fileManagerProxyInit;
-  elementX         = elementXInit;
-  elementY         = elementYInit;
-  elementZBank     = elementZBankInit;
-  elementZBed      = elementZBedInit;
-  elementLength    = elementLengthInit;
-  
-  for (edge = 0; edge < channelNeighborsSize; edge++)
+  for (edge = 0; initialized && edge < channelNeighborsSize; edge++)
     {
-      channelNeighbors[edge]                           = channelNeighborsInit[edge];
-      channelNeighborsReciprocalEdge[edge]             = channelNeighborsReciprocalEdgeInit[edge];
-      channelNeighborsInteraction[edge]                = channelNeighborsInteractionInit[edge];
-      channelNeighborsZBank[edge]                      = channelNeighborsZBankInit[edge];
-      channelNeighborsZBed[edge]                       = channelNeighborsZBedInit[edge];
-      channelNeighborsLength[edge]                     = channelNeighborsLengthInit[edge];
-      channelNeighborsChannelType[edge]                = channelNeighborsChannelTypeInit[edge];
-      channelNeighborsBaseWidth[edge]                  = channelNeighborsBaseWidthInit[edge];
-      channelNeighborsSideSlope[edge]                  = channelNeighborsSideSlopeInit[edge];
-      channelNeighborsManningsN[edge]                  = channelNeighborsManningsNInit[edge];
-      channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
-      channelNeighborsSurfacewaterFlowRate[edge]       = 0.0;
-      channelNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
+      initialized = channelNeighborsInitialized[edge];
     }
   
-  for (edge = 0; edge < meshNeighborsSize; edge++)
+  for (edge = 0; initialized && edge < meshNeighborsSize; edge++)
     {
-      meshNeighbors[edge]                           = meshNeighborsInit[edge];
-      meshNeighborsReciprocalEdge[edge]             = meshNeighborsReciprocalEdgeInit[edge];
-      meshNeighborsInteraction[edge]                = meshNeighborsInteractionInit[edge];
-      meshNeighborsZSurface[edge]                   = meshNeighborsZSurfaceInit[edge];
-      meshNeighborsZBedrock[edge]                   = meshNeighborsZBedrockInit[edge];
-      meshNeighborsEdgeLength[edge]                 = meshNeighborsEdgeLengthInit[edge];
-      meshNeighborsZOffset[edge]                    = 0.0;
-      meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
-      meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
-      meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
-      meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
-      meshNeighborsGroundwaterFlowRate[edge]        = 0.0;
-      meshNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+      initialized = meshNeighborsInitialized[edge];
     }
   
-  channelType       = channelTypeInit;
-  permanentCode     = permanentCodeInit;
-  baseWidth         = baseWidthInit;
-  sideSlope         = sideSlopeInit;
-  bedConductivity   = bedConductivityInit;
-  bedThickness      = bedThicknessInit;
-  manningsN         = manningsNInit;
-  surfacewaterDepth = surfacewaterDepthInit;
-  surfacewaterError = surfacewaterErrorInit;
-  groundwaterDone   = false;
-  surfacewaterDone  = false;
-  dt                = 0.0;
-  dtNew             = 2.0 * dt;
+  return initialized;
+}
+
+void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit)
+{
+  bool         error                  = false;                                                        // Error flag.
+  int          edge;                                                                                  // Loop counter.
+  FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                         // Used for access to local public member variables.
+  int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localChannelElementStart; // Index of this element in file manager arrays.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfChannelElements))
+    {
+      CkError("ERROR in ChannelElement::handleInitialize, element %d: initialization information not available from local file manager.\n", thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      meshProxy        = meshProxyInit;
+      fileManagerProxy = fileManagerProxyInit;
+      
+      if (NULL != fileManagerLocalBranch->channelElementX)
+        {
+          elementX = fileManagerLocalBranch->channelElementX[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: elementX initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelElementY)
+        {
+          elementY = fileManagerLocalBranch->channelElementY[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: elementY initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelElementZBank)
+        {
+          elementZBank = fileManagerLocalBranch->channelElementZBank[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: elementZBank initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelElementZBed)
+        {
+          elementZBed = fileManagerLocalBranch->channelElementZBed[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: elementZBed initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelElementLength)
+        {
+          elementLength = fileManagerLocalBranch->channelElementLength[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: elementLength initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelChannelType)
+        {
+          channelType = fileManagerLocalBranch->channelChannelType[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: channelType initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelPermanentCode)
+        {
+          permanentCode = fileManagerLocalBranch->channelPermanentCode[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: permanentCode initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelBaseWidth)
+        {
+          baseWidth = fileManagerLocalBranch->channelBaseWidth[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: baseWidth initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSideSlope)
+        {
+          sideSlope = fileManagerLocalBranch->channelSideSlope[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: sideSlope initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelBedConductivity)
+        {
+          bedConductivity = fileManagerLocalBranch->channelBedConductivity[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: bedConductivity initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelBedThickness)
+        {
+          bedThickness = fileManagerLocalBranch->channelBedThickness[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: bedThickness initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelManningsN)
+        {
+          manningsN = fileManagerLocalBranch->channelManningsN[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: manningsN initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSurfacewaterDepth)
+        {
+          surfacewaterDepth = fileManagerLocalBranch->channelSurfacewaterDepth[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: surfacewaterDepth initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSurfacewaterError)
+        {
+          surfacewaterError = fileManagerLocalBranch->channelSurfacewaterError[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: surfacewaterError initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      groundwaterDone          = false;
+      surfacewaterDone         = false;
+      dt                       = 1.0;
+      dtNew                    = 1.0;
+      
+      if (NULL != fileManagerLocalBranch->channelChannelNeighbors)
+        {
+          for (edge = 0; edge < channelNeighborsSize; edge++)
+            {
+              channelNeighbors[edge]                           = fileManagerLocalBranch->channelChannelNeighbors[fileManagerLocalIndex][edge];
+              channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              channelNeighborsSurfacewaterFlowRate[edge]       = 0.0;
+              channelNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
+              
+              if (isBoundary(channelNeighbors[edge]))
+                {
+                  channelNeighborsInitialized[edge] = true;
+                  
+                  // Unused, but initialize for completeness.
+                  channelNeighborsReciprocalEdge[edge] = 0;
+                  channelNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
+                  channelNeighborsZBank[edge]          = 0.0;
+                  channelNeighborsZBed[edge]           = 0.0;
+                  channelNeighborsLength[edge]         = 1.0;
+                  channelNeighborsChannelType[edge]    = STREAM;
+                  channelNeighborsBaseWidth[edge]      = 1.0;
+                  channelNeighborsSideSlope[edge]      = 1.0;
+                  channelNeighborsManningsN[edge]      = 1.0;
+                }
+              else
+                {
+                  channelNeighborsInitialized[edge] = false;
+                  
+                  thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
+                                                                              baseWidth, sideSlope, manningsN);
+                }
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: channelNeighbors initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelMeshNeighbors)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighbors[edge]                           = fileManagerLocalBranch->channelMeshNeighbors[fileManagerLocalIndex][edge];
+              meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
+              meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
+              meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
+              meshNeighborsGroundwaterFlowRate[edge]        = 0.0;
+              meshNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
+              
+              if (isBoundary(meshNeighbors[edge]))
+                {
+                  meshNeighborsInitialized[edge] = true;
+                  
+                  // Unused, but initialize for completeness.
+                  meshNeighborsReciprocalEdge[edge] = 0;
+                  meshNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
+                  meshNeighborsZSurface[edge]       = 0.0;
+                  meshNeighborsZBedrock[edge]       = 0.0;
+                  meshNeighborsZOffset[edge]        = 0.0;
+                }
+              else
+                {
+                  meshNeighborsInitialized[edge] = false;
+                  
+                  meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, baseWidth,
+                                                                           sideSlope, bedConductivity, bedThickness);
+                }
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: meshNeighbors initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelMeshNeighborsEdgeLength)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              meshNeighborsEdgeLength[edge] = fileManagerLocalBranch->channelMeshNeighborsEdgeLength[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: meshNeighborsEdgeLength initialization information not available from local file "
+                  "manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void ChannelElement::handleInitializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborZBank, double neighborZBed,
+                                                     double neighborLength, ChannelTypeEnum neighborChannelType, double neighborBaseWidth,
+                                                     double neighborSideSlope, double neighborManningsN)
+{
+  bool error = false; // Error flag.
+  int  edge  = 0;     // Loop counter.
+  
+  while (edge < channelNeighborsSize - 1 && channelNeighbors[edge] != neighbor)
+    {
+      edge++;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(channelNeighbors[edge] == neighbor))
+    {
+      CkError("ERROR in ChannelElement::handleInitializeChannelNeighbor, element %d: received an initialization message from an element that is not my "
+              "neighbor.\n", thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      channelNeighborsInitialized[edge]     = true;
+      channelNeighborsReciprocalEdge[edge]  = neighborReciprocalEdge;
+      channelNeighborsInteraction[edge]     = BOTH_CALCULATE_FLOW_RATE;
+      channelNeighborsZBank[edge]           = neighborZBank;
+      channelNeighborsZBed[edge]            = neighborZBed;
+      channelNeighborsLength[edge]          = neighborLength;
+      channelNeighborsChannelType[edge]     = neighborChannelType;
+      channelNeighborsBaseWidth[edge]       = neighborBaseWidth;
+      channelNeighborsSideSlope[edge]       = neighborSideSlope;
+      channelNeighborsManningsN[edge]       = neighborManningsN;
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
+                                                  double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
+{
+  bool error = false; // Error flag.
+  int  edge  = 0;     // Loop counter.
+  
+  while (edge < meshNeighborsSize - 1 && meshNeighbors[edge] != neighbor)
+    {
+      edge++;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(meshNeighbors[edge] == neighbor))
+    {
+      CkError("ERROR in ChannelElement::handleInitializeMeshNeighbor, element %d: received an initialization message from an element that is not my "
+              "neighbor.\n", thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      meshNeighborsInitialized[edge]    = true;
+      meshNeighborsReciprocalEdge[edge] = neighborReciprocalEdge;
+      meshNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
+      meshNeighborsZSurface[edge]       = neighborZSurface;
+      meshNeighborsZBedrock[edge]       = neighborZBedrock;
+      meshNeighborsZOffset[edge]        = (elementX - neighborX) * neighborSlopeX + (elementY - neighborY) * neighborSlopeY;
+    }
+  
+  // Error checking of initialization values is done in the invariant.
+  
+  if (error)
+    {
+      CkExit();
+    }
 }
 
 // Suppress warning enum value not handled in switch.
@@ -1077,7 +1467,8 @@ void ChannelElement::calculateSurfacewaterDepthFromArea(double area)
           CkAssert(epsilonEqual(0.0, surfacewaterDepth));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-          surfacewaterDepth = 0.0;
+          surfacewaterError -= surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength;
+          surfacewaterDepth  = 0.0;
         }
     }
   else
@@ -1089,7 +1480,5 @@ void ChannelElement::calculateSurfacewaterDepthFromArea(double area)
 
 // Suppress warnings in the The Charm++ autogenerated code.
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wsign-compare"
 #include "channel_element.def.h"
-#pragma GCC diagnostic warning "-Wsign-compare"
 #pragma GCC diagnostic warning "-Wunused-variable"

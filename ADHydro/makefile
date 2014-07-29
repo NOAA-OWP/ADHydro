@@ -1,15 +1,24 @@
-#CHARMDIR       := /project/CI-WATER/rsteinke/charm
+# Use these values for Mt Moran.
+
+#CHARMDIR          := /project/CI-WATER/rsteinke/charm
+#HDF5DIR           := /apps/HDF5-mpi/intel/14.0.0/1.8.12
+#NETCDFDIR         := /apps/netcdf-mpi/intel/14.0.0/4.3.2
+#LIBDIRNAME        := lib
+#METISDIR          := /project/CI-WATER/rsteinke/metis-5.1.0
+#EXTRAMETISLDFLAGS := -L$(METISDIR)/build/Linux-x86_64/libmetis
+
+# Use these values for EN3038 lab.
+
+HDF5DIR    := /opt
+NETCDFDIR  := /opt
+LIBDIRNAME := lib64
+
+# Use these values for all.
+
 CHARMC         := $(CHARMDIR)/bin/charmc
-#HDF5DIR        := /apps/HDF5-mpi/intel/14.0.0/1.8.12
-HDF5DIR        := /opt
-#NETCDFDIR      := /apps/netcdf-mpi/intel/14.0.0/4.3.2
-NETCDFDIR      := /opt
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-#NETCDFLDFLAGS  := -L$(HDF5DIR)/lib -L$(NETCDFDIR)/lib -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-NETCDFLDFLAGS  := -L$(HDF5DIR)/lib64 -L$(NETCDFDIR)/lib64 -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-#METISDIR       := /project/CI-WATER/rsteinke/metis-5.1.0
-#METISLDFLAGS   := -L$(METISDIR)/build/Linux-x86_64/libmetis -lmetis -balancer MetisLB
-METISLDFLAGS   := -lmetis -balancer MetisLB
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+METISLDFLAGS   := $(EXTRAMETISLDFLAGS) -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -g -Wall -language charm++
 
@@ -36,50 +45,27 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
 
-adhydro.o: adhydro.cpp         \
-           adhydro.h           \
-           adhydro.decl.h      \
-           adhydro.def.h       \
-           mesh_element.h      \
-           mesh_element.decl.h \
-           file_manager.h      \
-           file_manager.decl.h \
+adhydro.o: adhydro.cpp            \
+           adhydro.h              \
+           adhydro.decl.h         \
+           adhydro.def.h          \
+           mesh_element.h         \
+           mesh_element.decl.h    \
+           channel_element.h      \
+           channel_element.decl.h \
+           file_manager.h         \
+           file_manager.decl.h    \
            all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
-adhydro.decl.h \
-adhydro.def.h: adhydro.ci      \
-               mesh_element.ci \
+adhydro.decl.h                    \
+adhydro.def.h: adhydro.ci         \
+               mesh_element.ci    \
+               channel_element.ci \
                file_manager.ci
 	$(CHARMC) $<
 
-test_adhydro: test_adhydro.o    \
-              mesh_element.o    \
-              channel_element.o \
-              file_manager.o    \
-              surfacewater.o    \
-              groundwater.o
-	$(CHARMC) $^ -o $@ $(LDFLAGS)
-
-test_adhydro.o: test_adhydro.cpp       \
-                test_adhydro.h         \
-                test_adhydro.decl.h    \
-                test_adhydro.def.h     \
-                mesh_element.h         \
-                mesh_element.decl.h    \
-                channel_element.h      \
-                channel_element.decl.h \
-                file_manager.h         \
-                file_manager.decl.h    \
-                all.h
-	$(CHARMC) $< -o $@ $(CPPFLAGS)
-
-test_adhydro.decl.h \
-test_adhydro.def.h: test_adhydro.ci    \
-                    mesh_element.ci    \
-                    channel_element.ci \
-                    file_manager.ci
-	$(CHARMC) $<
+# FIXME all above is reviewed
 
 adhydro_input_preprocessing: $(ADHYDRO_INPUT_PREPROCESSING_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
@@ -104,10 +90,13 @@ adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
 
+# FIXME all below is reviewed
+
 mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \
                 mesh_element.decl.h    \
                 mesh_element.def.h     \
+                channel_element.h      \
                 channel_element.decl.h \
                 file_manager.h         \
                 file_manager.decl.h    \
@@ -124,6 +113,7 @@ channel_element.o: channel_element.cpp    \
                    channel_element.h      \
                    channel_element.decl.h \
                    channel_element.def.h  \
+                   mesh_element.h         \
                    mesh_element.decl.h    \
                    file_manager.h         \
                    file_manager.decl.h    \
@@ -136,10 +126,14 @@ channel_element.decl.h \
 channel_element.def.h: channel_element.ci
 	$(CHARMC) $<
 
-file_manager.o: file_manager.cpp    \
-                file_manager.h      \
-                file_manager.decl.h \
-                file_manager.def.h  \
+file_manager.o: file_manager.cpp       \
+                file_manager.h         \
+                file_manager.decl.h    \
+                file_manager.def.h     \
+                mesh_element.h         \
+                mesh_element.decl.h    \
+                channel_element.h      \
+                channel_element.decl.h \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 

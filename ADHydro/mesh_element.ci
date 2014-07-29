@@ -8,40 +8,38 @@ module mesh_element
     // Dummy function for structured dagger infinite loop.
     entry void runForever()
     {
-      when initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit, double vertexXInit[3], double vertexYInit[3],
-                      double vertexZSurfaceInit[3], double vertexZBedrockInit[3], double edgeLengthInit[3], double edgeNormalXInit[3],
-                      double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double elementZBedrockInit,
-                      double elementAreaInit, int meshNeighborsInit[MeshElement::meshNeighborsSize],
-                      int meshNeighborsReciprocalEdgeInit[MeshElement::meshNeighborsSize],
-                      InteractionEnum  meshNeighborsInteractionInit[MeshElement::meshNeighborsSize], bool channelEdgeInit[MeshElement::meshNeighborsSize],
-                      int channelNeighborsInit[MeshElement::channelNeighborsSize],
-                      int channelNeighborsReciprocalEdgeInit[MeshElement::channelNeighborsSize],
-                      InteractionEnum  channelNeighborsInteractionInit[MeshElement::channelNeighborsSize],
-                      double meshNeighborsXInit[MeshElement::meshNeighborsSize], double meshNeighborsYInit[MeshElement::meshNeighborsSize],
-                      double meshNeighborsZSurfaceInit[MeshElement::meshNeighborsSize], double meshNeighborsZBedrockInit[MeshElement::meshNeighborsSize],
-                      double meshNeighborsAreaInit[MeshElement::meshNeighborsSize], double channelNeighborsZBankInit[MeshElement::channelNeighborsSize],
-                      double channelNeighborsZBedInit[MeshElement::channelNeighborsSize],
-                      double channelNeighborsEdgeLengthInit[MeshElement::channelNeighborsSize],
-                      double meshNeighborsConductivityInit[MeshElement::meshNeighborsSize],
-                      double meshNeighborsManningsNInit[MeshElement::meshNeighborsSize],
-                      double channelNeighborsBaseWidthInit[MeshElement::channelNeighborsSize],
-                      double channelNeighborsSideSlopeInit[MeshElement::channelNeighborsSize],
-                      double channelNeighborsBedConductivityInit[MeshElement::channelNeighborsSize],
-                      double channelNeighborsBedThicknessInit[MeshElement::channelNeighborsSize], int catchmentInit, double conductivityInit,
-                      double porosityInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
-                      double groundwaterErrorInit)
+      when initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit)
       {
         serial
         {
-          handleInitialize(channelProxyInit, fileManagerProxyInit, vertexXInit, vertexYInit, vertexZSurfaceInit, vertexZBedrockInit, edgeLengthInit,
-                           edgeNormalXInit, edgeNormalYInit, elementXInit, elementYInit, elementZSurfaceInit, elementZBedrockInit, elementAreaInit,
-                           meshNeighborsInit, meshNeighborsReciprocalEdgeInit, meshNeighborsInteractionInit, channelEdgeInit, channelNeighborsInit,
-                           channelNeighborsReciprocalEdgeInit, channelNeighborsInteractionInit, meshNeighborsXInit, meshNeighborsYInit,
-                           meshNeighborsZSurfaceInit, meshNeighborsZBedrockInit, meshNeighborsAreaInit, channelNeighborsZBankInit, channelNeighborsZBedInit,
-                           channelNeighborsEdgeLengthInit, meshNeighborsConductivityInit, meshNeighborsManningsNInit, channelNeighborsBaseWidthInit,
-                           channelNeighborsSideSlopeInit, channelNeighborsBedConductivityInit, channelNeighborsBedThicknessInit, catchmentInit,
-                           conductivityInit, porosityInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, groundwaterHeadInit,
-                           groundwaterErrorInit);
+          handleInitialize(channelProxyInit, fileManagerProxyInit);
+        }
+      }
+      
+      while(!allInitialized())
+      {
+        case
+        {
+          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
+                                      double neighborZBedrock, double neighborArea, double neighborConductivity, double neighborManningsN)
+          {
+            serial
+            {
+              handleInitializeMeshNeighbor(neighbor, neighborReciprocalEdge, neighborX, neighborY, neighborZSurface, neighborZBedrock, neighborArea,
+                                           neighborConductivity, neighborManningsN);
+            }
+          }
+          
+          when initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
+                                         double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                         double neighborBedThickness)
+          {
+            serial
+            {
+              handleInitializeChannelNeighbor(neighbor, neighborReciprocalEdge, neighborX, neighborY, neighborZBank, neighborZBed, neighborBaseWidth,
+                                              neighborSideSlope, neighborBedConductivity, neighborBedThickness);
+            }
+          }
         }
       }
       
@@ -483,28 +481,12 @@ module mesh_element
       } // End while(true).
     }; // End entry void runForever().
     
-    entry void initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit, double vertexXInit[3], double vertexYInit[3],
-                          double vertexZSurfaceInit[3], double vertexZBedrockInit[3], double edgeLengthInit[3], double edgeNormalXInit[3],
-                          double edgeNormalYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double elementZBedrockInit,
-                          double elementAreaInit, int meshNeighborsInit[MeshElement::meshNeighborsSize],
-                          int meshNeighborsReciprocalEdgeInit[MeshElement::meshNeighborsSize],
-                          InteractionEnum  meshNeighborsInteractionInit[MeshElement::meshNeighborsSize], bool channelEdgeInit[MeshElement::meshNeighborsSize],
-                          int channelNeighborsInit[MeshElement::channelNeighborsSize],
-                          int channelNeighborsReciprocalEdgeInit[MeshElement::channelNeighborsSize],
-                          InteractionEnum  channelNeighborsInteractionInit[MeshElement::channelNeighborsSize],
-                          double meshNeighborsXInit[MeshElement::meshNeighborsSize], double meshNeighborsYInit[MeshElement::meshNeighborsSize],
-                          double meshNeighborsZSurfaceInit[MeshElement::meshNeighborsSize], double meshNeighborsZBedrockInit[MeshElement::meshNeighborsSize],
-                          double meshNeighborsAreaInit[MeshElement::meshNeighborsSize], double channelNeighborsZBankInit[MeshElement::channelNeighborsSize],
-                          double channelNeighborsZBedInit[MeshElement::channelNeighborsSize],
-                          double channelNeighborsEdgeLengthInit[MeshElement::channelNeighborsSize],
-                          double meshNeighborsConductivityInit[MeshElement::meshNeighborsSize],
-                          double meshNeighborsManningsNInit[MeshElement::meshNeighborsSize],
-                          double channelNeighborsBaseWidthInit[MeshElement::channelNeighborsSize],
-                          double channelNeighborsSideSlopeInit[MeshElement::channelNeighborsSize],
-                          double channelNeighborsBedConductivityInit[MeshElement::channelNeighborsSize],
-                          double channelNeighborsBedThicknessInit[MeshElement::channelNeighborsSize], int catchmentInit, double conductivityInit,
-                          double porosityInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
-                          double groundwaterErrorInit);
+    entry void initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit);
+    entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
+                                      double neighborZBedrock, double neighborArea, double neighborConductivity, double neighborManningsN);
+    entry void initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
+                                         double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                         double neighborBedThickness);
     entry void doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep);
     entry void calculateGroundwaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage);
     entry void meshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);

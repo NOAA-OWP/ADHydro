@@ -1,12 +1,10 @@
 #include "groundwater.h"
 
-bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double vertexX[3], double vertexY[3], double vertexZSurface[3],
-                                     double edgeLength, double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea,
-                                     double conductivity, double groundwaterHead)
+bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double edgeLength, double edgeNormalX, double edgeNormalY,
+                                     double elementZBedrock, double elementArea, double elementSlopeX, double elementSlopeY, double conductivity,
+                                     double groundwaterHead)
 {
-  bool   error = false; // Error flag.
-  double slopeX;        // X component of slope off the edge of the mesh, unitless.
-  double slopeY;        // Y component of slope off the edge of the mesh, unitless.
+  bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -24,24 +22,6 @@ bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bou
   if (!isBoundary(boundary))
     {
       CkError("ERROR in groundwaterMeshBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
-      error = true;
-    }
-  
-  if (!(NULL != vertexX))
-    {
-      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexX must not be NULL.\n");
-      error = true;
-    }
-  
-  if (!(NULL != vertexY))
-    {
-      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexY must not be NULL.\n");
-      error = true;
-    }
-  
-  if (!(NULL != vertexZSurface))
-    {
-      CkError("ERROR in groundwaterMeshBoundaryFlowRate: vertexZSurface must not be NULL.\n");
       error = true;
     }
   
@@ -72,15 +52,8 @@ bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bou
   
   if (!error && (INFLOW == boundary || OUTFLOW == boundary) && elementZBedrock < groundwaterHead)
     {
-      // Calculate assumed slope off the edge of the mesh.
-      // FIXME do we want to use vertexZBedrock coordinates to calculate assumed slope of water table?
-      slopeX = ((vertexY[2] - vertexY[0]) * (vertexZSurface[1] - vertexZSurface[0]) +
-                (vertexY[0] - vertexY[1]) * (vertexZSurface[2] - vertexZSurface[0])) / (2.0 * elementArea);
-      slopeY = ((vertexX[0] - vertexX[2]) * (vertexZSurface[1] - vertexZSurface[0]) +
-                (vertexX[1] - vertexX[0]) * (vertexZSurface[2] - vertexZSurface[0])) / (2.0 * elementArea);
-
       // Calculate flow rate.
-      *flowRate = conductivity * (groundwaterHead - elementZBedrock) * -(slopeX * edgeNormalX + slopeY * edgeNormalY) * edgeLength;
+      *flowRate = conductivity * (groundwaterHead - elementZBedrock) * -(elementSlopeX * edgeNormalX + elementSlopeY * edgeNormalY) * edgeLength;
 
       // Force flow rate to have the correct sign.
       if (INFLOW == boundary && 0.0 < *flowRate)

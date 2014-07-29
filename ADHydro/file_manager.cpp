@@ -1,951 +1,468 @@
-#include <mpi.h>
 #include "file_manager.h"
 #include "all.h"
-#include <netcdf_par.h>
 
 FileManager::FileManager()
 {
-  // Initialize file statuses to closed.
-  geometryFileStatus  = CLOSED;
-  parameterFileStatus = CLOSED;
-  stateFileStatus     = CLOSED;
-
-  // Begin structured dagger infinite loop.
-  thisProxy[CkMyPe()].runForever();
+  // Hard coded mesh.
+  // FIXME read from NetCDF file.
+  globalNumberOfMeshElements    = 8;
+  localMeshElementStart         = 0;
+  localNumberOfMeshElements     = 8;
+  globalNumberOfChannelElements = 4;
+  localChannelElementStart      = 0;
+  localNumberOfChannelElements  = 4;
+  
+  meshVertexX = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshVertexX[0][0] =   0.0;
+  meshVertexX[0][1] = -75.0;
+  meshVertexX[0][2] = -75.0;
+  meshVertexX[1][0] =   0.0;
+  meshVertexX[1][1] = -75.0;
+  meshVertexX[1][2] =   0.0;
+  meshVertexX[2][0] =   0.0;
+  meshVertexX[2][1] = -75.0;
+  meshVertexX[2][2] = -75.0;
+  meshVertexX[3][0] =   0.0;
+  meshVertexX[3][1] = -75.0;
+  meshVertexX[3][2] =   0.0;
+  meshVertexX[4][0] =  75.0;
+  meshVertexX[4][1] =   0.0;
+  meshVertexX[4][2] =  75.0;
+  meshVertexX[5][0] =   0.0;
+  meshVertexX[5][1] =   0.0;
+  meshVertexX[5][2] =  75.0;
+  meshVertexX[6][0] =  75.0;
+  meshVertexX[6][1] =   0.0;
+  meshVertexX[6][2] =  75.0;
+  meshVertexX[7][0] =   0.0;
+  meshVertexX[7][1] =   0.0;
+  meshVertexX[7][2] =  75.0;
+  
+  meshVertexY = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshVertexY[0][0] = 150.0;
+  meshVertexY[0][1] = 150.0;
+  meshVertexY[0][2] =  75.0;
+  meshVertexY[1][0] = 150.0;
+  meshVertexY[1][1] =  75.0;
+  meshVertexY[1][2] =  75.0;
+  meshVertexY[2][0] =  75.0;
+  meshVertexY[2][1] =  75.0;
+  meshVertexY[2][2] =   0.0;
+  meshVertexY[3][0] =  75.0;
+  meshVertexY[3][1] =   0.0;
+  meshVertexY[3][2] =   0.0;
+  meshVertexY[4][0] = 150.0;
+  meshVertexY[4][1] = 150.0;
+  meshVertexY[4][2] =  75.0;
+  meshVertexY[5][0] = 150.0;
+  meshVertexY[5][1] =  75.0;
+  meshVertexY[5][2] =  75.0;
+  meshVertexY[6][0] =  75.0;
+  meshVertexY[6][1] =  75.0;
+  meshVertexY[6][2] =   0.0;
+  meshVertexY[7][0] =  75.0;
+  meshVertexY[7][1] =   0.0;
+  meshVertexY[7][2] =   0.0;
+  
+  meshVertexZSurface = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshVertexZSurface[0][0] =  15.0;
+  meshVertexZSurface[0][1] =  25.0;
+  meshVertexZSurface[0][2] =  17.5;
+  meshVertexZSurface[1][0] =  15.0;
+  meshVertexZSurface[1][1] =  17.5;
+  meshVertexZSurface[1][2] =   7.5;
+  meshVertexZSurface[2][0] =   7.5;
+  meshVertexZSurface[2][1] =  17.5;
+  meshVertexZSurface[2][2] =  10.0;
+  meshVertexZSurface[3][0] =   7.5;
+  meshVertexZSurface[3][1] =  10.0;
+  meshVertexZSurface[3][2] =   0.0;
+  meshVertexZSurface[4][0] =  25.0;
+  meshVertexZSurface[4][1] =  15.0;
+  meshVertexZSurface[4][2] =  17.5;
+  meshVertexZSurface[5][0] =  15.0;
+  meshVertexZSurface[5][1] =   7.5;
+  meshVertexZSurface[5][2] =  17.5;
+  meshVertexZSurface[6][0] =  17.5;
+  meshVertexZSurface[6][1] =   7.5;
+  meshVertexZSurface[6][2] =  10.0;
+  meshVertexZSurface[7][0] =   7.5;
+  meshVertexZSurface[7][1] =   0.0;
+  meshVertexZSurface[7][2] =  10.0;
+  
+  meshVertexZBedrock = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshVertexZBedrock[0][0] =  10.0;
+  meshVertexZBedrock[0][1] =  20.0;
+  meshVertexZBedrock[0][2] =  12.5;
+  meshVertexZBedrock[1][0] =  10.0;
+  meshVertexZBedrock[1][1] =  12.5;
+  meshVertexZBedrock[1][2] =   2.5;
+  meshVertexZBedrock[2][0] =   2.5;
+  meshVertexZBedrock[2][1] =  12.5;
+  meshVertexZBedrock[2][2] =   5.0;
+  meshVertexZBedrock[3][0] =   2.5;
+  meshVertexZBedrock[3][1] =   5.0;
+  meshVertexZBedrock[3][2] =  -5.0;
+  meshVertexZBedrock[4][0] =  20.0;
+  meshVertexZBedrock[4][1] =  10.0;
+  meshVertexZBedrock[4][2] =  12.5;
+  meshVertexZBedrock[5][0] =  10.0;
+  meshVertexZBedrock[5][1] =   2.5;
+  meshVertexZBedrock[5][2] =  12.5;
+  meshVertexZBedrock[6][0] =  12.5;
+  meshVertexZBedrock[6][1] =   2.5;
+  meshVertexZBedrock[6][2] =   5.0;
+  meshVertexZBedrock[7][0] =   2.5;
+  meshVertexZBedrock[7][1] =  -5.0;
+  meshVertexZBedrock[7][2] =   5.0;
+  
+  // All of these will be calcluated from the vertices.
+  
+  meshElementX        = NULL;
+  meshElementY        = NULL;
+  meshElementZSurface = NULL;
+  meshElementZBedrock = NULL;
+  meshElementArea     = NULL;
+  meshElementSlopeX   = NULL;
+  meshElementSlopeY   = NULL;
+  
+  
+  meshCatchment = new int[globalNumberOfMeshElements];
+  
+  meshCatchment[0] = 1;
+  meshCatchment[1] = 1;
+  meshCatchment[2] = 1;
+  meshCatchment[3] = 1;
+  meshCatchment[4] = 1;
+  meshCatchment[5] = 1;
+  meshCatchment[6] = 1;
+  meshCatchment[7] = 1;
+  
+  meshConductivity = new double[globalNumberOfMeshElements];
+  
+  meshConductivity[0] = 5.55e-4;
+  meshConductivity[1] = 5.55e-4;
+  meshConductivity[2] = 5.55e-4;
+  meshConductivity[3] = 5.55e-4;
+  meshConductivity[4] = 5.55e-4;
+  meshConductivity[5] = 5.55e-4;
+  meshConductivity[6] = 5.55e-4;
+  meshConductivity[7] = 5.55e-4;
+  
+  meshPorosity = new double[globalNumberOfMeshElements];
+  
+  meshPorosity[0] = 0.5;
+  meshPorosity[1] = 0.5;
+  meshPorosity[2] = 0.5;
+  meshPorosity[3] = 0.5;
+  meshPorosity[4] = 0.5;
+  meshPorosity[5] = 0.5;
+  meshPorosity[6] = 0.5;
+  meshPorosity[7] = 0.5;
+  
+  meshManningsN = new double[globalNumberOfMeshElements];
+  
+  meshManningsN[0] = 0.038;
+  meshManningsN[1] = 0.038;
+  meshManningsN[2] = 0.038;
+  meshManningsN[3] = 0.038;
+  meshManningsN[4] = 0.038;
+  meshManningsN[5] = 0.038;
+  meshManningsN[6] = 0.038;
+  meshManningsN[7] = 0.038;
+  
+  meshSurfacewaterDepth =  new double[globalNumberOfMeshElements];
+  
+  meshSurfacewaterDepth[0] = 0.1;
+  meshSurfacewaterDepth[1] = 0.1;
+  meshSurfacewaterDepth[2] = 0.1;
+  meshSurfacewaterDepth[3] = 0.1;
+  meshSurfacewaterDepth[4] = 0.1;
+  meshSurfacewaterDepth[5] = 0.1;
+  meshSurfacewaterDepth[6] = 0.1;
+  meshSurfacewaterDepth[7] = 0.1;
+  
+  meshSurfacewaterError = new double[globalNumberOfMeshElements];
+  
+  meshSurfacewaterError[0] = 0.0;
+  meshSurfacewaterError[1] = 0.0;
+  meshSurfacewaterError[2] = 0.0;
+  meshSurfacewaterError[3] = 0.0;
+  meshSurfacewaterError[4] = 0.0;
+  meshSurfacewaterError[5] = 0.0;
+  meshSurfacewaterError[6] = 0.0;
+  meshSurfacewaterError[7] = 0.0;
+  
+  meshGroundwaterHead = new double[globalNumberOfMeshElements];
+  
+  meshGroundwaterHead[0] = (meshVertexZSurface[0][0] + meshVertexZSurface[0][1] + meshVertexZSurface[0][2]) / 3.0;
+  meshGroundwaterHead[1] = (meshVertexZSurface[1][0] + meshVertexZSurface[1][1] + meshVertexZSurface[1][2]) / 3.0;
+  meshGroundwaterHead[2] = (meshVertexZSurface[2][0] + meshVertexZSurface[2][1] + meshVertexZSurface[2][2]) / 3.0;
+  meshGroundwaterHead[3] = (meshVertexZSurface[3][0] + meshVertexZSurface[3][1] + meshVertexZSurface[3][2]) / 3.0;
+  meshGroundwaterHead[4] = (meshVertexZSurface[4][0] + meshVertexZSurface[4][1] + meshVertexZSurface[4][2]) / 3.0;
+  meshGroundwaterHead[5] = (meshVertexZSurface[5][0] + meshVertexZSurface[5][1] + meshVertexZSurface[5][2]) / 3.0;
+  meshGroundwaterHead[6] = (meshVertexZSurface[6][0] + meshVertexZSurface[6][1] + meshVertexZSurface[6][2]) / 3.0;
+  meshGroundwaterHead[7] = (meshVertexZSurface[7][0] + meshVertexZSurface[7][1] + meshVertexZSurface[7][2]) / 3.0;
+  
+  meshGroundwaterError = new double[globalNumberOfMeshElements];
+  
+  meshGroundwaterError[0] = 0.0;
+  meshGroundwaterError[1] = 0.0;
+  meshGroundwaterError[2] = 0.0;
+  meshGroundwaterError[3] = 0.0;
+  meshGroundwaterError[4] = 0.0;
+  meshGroundwaterError[5] = 0.0;
+  meshGroundwaterError[6] = 0.0;
+  meshGroundwaterError[7] = 0.0;
+  
+  meshMeshNeighbors = new int[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshMeshNeighbors[0][0] = NOFLOW;
+  meshMeshNeighbors[0][1] = 1;
+  meshMeshNeighbors[0][2] = NOFLOW;
+  meshMeshNeighbors[1][0] = 2;
+  meshMeshNeighbors[1][1] = 5;
+  meshMeshNeighbors[1][2] = 0;
+  meshMeshNeighbors[2][0] = NOFLOW;
+  meshMeshNeighbors[2][1] = 3;
+  meshMeshNeighbors[2][2] = 1;
+  meshMeshNeighbors[3][0] = NOFLOW;
+  meshMeshNeighbors[3][1] = 7;
+  meshMeshNeighbors[3][2] = 2;
+  meshMeshNeighbors[4][0] = 5;
+  meshMeshNeighbors[4][1] = NOFLOW;
+  meshMeshNeighbors[4][2] = NOFLOW;
+  meshMeshNeighbors[5][0] = 6;
+  meshMeshNeighbors[5][1] = 4;
+  meshMeshNeighbors[5][2] = 1;
+  meshMeshNeighbors[6][0] = 7;
+  meshMeshNeighbors[6][1] = NOFLOW;
+  meshMeshNeighbors[6][2] = 5;
+  meshMeshNeighbors[7][0] = NOFLOW;
+  meshMeshNeighbors[7][1] = 6;
+  meshMeshNeighbors[7][2] = 3;
+  
+  meshMeshNeighborsChannelEdge = new bool[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  
+  meshMeshNeighborsChannelEdge[0][0] = false;
+  meshMeshNeighborsChannelEdge[0][1] = false;
+  meshMeshNeighborsChannelEdge[0][2] = false;
+  meshMeshNeighborsChannelEdge[1][0] = false;
+  meshMeshNeighborsChannelEdge[1][1] = true;
+  meshMeshNeighborsChannelEdge[1][2] = false;
+  meshMeshNeighborsChannelEdge[2][0] = false;
+  meshMeshNeighborsChannelEdge[2][1] = false;
+  meshMeshNeighborsChannelEdge[2][2] = false;
+  meshMeshNeighborsChannelEdge[3][0] = false;
+  meshMeshNeighborsChannelEdge[3][1] = true;
+  meshMeshNeighborsChannelEdge[3][2] = false;
+  meshMeshNeighborsChannelEdge[4][0] = false;
+  meshMeshNeighborsChannelEdge[4][1] = false;
+  meshMeshNeighborsChannelEdge[4][2] = false;
+  meshMeshNeighborsChannelEdge[5][0] = false;
+  meshMeshNeighborsChannelEdge[5][1] = false;
+  meshMeshNeighborsChannelEdge[5][2] = true;
+  meshMeshNeighborsChannelEdge[6][0] = false;
+  meshMeshNeighborsChannelEdge[6][1] = false;
+  meshMeshNeighborsChannelEdge[6][2] = false;
+  meshMeshNeighborsChannelEdge[7][0] = false;
+  meshMeshNeighborsChannelEdge[7][1] = false;
+  meshMeshNeighborsChannelEdge[7][2] = true;
+  
+  // All of these will be calcluated from the vertices.
+  
+  meshMeshNeighborsEdgeLength  = NULL;
+  meshMeshNeighborsEdgeNormalX = NULL;
+  meshMeshNeighborsEdgeNormalY = NULL;
+  
+  meshChannelNeighbors = new int[globalNumberOfMeshElements][MeshElement::channelNeighborsSize];
+  
+  meshChannelNeighbors[0][0] = 0;
+  meshChannelNeighbors[0][1] = NOFLOW;
+  meshChannelNeighbors[1][0] = 1;
+  meshChannelNeighbors[1][1] = 2;
+  meshChannelNeighbors[2][0] = NOFLOW;
+  meshChannelNeighbors[2][1] = NOFLOW;
+  meshChannelNeighbors[3][0] = 2;
+  meshChannelNeighbors[3][1] = 3;
+  meshChannelNeighbors[4][0] = 0;
+  meshChannelNeighbors[4][1] = NOFLOW;
+  meshChannelNeighbors[5][0] = 1;
+  meshChannelNeighbors[5][1] = 2;
+  meshChannelNeighbors[6][0] = NOFLOW;
+  meshChannelNeighbors[6][1] = NOFLOW;
+  meshChannelNeighbors[7][0] = 2;
+  meshChannelNeighbors[7][1] = 3;
+  
+  meshChannelNeighborsEdgeLength = new double[globalNumberOfMeshElements][MeshElement::channelNeighborsSize];
+  
+  meshChannelNeighborsEdgeLength[0][0] = 75.0;
+  meshChannelNeighborsEdgeLength[0][1] =  1.0;
+  meshChannelNeighborsEdgeLength[1][0] = 50.0;
+  meshChannelNeighborsEdgeLength[1][1] = 25.0;
+  meshChannelNeighborsEdgeLength[2][0] =  1.0;
+  meshChannelNeighborsEdgeLength[2][1] =  1.0;
+  meshChannelNeighborsEdgeLength[3][0] = 25.0;
+  meshChannelNeighborsEdgeLength[3][1] = 50.0;
+  meshChannelNeighborsEdgeLength[4][0] = 75.0;
+  meshChannelNeighborsEdgeLength[4][1] =  1.0;
+  meshChannelNeighborsEdgeLength[5][0] = 50.0;
+  meshChannelNeighborsEdgeLength[5][1] = 25.0;
+  meshChannelNeighborsEdgeLength[6][0] =  1.0;
+  meshChannelNeighborsEdgeLength[6][1] =  1.0;
+  meshChannelNeighborsEdgeLength[7][0] = 25.0;
+  meshChannelNeighborsEdgeLength[7][1] = 50.0;
+  
+  channelElementX = new double[globalNumberOfChannelElements];
+  
+  channelElementX[0] = 0.0;
+  channelElementX[1] = 0.0;
+  channelElementX[2] = 0.0;
+  channelElementX[3] = 0.0;
+  
+  channelElementY = new double[globalNumberOfChannelElements];
+  
+  channelElementY[0] = 175.0;
+  channelElementY[1] = 125.0;
+  channelElementY[2] =  75.0;
+  channelElementY[3] =  25.0;
+  
+  channelElementZBank = new double[globalNumberOfChannelElements];
+  
+  channelElementZBank[0] = 15.0;
+  channelElementZBank[1] = 12.5;
+  channelElementZBank[2] =  7.5;
+  channelElementZBank[3] =  2.5;
+  
+  channelElementZBed = new double[globalNumberOfChannelElements];
+  
+  channelElementZBed[0] = 12.5;
+  channelElementZBed[1] = 10.0;
+  channelElementZBed[2] =  5.0;
+  channelElementZBed[3] =  0.0;
+  
+  channelElementLength = new double[globalNumberOfChannelElements];
+  
+  channelElementLength[0] = 50.0;
+  channelElementLength[1] = 50.0;
+  channelElementLength[2] = 50.0;
+  channelElementLength[3] = 50.0;
+  
+  channelChannelType = new ChannelTypeEnum[globalNumberOfChannelElements];
+  
+  channelChannelType[0] = WATERBODY;
+  channelChannelType[1] = STREAM;
+  channelChannelType[2] = STREAM;
+  channelChannelType[3] = STREAM;
+  
+  channelPermanentCode = new int[globalNumberOfChannelElements];
+  
+  channelPermanentCode[0] = 1;
+  channelPermanentCode[1] = 1;
+  channelPermanentCode[2] = 1;
+  channelPermanentCode[3] = 1;
+  
+  channelBaseWidth = new double[globalNumberOfChannelElements];
+  
+  channelBaseWidth[0] = 150.0;
+  channelBaseWidth[1] =   1.0;
+  channelBaseWidth[2] =   1.0;
+  channelBaseWidth[3] =   1.0;
+  
+  channelSideSlope = new double[globalNumberOfChannelElements];
+  
+  channelSideSlope[0] = 1.0;
+  channelSideSlope[1] = 1.0;
+  channelSideSlope[2] = 1.0;
+  channelSideSlope[3] = 1.0;
+  
+  channelBedConductivity = new double[globalNumberOfChannelElements];
+  
+  channelBedConductivity[0] = 5.55e-4;
+  channelBedConductivity[1] = 5.55e-4;
+  channelBedConductivity[2] = 5.55e-4;
+  channelBedConductivity[3] = 5.55e-4;
+  
+  channelBedThickness = new double[globalNumberOfChannelElements];
+  
+  channelBedThickness[0] = 1.0;
+  channelBedThickness[1] = 1.0;
+  channelBedThickness[2] = 1.0;
+  channelBedThickness[3] = 1.0;
+  
+  channelManningsN = new double[globalNumberOfChannelElements];
+  
+  channelManningsN[0] = 0.038;
+  channelManningsN[1] = 0.038;
+  channelManningsN[2] = 0.038;
+  channelManningsN[3] = 0.038;
+  
+  channelSurfacewaterDepth = new double[globalNumberOfChannelElements];
+  
+  channelSurfacewaterDepth[0] = 0.0;
+  channelSurfacewaterDepth[1] = 0.0;
+  channelSurfacewaterDepth[2] = 0.0;
+  channelSurfacewaterDepth[3] = 0.0;
+  
+  channelSurfacewaterError = new double[globalNumberOfChannelElements];
+  
+  channelSurfacewaterError[0] = 0.0;
+  channelSurfacewaterError[1] = 0.0;
+  channelSurfacewaterError[2] = 0.0;
+  channelSurfacewaterError[3] = 0.0;
+  
+  channelChannelNeighbors = new int[globalNumberOfChannelElements][ChannelElement::channelNeighborsSize];
+  
+  channelChannelNeighbors[0][0] = 1;
+  channelChannelNeighbors[0][1] = NOFLOW;
+  channelChannelNeighbors[1][0] = 0;
+  channelChannelNeighbors[1][1] = 2;
+  channelChannelNeighbors[2][0] = 1;
+  channelChannelNeighbors[2][1] = 3;
+  channelChannelNeighbors[3][0] = 2;
+  channelChannelNeighbors[3][1] = OUTFLOW;
+  
+  channelMeshNeighbors = new int[globalNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  
+  channelMeshNeighbors[0][0] = 0;
+  channelMeshNeighbors[0][1] = 4;
+  channelMeshNeighbors[0][2] = NOFLOW;
+  channelMeshNeighbors[0][3] = NOFLOW;
+  channelMeshNeighbors[1][0] = 1;
+  channelMeshNeighbors[1][1] = 5;
+  channelMeshNeighbors[1][2] = NOFLOW;
+  channelMeshNeighbors[1][3] = NOFLOW;
+  channelMeshNeighbors[2][0] = 1;
+  channelMeshNeighbors[2][1] = 5;
+  channelMeshNeighbors[2][2] = 3;
+  channelMeshNeighbors[2][3] = 7;
+  channelMeshNeighbors[3][0] = 3;
+  channelMeshNeighbors[3][1] = 7;
+  channelMeshNeighbors[3][2] = NOFLOW;
+  channelMeshNeighbors[3][3] = NOFLOW;
+  
+  channelMeshNeighborsEdgeLength = new double[globalNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  
+  channelMeshNeighborsEdgeLength[0][0] = 75.0;
+  channelMeshNeighborsEdgeLength[0][1] = 75.0;
+  channelMeshNeighborsEdgeLength[0][2] =  1.0;
+  channelMeshNeighborsEdgeLength[0][3] =  1.0;
+  channelMeshNeighborsEdgeLength[1][0] = 50.0;
+  channelMeshNeighborsEdgeLength[1][1] = 50.0;
+  channelMeshNeighborsEdgeLength[1][2] =  1.0;
+  channelMeshNeighborsEdgeLength[1][3] =  1.0;
+  channelMeshNeighborsEdgeLength[2][0] = 25.0;
+  channelMeshNeighborsEdgeLength[2][1] = 25.0;
+  channelMeshNeighborsEdgeLength[2][2] = 25.0;
+  channelMeshNeighborsEdgeLength[2][3] = 25.0;
+  channelMeshNeighborsEdgeLength[3][0] = 50.0;
+  channelMeshNeighborsEdgeLength[3][1] = 50.0;
+  channelMeshNeighborsEdgeLength[3][2] =  1.0;
+  channelMeshNeighborsEdgeLength[3][3] =  1.0;
 }
 
-// Suppress warning enum value not handled in switch.
-#pragma GCC diagnostic ignored "-Wswitch"
-void FileManager::handleOpenFiles(int directoryLength, char* directory, int numberOfMeshElementsToCreate, int numberOfMeshNodesToCreate,
-                                  FileManagerActionEnum geometryAction, int geometryGroup, FileManagerActionEnum parameterAction, int parameterGroup,
-                                  FileManagerActionEnum stateAction, int stateGroup, double time)
-{
-  bool    error      = false;                 // Error flag.
-  char*   nameString = NULL;                  // Temporary string for file and group names.
-  int     nameStringSize;                     // Size of buffer allocated for nameString.
-  int     numPrinted;                         // Used to check that snprintf printed the correct nubmer of characters.
-  int     ncErrorCode;                        // Return value of NetCDF functions.
-  int     geometryNumberOfMeshElementsDimID;  // NetCDF Dimension ID in geometry file for number of mesh elements.
-  int     geometryNumberOfMeshNodesDimID;     // NetCDF Dimension ID in geometry file for number of mesh nodes.
-  int     geometryThreeDimID;                 // NetCDF Dimension ID in geometry file for dimension size of three.
-                                              // Used for three vertices and edges for each element and three coordinates (X, Y, Z) for each node.
-  int     parameterNumberOfMeshElementsDimID; // NetCDF Dimension ID in parameter file for number of mesh elements.
-  int     stateNumberOfMeshElementsDimID;     // NetCDF Dimension ID in state file for number of mesh elements.
-  int     stateNumberOfMeshNodesDimID;        // NetCDF Dimension ID in state file for number of mesh nodes.
-  int     stateThreeDimID;                    // NetCDF Dimension ID in state file for dimension size of three.  Used for three edges for each element.
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != directory))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: directory must not be NULL.\n");
-      error = true;
-    }
-  // Cast to long long to avoid comparison between signed and unsigned without losing range.
-  else if (!((long long)strlen(directory) + 1 <= (long long)directoryLength))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: "
-              "directoryLength must be at least as long as string length of directory including null termination character.\n");
-      error = true;
-    }
-
-  if ((FILE_MANAGER_WRITE  == geometryAction  || FILE_MANAGER_CREATE == geometryAction || FILE_MANAGER_WRITE  == parameterAction ||
-       FILE_MANAGER_CREATE == parameterAction || FILE_MANAGER_WRITE  == stateAction    || FILE_MANAGER_CREATE == stateAction) &&
-      !(0 < numberOfMeshElementsToCreate))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: if you are creating or writing to any files numberOfMeshElementsToCreate must be greater than zero.\n");
-      error = true;
-    }
-
-  if ((FILE_MANAGER_WRITE == geometryAction  || FILE_MANAGER_CREATE == geometryAction) && !(0 < numberOfMeshNodesToCreate))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: if you are creating or writing to the geometry file numberOfMeshNodesToCreate must be greater than "
-              "zero.\n");
-      error = true;
-    }
-
-  if (!(FILE_MANAGER_NO_ACTION == geometryAction || FILE_MANAGER_READ == geometryAction || FILE_MANAGER_WRITE == geometryAction ||
-        FILE_MANAGER_CREATE    == geometryAction))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: geometryAction must be a valid enum value.\n");
-      error = true;
-    }
-
-  if (!(FILE_MANAGER_NO_ACTION == parameterAction || FILE_MANAGER_READ == parameterAction || FILE_MANAGER_WRITE == parameterAction ||
-        FILE_MANAGER_CREATE    == parameterAction))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: parameterAction must be a valid enum value.\n");
-      error = true;
-    }
-
-  if (!(FILE_MANAGER_NO_ACTION == stateAction || FILE_MANAGER_READ == stateAction || FILE_MANAGER_WRITE == stateAction ||
-        FILE_MANAGER_CREATE    == stateAction))
-    {
-      CkError("ERROR in FileManager::handleOpenFiles: stateAction must be a valid enum value.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBIC_FUNCTIONS_SIMPLE)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  // File access must follow the pattern open-close-open-close.  This is enforced in the structured dagger code so files must be closed at this point.
-  CkAssert(CLOSED == geometryFileStatus && CLOSED == parameterFileStatus && CLOSED == stateFileStatus);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-
-  if (!error)
-    {
-      // Minus one here indicates that the number of mesh elements and nodes is currently unknown.  They might be determined by numberOfMeshElementsToCreate or
-      // numberOfMeshNodesToCreate if files are being created or opened for write, or they might be determined by reading from files if files are being opened
-      // for read.  If they can be determined from multiple sources it is an error if they are not all the same.
-      numberOfMeshElements = -1;
-      numberOfMeshNodes    = -1;
-
-      // Allocate space for file and group name string
-      nameStringSize = directoryLength + strlen("/parameter.nc"); // Longest string concatenated to directory is "/parameter.nc" whose length is 13.
-      nameString     = new char[nameStringSize];                  // The maximum length of an int printed as a string is 11.
-
-      // FIXME make directory?
-    }
-
-  // Create file name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%s/geometry.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      // Cast to long long to avoid comparison between signed and unsigned without losing range.
-      if (!((long long)(strlen(directory) + strlen("/geometry.nc")) == (long long)numPrinted))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value of snprintf when generating geometry file name.  %d should be %d.\n",
-                  numPrinted, strlen(directory) + strlen("/geometry.nc"));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Open or create file.
-  if (!error)
-    {
-      switch (geometryAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &geometryFileID);
-        break;
-      case FILE_MANAGER_WRITE:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD, MPI_INFO_NULL, &geometryFileID);
-        break;
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_create_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD, MPI_INFO_NULL, &geometryFileID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s NetCDF geometry file %s.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_CREATE == geometryAction) ? "create" : "open", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-      else
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        {
-          switch (geometryAction)
-          {
-          // case FILE_MANAGER_NO_ACTION:
-            // Do nothing.
-            // break;
-          case FILE_MANAGER_READ:
-            geometryFileStatus = OPEN_FOR_READ;
-            break;
-          case FILE_MANAGER_WRITE:
-            // Fallthrough.
-          case FILE_MANAGER_CREATE:
-            geometryFileStatus = OPEN_FOR_READ_WRITE;
-            break;
-          }
-        }
-    }
-
-  // Create group name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%d", geometryGroup);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(0 < numPrinted && numPrinted < nameStringSize))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value %d from snprintf when generating geometry group name.\n", numPrinted);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Get ID of or create group.
-  if (!error)
-    {
-      switch (geometryAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_inq_ncid(geometryFileID, nameString, &geometryGroupID);
-        break;
-      case FILE_MANAGER_WRITE:
-        // Fallthrough.
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_def_grp(geometryFileID, nameString, &geometryGroupID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s group %s in NetCDF geometry file.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_READ == geometryAction) ? "find" : "create", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  // Create dimensions.
-  if (FILE_MANAGER_WRITE == geometryAction || FILE_MANAGER_CREATE == geometryAction)
-    {
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(geometryGroupID, "numberOfMeshElements", numberOfMeshElementsToCreate, &geometryNumberOfMeshElementsDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshElements in NetCDF geometry file.  "
-                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(geometryGroupID, "numberOfMeshNodes", numberOfMeshNodesToCreate, &geometryNumberOfMeshNodesDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshNodes in NetCDF geometry file.  "
-                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(geometryGroupID, "three", 3, &geometryThreeDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension three in NetCDF geometry file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-    }
-
-  // Get ID of or create variables.
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementNodeIndices", &meshElementNodeIndicesVarID, NC_INT, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshNodeXYZSurfaceCoordinates", &meshNodeXYZSurfaceCoordinatesVarID,
-                                      NC_DOUBLE, 2, geometryNumberOfMeshNodesDimID, geometryThreeDimID, numberOfMeshNodesToCreate, &numberOfMeshNodes);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshNodeZBedrockCoordinates", &meshNodeZBedrockCoordinatesVarID,
-                                      NC_DOUBLE, 1, geometryNumberOfMeshNodesDimID, 0, numberOfMeshNodesToCreate, &numberOfMeshNodes);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshEdgeLength", &meshEdgeLengthVarID, NC_DOUBLE, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshEdgeNormalX", &meshEdgeNormalXVarID, NC_DOUBLE, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshEdgeNormalY", &meshEdgeNormalYVarID, NC_DOUBLE, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementX", &meshElementXVarID, NC_DOUBLE, 1,
-                                      geometryNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementY", &meshElementYVarID, NC_DOUBLE, 1,
-                                      geometryNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementZSurface", &meshElementZSurfaceVarID, NC_DOUBLE, 1,
-                                      geometryNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementZBedrock", &meshElementZBedrockVarID, NC_DOUBLE, 1,
-                                      geometryNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshElementArea", &meshElementAreaVarID, NC_DOUBLE, 1,
-                                      geometryNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshNeighborIndices", &meshNeighborIndicesVarID, NC_INT, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(geometryAction, "geometry", geometryGroupID, "meshNeighborReciprocalEdge", &meshNeighborReciprocalEdgeVarID, NC_INT, 2,
-                                      geometryNumberOfMeshElementsDimID, geometryThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  // Create file name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%s/parameter.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      // Cast to long long to avoid comparison between signed and unsigned without losing range.
-      if (!((long long)(strlen(directory) + strlen("/parameter.nc")) == (long long)numPrinted))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value of snprintf when generating parameter file name.  %d should be %d.\n",
-                  numPrinted, strlen(directory) + strlen("/parameter.nc"));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Open or create file.
-  if (!error)
-    {
-      switch (parameterAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &parameterFileID);
-        break;
-      case FILE_MANAGER_WRITE:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD, MPI_INFO_NULL, &parameterFileID);
-        break;
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_create_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD, MPI_INFO_NULL, &parameterFileID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s NetCDF parameter file %s.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_CREATE == parameterAction) ? "create" : "open", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-      else
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        {
-          switch (parameterAction)
-          {
-          // case FILE_MANAGER_NO_ACTION:
-            // Do nothing.
-            // break;
-          case FILE_MANAGER_READ:
-            parameterFileStatus = OPEN_FOR_READ;
-            break;
-          case FILE_MANAGER_WRITE:
-            // Fallthrough.
-          case FILE_MANAGER_CREATE:
-            parameterFileStatus = OPEN_FOR_READ_WRITE;
-            break;
-          }
-        }
-    }
-
-  // Create group name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%d", parameterGroup);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(0 < numPrinted && numPrinted < nameStringSize))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value %d from snprintf when generating parameter group name.\n", numPrinted);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Get ID of or create group.
-  if (!error)
-    {
-      switch (parameterAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_inq_ncid(parameterFileID, nameString, &parameterGroupID);
-        break;
-      case FILE_MANAGER_WRITE:
-        // Fallthrough.
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_def_grp(parameterFileID, nameString, &parameterGroupID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s group %s in NetCDF parameter file.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_READ == parameterAction) ? "find" : "create", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  // Create dimensions.
-  if (!error && (FILE_MANAGER_WRITE == parameterAction || FILE_MANAGER_CREATE == parameterAction))
-    {
-      ncErrorCode = nc_def_dim(parameterGroupID, "numberOfMeshElements", numberOfMeshElementsToCreate, &parameterNumberOfMeshElementsDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshElements in NetCDF parameter file.  "
-                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  // Get ID of or create variables.
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(parameterAction, "parameter", parameterGroupID, "meshElementCatchment", &meshElementCatchmentVarID, NC_INT, 1,
-                                      parameterNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(parameterAction, "parameter", parameterGroupID, "meshElementConductivity", &meshElementConductivityVarID, NC_DOUBLE, 1,
-                                      parameterNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(parameterAction, "parameter", parameterGroupID, "meshElementPorosity", &meshElementPorosityVarID, NC_DOUBLE, 1,
-                                      parameterNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(parameterAction, "parameter", parameterGroupID, "meshElementManningsN", &meshElementManningsNVarID, NC_DOUBLE, 1,
-                                      parameterNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  // Create file name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%s/state.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      // Cast to long long to avoid comparison between signed and unsigned without losing range.
-      if (!((long long)(strlen(directory) + strlen("/state.nc")) == (long long)numPrinted))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value of snprintf when generating state file name.  %d should be %d.\n",
-                  numPrinted, strlen(directory) + strlen("/state.nc"));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Open or create file.
-  if (!error)
-    {
-      switch (stateAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &stateFileID);
-        break;
-      case FILE_MANAGER_WRITE:
-        ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD, MPI_INFO_NULL, &stateFileID);
-        break;
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_create_par(nameString, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD, MPI_INFO_NULL, &stateFileID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s NetCDF state file %s.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_CREATE == stateAction) ? "create" : "open", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-      else
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        {
-          switch (stateAction)
-          {
-          // case FILE_MANAGER_NO_ACTION:
-            // Do nothing.
-            // break;
-          case FILE_MANAGER_READ:
-            stateFileStatus = OPEN_FOR_READ;
-            break;
-          case FILE_MANAGER_WRITE:
-            // Fallthrough.
-          case FILE_MANAGER_CREATE:
-            stateFileStatus = OPEN_FOR_READ_WRITE;
-            break;
-          }
-        }
-    }
-
-  // Create group name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%d", stateGroup);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(0 < numPrinted && numPrinted < nameStringSize))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: incorrect return value %d from snprintf when generating state group name.\n", numPrinted);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Get ID of or create group.
-  if (!error)
-    {
-      switch (stateAction)
-      {
-      case FILE_MANAGER_NO_ACTION:
-        // Do nothing.
-        ncErrorCode = NC_NOERR;
-        break;
-      case FILE_MANAGER_READ:
-        ncErrorCode = nc_inq_ncid(stateFileID, nameString, &stateGroupID);
-        break;
-      case FILE_MANAGER_WRITE:
-        // Fallthrough.
-      case FILE_MANAGER_CREATE:
-        ncErrorCode = nc_def_grp(stateFileID, nameString, &stateGroupID);
-        break;
-      }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleOpenFiles: unable to %s group %s in NetCDF state file.  NetCDF error message: %s.\n",
-                  (FILE_MANAGER_READ == stateAction) ? "find" : "create", nameString, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  if (FILE_MANAGER_WRITE == stateAction || FILE_MANAGER_CREATE == stateAction)
-    {
-      // Create dimensions.
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(stateGroupID, "numberOfMeshElements", numberOfMeshElementsToCreate, &stateNumberOfMeshElementsDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshElements in NetCDF state file.  "
-                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-
-      // numberOfMeshNodes is not used for any variables in the state file, but it makes creating a .xmf file easier to have it here.
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(stateGroupID, "numberOfMeshNodes", numberOfMeshNodesToCreate, &stateNumberOfMeshNodesDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension numberOfMeshNodes in NetCDF state file.  "
-                      "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-
-      if (!error)
-        {
-          ncErrorCode = nc_def_dim(stateGroupID, "three", 3, &stateThreeDimID);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create dimension three in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      // Create attributes.
-      if (!error)
-        {
-          ncErrorCode = nc_put_att_double(stateGroupID, NC_GLOBAL, "time", NC_DOUBLE, 1, &time);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create time attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      if (!error)
-        {
-          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "geometryGroup", NC_INT, 1, &geometryGroup);
-
-    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create geometryGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      if (!error)
-        {
-          ncErrorCode = nc_put_att_int(stateGroupID, NC_GLOBAL, "parameterGroup", NC_INT, 1, &parameterGroup);
-
-    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::handleOpenFiles: unable to create parameterGroup attribute in NetCDF state file.  NetCDF error message: %s.\n",
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-    }
-
-  // Get ID of or create variables.
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshElementSurfacewaterDepth", &meshElementSurfacewaterDepthVarID, NC_DOUBLE, 1,
-                                      stateNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshElementSurfacewaterError", &meshElementSurfacewaterErrorVarID, NC_DOUBLE, 1,
-                                      stateNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshElementGroundwaterHead", &meshElementGroundwaterHeadVarID, NC_DOUBLE, 1,
-                                      stateNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshElementGroundwaterError", &meshElementGroundwaterErrorVarID, NC_DOUBLE, 1,
-                                      stateNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshElementGroundwaterRecharge", &meshElementGroundwaterRechargeVarID, NC_DOUBLE, 1,
-                                      stateNumberOfMeshElementsDimID, 0, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshEdgeSurfacewaterFlowRate", &meshEdgeSurfacewaterFlowRateVarID,
-                                      NC_DOUBLE, 2, stateNumberOfMeshElementsDimID, stateThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshEdgeSurfacewaterCumulativeFlow", &meshEdgeSurfacewaterCumulativeFlowVarID,
-                                      NC_DOUBLE, 2, stateNumberOfMeshElementsDimID, stateThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshEdgeGroundwaterFlowRate", &meshEdgeGroundwaterFlowRateVarID,
-                                      NC_DOUBLE, 2, stateNumberOfMeshElementsDimID, stateThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  if (!error)
-    {
-      error = getIDOfOrCreateVariable(stateAction, "state", stateGroupID, "meshEdgeGroundwaterCumulativeFlow", &meshEdgeGroundwaterCumulativeFlowVarID,
-                                      NC_DOUBLE, 2, stateNumberOfMeshElementsDimID, stateThreeDimID, numberOfMeshElementsToCreate, &numberOfMeshElements);
-    }
-  
-  // Delete dynamically allocated string.
-  if (NULL != nameString)
-    {
-      delete[] nameString;
-    }
-
-  if (!error)
-    {
-      contribute();
-    }
-  else
-    {
-      CkExit();
-    }
-}
-#pragma GCC diagnostic warning "-Wswitch"
-
-bool FileManager::getIDOfOrCreateVariable(FileManagerActionEnum action, const char* fileName, int groupID, const char* variableName, int* variableID,
-                                          nc_type variableType, int numDims, int dimID0, int dimID1, int sizeToCreate, int* sizeShouldBe)
-{
-  bool    error = false;               // Error flag.
-  int     ii;                          // Loop counter.
-  int     ncErrorCode;                 // Return value of NetCDF functions.
-  int     dimIDs[NC_MAX_VAR_DIMS];     // For passing dimension IDs of variable.
-  size_t  dimSizes[NC_MAX_VAR_DIMS];   // Dimension sizes of variable.
-  nc_type readVariableType;            // For reading type of variable.
-  int     readNumDims;                 // For reading number of dimensions of variable.
-  char    unusedName[NC_MAX_NAME + 1]; // For reading name of variable.
-  int     unusedNumAttributes;         // For reading number of attributes of variable.
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(FILE_MANAGER_NO_ACTION == action || FILE_MANAGER_READ == action || FILE_MANAGER_WRITE == action || FILE_MANAGER_CREATE == action);
-  CkAssert(NULL != fileName);
-  CkAssert(NULL != variableName);
-  CkAssert(NULL != variableID);
-  CkAssert(NC_BYTE   == variableType || NC_CHAR == variableType || NC_SHORT == variableType || NC_LONG == variableType || NC_FLOAT == variableType ||
-           NC_DOUBLE == variableType);
-  CkAssert(1 == numDims || 2 == numDims);
-  
-  if (FILE_MANAGER_WRITE == action || FILE_MANAGER_CREATE == action)
-    {
-      ncErrorCode = nc_inq_dimlen(groupID, dimID0, &dimSizes[0]);
-      // Cast to long long to avoid comparison between signed and unsigned without losing range.
-      CkAssert(NC_NOERR == ncErrorCode && (long long)dimSizes[0] == (long long)sizeToCreate);
-    }
-  
-  CkAssert(&numberOfMeshElements == sizeShouldBe || &numberOfMeshNodes == sizeShouldBe);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  switch (action)
-  {
-  case FILE_MANAGER_NO_ACTION:
-    // Do nothing.
-    ncErrorCode = NC_NOERR;
-    break;
-  case FILE_MANAGER_READ:
-    // Get ID of variable.
-    ncErrorCode = nc_inq_varid(groupID, variableName, variableID);
-    break;
-  case FILE_MANAGER_WRITE:
-    // Fallthrough.
-  case FILE_MANAGER_CREATE:
-    // Create variable.  If numDims is 1, dimIDs[1] will be ignored.
-    dimIDs[0]   = dimID0;
-    dimIDs[1]   = dimID1;
-    dimSizes[0] = sizeToCreate;
-    dimSizes[1] = 3;
-    ncErrorCode = nc_def_var(groupID, variableName, variableType, numDims, dimIDs, variableID);
-    break;
-  }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NC_NOERR == ncErrorCode))
-    {
-      CkError("ERROR in FileManager::getIDOfOrCreateVariable: unable to %s variable %s in NetCDF %s file.  NetCDF error message: %s.\n",
-              (FILE_MANAGER_READ == action) ? "find" : "create", variableName, fileName, nc_strerror(ncErrorCode));
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-  // If you are reading make sure the variable has the right type and number of dimensions.
-  if (FILE_MANAGER_READ == action)
-    {
-      if (!error)
-        {
-          ncErrorCode = nc_inq_var(groupID, *variableID, unusedName, &readVariableType, &readNumDims, dimIDs, &unusedNumAttributes);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::getIDOfOrCreateVariable: unable to get information about variable %s in NetCDF %s file.  "
-                      "NetCDF error message: %s.\n", variableName, fileName, nc_strerror(ncErrorCode));
-              error = true;
-            }
-          else
-            {
-              if (!(readVariableType == variableType))
-                {
-                  CkError("ERROR in FileManager::getIDOfOrCreateVariable: wrong type for variable %s in NetCDF %s file.  %d should be %d.",
-                          variableName, fileName, readVariableType, variableType);
-                  error = true;
-                }
-
-              if (!(readNumDims == numDims))
-                {
-                  CkError("ERROR in FileManager::getIDOfOrCreateVariable: wrong number of dimensions for variable %s in NetCDF %s file.  %d should be %d.",
-                          variableName, fileName, readNumDims, numDims);
-                  error = true;
-                }
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-
-      // Read the size of the variable.
-      for (ii = 0; !error && ii < numDims; ii++)
-        {
-          ncErrorCode = nc_inq_dimlen(groupID, dimIDs[ii], &dimSizes[ii]);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::getIDOfOrCreateVariable: unable to get information about dimension %d of variable %s in NetCDF %s file.  "
-                      "NetCDF error message: %s.\n", ii, variableName, fileName, nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-    }
-
-  // Check that the size of the variable is consistent with other variables.
-  if (!error && FILE_MANAGER_NO_ACTION != action)
-    {
-      // If the size is not yet determined get it from the size of this variable.
-      if (-1 == *sizeShouldBe)
-        {
-          *sizeShouldBe = dimSizes[0];
-        }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      // Cast to long long to avoid comparison between signed and unsigned without losing range.
-      if (!((long long)*sizeShouldBe == (long long)dimSizes[0] && (1 == numDims || 3 == dimSizes[1])))
-        {
-          CkError("ERROR in FileManager::getIDOfOrCreateVariable: wrong size of variable %s in NetCDF %s file.  %dx%d should be %dx%d.\n",
-                  variableName, fileName, dimSizes[0], (1 == numDims) ? 1 : dimSizes[1], *sizeShouldBe, (1 == numDims) ? 1 : 3);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-    }
-  
-  return error;
-}
-
-void FileManager::handleCloseFiles()
-{
-  bool error = false; // Error flag.
-  int  ncErrorCode;   // Return value of NetCDF functions.
-
-  // Attempt to close all open files even if there is an error.
-  if (CLOSED != geometryFileStatus)
-    {
-      ncErrorCode        = nc_close(geometryFileID);
-      geometryFileStatus = CLOSED;
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleCloseFiles: unable to close NetCDF geometry file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  if (CLOSED != parameterFileStatus)
-    {
-      ncErrorCode         = nc_close(parameterFileID);
-      parameterFileStatus = CLOSED;
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleCloseFiles: unable to close NetCDF parameter file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  if (CLOSED != stateFileStatus)
-    {
-      ncErrorCode     = nc_close(stateFileID);
-      stateFileStatus = CLOSED;
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::handleCloseFiles: unable to close NetCDF state file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  if (!error)
-    {
-      contribute();
-    }
-  else
-    {
-      CkExit();
-    }
-}
-
-// Suppress warnings in the The Charm++ autogenerated code.
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wunused-variable"
 #include "file_manager.def.h"
-#pragma GCC diagnostic warning "-Wunused-variable"
-#pragma GCC diagnostic warning "-Wsign-compare"
