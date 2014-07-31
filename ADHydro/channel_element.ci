@@ -374,7 +374,52 @@ module channel_element
           
           // FIXME handle output
           
-          // FIXME handle check invariant
+          when checkInvariant()
+          {
+            serial
+            {
+              handleCheckInvariant();
+            }
+            
+            while(!allInvariantChecked())
+            {
+              case
+              {
+                when checkChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborZBank,
+                                                   double neighborZBed, double neighborLength, double neighborChannelType, double neighborBaseWidth,
+                                                   double neighborSideSlope, double neighborManningsN, double neighborSurfacewaterFlowRate,
+                                                   double neighborSurfacewaterCumulativeFlow, double neighborDt)
+                {
+                  serial
+                  {
+                    handleCheckChannelNeighborInvariant(neighbor, edge, neighborEdge, neighborInteraction, neighborZBank, neighborZBed, neighborLength,
+                                                        neighborChannelType, neighborBaseWidth, neighborSideSlope, neighborManningsN,
+                                                        neighborSurfacewaterFlowRate, neighborSurfacewaterCumulativeFlow, neighborDt);
+                  }
+                }
+                
+                when checkMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
+                                                double neighborY, double neighborZSurface, double neighborZBedrock, double neighborZOffset,
+                                                double neighborSlopeX, double neighborSlopeY, double neighborEdgeLength,
+                                                double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow,
+                                                double neighborGroundwaterFlowRate, double neighborGroundwaterCumulativeFlow, double neighborDt)
+                {
+                  serial
+                  {
+                    handleCheckMeshNeighborInvariant(neighbor, edge, neighborEdge, neighborInteraction, neighborX, neighborY, neighborZSurface,
+                                                     neighborZBedrock, neighborZOffset, neighborSlopeX, neighborSlopeY, neighborEdgeLength,
+                                                     neighborSurfacewaterFlowRate, neighborSurfacewaterCumulativeFlow, neighborGroundwaterFlowRate,
+                                                     neighborGroundwaterCumulativeFlow, neighborDt);
+                  }
+                }
+              } // End case within while(!allNeighborInvariantChecked())
+            } // End while(!allNeighborInvariantChecked())
+            
+            serial
+            {
+              contribute();
+            }
+          } // End when checkInvariant()
         } // End case within while(true).
       } // End while(true).
     }; // End entry void runForever().
@@ -396,5 +441,15 @@ module channel_element
     entry void meshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void channelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void meshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void checkInvariant();
+    entry void checkChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborZBank,
+                                             double neighborZBed, double neighborLength, double neighborChannelType, double neighborBaseWidth,
+                                             double neighborSideSlope, double neighborManningsN, double neighborSurfacewaterFlowRate,
+                                             double neighborSurfacewaterCumulativeFlow, double neighborDt);
+    entry void checkMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
+                                          double neighborY, double neighborZSurface, double neighborZBedrock, double neighborZOffset,
+                                          double neighborSlopeX, double neighborSlopeY, double neighborEdgeLength,
+                                          double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow,
+                                          double neighborGroundwaterFlowRate, double neighborGroundwaterCumulativeFlow, double neighborDt);
   }; // End array [1D] ChannelElement.
 }; // End module channel_element.

@@ -21,7 +21,20 @@ mainmodule adhydro
       }
     };
     
+    entry void waitForInvariantToFinish()
+    {
+      when meshInvariantDone(), channelInvariantDone()
+      {
+        serial
+        {
+          doTimestep();
+        }
+      }
+    };
+    
     entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
     entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
+    entry [reductiontarget] void meshInvariantDone();
+    entry [reductiontarget] void channelInvariantDone();
   }; // End mainchare [migratable] ADHydro.
 }; // End mainmodule adhydro.

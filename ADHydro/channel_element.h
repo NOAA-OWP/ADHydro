@@ -47,6 +47,9 @@ public:
   // Returns: true if all neighbor information is initialized, false otherwise.
   bool allInitialized();
   
+  // Returns: true if all neighbor invariants are checked, false otherwise.
+  bool allInvariantChecked();
+  
   static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
   static const int meshNeighborsSize    = 4; // Maximum number of mesh neighbors.
   
@@ -298,6 +301,36 @@ private:
   //        corresponding depth.
   void calculateSurfacewaterDepthFromArea(double area);
   
+  // Check invariant conditions on member variables.  Exit if invariant is
+  // violated.  When the invariant check is done all of the elements will
+  // contribute to an empty reduction.
+  void handleCheckInvariant();
+  
+  // Check invariant conditions on member variables using information from a
+  // channel neighbor.  Exit if invariant is violated.  When the invariant
+  // check is done all of the elements will contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // FIXME
+  void handleCheckChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborZBank,
+                                           double neighborZBed, double neighborLength, double neighborChannelType, double neighborBaseWidth,
+                                           double neighborSideSlope, double neighborManningsN, double neighborSurfacewaterFlowRate,
+                                           double neighborSurfacewaterCumulativeFlow, double neighborDt);
+  
+  // Check invariant conditions on member variables using information from a
+  // mesh neighbor.  Exit if invariant is violated.  When the invariant
+  // check is done all of the elements will contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // FIXME
+  void handleCheckMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
+                                        double neighborY, double neighborZSurface, double neighborZBedrock, double neighborZOffset,
+                                        double neighborSlopeX, double neighborSlopeY, double neighborEdgeLength,
+                                        double neighborSurfacewaterFlowRate, double neighborSurfacewaterCumulativeFlow,
+                                        double neighborGroundwaterFlowRate, double neighborGroundwaterCumulativeFlow, double neighborDt);
+  
   // Chare proxies.  Array of channel elements is accessible through thisProxy.
   CProxy_MeshElement meshProxy;        // Array of mesh elements.
   CProxy_FileManager fileManagerProxy; // Group of file managers for I/O.
@@ -332,10 +365,11 @@ private:
   double dtNew;            // Suggested value for next timestep duration in seconds.
   
   // Channel neighbor elements.
-  int             channelNeighbors[channelNeighborsSize];               // Array index into thisProxy or boundary condition code
-  int             channelNeighborsReciprocalEdge[channelNeighborsSize]; // Array index of me in neighbor's neighbor list.
-  InteractionEnum channelNeighborsInteraction[channelNeighborsSize];    // Communication pattern to calculate flows.
-  bool            channelNeighborsInitialized[channelNeighborsSize];    // Whether the information for this neighbor has been initialized.
+  int             channelNeighbors[channelNeighborsSize];                 // Array index into thisProxy or boundary condition code.
+  int             channelNeighborsReciprocalEdge[channelNeighborsSize];   // Array index of me in neighbor's neighbor list.
+  InteractionEnum channelNeighborsInteraction[channelNeighborsSize];      // Communication pattern to calculate flows.
+  bool            channelNeighborsInitialized[channelNeighborsSize];      // Whether the information for this neighbor has been initialized.
+  bool            channelNeighborsInvariantChecked[channelNeighborsSize]; // Whether the information for this neighbor has been invariant checked.
   
   // Channel neighbor geometric coordinates.
   double channelNeighborsZBank[channelNeighborsSize];  // Meters.
@@ -356,10 +390,11 @@ private:
                                                                                       // Gets set to zero at initialization and each I/O phase.
   
   // Mesh neighbor elements.
-  int             meshNeighbors[meshNeighborsSize];               // Array index into meshProxy or boundary condition code.
-  int             meshNeighborsReciprocalEdge[meshNeighborsSize]; // Array index of me in neighbor's neighbor list.
-  InteractionEnum meshNeighborsInteraction[meshNeighborsSize];    // Communication pattern to calculate flows.
-  bool            meshNeighborsInitialized[meshNeighborsSize];    // Whether the information for this neighbor has been initialized.
+  int             meshNeighbors[meshNeighborsSize];                 // Array index into meshProxy or boundary condition code.
+  int             meshNeighborsReciprocalEdge[meshNeighborsSize];   // Array index of me in neighbor's neighbor list.
+  InteractionEnum meshNeighborsInteraction[meshNeighborsSize];      // Communication pattern to calculate flows.
+  bool            meshNeighborsInitialized[meshNeighborsSize];      // Whether the information for this neighbor has been initialized.
+  bool            meshNeighborsInvariantChecked[meshNeighborsSize]; // Whether the information for this neighbor has been invariant checked.
   
   // Mesh neighbor geometric coordinates.
   double meshNeighborsZSurface[meshNeighborsSize];   // Meters.

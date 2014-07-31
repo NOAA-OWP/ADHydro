@@ -38,6 +38,9 @@ public:
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
   
+  // Destructor.  commandLineArguments needs to be freed.
+  ~ADHydro();
+  
   // Pack/unpack method.
   //
   // Parameters:
@@ -47,8 +50,8 @@ public:
 
 private:
   
-  // If currentTime is less than endTime do a timestep otherwise exit.
-  // Will cause a callback to timestepDone.
+  // If currentTime is less than endTime do a timestep and cause a callback to
+  // timestepDone, otherwise exit.
   void doTimestep();
   
   // Callback for the dtNew reduction at the end of a timestep.
@@ -57,6 +60,11 @@ private:
   //
   // dtNew - The minimum new timestep requested by any element.
   void timestepDone(double dtNew);
+  
+  // Check invariant conditions on member variables.  Exit if invariant is
+  // violated.  When the invariant check is done will cause a callback to
+  // doTimestep.
+  void checkInvariant();
   
   // Chare proxies.
   CProxy_MeshElement    meshProxy;        // Array of mesh elements.

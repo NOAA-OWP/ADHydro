@@ -46,6 +46,9 @@ public:
   // Returns: true if all neighbor information is initialized, false otherwise.
   bool allInitialized();
   
+  // Returns: true if all neighbor invariants are checked, false otherwise.
+  bool allInvariantChecked();
+  
   static const int meshNeighborsSize    = 3; // Maximum number of mesh neighbors.
   static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
   
@@ -343,6 +346,39 @@ private:
   // all surfacewater flows then contribute to the dtNew reduction.
   void moveSurfacewater();
   
+  // Check invariant conditions on member variables.  Exit if invariant is
+  // violated.  When the invariant check is done all of the elements will
+  // contribute to an empty reduction.
+  void handleCheckInvariant();
+  
+  // Check invariant conditions on member variables using information from a
+  // mesh neighbor.  Exit if invariant is violated.  When the invariant
+  // check is done all of the elements will contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // FIXME
+  void handleCheckMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, bool neighborChannelEdge, InteractionEnum neighborInteraction,
+                                        double neighborX, double neighborY, double neighborZSurface, double neighborZBedrock, double neighborArea,
+                                        double neighborEdgeLength, double neighborEdgeNormalX, double neighborEdgeNormalY,
+                                        double neighborConductivity, double neighborManningsN, double neighborSurfacewaterFlowRate,
+                                        double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                        double neighborGroundwaterCumulativeFlow, double neighborDt);
+  
+  // Check invariant conditions on member variables using information from a
+  // channel neighbor.  Exit if invariant is violated.  When the invariant
+  // check is done all of the elements will contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // FIXME
+  void handleCheckChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
+                                           double neighborY, double neighborZBank, double neighborZBed, double neighborZOffset,
+                                           double neighborEdgeLength, double neighborBaseWidth, double neighborSideSlope,
+                                           double neighborBedConductivity, double neighborBedThickness, double neighborSurfacewaterFlowRate,
+                                           double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                           double neighborGroundwaterCumulativeFlow, double neighborDt);
+  
   // Chare proxies.  Array of mesh elements is accessible through thisProxy.
   CProxy_ChannelElement channelProxy;     // Array of channel elements.
   CProxy_FileManager    fileManagerProxy; // Group of file managers for I/O.
@@ -387,15 +423,16 @@ private:
   double dtNew;            // Suggested value for next timestep duration in seconds.
   
   // Mesh neighbor elements.
-  int             meshNeighbors[meshNeighborsSize];               // Array index into thisProxy or boundary condition code.
-  bool            meshNeighborsChannelEdge[meshNeighborsSize];    // If true, the edge to this mesh neighbor has a channel on it.  The edge is treated as a
-                                                                  // NOFLOW boundary for mesh neighbor surfacewater interactions.  All surfacewater flow goes
-                                                                  // through the channel.  Mesh neighbor groundwater interactions still proceed normally with
-                                                                  // water flowing under the channel.  FIXME should a channel edge modify groundwater
-                                                                  // interactions if the channel bed is below the water table?
-  int             meshNeighborsReciprocalEdge[meshNeighborsSize]; // Array index of me in neighbor's neighbor list.
-  InteractionEnum meshNeighborsInteraction[meshNeighborsSize];    // Communication pattern to calculate flows.
-  bool            meshNeighborsInitialized[meshNeighborsSize];    // Whether the information for this neighbor has been initialized.
+  int             meshNeighbors[meshNeighborsSize];                 // Array index into thisProxy or boundary condition code.
+  bool            meshNeighborsChannelEdge[meshNeighborsSize];      // If true, the edge to this mesh neighbor has a channel on it.  The edge is treated as a
+                                                                    // NOFLOW boundary for mesh neighbor surfacewater interactions.  All surfacewater flow goes
+                                                                    // through the channel.  Mesh neighbor groundwater interactions still proceed normally with
+                                                                    // water flowing under the channel.  FIXME should a channel edge modify groundwater
+                                                                    // interactions if the channel bed is below the water table?
+  int             meshNeighborsReciprocalEdge[meshNeighborsSize];   // Array index of me in neighbor's neighbor list.
+  InteractionEnum meshNeighborsInteraction[meshNeighborsSize];      // Communication pattern to calculate flows.
+  bool            meshNeighborsInitialized[meshNeighborsSize];      // Whether the information for this neighbor has been initialized.
+  bool            meshNeighborsInvariantChecked[meshNeighborsSize]; // Whether the information for this neighbor has been invariant checked.
   
   // Mesh neighbor geometric coordinates.
   double meshNeighborsX[meshNeighborsSize];           // Meters.
@@ -422,10 +459,11 @@ private:
                                                                                 // Gets set to zero at initialization and each I/O phase.
   
   // Channel neighbor elements.
-  int             channelNeighbors[channelNeighborsSize];               // Array index into channelProxy or boundary condition code
-  int             channelNeighborsReciprocalEdge[channelNeighborsSize]; // Array index of me in neighbor's neighbor list.
-  InteractionEnum channelNeighborsInteraction[channelNeighborsSize];    // Communication pattern to calculate flows.
-  bool            channelNeighborsInitialized[channelNeighborsSize];    // Whether the information for this neighbor has been initialized.
+  int             channelNeighbors[channelNeighborsSize];                 // Array index into channelProxy or boundary condition code.
+  int             channelNeighborsReciprocalEdge[channelNeighborsSize];   // Array index of me in neighbor's neighbor list.
+  InteractionEnum channelNeighborsInteraction[channelNeighborsSize];      // Communication pattern to calculate flows.
+  bool            channelNeighborsInitialized[channelNeighborsSize];      // Whether the information for this neighbor has been initialized.
+  bool            channelNeighborsInvariantChecked[channelNeighborsSize]; // Whether the information for this neighbor has been invariant checked.
   
   // Channel neighbor geometric coordinates.
   double channelNeighborsZBank[channelNeighborsSize];      // Meters.

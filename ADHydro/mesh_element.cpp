@@ -54,6 +54,7 @@ void MeshElement::pup(PUP::er &p)
   PUParray(p, meshNeighborsReciprocalEdge, meshNeighborsSize);
   PUParray(p, meshNeighborsInteraction, meshNeighborsSize);
   PUParray(p, meshNeighborsInitialized, meshNeighborsSize);
+  PUParray(p, meshNeighborsInvariantChecked, meshNeighborsSize);
   PUParray(p, meshNeighborsX, meshNeighborsSize);
   PUParray(p, meshNeighborsY, meshNeighborsSize);
   PUParray(p, meshNeighborsZSurface, meshNeighborsSize);
@@ -74,6 +75,7 @@ void MeshElement::pup(PUP::er &p)
   PUParray(p, channelNeighborsReciprocalEdge, channelNeighborsSize);
   PUParray(p, channelNeighborsInteraction, channelNeighborsSize);
   PUParray(p, channelNeighborsInitialized, channelNeighborsSize);
+  PUParray(p, channelNeighborsInvariantChecked, channelNeighborsSize);
   PUParray(p, channelNeighborsZBank, channelNeighborsSize);
   PUParray(p, channelNeighborsZBed, channelNeighborsSize);
   PUParray(p, channelNeighborsZOffset, channelNeighborsSize);
@@ -103,6 +105,24 @@ bool MeshElement::allInitialized()
   for (edge = 0; initialized && edge < channelNeighborsSize; edge++)
     {
       initialized = channelNeighborsInitialized[edge];
+    }
+  
+  return initialized;
+}
+
+bool MeshElement::allInvariantChecked()
+{
+  int  edge;               // Loop counter.
+  bool initialized = true; // Flag to record whether we have found an unchecked neighbor.
+  
+  for (edge = 0; initialized && edge < meshNeighborsSize; edge++)
+    {
+      initialized = meshNeighborsInvariantChecked[edge];
+    }
+  
+  for (edge = 0; initialized && edge < channelNeighborsSize; edge++)
+    {
+      initialized = channelNeighborsInvariantChecked[edge];
     }
   
   return initialized;
@@ -461,9 +481,9 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
     {
       surfacewaterInfiltration = 0.0;
       groundwaterRecharge      = 0.0;
-      groundwaterDone          = false;
-      infiltrationDone         = false;
-      surfacewaterDone         = false;
+      groundwaterDone          = true;
+      infiltrationDone         = true;
+      surfacewaterDone         = true;
       dt                       = 1.0;
       dtNew                    = 1.0;
       
@@ -473,10 +493,11 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
             {
               meshNeighbors[edge]                           = fileManagerLocalBranch->meshMeshNeighbors[fileManagerLocalIndex][edge];
               meshNeighborsChannelEdge[edge]                = fileManagerLocalBranch->meshMeshNeighborsChannelEdge[fileManagerLocalIndex][edge];
-              meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              meshNeighborsInvariantChecked[edge]           = true;
+              meshNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_LIMITING_CHECK_DONE;
               meshNeighborsSurfacewaterFlowRate[edge]       = 0.0;
               meshNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
-              meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
+              meshNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_LIMITING_CHECK_DONE;
               meshNeighborsGroundwaterFlowRate[edge]        = 0.0;
               meshNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
               
@@ -613,10 +634,11 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
           for (edge = 0; edge < channelNeighborsSize; edge++)
             {
               channelNeighbors[edge]                           = fileManagerLocalBranch->meshChannelNeighbors[fileManagerLocalIndex][edge];
-              channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_NOT_READY;
+              channelNeighborsInvariantChecked[edge]           = true;
+              channelNeighborsSurfacewaterFlowRateReady[edge]  = FLOW_RATE_LIMITING_CHECK_DONE;
               channelNeighborsSurfacewaterFlowRate[edge]       = 0.0;
               channelNeighborsSurfacewaterCumulativeFlow[edge] = 0.0;
-              channelNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_NOT_READY;
+              channelNeighborsGroundwaterFlowRateReady[edge]   = FLOW_RATE_LIMITING_CHECK_DONE;
               channelNeighborsGroundwaterFlowRate[edge]        = 0.0;
               channelNeighborsGroundwaterCumulativeFlow[edge]  = 0.0;
               
@@ -1615,7 +1637,7 @@ void MeshElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationTh
 
 void MeshElement::handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
 {
-  bool   error = false; // Error flag.
+  bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && channelNeighborsSize > edge))
@@ -1997,6 +2019,510 @@ void MeshElement::moveSurfacewater()
   
   // Perform min reduction on dtNew.  This also serves as a barrier at the end of the timestep.
   contribute(sizeof(double), &dtNew, CkReduction::min_double);
+}
+
+void MeshElement::handleCheckInvariant()
+{
+  bool error = false; // Error flag.
+  int  edge;          // Loop counter.
+  
+  if (!(elementZSurface >= elementZBedrock))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementZSurface must be greater than or equal to elementZBedrock.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < elementArea))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: elementArea must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < conductivity))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: conductivity must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < porosity))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: porosity must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < manningsN))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: manningsN must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 <= surfacewaterDepth))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacewaterDepth must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(elementZSurface >= groundwaterHead))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: groundwaterHead must be less than or equal to elementZSurface.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!groundwaterDone)
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: groundwaterDone must be true when not processing a timestep.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!infiltrationDone)
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: infiltrationDone must be true when not processing a timestep.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!surfacewaterDone)
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacewaterDone must be true when not processing a timestep.\n", thisIndex);
+      error = true;
+    }
+    
+  if (!(0.0 < dt))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: dt must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: dtNew must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  for (edge = 0; edge < meshNeighborsSize; edge++)
+    {
+      if (!(isBoundary(meshNeighbors[edge]) || (0 <= meshNeighbors[edge] /* && check against maximum index*/)))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must be a boundary condition code or a valid array index.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(0 <= meshNeighborsReciprocalEdge[edge] && meshNeighborsReciprocalEdge[edge] < meshNeighborsSize))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsReciprocalEdge must be a valid array index.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(I_CALCULATE_FLOW_RATE    == meshNeighborsInteraction[edge] || NEIGHBOR_CALCULATES_FLOW_RATE == meshNeighborsInteraction[edge] ||
+            BOTH_CALCULATE_FLOW_RATE == meshNeighborsInteraction[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsInteraction must be a valid enum value.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!meshNeighborsInitialized[edge])
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsInitialized must be true before checking invariant.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(0.0 < meshNeighborsEdgeLength[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(epsilonEqual(1.0, meshNeighborsEdgeNormalX[edge] * meshNeighborsEdgeNormalX[edge] +
+                              meshNeighborsEdgeNormalY[edge] * meshNeighborsEdgeNormalY[edge])))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeNormalX and meshNeighborsEdgeNormalY must make a unit "
+                  "vector.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == meshNeighborsSurfacewaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsSurfacewaterFlowRateReady must be ready when not processing "
+                  "a timestep.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == meshNeighborsGroundwaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighborsGroundwaterFlowRateReady must be ready when not processing "
+                  "a timestep.\n", thisIndex, edge);
+          error = true;
+        }
+    }
+  
+  for (edge = 0; edge < channelNeighborsSize; edge++)
+    {
+      if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] /* && check against maximum index*/)))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be NOFLOW or a valid array index.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(0 <= channelNeighborsReciprocalEdge[edge] && channelNeighborsReciprocalEdge[edge] < ChannelElement::meshNeighborsSize))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsReciprocalEdge must be a valid array index.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(I_CALCULATE_FLOW_RATE    == channelNeighborsInteraction[edge] || NEIGHBOR_CALCULATES_FLOW_RATE == channelNeighborsInteraction[edge] ||
+            BOTH_CALCULATE_FLOW_RATE == channelNeighborsInteraction[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsInteraction must be a valid enum value.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!channelNeighborsInitialized[edge])
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsInitialized must be true before checking invariant.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(0.0 < channelNeighborsEdgeLength[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be greater than zero.\n",
+                  thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == channelNeighborsSurfacewaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsSurfacewaterFlowRateReady must be ready when not "
+                  "processing a timestep.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (!(FLOW_RATE_LIMITING_CHECK_DONE == channelNeighborsGroundwaterFlowRateReady[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsGroundwaterFlowRateReady must be ready when not "
+                  "processing a timestep.\n", thisIndex, edge);
+          error = true;
+        }
+    }
+  
+  if (!error)
+    {
+      for (edge = 0; edge < meshNeighborsSize; edge++)
+        {
+          if (isBoundary(meshNeighbors[edge]))
+            {
+              meshNeighborsInvariantChecked[edge] = true;
+            }
+          else
+            {
+              meshNeighborsInvariantChecked[edge] = false;
+              
+              thisProxy[meshNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, meshNeighborsReciprocalEdge[edge], edge, meshNeighborsChannelEdge[edge],
+                                                                        meshNeighborsInteraction[edge], elementX, elementY, elementZSurface, elementZBedrock,
+                                                                        elementArea, meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge],
+                                                                        meshNeighborsEdgeNormalY[edge], conductivity, manningsN,
+                                                                        meshNeighborsSurfacewaterFlowRate[edge], meshNeighborsSurfacewaterCumulativeFlow[edge],
+                                                                        meshNeighborsGroundwaterFlowRate[edge], meshNeighborsGroundwaterCumulativeFlow[edge],
+                                                                        dt);
+            }
+        }
+      
+      for (edge = 0; edge < channelNeighborsSize; edge++)
+        {
+          if (isBoundary(channelNeighbors[edge]))
+            {
+              channelNeighborsInvariantChecked[edge] = true;
+            }
+          else
+            {
+              channelNeighborsInvariantChecked[edge] = false;
+              
+              channelProxy[channelNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, channelNeighborsReciprocalEdge[edge], edge,
+                                                                              channelNeighborsInteraction[edge], elementX, elementY, elementZSurface,
+                                                                              elementZBedrock, channelNeighborsZOffset[edge], elementSlopeX, elementSlopeY,
+                                                                              channelNeighborsEdgeLength[edge], channelNeighborsSurfacewaterFlowRate[edge],
+                                                                              channelNeighborsSurfacewaterCumulativeFlow[edge],
+                                                                              channelNeighborsGroundwaterFlowRate[edge],
+                                                                              channelNeighborsGroundwaterCumulativeFlow[edge], dt);
+            }
+        }
+    }
+  else
+    {
+      CkExit();
+    }
+}
+
+void MeshElement::handleCheckMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, bool neighborChannelEdge, InteractionEnum neighborInteraction,
+                                                   double neighborX, double neighborY, double neighborZSurface, double neighborZBedrock, double neighborArea,
+                                                   double neighborEdgeLength, double neighborEdgeNormalX, double neighborEdgeNormalY,
+                                                   double neighborConductivity, double neighborManningsN, double neighborSurfacewaterFlowRate,
+                                                   double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                                   double neighborGroundwaterCumulativeFlow, double neighborDt)
+{
+  bool error = false; // Error flag.
+  
+  if (!(neighbor == meshNeighbors[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: element %d thinks he is my neighbor on this edge, but he is "
+              "not.\n", thisIndex, edge, neighbor);
+      error = true;
+    }
+  
+  if (!(neighborChannelEdge == meshNeighborsChannelEdge[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsChannelEdge is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborEdge == meshNeighborsReciprocalEdge[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsReciprocalEdge is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!((I_CALCULATE_FLOW_RATE         == neighborInteraction && NEIGHBOR_CALCULATES_FLOW_RATE == meshNeighborsInteraction[edge]) ||
+        (NEIGHBOR_CALCULATES_FLOW_RATE == neighborInteraction && I_CALCULATE_FLOW_RATE         == meshNeighborsInteraction[edge]) ||
+        (BOTH_CALCULATE_FLOW_RATE      == neighborInteraction && BOTH_CALCULATE_FLOW_RATE      == meshNeighborsInteraction[edge])))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsInteraction is incompatible.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborX == meshNeighborsX[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsX is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborY == meshNeighborsY[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsY is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborZSurface == meshNeighborsZSurface[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsZSurface is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborZBedrock == meshNeighborsZBedrock[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsZBedrock is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborArea == meshNeighborsArea[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsArea is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborEdgeLength == meshNeighborsEdgeLength[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsEdgeLength is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborEdgeNormalX == -meshNeighborsEdgeNormalX[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsEdgeNormalX is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborEdgeNormalY == -meshNeighborsEdgeNormalY[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsEdgeNormalY is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborConductivity == meshNeighborsConductivity[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsConductivity is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborManningsN == meshNeighborsManningsN[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsManningsN is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborSurfacewaterFlowRate == -meshNeighborsSurfacewaterFlowRate[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsSurfacewaterFlowRate is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborSurfacewaterCumulativeFlow == -meshNeighborsSurfacewaterCumulativeFlow[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsSurfacewaterCumulativeFlow is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborGroundwaterFlowRate == -meshNeighborsGroundwaterFlowRate[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsGroundwaterFlowRate is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborGroundwaterCumulativeFlow == -meshNeighborsGroundwaterCumulativeFlow[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsGroundwaterCumulativeFlow is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborDt == dt))
+    {
+      CkError("ERROR in MeshElement::handleCheckMeshNeighborInvariant, element %d, edge %d: dt is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!error)
+    {
+      meshNeighborsInvariantChecked[edge] = true;
+    }
+  else
+    {
+      CkExit();
+    }
+}
+
+void MeshElement::handleCheckChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
+                                                      double neighborY, double neighborZBank, double neighborZBed, double neighborZOffset,
+                                                      double neighborEdgeLength, double neighborBaseWidth, double neighborSideSlope,
+                                                      double neighborBedConductivity, double neighborBedThickness, double neighborSurfacewaterFlowRate,
+                                                      double neighborSurfacewaterCumulativeFlow, double neighborGroundwaterFlowRate,
+                                                      double neighborGroundwaterCumulativeFlow, double neighborDt)
+{
+  bool error = false; // Error flag.
+  
+  if (!(neighbor == channelNeighbors[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: element %d thinks he is my neighbor on this edge, but he is "
+              "not.\n", thisIndex, edge, neighbor);
+      error = true;
+    }
+  
+  if (!(neighborEdge == channelNeighborsReciprocalEdge[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsReciprocalEdge is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!((I_CALCULATE_FLOW_RATE         == neighborInteraction && NEIGHBOR_CALCULATES_FLOW_RATE == channelNeighborsInteraction[edge]) ||
+        (NEIGHBOR_CALCULATES_FLOW_RATE == neighborInteraction && I_CALCULATE_FLOW_RATE         == channelNeighborsInteraction[edge]) ||
+        (BOTH_CALCULATE_FLOW_RATE      == neighborInteraction && BOTH_CALCULATE_FLOW_RATE      == channelNeighborsInteraction[edge])))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsInteraction is incompatible.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborZBank == channelNeighborsZBank[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsZBank is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborZBed == channelNeighborsZBed[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsZBed is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborZOffset == channelNeighborsZOffset[edge] &&
+        (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY == channelNeighborsZOffset[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsZOffset is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborEdgeLength == channelNeighborsEdgeLength[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsEdgeLength is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborBaseWidth == channelNeighborsBaseWidth[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsBaseWidth is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborSideSlope == channelNeighborsSideSlope[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsSideSlope is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborBedConductivity == channelNeighborsBedConductivity[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsBedConductivity is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborBedThickness == channelNeighborsBedThickness[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsBed is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborSurfacewaterFlowRate == -channelNeighborsSurfacewaterFlowRate[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsSurfacewaterFlowRate is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborSurfacewaterCumulativeFlow == -channelNeighborsSurfacewaterCumulativeFlow[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsSurfacewaterCumulativeFlow is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborGroundwaterFlowRate == -channelNeighborsGroundwaterFlowRate[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsGroundwaterFlowRate is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborGroundwaterCumulativeFlow == -channelNeighborsGroundwaterCumulativeFlow[edge]))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsGroundwaterCumulativeFlow is incorrect.\n",
+              thisIndex, edge);
+      error = true;
+    }
+  
+  if (!(neighborDt == dt))
+    {
+      CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: dt is incorrect.\n", thisIndex, edge);
+      error = true;
+    }
+  
+  if (!error)
+    {
+      channelNeighborsInvariantChecked[edge] = true;
+    }
+  else
+    {
+      CkExit();
+    }
 }
 
 // Suppress warnings in the The Charm++ autogenerated code.
