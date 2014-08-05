@@ -9,14 +9,16 @@
 #include "mesh_element.h"
 #include "channel_element.h"
 
-typedef int    intarraymmn[MeshElement::meshNeighborsSize];       // Fixed size array of ints.     Size is mesh    mesh neighbors.
-typedef bool   boolarraymmn[MeshElement::meshNeighborsSize];      // Fixed size array of bools.    Size is mesh    mesh neighbors.
-typedef double doublearraymmn[MeshElement::meshNeighborsSize];    // Fixed size array of doubles.  Size is mesh    mesh neighbors.
-typedef int    intarraymcn[MeshElement::channelNeighborsSize];    // Fixed size array of ints.     Size is mesh    channel neighbors.
-typedef double doublearraymcn[MeshElement::channelNeighborsSize]; // Fixed size array of doubles.  Size is mesh    channel neighbors.
-typedef int    intarrayccn[ChannelElement::channelNeighborsSize]; // Fixed size array of ints.     Size is channel channel neighbors.
-typedef int    intarraycmn[ChannelElement::meshNeighborsSize];    // Fixed size array of ints.     Size is channel mesh neighbors.
-typedef double doublearraycmn[ChannelElement::meshNeighborsSize]; // Fixed size array of doubles.  Size is channel mesh neighbors.
+typedef int    intarraymmn[MeshElement::meshNeighborsSize];         // Fixed size array of ints.     Size is mesh    mesh neighbors.
+typedef bool   boolarraymmn[MeshElement::meshNeighborsSize];        // Fixed size array of bools.    Size is mesh    mesh neighbors.
+typedef double doublearraymmn[MeshElement::meshNeighborsSize];      // Fixed size array of doubles.  Size is mesh    mesh neighbors.
+typedef int    intarraymcn[MeshElement::channelNeighborsSize];      // Fixed size array of ints.     Size is mesh    channel neighbors.
+typedef double doublearraymcn[MeshElement::channelNeighborsSize];   // Fixed size array of doubles.  Size is mesh    channel neighbors.
+typedef int    intarraycvn[ChannelElement::channelVerticesSize];    // Fixed size array of ints.     Size is channel vertices.
+typedef double doublearraycvn[ChannelElement::channelVerticesSize]; // Fixed size array of doubles.  Size is channel vertices.
+typedef int    intarrayccn[ChannelElement::channelNeighborsSize];   // Fixed size array of ints.     Size is channel channel neighbors.
+typedef int    intarraycmn[ChannelElement::meshNeighborsSize];      // Fixed size array of ints.     Size is channel mesh neighbors.
+typedef double doublearraycmn[ChannelElement::meshNeighborsSize];   // Fixed size array of doubles.  Size is channel mesh neighbors.
 
 // FIXME comment
 class FileManager : public CBase_FileManager
@@ -26,13 +28,24 @@ public:
   // Constructor.
   FileManager();
 
+  int globalNumberOfMeshNodes;
+  int localMeshNodeStart;            // FIXME comment
+  int localNumberOfMeshNodes;        // FIXME comment
   int globalNumberOfMeshElements;    // FIXME comment
   int localMeshElementStart;         // FIXME comment
   int localNumberOfMeshElements;     // FIXME comment
+  int globalNumberOfChannelNodes;
+  int localChannelNodeStart;         // FIXME comment
+  int localNumberOfChannelNodes;     // FIXME comment
   int globalNumberOfChannelElements; // FIXME comment
   int localChannelElementStart;      // FIXME comment
   int localNumberOfChannelElements;  // FIXME comment
   
+  double*          meshNodeX;
+  double*          meshNodeY;
+  double*          meshNodeZSurface;
+  double*          meshNodeZBedrock;
+  intarraymmn*     meshElementVertices;
   doublearraymmn*  meshVertexX;
   doublearraymmn*  meshVertexY;
   doublearraymmn*  meshVertexZSurface;
@@ -59,6 +72,15 @@ public:
   doublearraymmn*  meshMeshNeighborsEdgeNormalY;
   intarraymcn*     meshChannelNeighbors;
   doublearraymcn*  meshChannelNeighborsEdgeLength;
+  double*          channelNodeX;
+  double*          channelNodeY;
+  double*          channelNodeZBank;
+  double*          channelNodeZBed;
+  intarraycvn*     channelElementVertices;
+  doublearraycvn*  channelVertexX;
+  doublearraycvn*  channelVertexY;
+  doublearraycvn*  channelVertexZBank;
+  doublearraycvn*  channelVertexZBed;
   double*          channelElementX;
   double*          channelElementY;
   double*          channelElementZBank;
@@ -76,6 +98,17 @@ public:
   intarrayccn*     channelChannelNeighbors;
   intarraycmn*     channelMeshNeighbors;
   doublearraycmn*  channelMeshNeighborsEdgeLength;
+  
+private:
+  
+  // FIXME comment
+  bool writeGeometry(const char* directory, int group, bool create);
+  
+  // FIXME comment
+  bool writeParameter(const char* directory, int group, bool create);
+  
+  // FIXME document
+  bool writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup);
 };
 
 #endif // __FILE_MANAGER_H__
