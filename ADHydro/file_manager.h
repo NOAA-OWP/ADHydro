@@ -9,78 +9,152 @@
 #include "mesh_element.h"
 #include "channel_element.h"
 
-typedef int    intarraymmn[MeshElement::meshNeighborsSize];         // Fixed size array of ints.     Size is mesh    mesh neighbors.
-typedef bool   boolarraymmn[MeshElement::meshNeighborsSize];        // Fixed size array of bools.    Size is mesh    mesh neighbors.
-typedef double doublearraymmn[MeshElement::meshNeighborsSize];      // Fixed size array of doubles.  Size is mesh    mesh neighbors.
-typedef int    intarraymcn[MeshElement::channelNeighborsSize];      // Fixed size array of ints.     Size is mesh    channel neighbors.
-typedef double doublearraymcn[MeshElement::channelNeighborsSize];   // Fixed size array of doubles.  Size is mesh    channel neighbors.
-typedef int    intarraycvn[ChannelElement::channelVerticesSize];    // Fixed size array of ints.     Size is channel vertices.
-typedef double doublearraycvn[ChannelElement::channelVerticesSize]; // Fixed size array of doubles.  Size is channel vertices.
-typedef int    intarrayccn[ChannelElement::channelNeighborsSize];   // Fixed size array of ints.     Size is channel channel neighbors.
-typedef int    intarraycmn[ChannelElement::meshNeighborsSize];      // Fixed size array of ints.     Size is channel mesh neighbors.
-typedef double doublearraycmn[ChannelElement::meshNeighborsSize];   // Fixed size array of doubles.  Size is channel mesh neighbors.
+typedef int    intarraymmn[MeshElement::meshNeighborsSize];           // Fixed size array of ints.     Size is mesh    mesh neighbors.
+typedef bool   boolarraymmn[MeshElement::meshNeighborsSize];          // Fixed size array of bools.    Size is mesh    mesh neighbors.
+typedef double doublearraymmn[MeshElement::meshNeighborsSize];        // Fixed size array of doubles.  Size is mesh    mesh neighbors.
+typedef int    intarraymcn[MeshElement::channelNeighborsSize];        // Fixed size array of ints.     Size is mesh    channel neighbors.
+typedef double doublearraymcn[MeshElement::channelNeighborsSize];     // Fixed size array of doubles.  Size is mesh    channel neighbors.
+typedef int    intarrayxdmf[ChannelElement::channelVerticesSize + 2]; // Fixed size array of ints.     Size is channel vertices + 2.  This is used only for
+                                                                      // channelElementVertices.  See the comment of that variable for explanation.
+typedef double doublearraycvn[ChannelElement::channelVerticesSize];   // Fixed size array of doubles.  Size is channel vertices.
+typedef int    intarrayccn[ChannelElement::channelNeighborsSize];     // Fixed size array of ints.     Size is channel channel neighbors.
+typedef int    intarraycmn[ChannelElement::meshNeighborsSize];        // Fixed size array of ints.     Size is channel mesh neighbors.
+typedef double doublearraycmn[ChannelElement::meshNeighborsSize];     // Fixed size array of doubles.  Size is channel mesh neighbors.
 
-// FIXME comment
+// The group of file managers acts as an in-memory cache for values that are
+// read from and written to NetCDF files.  Reading and writing individual
+// values from NetCDF files is too slow.  We need to read and write large
+// blocks from the arrays in the NetCDF files.  However, individual values are
+// needed by mesh and channel elements.  The file manager group does the block
+// reads and writes and makes the values available to the elements.
+//
+// At initialization, each file manager takes ownership of a block of each
+// array.  Each file manager takes ownership of the data for the elements that
+// get assigned to its processor by the default Charm++ block mapping of array
+// elements to processors.  This way, elements can initialize themselves
+// without any message passing by getting a pointer to the file manager local
+// branch and accessing its public member variables.
+//
+// After initialization, array elements might migrate away from the file
+// manager local branch that holds their data.  We do not transfer ownership of
+// the data between file manager local branches.  Instead, message passing is
+// used to update data after initialization.
 class FileManager : public CBase_FileManager
 {
+  FileManager_SDAG_CODE
+  
 public:
 
-  // Constructor.
-  FileManager();
-
-  int globalNumberOfMeshNodes;
-  int localMeshNodeStart;            // FIXME comment
-  int localNumberOfMeshNodes;        // FIXME comment
-  int globalNumberOfMeshElements;    // FIXME comment
-  int localMeshElementStart;         // FIXME comment
-  int localNumberOfMeshElements;     // FIXME comment
-  int globalNumberOfChannelNodes;
-  int localChannelNodeStart;         // FIXME comment
-  int localNumberOfChannelNodes;     // FIXME comment
-  int globalNumberOfChannelElements; // FIXME comment
-  int localChannelElementStart;      // FIXME comment
-  int localNumberOfChannelElements;  // FIXME comment
+  // FIXME document
+  static int home(int item, int globalNumberOfItems);
   
-  double*          meshNodeX;
-  double*          meshNodeY;
-  double*          meshNodeZSurface;
-  double*          meshNodeZBedrock;
-  intarraymmn*     meshElementVertices;
-  doublearraymmn*  meshVertexX;
-  doublearraymmn*  meshVertexY;
-  doublearraymmn*  meshVertexZSurface;
-  doublearraymmn*  meshVertexZBedrock;
-  double*          meshElementX;
-  double*          meshElementY;
-  double*          meshElementZSurface;
-  double*          meshElementZBedrock;
-  double*          meshElementArea;
-  double*          meshElementSlopeX;
-  double*          meshElementSlopeY;
-  int*             meshCatchment;
-  double*          meshConductivity;
-  double*          meshPorosity;
-  double*          meshManningsN;
-  double*          meshSurfacewaterDepth;
-  double*          meshSurfacewaterError;
-  double*          meshGroundwaterHead;
-  double*          meshGroundwaterError;
-  intarraymmn*     meshMeshNeighbors;
-  boolarraymmn*    meshMeshNeighborsChannelEdge;
-  doublearraymmn*  meshMeshNeighborsEdgeLength;
-  doublearraymmn*  meshMeshNeighborsEdgeNormalX;
-  doublearraymmn*  meshMeshNeighborsEdgeNormalY;
-  intarraymcn*     meshChannelNeighbors;
-  doublearraymcn*  meshChannelNeighborsEdgeLength;
-  double*          channelNodeX;
-  double*          channelNodeY;
-  double*          channelNodeZBank;
-  double*          channelNodeZBed;
-  intarraycvn*     channelElementVertices;
-  doublearraycvn*  channelVertexX;
-  doublearraycvn*  channelVertexY;
-  doublearraycvn*  channelVertexZBank;
-  doublearraycvn*  channelVertexZBed;
+  // Constructor.
+  // FIXME describe initialization.
+  // FIXME document parameters.
+  FileManager(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+
+  int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
+  int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
+  int localNumberOfMeshNodes;        // Number of mesh nodes owned by this local branch.
+  int globalNumberOfMeshElements;    // Number of mesh elements across all file managers.
+  int localMeshElementStart;         // Index of first mesh element owned by this local branch.
+  int localNumberOfMeshElements;     // Number of mesh elements owned by this local branch.
+  int globalNumberOfChannelNodes;    // Number of channel nodes across all file managers.
+  int localChannelNodeStart;         // Index of first channel node owned by this local branch.
+  int localNumberOfChannelNodes;     // Number of channel nodes owned by this local branch.
+  int globalNumberOfChannelElements; // Number of channel elements across all file managers.
+  int localChannelElementStart;      // Index of first channel element owned by this local branch.
+  int localNumberOfChannelElements;  // Number of channel elements owned by this local branch.
+  
+  // The following are pointers to dynamically allocated arrays containing the
+  // data owned by this local branch.  The pointers can be NULL indicating the
+  // data is not available.  Elements must check that the data they need to
+  // initialize themselves is available.
+  
+  // Nodes are a list of points indexed by node number.  A node may be a vertex
+  // for multiple elements.  As such, it is not guaranteed that all of an
+  // element's nodes are owned by a single local branch.  Therefore, they are
+  // not directly used by the elements.  Instead, each local branch caches the
+  // coordinates of the vertices of the elements it owns even though this
+  // information is redundant.
+  double* meshNodeX;
+  double* meshNodeY;
+  double* meshNodeZSurface;
+  double* meshNodeZBedrock;
+  
+  // This array stores the node indices of the vertices of each element.
+  intarraymmn* meshElementVertices;
+  
+  // These arrays store the coordinates of the vertices of each element.
+  // Even this information is not used directly by the elements.  Instead, each
+  // local branch calculates element values dervied from the vertex coordinates.
+  doublearraymmn* meshVertexX;
+  doublearraymmn* meshVertexY;
+  doublearraymmn* meshVertexZSurface;
+  doublearraymmn* meshVertexZBedrock;
+  
+  // These arrays store the values used directly by the elements.
+  double*         meshElementX;
+  double*         meshElementY;
+  double*         meshElementZSurface;
+  double*         meshElementZBedrock;
+  double*         meshElementArea;
+  double*         meshElementSlopeX;
+  double*         meshElementSlopeY;
+  int*            meshCatchment;
+  double*         meshConductivity;
+  double*         meshPorosity;
+  double*         meshManningsN;
+  double*         meshSurfacewaterDepth;
+  double*         meshSurfacewaterError;
+  double*         meshGroundwaterHead;
+  double*         meshGroundwaterError;
+  intarraymmn*    meshMeshNeighbors;
+  boolarraymmn*   meshMeshNeighborsChannelEdge;
+  doublearraymmn* meshMeshNeighborsEdgeLength;
+  doublearraymmn* meshMeshNeighborsEdgeNormalX;
+  doublearraymmn* meshMeshNeighborsEdgeNormalY;
+  intarraymcn*    meshChannelNeighbors;
+  doublearraymcn* meshChannelNeighborsEdgeLength;
+  
+  // Nodes are a list of points indexed by node number.  A node may be a vertex
+  // for multiple elements.  As such, it is not guaranteed that all of an
+  // element's nodes are owned by a single local branch.  Therefore, they are
+  // not directly used by the elements.  Instead, each local branch caches the
+  // coordinates of the vertices of the elements it owns even though this
+  // information is redundant.
+  double* channelNodeX;
+  double* channelNodeY;
+  double* channelNodeZBank;
+  double* channelNodeZBed;
+  
+  // This array stores the node indices of the vertices of each element, but
+  // with some special properties required for display as an XDMF file.
+  // We want to display streams as polylines and waterbodies as polygons.
+  // In XDMF this requires a mixed topology.  In a mixed topology, each element
+  // must store its shape type, either 2 for polyline or 3 for polygon, and
+  // number of vertices followed by the vertex indices.  Also, in order for the
+  // mixed topology to work with the rectangular array format of NetCDF files
+  // all elements must have the same number of vertices.  Therefore,
+  // channelElementVertices[n][0] is the shape type, always 2 or 3,
+  // channelElementVertices[n][1] is the number of vertices, always
+  // ChannelElement::channelVerticesSize, and the remaining values are the node
+  // indices of ther vertices.  If a shape has fewer vertices than
+  // ChannelElement::channelVerticesSize then the last vertex is repeated as
+  // necessary.
+  intarrayxdmf* channelElementVertices;
+  
+  // These arrays store the coordinates of the vertices of each element.
+  // Currently, this information is not used at all.  Channel element
+  // information is derived in preprocessing and there is no code in the file
+  // manager for deriving that information from vertices.  That could change in
+  // the future.
+  doublearraycvn* channelVertexX;
+  doublearraycvn* channelVertexY;
+  doublearraycvn* channelVertexZBank;
+  doublearraycvn* channelVertexZBed;
+  
+  // These arrays store the values used directly by the elements.
   double*          channelElementX;
   double*          channelElementY;
   double*          channelElementZBank;
@@ -101,14 +175,54 @@ public:
   
 private:
   
-  // FIXME comment
+  // Returns: true if all element information is updated, false otherwise.
+  bool allUpdated();
+  
+  // Write out values stored in arrays to geometry.nc file.
+  //
+  // Parameters:
+  //
+  // directory - The location of the file.
+  // group     - The name of the group to create in the NetCDF file.
+  //             It is an error if the group exists.
+  // create    - Whether to create a new file.
+  //             If true, it is an error if the file exists.
+  //             If false, it is an error if the file does not exist.
   bool writeGeometry(const char* directory, int group, bool create);
   
-  // FIXME comment
+  // Write out values stored in arrays to parameter.nc file.
+  //
+  // Parameters:
+  //
+  // directory - The location of the file.
+  // group     - The name of the group to create in the NetCDF file.
+  //             It is an error if the group exists.
+  // create    - Whether to create a new file.
+  //             If true, it is an error if the file exists.
+  //             If false, it is an error if the file does not exist.
   bool writeParameter(const char* directory, int group, bool create);
   
-  // FIXME document
+  // Write out values stored in arrays to state.nc file.
+  //
+  // Parameters:
+  //
+  // directory      - The location of the file.
+  // group          - The name of the group to create in the NetCDF file.
+  //                  It is an error if the group exists.
+  // create         - Whether to create a new file.
+  //                  If true, it is an error if the file exists.
+  //                  If false, it is an error if the file does not exist.
+  // time           - The time to store in the group attributes.
+  // dt             - The timestep to store in the group attributes.
+  // geometryGroup  - The associated geometry group to store in the group
+  //                  attributes.
+  // parameterGroup - The associated parameter group to store in the group
+  //                  attributes.
   bool writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup);
+  
+  // These arrays are used to record when state update messages are received.
+  bool* meshElementUpdated;
+  bool* channelElementUpdated;
 };
 
 #endif // __FILE_MANAGER_H__

@@ -43,16 +43,16 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
+  static const int meshNeighborsSize    = 3; // Maximum number of mesh neighbors.
+  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
+  
+private:
+  
   // Returns: true if all neighbor information is initialized, false otherwise.
   bool allInitialized();
   
   // Returns: true if all neighbor invariants are checked, false otherwise.
   bool allInvariantChecked();
-  
-  static const int meshNeighborsSize    = 3; // Maximum number of mesh neighbors.
-  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
-  
-private:
 
   // Initialize member variables by reading public member variables of the
   // local file manager, and send initialization values to neighbors.
@@ -357,7 +357,34 @@ private:
   //
   // Parameters:
   //
-  // FIXME
+  // neighbor                     - Array index of neighbor element.
+  // edge                         - My edge that neighbor thinks he is on.
+  // neighborEdge                 - Neighbor's edge that I am on.
+  // neighborChannelEdge          - Whether neighbor thinks our edge is a
+  //                                channel edge.
+  // neighborInteraction          - What neighbor thinks our interaction is.
+  // neighborX                    - X coordinate of neighbor center.
+  // neighborY                    - Y coordinate of neighbor center.
+  // neighborZSurface             - Surface Z coordinate of neighbor center.
+  // neighborZBedrock             - Bedrock Z coordinate of neighbor center.
+  // neighborArea                 - Area of neighbor.
+  // neighborEdgeLength           - What neighbor thinks the length of our
+  //                                common edge is.
+  // neighborEdgeNormalX          - What neighbor thinks the X component of the
+  //                                normal vector of our common edge is.
+  // neighborEdgeNormalY          - What neighbor thinks the Y component of the
+  //                                normal vector of our common edge is.
+  // neighborConductivity         - Conductivity of neighbor.
+  // neighborManningsN            - Manning's N of neighbor.
+  // neighborSurfacewaterFlowRate - What neighbor thinks the surfacewater flow
+  //                                rate of our common edge is.
+  // neighborSurfacewaterCumulativeFlow - What neighbor thinks the surfacewater
+  //                                cumulative flow of our common edge is.
+  // neighborGroundwaterFlowRate  - What neighbor thinks the groundwater flow
+  //                                rate of our common edge is.
+  // neighborGroundwaterCumulativeFlow - What neighbor thinks the groundwater
+  //                                cumulative flow of our common edge is.
+  // neighborDt                   - What neighbor thinks the timestep is.
   void handleCheckMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, bool neighborChannelEdge, InteractionEnum neighborInteraction,
                                         double neighborX, double neighborY, double neighborZSurface, double neighborZBedrock, double neighborArea,
                                         double neighborEdgeLength, double neighborEdgeNormalX, double neighborEdgeNormalY,
@@ -371,7 +398,31 @@ private:
   //
   // Parameters:
   //
-  // FIXME
+  // neighbor                     - Array index of neighbor element.
+  // edge                         - My edge that neighbor thinks he is on.
+  // neighborEdge                 - Neighbor's edge that I am on.
+  // neighborInteraction          - What neighbor thinks our interaction is.
+  // neighborX                    - X coordinate of neighbor center.
+  // neighborY                    - Y coordinate of neighbor center.
+  // neighborZBank                - Bank Z coordinate of neighbor center.
+  // neighborZBed                 - Bed Z coordinate of neighbor center.
+  // neighborZOffset              - Offset to mesh Z coordinates used by
+  //                                neighbor.
+  // neighborEdgeLength           - What neighbor thinks the length of our
+  //                                common edge is.
+  // neighborBaseWidth            - Base width of neighbor.
+  // neighborSideSlope            - Side slope of neighbor.
+  // neighborBedConductivity      - Bed conductivity of neighbor.
+  // neighborBedThickness         - Bed thickness of neighbor.
+  // neighborSurfacewaterFlowRate - What neighbor thinks the surfacewater flow
+  //                                rate of our common edge is.
+  // neighborSurfacewaterCumulativeFlow - What neighbor thinks the surfacewater
+  //                                cumulative flow of our common edge is.
+  // neighborGroundwaterFlowRate  - What neighbor thinks the groundwater flow
+  //                                rate of our common edge is.
+  // neighborGroundwaterCumulativeFlow - What neighbor thinks the groundwater
+  //                                cumulative flow of our common edge is.
+  // neighborDt                   - What neighbor thinks the timestep is.
   void handleCheckChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
                                            double neighborY, double neighborZBank, double neighborZBed, double neighborZOffset,
                                            double neighborEdgeLength, double neighborBaseWidth, double neighborSideSlope,

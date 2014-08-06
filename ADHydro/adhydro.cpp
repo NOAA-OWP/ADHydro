@@ -18,16 +18,6 @@ ADHydro::ADHydro(CkArgMsg* msg)
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-
-  // Create file manager, mesh, and channels.
-  // FIXME we need to make sure file manager variables are finished initializing before reading them.
-  fileManagerProxy = CProxy_FileManager::ckNew();
-  meshProxy        = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
-  channelProxy     = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
-
-  // Initialize mesh and channels.
-  meshProxy.initialize(channelProxy, fileManagerProxy);
-  channelProxy.initialize(meshProxy, fileManagerProxy);
   
   // Initialize member variables.
   commandLineArguments = msg;
@@ -35,6 +25,16 @@ ADHydro::ADHydro(CkArgMsg* msg)
   endTime              = 10.0;
   dt                   =  1.0;
   iteration            =  1;
+
+  // Create file manager, mesh, and channels.
+  // FIXME we need to make sure file manager variables are finished initializing before reading them.
+  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
+  meshProxy        = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
+  channelProxy     = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
+
+  // Initialize mesh and channels.
+  meshProxy.initialize(channelProxy, fileManagerProxy);
+  channelProxy.initialize(meshProxy, fileManagerProxy);
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   // Check the invariant.  The invariant callback will start the timestep.
@@ -139,13 +139,32 @@ void ADHydro::timestepDone(double dtNew)
       CkStartLB();
     }
   
+  if (true) // FIXME implement output period
+    {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-  // Check the invariant.  The invariant callback will start the timestep.
-  checkInvariant();
+      // Set the callback to check the invariant when output is done.  The invariant callback will start the timestep.
+      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkInvariant), thisProxy));
 #else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-  // Just start the timestep.
-  doTimestep();
+      // Set the callback to just start the timestep when output is done.
+      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+      
+      // Start the output phase.
+      fileManagerProxy.doOutput(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], false, 1, false, 1, true, iteration, currentTime,
+                                dt);
+      meshProxy.doOutput();
+      channelProxy.doOutput();
+    }
+  else
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+      // Check the invariant.  The invariant callback will start the timestep.
+      checkInvariant();
+#else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+      // Just start the timestep.
+      doTimestep();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    }
 }
 
 void ADHydro::checkInvariant()

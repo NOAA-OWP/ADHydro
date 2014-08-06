@@ -44,17 +44,17 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
+  static const int channelVerticesSize  = 5; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 4; // Maximum number of mesh neighbors.
+  
+private:
+  
   // Returns: true if all neighbor information is initialized, false otherwise.
   bool allInitialized();
   
   // Returns: true if all neighbor invariants are checked, false otherwise.
   bool allInvariantChecked();
-  
-  static const int channelVerticesSize  = 7; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
-  static const int meshNeighborsSize    = 4; // Maximum number of mesh neighbors.
-  
-private:
 
   // Initialize member variables by reading public member variables of the
   // local file manager, and send initialization values to neighbors.
@@ -313,7 +313,22 @@ private:
   //
   // Parameters:
   //
-  // FIXME
+  // neighbor                     - Array index of neighbor element.
+  // edge                         - My edge that neighbor thinks he is on.
+  // neighborEdge                 - Neighbor's edge that I am on.
+  // neighborInteraction          - What neighbor thinks our interaction is.
+  // neighborZBank                - Bank Z coordinate of neighbor center.
+  // neighborZBed                 - Bed Z coordinate of neighbor center.
+  // neighborLength               - Length of neighbor.
+  // neighborChannelType          - Channel type of neighbor.
+  // neighborBaseWidth            - Base width of neighbor.
+  // neighborSideSlope            - Side slope of neighbor.
+  // neighborManningsN            - Manning's N of neighbor.
+  // neighborSurfacewaterFlowRate - What neighbor thinks the surfacewater flow
+  //                                rate of our common edge is.
+  // neighborSurfacewaterCumulativeFlow - What neighbor thinks the surfacewater
+  //                                cumulative flow of our common edge is.
+  // neighborDt                   - What neighbor thinks the timestep is.
   void handleCheckChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborZBank,
                                            double neighborZBed, double neighborLength, double neighborChannelType, double neighborBaseWidth,
                                            double neighborSideSlope, double neighborManningsN, double neighborSurfacewaterFlowRate,
@@ -325,7 +340,29 @@ private:
   //
   // Parameters:
   //
-  // FIXME
+  // neighbor                     - Array index of neighbor element.
+  // edge                         - My edge that neighbor thinks he is on.
+  // neighborEdge                 - Neighbor's edge that I am on.
+  // neighborInteraction          - What neighbor thinks our interaction is.
+  // neighborX                    - X coordinate of neighbor center.
+  // neighborY                    - Y coordinate of neighbor center.
+  // neighborZSurface             - Surface Z coordinate of neighbor center.
+  // neighborZBedrock             - Bedrock Z coordinate of neighbor center.
+  // neighborZOffset              - Offset to mesh Z coordinates used by
+  //                                neighbor.
+  // neighborSlopeX               - X component of surface slope of neighbor.
+  // neighborSlopeY               - Y component of surface slope of neighbor.
+  // neighborEdgeLength           - What neighbor thinks the length of our
+  //                                common edge is.
+  // neighborSurfacewaterFlowRate - What neighbor thinks the surfacewater flow
+  //                                rate of our common edge is.
+  // neighborSurfacewaterCumulativeFlow - What neighbor thinks the surfacewater
+  //                                cumulative flow of our common edge is.
+  // neighborGroundwaterFlowRate  - What neighbor thinks the groundwater flow
+  //                                rate of our common edge is.
+  // neighborGroundwaterCumulativeFlow - What neighbor thinks the groundwater
+  //                                cumulative flow of our common edge is.
+  // neighborDt                   - What neighbor thinks the timestep is.
   void handleCheckMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborX,
                                         double neighborY, double neighborZSurface, double neighborZBedrock, double neighborZOffset,
                                         double neighborSlopeX, double neighborSlopeY, double neighborEdgeLength,

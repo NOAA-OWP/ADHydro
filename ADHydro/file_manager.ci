@@ -2,6 +2,113 @@ module file_manager
 {
   group FileManager
   {
-    entry FileManager();
+    entry FileManager(size_t directorySize, char directory[directorySize], int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+    
+    entry void doOutput(size_t directorySize, char directory[directorySize], bool outputGeometry, int geometryGroup, bool outputParameter, int parameterGroup,
+                        bool outputState, int stateGroup, double time, double dt)
+    {
+      serial
+      {
+        int ii; // Loop counter.
+        
+        for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          meshElementUpdated[ii] = false;
+        }
+        
+        for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          channelElementUpdated[ii] = false;
+        }
+      }
+      
+      while (!allUpdated())
+      {
+        case
+        {
+          when meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError)
+          {
+            serial
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+              if (!(localMeshElementStart <= element && element < localMeshElementStart + localNumberOfMeshElements))
+                {
+                  CkError("ERROR in FileManager::meshStateMessage, element %d: element data not owned by this local branch.\n", element);
+                  CkExit();
+                }
+                
+              if (!(0.0 <= surfacewaterDepth))
+                {
+                  CkError("ERROR in FileManager::meshStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
+                  CkExit();
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+              meshSurfacewaterDepth[element - localMeshElementStart] = surfacewaterDepth;
+              meshSurfacewaterError[element - localMeshElementStart] = surfacewaterError;
+              meshGroundwaterHead[element - localMeshElementStart]   = groundwaterHead;
+              meshGroundwaterError[element - localMeshElementStart]  = groundwaterError;
+              meshElementUpdated[element - localMeshElementStart]    = true;
+            }
+          }
+          
+          when channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError)
+          {
+            serial
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+              if (!(localChannelElementStart <= element && element < localChannelElementStart + localNumberOfChannelElements))
+                {
+                  CkError("ERROR in FileManager::channelStateMessage, element %d: element data not owned by this local branch.\n", element);
+                  CkExit();
+                }
+                
+              if (!(0.0 <= surfacewaterDepth))
+                {
+                  CkError("ERROR in FileManager::channelStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
+                  CkExit();
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+              channelSurfacewaterDepth[element - localChannelElementStart] = surfacewaterDepth;
+              channelSurfacewaterError[element - localChannelElementStart] = surfacewaterError;
+              channelElementUpdated[element - localChannelElementStart]    = true;
+            }
+          }
+        } // End case within while (!allUpdated()).
+      } // End while (!allUpdated()).
+      
+      serial
+      {
+        bool error = false; // Error flag.
+        
+        if (!error && outputGeometry)
+        {
+          error = writeGeometry(directory, geometryGroup, false);
+        }
+        
+        if (!error && outputParameter)
+        {
+          error = writeParameter(directory, parameterGroup, false);
+        }
+        
+        if (!error && outputState)
+        {
+          error = writeState(directory, stateGroup, false, time, dt, geometryGroup, parameterGroup);
+        }
+        
+        if (!error)
+        {
+          contribute();
+        }
+        else
+        {
+          CkExit();
+        }
+      }
+    }; // End doOutput.
+    
+    entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError);
+    entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError);
   }; // End group FileManager.
 }; // End module file_manager.

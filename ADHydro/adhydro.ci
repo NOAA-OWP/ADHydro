@@ -36,5 +36,7 @@ mainmodule adhydro
     entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
     entry [reductiontarget] void meshInvariantDone();
     entry [reductiontarget] void channelInvariantDone();
+    entry [reductiontarget] void doTimestep();
+    entry [reductiontarget] void checkInvariant();
   }; // End mainchare [migratable] ADHydro.
 }; // End mainmodule adhydro.

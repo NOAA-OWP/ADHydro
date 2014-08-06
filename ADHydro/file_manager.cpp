@@ -3,8 +3,16 @@
 #include <netcdf.h>
 #include <netcdf_par.h>
 
-FileManager::FileManager()
+int FileManager::home(int item, int globalNumberOfItems)
 {
+  // FIXME implement
+  return 0;
+}
+
+FileManager::FileManager(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt)
+{
+  bool error = false; // Error flag.
+  
   // Hard coded mesh.
   // FIXME read from NetCDF file.
   globalNumberOfMeshNodes       = 13;
@@ -479,7 +487,7 @@ FileManager::FileManager()
   channelNodeZBed[11] =  -5.0;
   channelNodeZBed[12] =   5.0;
   
-  channelElementVertices = new int[globalNumberOfChannelElements][ChannelElement::channelVerticesSize];
+  channelElementVertices = new int[globalNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
   
   channelElementVertices[0][0] =  3;
   channelElementVertices[0][1] =  5;
@@ -662,97 +670,139 @@ FileManager::FileManager()
   channelMeshNeighborsEdgeLength[3][2] =  1.0;
   channelMeshNeighborsEdgeLength[3][3] =  1.0;
   
-  writeGeometry("../output", 0, true);
-  writeParameter("../output", 0, true);
-  writeState("../output", 0, true, 0.0, 1.0, 0, 0);
+  meshElementUpdated    = new bool[localNumberOfMeshElements];
+  channelElementUpdated = new bool[localNumberOfChannelElements];
+  
+  error = writeGeometry(directory, geometryGroup, true);
+  
+  if (!error)
+    {
+      error = writeParameter(directory, parameterGroup, true);
+    }
+  
+  if (!error)
+    {
+      error = writeState(directory, stateGroup, true, time, dt, geometryGroup, parameterGroup);
+    }
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+bool FileManager::allUpdated()
+{
+  int  ii;             // Loop counter.
+  bool updated = true; // Flag to record whether we have found an unupdated element.
+  
+  for (ii = 0; updated && ii < localNumberOfMeshElements; ii++)
+  {
+    updated = meshElementUpdated[ii];
+  }
+  
+  for (ii = 0; updated && ii < localNumberOfChannelElements; ii++)
+  {
+    updated = channelElementUpdated[ii];
+  }
+  
+  return updated;
 }
 
 bool FileManager::writeGeometry(const char* directory, int group, bool create)
 {
-  bool   error      = false;                   // Error flag.
-  char*  nameString = NULL;                    // Temporary string for file and group names.
-  size_t nameStringSize;                       // Size of buffer allocated for nameString.
-  size_t numPrinted;                           // Used to check that snprintf printed the correct number of characters.
-  int    ncErrorCode;                          // Return value of NetCDF functions.
-  int    fileID;                               // ID of NetCDF file.
-  bool   fileOpen   = false;                   // Whether fileID refers to an open file.
-  int    groupID;                              // ID of group in NetCDF file.
-  int    numberOfMeshNodesDimID;               // ID of dimension in NetCDF file.
-  int    numberOfMeshElementsDimID;            // ID of dimension in NetCDF file.
-  int    numberOfMeshMeshNeighborsDimID;       // ID of dimension in NetCDF file.
-  int    numberOfMeshChannelNeighborsDimID;    // ID of dimension in NetCDF file.
-  int    numberOfChannelNodesDimID;            // ID of dimension in NetCDF file.
-  int    numberOfChannelElementsDimID;         // ID of dimension in NetCDF file.
-  int    numberOfChannelVerticesDimID;         // ID of dimension in NetCDF file.
-  int    numberOfChannelChannelNeighborsDimID; // ID of dimension in NetCDF file.
-  int    numberOfChannelMeshNeighborsDimID;    // ID of dimension in NetCDF file.
-  int    dimIDs[NC_MAX_VAR_DIMS];              // For passing dimension IDs.
-  int    meshNodeXVarID;                       // ID of variable in NetCDF file.
-  int    meshNodeYVarID;                       // ID of variable in NetCDF file.
-  int    meshNodeZSurfaceVarID;                // ID of variable in NetCDF file.
-  int    meshNodeZBedrockVarID;                // ID of variable in NetCDF file.
-  int    meshElementVerticesVarID;             // ID of variable in NetCDF file.
-  int    meshVertexXVarID;                     // ID of variable in NetCDF file.
-  int    meshVertexYVarID;                     // ID of variable in NetCDF file.
-  int    meshVertexZSurfaceVarID;              // ID of variable in NetCDF file.
-  int    meshVertexZBedrockVarID;              // ID of variable in NetCDF file.
-  int    meshElementXVarID;                    // ID of variable in NetCDF file.
-  int    meshElementYVarID;                    // ID of variable in NetCDF file.
-  int    meshElementZSurfaceVarID;             // ID of variable in NetCDF file.
-  int    meshElementZBedrockVarID;             // ID of variable in NetCDF file.
-  int    meshElementAreaVarID;                 // ID of variable in NetCDF file.
-  int    meshElementSlopeXVarID;               // ID of variable in NetCDF file.
-  int    meshElementSlopeYVarID;               // ID of variable in NetCDF file.
-  int    meshMeshNeighborsVarID;               // ID of variable in NetCDF file.
-  int    meshMeshNeighborsChannelEdgeVarID;    // ID of variable in NetCDF file.
-  int    meshMeshNeighborsEdgeLengthVarID;     // ID of variable in NetCDF file.
-  int    meshMeshNeighborsEdgeNormalXVarID;    // ID of variable in NetCDF file.
-  int    meshMeshNeighborsEdgeNormalYVarID;    // ID of variable in NetCDF file.
-  int    meshChannelNeighborsVarID;            // ID of variable in NetCDF file.
-  int    meshChannelNeighborsEdgeLengthVarID;  // ID of variable in NetCDF file.
-  int    channelNodeXVarID;                    // ID of variable in NetCDF file.
-  int    channelNodeYVarID;                    // ID of variable in NetCDF file.
-  int    channelNodeZBankVarID;                // ID of variable in NetCDF file.
-  int    channelNodeZBedVarID;                 // ID of variable in NetCDF file.
-  int    channelElementVerticesVarID;          // ID of variable in NetCDF file.
-  int    channelVertexXVarID;                  // ID of variable in NetCDF file.
-  int    channelVertexYVarID;                  // ID of variable in NetCDF file.
-  int    channelVertexZBankVarID;              // ID of variable in NetCDF file.
-  int    channelVertexZBedVarID;               // ID of variable in NetCDF file.
-  int    channelElementXVarID;                 // ID of variable in NetCDF file.
-  int    channelElementYVarID;                 // ID of variable in NetCDF file.
-  int    channelElementZBankVarID;             // ID of variable in NetCDF file.
-  int    channelElementZBedVarID;              // ID of variable in NetCDF file.
-  int    channelElementLengthVarID;            // ID of variable in NetCDF file.
-  int    channelChannelNeighborsVarID;         // ID of variable in NetCDF file.
-  int    channelMeshNeighborsVarID;            // ID of variable in NetCDF file.
-  int    channelMeshNeighborsEdgeLengthVarID;  // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS];               // For specifying subarrays when writing to NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS];               // For specifying subarrays when writing to NetCDF file.
+  bool   error      = false;                     // Error flag.
+  char*  nameString = NULL;                      // Temporary string for file and group names.
+  size_t nameStringSize;                         // Size of buffer allocated for nameString.
+  size_t numPrinted;                             // Used to check that snprintf printed the correct number of characters.
+  int    ncErrorCode;                            // Return value of NetCDF functions.
+  int    fileID;                                 // ID of NetCDF file.
+  bool   fileOpen   = false;                     // Whether fileID refers to an open file.
+  int    groupID;                                // ID of group in NetCDF file.
+  int    numberOfMeshNodesDimID;                 // ID of dimension in NetCDF file.
+  int    numberOfMeshElementsDimID;              // ID of dimension in NetCDF file.
+  int    numberOfMeshMeshNeighborsDimID;         // ID of dimension in NetCDF file.
+  int    numberOfMeshChannelNeighborsDimID;      // ID of dimension in NetCDF file.
+  int    numberOfChannelNodesDimID;              // ID of dimension in NetCDF file.
+  int    numberOfChannelElementsDimID;           // ID of dimension in NetCDF file.
+  int    sizeOfChannelElementVerticesArrayDimID; // ID of dimension in NetCDF file.
+  int    numberOfChannelVerticesDimID;           // ID of dimension in NetCDF file.
+  int    numberOfChannelChannelNeighborsDimID;   // ID of dimension in NetCDF file.
+  int    numberOfChannelMeshNeighborsDimID;      // ID of dimension in NetCDF file.
+  int    dimIDs[NC_MAX_VAR_DIMS];                // For passing dimension IDs.
+  int    meshNodeXVarID;                         // ID of variable in NetCDF file.
+  int    meshNodeYVarID;                         // ID of variable in NetCDF file.
+  int    meshNodeZSurfaceVarID;                  // ID of variable in NetCDF file.
+  int    meshNodeZBedrockVarID;                  // ID of variable in NetCDF file.
+  int    meshElementVerticesVarID;               // ID of variable in NetCDF file.
+  int    meshVertexXVarID;                       // ID of variable in NetCDF file.
+  int    meshVertexYVarID;                       // ID of variable in NetCDF file.
+  int    meshVertexZSurfaceVarID;                // ID of variable in NetCDF file.
+  int    meshVertexZBedrockVarID;                // ID of variable in NetCDF file.
+  int    meshElementXVarID;                      // ID of variable in NetCDF file.
+  int    meshElementYVarID;                      // ID of variable in NetCDF file.
+  int    meshElementZSurfaceVarID;               // ID of variable in NetCDF file.
+  int    meshElementZBedrockVarID;               // ID of variable in NetCDF file.
+  int    meshElementAreaVarID;                   // ID of variable in NetCDF file.
+  int    meshElementSlopeXVarID;                 // ID of variable in NetCDF file.
+  int    meshElementSlopeYVarID;                 // ID of variable in NetCDF file.
+  int    meshMeshNeighborsVarID;                 // ID of variable in NetCDF file.
+  int    meshMeshNeighborsChannelEdgeVarID;      // ID of variable in NetCDF file.
+  int    meshMeshNeighborsEdgeLengthVarID;       // ID of variable in NetCDF file.
+  int    meshMeshNeighborsEdgeNormalXVarID;      // ID of variable in NetCDF file.
+  int    meshMeshNeighborsEdgeNormalYVarID;      // ID of variable in NetCDF file.
+  int    meshChannelNeighborsVarID;              // ID of variable in NetCDF file.
+  int    meshChannelNeighborsEdgeLengthVarID;    // ID of variable in NetCDF file.
+  int    channelNodeXVarID;                      // ID of variable in NetCDF file.
+  int    channelNodeYVarID;                      // ID of variable in NetCDF file.
+  int    channelNodeZBankVarID;                  // ID of variable in NetCDF file.
+  int    channelNodeZBedVarID;                   // ID of variable in NetCDF file.
+  int    channelElementVerticesVarID;            // ID of variable in NetCDF file.
+  int    channelVertexXVarID;                    // ID of variable in NetCDF file.
+  int    channelVertexYVarID;                    // ID of variable in NetCDF file.
+  int    channelVertexZBankVarID;                // ID of variable in NetCDF file.
+  int    channelVertexZBedVarID;                 // ID of variable in NetCDF file.
+  int    channelElementXVarID;                   // ID of variable in NetCDF file.
+  int    channelElementYVarID;                   // ID of variable in NetCDF file.
+  int    channelElementZBankVarID;               // ID of variable in NetCDF file.
+  int    channelElementZBedVarID;                // ID of variable in NetCDF file.
+  int    channelElementLengthVarID;              // ID of variable in NetCDF file.
+  int    channelChannelNeighborsVarID;           // ID of variable in NetCDF file.
+  int    channelMeshNeighborsVarID;              // ID of variable in NetCDF file.
+  int    channelMeshNeighborsEdgeLengthVarID;    // ID of variable in NetCDF file.
+  size_t start[NC_MAX_VAR_DIMS];                 // For specifying subarrays when writing to NetCDF file.
+  size_t count[NC_MAX_VAR_DIMS];                 // For specifying subarrays when writing to NetCDF file.
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != directory);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  // Allocate space for file and group name strings
-  nameStringSize = strlen(directory) + strlen("/geometry.nc") + 1; // This will also have enough space to hold the group name because the maximum length of an
-                                                                   // int printed as a string is 11, which is shorter than the length of "/geometry.nc", which
-                                                                   // is 13.  +1 for null terminating character.
-  nameString     = new char[nameStringSize];
-
-  // FIXME make directory?
-  
-  // Create file name.
-  numPrinted = snprintf(nameString, nameStringSize, "%s/geometry.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(strlen(directory) + strlen("/geometry.nc") == numPrinted && numPrinted < nameStringSize))
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != directory))
     {
-      CkError("ERROR in FileManager::writeGeometry: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
-              numPrinted, strlen(directory) + strlen("/geometry.nc"), nameStringSize);
+      CkError("ERROR in FileManager::writeGeometry: directory must not be null.\n");
       error = true;
     }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      // Allocate space for file and group name strings
+      nameStringSize = strlen(directory) + strlen("/geometry.nc") + 1; // This will also have enough space to hold the group name because the maximum length
+                                                                       // of an int printed as a string is 11, which is shorter than the length of
+                                                                       // "/geometry.nc", which is 13.  +1 for null terminating character.
+      nameString     = new char[nameStringSize];
+
+      // FIXME make directory?
+
+      // Create file name.
+      numPrinted = snprintf(nameString, nameStringSize, "%s/geometry.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/geometry.nc") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::writeGeometry: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
+                  numPrinted, strlen(directory) + strlen("/geometry.nc"), nameStringSize);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
   // Create or open file.
   if (!error)
@@ -889,6 +939,20 @@ bool FileManager::writeGeometry(const char* directory, int group, bool create)
       if (!(NC_NOERR == ncErrorCode))
         {
           CkError("ERROR in FileManager::writeGeometry: unable to create dimension numberOfChannelElements in NetCDF geometry file.  "
+                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_def_dim(groupID, "sizeOfChannelElementVerticesArray", ChannelElement::channelVerticesSize + 2, &sizeOfChannelElementVerticesArrayDimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::writeGeometry: unable to create dimension sizeOfChannelElementVerticesArray in NetCDF geometry file.  "
                   "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1358,7 +1422,7 @@ bool FileManager::writeGeometry(const char* directory, int group, bool create)
   if (!error && NULL != channelElementVertices)
     {
       dimIDs[0]   = numberOfChannelElementsDimID;
-      dimIDs[1]   = numberOfChannelVerticesDimID;
+      dimIDs[1]   = sizeOfChannelElementVerticesArrayDimID;
       ncErrorCode = nc_def_var(groupID, "channelElementVertices", NC_INT, 2, dimIDs, &channelElementVerticesVarID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -2023,7 +2087,7 @@ bool FileManager::writeGeometry(const char* directory, int group, bool create)
       start[0]    = localChannelElementStart;
       start[1]    = 0;
       count[0]    = localNumberOfChannelElements;
-      count[1]    = ChannelElement::channelVerticesSize;
+      count[1]    = ChannelElement::channelVerticesSize + 2;
       ncErrorCode = nc_put_vara_int(groupID, channelElementVerticesVarID, start, count, (int*)channelElementVertices);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -2292,29 +2356,36 @@ bool FileManager::writeParameter(const char* directory, int group, bool create)
   size_t start[NC_MAX_VAR_DIMS];       // For specifying subarrays when writing to NetCDF file.
   size_t count[NC_MAX_VAR_DIMS];       // For specifying subarrays when writing to NetCDF file.
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != directory);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  // Allocate space for file and group name strings
-  nameStringSize = strlen(directory) + strlen("/parameter.nc") + 1; // This will also have enough space to hold the group name because the maximum length of an
-                                                                    // int printed as a string is 11, which is shorter than the length of "/parameter.nc",
-                                                                    // which is 13.  +1 for null terminating character.
-  nameString     = new char[nameStringSize];
-
-  // FIXME make directory?
-  
-  // Create file name.
-  numPrinted = snprintf(nameString, nameStringSize, "%s/parameter.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(strlen(directory) + strlen("/parameter.nc") == numPrinted && numPrinted < nameStringSize))
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != directory))
     {
-      CkError("ERROR in FileManager::writeParameter: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
-              numPrinted, strlen(directory) + strlen("/parameter.nc"), nameStringSize);
+      CkError("ERROR in FileManager::writeParameter: directory must not be null.\n");
       error = true;
     }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  if (!error)
+    {
+      // Allocate space for file and group name strings
+      nameStringSize = strlen(directory) + strlen("/parameter.nc") + 1; // This will also have enough space to hold the group name because the maximum length
+                                                                        // of an int printed as a string is 11, which is shorter than the length of
+                                                                        // "/parameter.nc", which is 13.  +1 for null terminating character.
+      nameString     = new char[nameStringSize];
+
+      // FIXME make directory?
+
+      // Create file name.
+      numPrinted = snprintf(nameString, nameStringSize, "%s/parameter.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/parameter.nc") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::writeParameter: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
+                  numPrinted, strlen(directory) + strlen("/parameter.nc"), nameStringSize);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
   // Create or open file.
   if (!error)
@@ -2772,56 +2843,70 @@ bool FileManager::writeParameter(const char* directory, int group, bool create)
 
 bool FileManager::writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup)
 {
-  bool   error      = false;                   // Error flag.
-  char*  nameString = NULL;                    // Temporary string for file and group names.
-  size_t nameStringSize;                       // Size of buffer allocated for nameString.
-  size_t numPrinted;                           // Used to check that snprintf printed the correct number of characters.
-  int    ncErrorCode;                          // Return value of NetCDF functions.
-  int    fileID;                               // ID of NetCDF file.
-  bool   fileOpen   = false;                   // Whether fileID refers to an open file.
-  int    groupID;                              // ID of group in NetCDF file.
-  int    numberOfMeshNodesDimID;               // ID of dimension in NetCDF file.
-  int    numberOfMeshElementsDimID;            // ID of dimension in NetCDF file.
-  int    numberOfMeshMeshNeighborsDimID;       // ID of dimension in NetCDF file.
-  int    numberOfMeshChannelNeighborsDimID;    // ID of dimension in NetCDF file.
-  int    numberOfChannelNodesDimID;            // ID of dimension in NetCDF file.
-  int    numberOfChannelElementsDimID;         // ID of dimension in NetCDF file.
-  int    numberOfChannelVerticesDimID;         // ID of dimension in NetCDF file.
-  int    numberOfChannelChannelNeighborsDimID; // ID of dimension in NetCDF file.
-  int    numberOfChannelMeshNeighborsDimID;    // ID of dimension in NetCDF file.
-  int    dimIDs[NC_MAX_VAR_DIMS];              // For passing dimension IDs.
-  int    meshSurfacewaterDepthVarID;           // ID of variable in NetCDF file.
-  int    meshSurfacewaterErrorVarID;           // ID of variable in NetCDF file.
-  int    meshGroundwaterHeadVarID;             // ID of variable in NetCDF file.
-  int    meshGroundwaterErrorVarID;            // ID of variable in NetCDF file.
-  int    channelSurfacewaterDepthVarID;        // ID of variable in NetCDF file.
-  int    channelSurfacewaterErrorVarID;        // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS];               // For specifying subarrays when writing to NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS];               // For specifying subarrays when writing to NetCDF file.
+  bool   error      = false;                     // Error flag.
+  char*  nameString = NULL;                      // Temporary string for file and group names.
+  size_t nameStringSize;                         // Size of buffer allocated for nameString.
+  size_t numPrinted;                             // Used to check that snprintf printed the correct number of characters.
+  int    ncErrorCode;                            // Return value of NetCDF functions.
+  int    fileID;                                 // ID of NetCDF file.
+  bool   fileOpen   = false;                     // Whether fileID refers to an open file.
+  int    groupID;                                // ID of group in NetCDF file.
+  int    numberOfMeshNodesDimID;                 // ID of dimension in NetCDF file.
+  int    numberOfMeshElementsDimID;              // ID of dimension in NetCDF file.
+  int    numberOfMeshMeshNeighborsDimID;         // ID of dimension in NetCDF file.
+  int    numberOfMeshChannelNeighborsDimID;      // ID of dimension in NetCDF file.
+  int    numberOfChannelNodesDimID;              // ID of dimension in NetCDF file.
+  int    numberOfChannelElementsDimID;           // ID of dimension in NetCDF file.
+  int    sizeOfChannelElementVerticesArrayDimID; // ID of dimension in NetCDF file.
+  int    numberOfChannelVerticesDimID;           // ID of dimension in NetCDF file.
+  int    numberOfChannelChannelNeighborsDimID;   // ID of dimension in NetCDF file.
+  int    numberOfChannelMeshNeighborsDimID;      // ID of dimension in NetCDF file.
+  int    dimIDs[NC_MAX_VAR_DIMS];                // For passing dimension IDs.
+  int    meshSurfacewaterDepthVarID;             // ID of variable in NetCDF file.
+  int    meshSurfacewaterErrorVarID;             // ID of variable in NetCDF file.
+  int    meshGroundwaterHeadVarID;               // ID of variable in NetCDF file.
+  int    meshGroundwaterErrorVarID;              // ID of variable in NetCDF file.
+  int    channelSurfacewaterDepthVarID;          // ID of variable in NetCDF file.
+  int    channelSurfacewaterErrorVarID;          // ID of variable in NetCDF file.
+  size_t start[NC_MAX_VAR_DIMS];                 // For specifying subarrays when writing to NetCDF file.
+  size_t count[NC_MAX_VAR_DIMS];                 // For specifying subarrays when writing to NetCDF file.
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != directory);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  // Allocate space for file and group name strings
-  nameStringSize = strlen(directory) + strlen("/state.nc  ") + 1; // Extra spaces are added at the end of "/state.nc  " in order to have enough space to hold
-                                                                  // the group name because the maximum length of an int printed as a string is 11, which is
-                                                                  // the same length as "/state.nc  ".  +1 for null terminating character.
-  nameString     = new char[nameStringSize];
-
-  // FIXME make directory?
-  
-  // Create file name.
-  numPrinted = snprintf(nameString, nameStringSize, "%s/state.nc", directory);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(strlen(directory) + strlen("/state.nc") == numPrinted && numPrinted < nameStringSize))
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != directory))
     {
-      CkError("ERROR in FileManager::writeState: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
-              numPrinted, strlen(directory) + strlen("/state.nc"), nameStringSize);
+      CkError("ERROR in FileManager::writeState: directory must not be null.\n");
       error = true;
     }
+  
+  if (!(0.0 < dt))
+    {
+      CkError("ERROR in FileManager::writeState: dt must be greater than zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  if (!error)
+    {
+      // Allocate space for file and group name strings
+      nameStringSize = strlen(directory) + strlen("/state.nc  ") + 1; // Extra spaces are added at the end of "/state.nc  " in order to have enough space to
+                                                                      // hold the group name because the maximum length of an int printed as a string is 11,
+                                                                      // which is the same length as "/state.nc  ".  +1 for null terminating character.
+      nameString     = new char[nameStringSize];
+
+      // FIXME make directory?
+
+      // Create file name.
+      numPrinted = snprintf(nameString, nameStringSize, "%s/state.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/state.nc") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::writeState: incorrect return value of snprintf when generating file name.  %d should be %d and less than %d.\n",
+                  numPrinted, strlen(directory) + strlen("/state.nc"), nameStringSize);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
   // Create or open file.
   if (!error)
@@ -2958,6 +3043,20 @@ bool FileManager::writeState(const char* directory, int group, bool create, doub
       if (!(NC_NOERR == ncErrorCode))
         {
           CkError("ERROR in FileManager::writeState: unable to create dimension numberOfChannelElements in NetCDF state file.  "
+                  "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      ncErrorCode = nc_def_dim(groupID, "sizeOfChannelElementVerticesArray", ChannelElement::channelVerticesSize + 2, &sizeOfChannelElementVerticesArrayDimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::writeGeometry: unable to create dimension sizeOfChannelElementVerticesArray in NetCDF geometry file.  "
                   "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
           error = true;
         }
@@ -3274,4 +3373,9 @@ bool FileManager::writeState(const char* directory, int group, bool create, doub
   return error;
 }
 
- #include "file_manager.def.h"
+// Suppress warnings in the The Charm++ autogenerated code.
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#include "file_manager.def.h"
+#pragma GCC diagnostic warning "-Wsign-compare"
+#pragma GCC diagnostic warning "-Wunused-variable"

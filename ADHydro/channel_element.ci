@@ -372,7 +372,14 @@ module channel_element
             } // End while (!surfacewaterDone).
           } // End when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep).
           
-          // FIXME handle output
+          when doOutput()
+          {
+            serial
+            {
+              fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)]
+                  .channelStateMessage(thisIndex, surfacewaterDepth, surfacewaterError);
+            }
+          }
           
           when checkInvariant()
           {
@@ -441,6 +448,7 @@ module channel_element
     entry void meshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void channelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void meshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+    entry void doOutput();
     entry void checkInvariant();
     entry void checkChannelNeighborInvariant(int neighbor, int edge, int neighborEdge, InteractionEnum neighborInteraction, double neighborZBank,
                                              double neighborZBed, double neighborLength, double neighborChannelType, double neighborBaseWidth,
