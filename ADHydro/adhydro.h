@@ -12,7 +12,8 @@ class CProxy_ChannelElement;
 #include "adhydro.decl.h"
 #pragma GCC diagnostic warning "-Wsign-compare"
 
-// FIXME comment
+// An ADHydro object is the main chare of the program.  Execution starts in its
+// constructor.
 class ADHydro : public CBase_ADHydro
 {
   ADHydro_SDAG_CODE
@@ -38,7 +39,7 @@ public:
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
   
-  // Destructor.  commandLineArguments needs to be freed.
+  // Destructor.  commandLineArguments needs to be deleted.
   ~ADHydro();
   
   // Pack/unpack method.
@@ -78,6 +79,8 @@ private:
   double currentTime;    // Seconds.
   double endTime;        // Seconds.
   double dt;             // Next timestep duration in seconds.
+  double nextOutputTime; // Next time in seconds to output to file.
+  double outputPeriod;   // Simulation time in seconds between outputting to file.  Zero for output every timestep.
   int    iteration;      // Iteration number to put on all messages this timestep.
 };
 
