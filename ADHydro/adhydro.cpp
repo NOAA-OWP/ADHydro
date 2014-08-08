@@ -24,6 +24,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   currentTime          =  0.0;
   endTime              = 10.0;
   dt                   =  1.0;
+  nextOutputTime       = currentTime;
+  outputPeriod         =  1.5;
   iteration            =  1;
 
   // Create file manager, mesh, and channels.
@@ -139,8 +141,15 @@ void ADHydro::timestepDone(double dtNew)
       CkStartLB();
     }
   
-  if (true) // FIXME implement output period
+  // Check if it is time to output to file.
+  if (currentTime >= nextOutputTime || currentTime >= endTime)
     {
+      if (0.0 < outputPeriod)
+        {
+          // Force nextOutputTime to be the next multiple of outputPeriod that is greater than currentTime.
+          nextOutputTime += outputPeriod * (floor((currentTime - nextOutputTime) / outputPeriod) + 1);
+        }
+      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       // Set the callback to check the invariant when output is done.  The invariant callback will start the timestep.
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkInvariant), thisProxy));

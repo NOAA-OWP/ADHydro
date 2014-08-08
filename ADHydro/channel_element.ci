@@ -376,6 +376,8 @@ module channel_element
           {
             serial
             {
+              // FIXME rather than requiring a separate message to tell the element to send its state to the file manager we could have an extra parameter to
+              // the DoTimestep message that tells it to send its state to the file manager as soon as the timestep is done.
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)]
                   .channelStateMessage(thisIndex, surfacewaterDepth, surfacewaterError);
             }

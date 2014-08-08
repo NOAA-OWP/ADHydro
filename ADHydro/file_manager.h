@@ -29,14 +29,14 @@ typedef double doublearraycmn[ChannelElement::meshNeighborsSize];     // Fixed s
 // reads and writes and makes the values available to the elements.
 //
 // At initialization, each file manager takes ownership of a block of each
-// array.  Each file manager takes ownership of the data for the elements that
-// get assigned to its processor by the default Charm++ block mapping of array
-// elements to processors.  This way, elements can initialize themselves
-// without any message passing by getting a pointer to the file manager local
-// branch and accessing its public member variables.
+// array containing the data for the elements that get assigned to its
+// processor by the default Charm++ block mapping of array elements to
+// processors.  This way, elements can initialize themselves without any
+// message passing by getting a pointer to the file manager local branch and
+// accessing its public member variables.
 //
 // After initialization, array elements might migrate away from the file
-// manager local branch that holds their data.  We do not transfer ownership of
+// manager local branch that owns their data.  We do not transfer ownership of
 // the data between file manager local branches.  Instead, message passing is
 // used to update data after initialization.
 class FileManager : public CBase_FileManager
@@ -45,7 +45,17 @@ class FileManager : public CBase_FileManager
   
 public:
 
-  // FIXME document
+  // Calculate which file manager owns a given item.  The first
+  // (globalNumberOfItems % CkNumPes()) file managers each have
+  // (globalNumberOfItems / CkNumPes() + 1) items.  The remaining file managers
+  // each have (globalNumberOfItems / CkNumPes()) items.
+  //
+  // Returns: the index of the file manager that owns item.
+  //
+  // Parameters:
+  //
+  // item                - The index of this item.
+  // globalNumberOfItems - The total number of this kind of item.
   static int home(int item, int globalNumberOfItems);
   
   // Constructor.
@@ -133,15 +143,16 @@ public:
   // We want to display streams as polylines and waterbodies as polygons.
   // In XDMF this requires a mixed topology.  In a mixed topology, each element
   // must store its shape type, either 2 for polyline or 3 for polygon, and
-  // number of vertices followed by the vertex indices.  Also, in order for the
-  // mixed topology to work with the rectangular array format of NetCDF files
+  // number of vertices followed by the node indices of the vertices.  In order
+  // for the mixed topology to work with the rectangular arrays of NetCDF files
   // all elements must have the same number of vertices.  Therefore,
   // channelElementVertices[n][0] is the shape type, always 2 or 3,
   // channelElementVertices[n][1] is the number of vertices, always
   // ChannelElement::channelVerticesSize, and the remaining values are the node
-  // indices of ther vertices.  If a shape has fewer vertices than
-  // ChannelElement::channelVerticesSize then the last vertex is repeated as
-  // necessary.
+  // indices of ther vertices with channelElementVertices[n][2] holding vertex
+  // 0, channelElementVertices[n][3] holding vertex 1, etc.  If a shape has
+  // fewer vertices than ChannelElement::channelVerticesSize then the last
+  // vertex is repeated as necessary.
   intarrayxdmf* channelElementVertices;
   
   // These arrays store the coordinates of the vertices of each element.
@@ -175,6 +186,20 @@ public:
   
 private:
   
+  // Calculate which items this file manager owns.  The first
+  // (globalNumberOfItems % CkNumPes()) file managers each have
+  // (globalNumberOfItems / CkNumPes() + 1) items.  The remaining file managers
+  // each have (globalNumberOfItems / CkNumPes()) items.
+  //
+  // Parameters:
+  //
+  // localItemStart      - Scalar passed by reference will be filled in with
+  //                       the local start index.
+  // localNumberOfItems  - Scalar passed by reference will be filled in with
+  //                       the local number of items.
+  // globalNumberOfItems - The total number of this kind of item.
+  void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+
   // Returns: true if all element information is updated, false otherwise.
   bool allUpdated();
   
