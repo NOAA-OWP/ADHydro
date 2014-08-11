@@ -32,6 +32,7 @@ mainmodule adhydro
       }
     };
     
+    entry [reductiontarget] void finishInitialization();
     entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
     entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
     entry [reductiontarget] void meshInvariantDone();

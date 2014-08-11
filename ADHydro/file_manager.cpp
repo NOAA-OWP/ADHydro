@@ -28,18 +28,37 @@ int FileManager::home(int item, int globalNumberOfItems)
   else
     {
       // Item is owned by a thin owner.
-      itemHome = (item - itemsInAllFatOwners) / itemsPerThinOwner + numberOfFatOwners;
+      itemHome = ((item - itemsInAllFatOwners) / itemsPerThinOwner) + numberOfFatOwners;
     }
   
   return itemHome;
 }
 
-FileManager::FileManager(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt)
+FileManager::FileManager(size_t inputDirectorySize, char* inputDirectory, size_t outputDirectorySize, char* outputDirectory, int geometryGroup,
+                         int parameterGroup, int stateGroup, double time, double dt)
 {
-  bool error = false; // Error flag.
+  int    ii, jj;                                             // Loop counters.
+  bool   needToGetVertexData                        = false; // Whether we need to get any vertex data.
+  // FIXME Hard coded mesh, read from NetCDF file instead.
+  double globalNodeX[13]                            = {-75.0, 75.0, -75.0, 0.0, 75.0, 0.0, -75.0, 0.0, 75.0, 0.0, -75.0, 0.0, 75.0};
+  double globalNodeY[13]                            = {200.0, 200.0, 150.0, 150.0, 150.0, 100.0, 75.0, 75.0, 75.0, 50.0, 0.0, 0.0, 0.0};
+  double globalNodeZ[13]                            = {30.0, 30.0, 25.0, 15.0, 25.0, 10.0, 17.5, 7.5, 17.5, 5.0, 10.0, 0.0, 10.0};
+  int    globalMeshElementVertices[8][3]            = {{3, 2, 6}, {3, 6, 7}, {7, 6, 10}, {7, 10, 11}, {4, 3, 8}, {3, 7, 8}, {8, 7, 12}, {7, 11, 12}};
+  int    globalMeshMeshNeighbors[8][3]              = {{NOFLOW, 1, NOFLOW}, {2, 5, 0}, {NOFLOW, 3, 1}, {NOFLOW, 7, 2}, {5, NOFLOW, NOFLOW}, {6, 4, 1},
+                                                       {7, NOFLOW, 5}, {NOFLOW, 6, 3}};
+  bool   globalMeshMeshNeighborsChannelEdge[8][3]   = {{false, false, false}, {false, true, false}, {false, false, false}, {false, true, false},
+                                                       {false, false, false}, {false, false, true}, {false, false, false}, {false, false, true}};
+  int    globalMeshChannelNeighbors[8][2]           = {{0 ,NOFLOW}, {1 ,2}, {NOFLOW ,NOFLOW}, {2 ,3}, {0 ,NOFLOW}, {1 ,2}, {NOFLOW ,NOFLOW}, {2 ,3}};
+  double globalMeshChannelNeighborsEdgeLength[8][2] = {{75.0, 1.0}, {50.0, 25.0}, {1.0, 1.0}, {25.0, 50.0}, {75.0, 1.0}, {50.0, 25.0}, {1.0, 1.0},
+                                                       {25.0, 50.0}};
+  int    globalChannelElementVertices[4][7]         = {{3, 5, 0, 2, 3, 4, 1}, {2, 5, 3, 5, 5, 5, 5}, {2, 5, 5, 9, 9, 9, 9}, {2, 5, 9, 11, 11, 11, 11}};
+  double globalChannelElementX[4]                   = {0.0, 0.0, 0.0, 0.0};
+  double globalChannelElementY[4]                   = {175.0, 125.0, 75.0, 25.0};
+  double globalChannelElementZ[4]                   = {15.0, 12.5, 7.5, 2.5};
+  int    globalChannelChannelNeighbors[4][2]        = {{1, NOFLOW}, {0, 2}, {1, 3}, {2, OUTFLOW}};
+  int    globalChannelMeshNeighbors[4][4]           = {{0, 4, NOFLOW, NOFLOW}, {1, 5, NOFLOW, NOFLOW}, {1, 5, 3, 7}, {3, 7, NOFLOW, NOFLOW}};
+  double globalChannelMeshNeighborsEdgeLength[4][4] = {{75.0, 75.0, 1.0, 1.0}, {50.0, 50.0, 1.0, 1.0}, {25.0, 25.0, 25.0, 25.0}, {50.0, 50.0, 1.0, 1.0}};
   
-  // Hard coded mesh.
-  // FIXME read from NetCDF file.
   globalNumberOfMeshNodes       = 13;
   globalNumberOfMeshElements    = 8;
   globalNumberOfChannelNodes    = 13;
@@ -50,207 +69,49 @@ FileManager::FileManager(size_t directorySize, char* directory, int geometryGrou
   localStartAndNumber(&localChannelNodeStart,    &localNumberOfChannelNodes,    globalNumberOfChannelNodes);
   localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
   
-  meshNodeX = new double[globalNumberOfMeshNodes];
+  meshNodeX = new double[localNumberOfMeshNodes];
   
-  meshNodeX[0]  = -75.0;
-  meshNodeX[1]  =  75.0;
-  meshNodeX[2]  = -75.0;
-  meshNodeX[3]  =   0.0;
-  meshNodeX[4]  =  75.0;
-  meshNodeX[5]  =   0.0;
-  meshNodeX[6]  = -75.0;
-  meshNodeX[7]  =   0.0;
-  meshNodeX[8]  =  75.0;
-  meshNodeX[9]  =   0.0;
-  meshNodeX[10] = -75.0;
-  meshNodeX[11] =   0.0;
-  meshNodeX[12] =  75.0;
+  for (ii = 0; ii < localNumberOfMeshNodes; ii++)
+    {
+      meshNodeX[ii] = globalNodeX[ii + localMeshNodeStart];
+    }
   
-  meshNodeY = new double[globalNumberOfMeshNodes];
+  meshNodeY = new double[localNumberOfMeshNodes];
   
-  meshNodeY[0]  = 200.0;
-  meshNodeY[1]  = 200.0;
-  meshNodeY[2]  = 150.0;
-  meshNodeY[3]  = 150.0;
-  meshNodeY[4]  = 150.0;
-  meshNodeY[5]  = 100.0;
-  meshNodeY[6]  =  75.0;
-  meshNodeY[7]  =  75.0;
-  meshNodeY[8]  =  75.0;
-  meshNodeY[9]  =  50.0;
-  meshNodeY[10] =   0.0;
-  meshNodeY[11] =   0.0;
-  meshNodeY[12] =   0.0;
+  for (ii = 0; ii < localNumberOfMeshNodes; ii++)
+    {
+      meshNodeY[ii] = globalNodeY[ii + localMeshNodeStart];
+    }
   
-  meshNodeZSurface = new double[globalNumberOfMeshNodes];
+  meshNodeZSurface = new double[localNumberOfMeshNodes];
   
-  meshNodeZSurface[0]  =  30.0;
-  meshNodeZSurface[1]  =  30.0;
-  meshNodeZSurface[2]  =  25.0;
-  meshNodeZSurface[3]  =  15.0;
-  meshNodeZSurface[4]  =  25.0;
-  meshNodeZSurface[5]  =  10.0;
-  meshNodeZSurface[6]  =  17.5;
-  meshNodeZSurface[7]  =   7.5;
-  meshNodeZSurface[8]  =  17.5;
-  meshNodeZSurface[9]  =   5.0;
-  meshNodeZSurface[10] =  10.0;
-  meshNodeZSurface[11] =   0.0;
-  meshNodeZSurface[12] =  10.0;
+  for (ii = 0; ii < localNumberOfMeshNodes; ii++)
+    {
+      meshNodeZSurface[ii] = globalNodeZ[ii + localMeshNodeStart];
+    }
   
-  meshNodeZBedrock = new double[globalNumberOfMeshNodes];
+  meshNodeZBedrock = new double[localNumberOfMeshNodes];
   
-  meshNodeZBedrock[0]  =  25.0;
-  meshNodeZBedrock[1]  =  25.0;
-  meshNodeZBedrock[2]  =  20.0;
-  meshNodeZBedrock[3]  =  10.0;
-  meshNodeZBedrock[4]  =  20.0;
-  meshNodeZBedrock[5]  =   5.0;
-  meshNodeZBedrock[6]  =  12.5;
-  meshNodeZBedrock[7]  =   2.5;
-  meshNodeZBedrock[8]  =  12.5;
-  meshNodeZBedrock[9]  =   0.0;
-  meshNodeZBedrock[10] =   5.0;
-  meshNodeZBedrock[11] =  -5.0;
-  meshNodeZBedrock[12] =   5.0;
+  for (ii = 0; ii < localNumberOfMeshNodes; ii++)
+    {
+      meshNodeZBedrock[ii] = globalNodeZ[ii + localMeshNodeStart] - 5.0;
+    }
   
-  meshElementVertices = new int[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  meshElementVertices = new int[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
   
-  meshElementVertices[0][0] =  3;
-  meshElementVertices[0][1] =  2;
-  meshElementVertices[0][2] =  6;
-  meshElementVertices[1][0] =  3;
-  meshElementVertices[1][1] =  6;
-  meshElementVertices[1][2] =  7;
-  meshElementVertices[2][0] =  7;
-  meshElementVertices[2][1] =  6;
-  meshElementVertices[2][2] = 10;
-  meshElementVertices[3][0] =  7;
-  meshElementVertices[3][1] = 10;
-  meshElementVertices[3][2] = 11;
-  meshElementVertices[4][0] =  4;
-  meshElementVertices[4][1] =  3;
-  meshElementVertices[4][2] =  8;
-  meshElementVertices[5][0] =  3;
-  meshElementVertices[5][1] =  7;
-  meshElementVertices[5][2] =  8;
-  meshElementVertices[6][0] =  8;
-  meshElementVertices[6][1] =  7;
-  meshElementVertices[6][2] = 12;
-  meshElementVertices[7][0] =  7;
-  meshElementVertices[7][1] = 11;
-  meshElementVertices[7][2] = 12;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          meshElementVertices[ii][jj] = globalMeshElementVertices[ii + localMeshElementStart][jj];
+        }
+    }
   
-  meshVertexX = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
-  
-  meshVertexX[0][0] =   0.0;
-  meshVertexX[0][1] = -75.0;
-  meshVertexX[0][2] = -75.0;
-  meshVertexX[1][0] =   0.0;
-  meshVertexX[1][1] = -75.0;
-  meshVertexX[1][2] =   0.0;
-  meshVertexX[2][0] =   0.0;
-  meshVertexX[2][1] = -75.0;
-  meshVertexX[2][2] = -75.0;
-  meshVertexX[3][0] =   0.0;
-  meshVertexX[3][1] = -75.0;
-  meshVertexX[3][2] =   0.0;
-  meshVertexX[4][0] =  75.0;
-  meshVertexX[4][1] =   0.0;
-  meshVertexX[4][2] =  75.0;
-  meshVertexX[5][0] =   0.0;
-  meshVertexX[5][1] =   0.0;
-  meshVertexX[5][2] =  75.0;
-  meshVertexX[6][0] =  75.0;
-  meshVertexX[6][1] =   0.0;
-  meshVertexX[6][2] =  75.0;
-  meshVertexX[7][0] =   0.0;
-  meshVertexX[7][1] =   0.0;
-  meshVertexX[7][2] =  75.0;
-  
-  meshVertexY = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
-  
-  meshVertexY[0][0] = 150.0;
-  meshVertexY[0][1] = 150.0;
-  meshVertexY[0][2] =  75.0;
-  meshVertexY[1][0] = 150.0;
-  meshVertexY[1][1] =  75.0;
-  meshVertexY[1][2] =  75.0;
-  meshVertexY[2][0] =  75.0;
-  meshVertexY[2][1] =  75.0;
-  meshVertexY[2][2] =   0.0;
-  meshVertexY[3][0] =  75.0;
-  meshVertexY[3][1] =   0.0;
-  meshVertexY[3][2] =   0.0;
-  meshVertexY[4][0] = 150.0;
-  meshVertexY[4][1] = 150.0;
-  meshVertexY[4][2] =  75.0;
-  meshVertexY[5][0] = 150.0;
-  meshVertexY[5][1] =  75.0;
-  meshVertexY[5][2] =  75.0;
-  meshVertexY[6][0] =  75.0;
-  meshVertexY[6][1] =  75.0;
-  meshVertexY[6][2] =   0.0;
-  meshVertexY[7][0] =  75.0;
-  meshVertexY[7][1] =   0.0;
-  meshVertexY[7][2] =   0.0;
-  
-  meshVertexZSurface = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
-  
-  meshVertexZSurface[0][0] =  15.0;
-  meshVertexZSurface[0][1] =  25.0;
-  meshVertexZSurface[0][2] =  17.5;
-  meshVertexZSurface[1][0] =  15.0;
-  meshVertexZSurface[1][1] =  17.5;
-  meshVertexZSurface[1][2] =   7.5;
-  meshVertexZSurface[2][0] =   7.5;
-  meshVertexZSurface[2][1] =  17.5;
-  meshVertexZSurface[2][2] =  10.0;
-  meshVertexZSurface[3][0] =   7.5;
-  meshVertexZSurface[3][1] =  10.0;
-  meshVertexZSurface[3][2] =   0.0;
-  meshVertexZSurface[4][0] =  25.0;
-  meshVertexZSurface[4][1] =  15.0;
-  meshVertexZSurface[4][2] =  17.5;
-  meshVertexZSurface[5][0] =  15.0;
-  meshVertexZSurface[5][1] =   7.5;
-  meshVertexZSurface[5][2] =  17.5;
-  meshVertexZSurface[6][0] =  17.5;
-  meshVertexZSurface[6][1] =   7.5;
-  meshVertexZSurface[6][2] =  10.0;
-  meshVertexZSurface[7][0] =   7.5;
-  meshVertexZSurface[7][1] =   0.0;
-  meshVertexZSurface[7][2] =  10.0;
-  
-  meshVertexZBedrock = new double[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
-  
-  meshVertexZBedrock[0][0] =  10.0;
-  meshVertexZBedrock[0][1] =  20.0;
-  meshVertexZBedrock[0][2] =  12.5;
-  meshVertexZBedrock[1][0] =  10.0;
-  meshVertexZBedrock[1][1] =  12.5;
-  meshVertexZBedrock[1][2] =   2.5;
-  meshVertexZBedrock[2][0] =   2.5;
-  meshVertexZBedrock[2][1] =  12.5;
-  meshVertexZBedrock[2][2] =   5.0;
-  meshVertexZBedrock[3][0] =   2.5;
-  meshVertexZBedrock[3][1] =   5.0;
-  meshVertexZBedrock[3][2] =  -5.0;
-  meshVertexZBedrock[4][0] =  20.0;
-  meshVertexZBedrock[4][1] =  10.0;
-  meshVertexZBedrock[4][2] =  12.5;
-  meshVertexZBedrock[5][0] =  10.0;
-  meshVertexZBedrock[5][1] =   2.5;
-  meshVertexZBedrock[5][2] =  12.5;
-  meshVertexZBedrock[6][0] =  12.5;
-  meshVertexZBedrock[6][1] =   2.5;
-  meshVertexZBedrock[6][2] =   5.0;
-  meshVertexZBedrock[7][0] =   2.5;
-  meshVertexZBedrock[7][1] =  -5.0;
-  meshVertexZBedrock[7][2] =   5.0;
-  
-  // All of these will be calcluated from the vertices.
-  
+  // Will be derived from node data.
+  meshVertexX         = NULL;
+  meshVertexY         = NULL;
+  meshVertexZSurface  = NULL;
+  meshVertexZBedrock  = NULL;
   meshElementX        = NULL;
   meshElementY        = NULL;
   meshElementZSurface = NULL;
@@ -259,457 +120,341 @@ FileManager::FileManager(size_t directorySize, char* directory, int geometryGrou
   meshElementSlopeX   = NULL;
   meshElementSlopeY   = NULL;
   
-  meshCatchment = new int[globalNumberOfMeshElements];
+  meshCatchment = new int[localNumberOfMeshElements];
   
-  meshCatchment[0] = 1;
-  meshCatchment[1] = 1;
-  meshCatchment[2] = 1;
-  meshCatchment[3] = 1;
-  meshCatchment[4] = 1;
-  meshCatchment[5] = 1;
-  meshCatchment[6] = 1;
-  meshCatchment[7] = 1;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshCatchment[ii] = 1;
+    }
   
-  meshConductivity = new double[globalNumberOfMeshElements];
+  meshConductivity = new double[localNumberOfMeshElements];
   
-  meshConductivity[0] = 5.55e-4;
-  meshConductivity[1] = 5.55e-4;
-  meshConductivity[2] = 5.55e-4;
-  meshConductivity[3] = 5.55e-4;
-  meshConductivity[4] = 5.55e-4;
-  meshConductivity[5] = 5.55e-4;
-  meshConductivity[6] = 5.55e-4;
-  meshConductivity[7] = 5.55e-4;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshConductivity[ii] = 5.55e-4;
+    }
   
-  meshPorosity = new double[globalNumberOfMeshElements];
+  meshPorosity = new double[localNumberOfMeshElements];
   
-  meshPorosity[0] = 0.5;
-  meshPorosity[1] = 0.5;
-  meshPorosity[2] = 0.5;
-  meshPorosity[3] = 0.5;
-  meshPorosity[4] = 0.5;
-  meshPorosity[5] = 0.5;
-  meshPorosity[6] = 0.5;
-  meshPorosity[7] = 0.5;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshPorosity[ii] = 0.5;
+    }
   
-  meshManningsN = new double[globalNumberOfMeshElements];
+  meshManningsN = new double[localNumberOfMeshElements];
   
-  meshManningsN[0] = 0.038;
-  meshManningsN[1] = 0.038;
-  meshManningsN[2] = 0.038;
-  meshManningsN[3] = 0.038;
-  meshManningsN[4] = 0.038;
-  meshManningsN[5] = 0.038;
-  meshManningsN[6] = 0.038;
-  meshManningsN[7] = 0.038;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshManningsN[ii] = 0.038;
+    }
   
-  meshSurfacewaterDepth =  new double[globalNumberOfMeshElements];
+  meshSurfacewaterDepth =  new double[localNumberOfMeshElements];
   
-  meshSurfacewaterDepth[0] = 0.1;
-  meshSurfacewaterDepth[1] = 0.1;
-  meshSurfacewaterDepth[2] = 0.1;
-  meshSurfacewaterDepth[3] = 0.1;
-  meshSurfacewaterDepth[4] = 0.1;
-  meshSurfacewaterDepth[5] = 0.1;
-  meshSurfacewaterDepth[6] = 0.1;
-  meshSurfacewaterDepth[7] = 0.1;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshSurfacewaterDepth[ii] = 0.1;
+    }
   
-  meshSurfacewaterError = new double[globalNumberOfMeshElements];
+  meshSurfacewaterError = new double[localNumberOfMeshElements];
   
-  meshSurfacewaterError[0] = 0.0;
-  meshSurfacewaterError[1] = 0.0;
-  meshSurfacewaterError[2] = 0.0;
-  meshSurfacewaterError[3] = 0.0;
-  meshSurfacewaterError[4] = 0.0;
-  meshSurfacewaterError[5] = 0.0;
-  meshSurfacewaterError[6] = 0.0;
-  meshSurfacewaterError[7] = 0.0;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshSurfacewaterError[ii] = 0.0;
+    }
   
-  meshGroundwaterHead = new double[globalNumberOfMeshElements];
+  // FIXME decide how to do meshGroundwaterHead.
+  meshGroundwaterHead = NULL;
   
-  meshGroundwaterHead[0] = (meshVertexZSurface[0][0] + meshVertexZSurface[0][1] + meshVertexZSurface[0][2]) / 3.0;
-  meshGroundwaterHead[1] = (meshVertexZSurface[1][0] + meshVertexZSurface[1][1] + meshVertexZSurface[1][2]) / 3.0;
-  meshGroundwaterHead[2] = (meshVertexZSurface[2][0] + meshVertexZSurface[2][1] + meshVertexZSurface[2][2]) / 3.0;
-  meshGroundwaterHead[3] = (meshVertexZSurface[3][0] + meshVertexZSurface[3][1] + meshVertexZSurface[3][2]) / 3.0;
-  meshGroundwaterHead[4] = (meshVertexZSurface[4][0] + meshVertexZSurface[4][1] + meshVertexZSurface[4][2]) / 3.0;
-  meshGroundwaterHead[5] = (meshVertexZSurface[5][0] + meshVertexZSurface[5][1] + meshVertexZSurface[5][2]) / 3.0;
-  meshGroundwaterHead[6] = (meshVertexZSurface[6][0] + meshVertexZSurface[6][1] + meshVertexZSurface[6][2]) / 3.0;
-  meshGroundwaterHead[7] = (meshVertexZSurface[7][0] + meshVertexZSurface[7][1] + meshVertexZSurface[7][2]) / 3.0;
+  meshGroundwaterError = new double[localNumberOfMeshElements];
   
-  meshGroundwaterError = new double[globalNumberOfMeshElements];
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      meshGroundwaterError[ii] = 0.0;
+    }
   
-  meshGroundwaterError[0] = 0.0;
-  meshGroundwaterError[1] = 0.0;
-  meshGroundwaterError[2] = 0.0;
-  meshGroundwaterError[3] = 0.0;
-  meshGroundwaterError[4] = 0.0;
-  meshGroundwaterError[5] = 0.0;
-  meshGroundwaterError[6] = 0.0;
-  meshGroundwaterError[7] = 0.0;
+  meshMeshNeighbors = new int[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
   
-  meshMeshNeighbors = new int[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          meshMeshNeighbors[ii][jj] = globalMeshMeshNeighbors[ii + localMeshElementStart][jj];
+        }
+    }
   
-  meshMeshNeighbors[0][0] = NOFLOW;
-  meshMeshNeighbors[0][1] = 1;
-  meshMeshNeighbors[0][2] = NOFLOW;
-  meshMeshNeighbors[1][0] = 2;
-  meshMeshNeighbors[1][1] = 5;
-  meshMeshNeighbors[1][2] = 0;
-  meshMeshNeighbors[2][0] = NOFLOW;
-  meshMeshNeighbors[2][1] = 3;
-  meshMeshNeighbors[2][2] = 1;
-  meshMeshNeighbors[3][0] = NOFLOW;
-  meshMeshNeighbors[3][1] = 7;
-  meshMeshNeighbors[3][2] = 2;
-  meshMeshNeighbors[4][0] = 5;
-  meshMeshNeighbors[4][1] = NOFLOW;
-  meshMeshNeighbors[4][2] = NOFLOW;
-  meshMeshNeighbors[5][0] = 6;
-  meshMeshNeighbors[5][1] = 4;
-  meshMeshNeighbors[5][2] = 1;
-  meshMeshNeighbors[6][0] = 7;
-  meshMeshNeighbors[6][1] = NOFLOW;
-  meshMeshNeighbors[6][2] = 5;
-  meshMeshNeighbors[7][0] = NOFLOW;
-  meshMeshNeighbors[7][1] = 6;
-  meshMeshNeighbors[7][2] = 3;
+  meshMeshNeighborsChannelEdge = new bool[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
   
-  meshMeshNeighborsChannelEdge = new bool[globalNumberOfMeshElements][MeshElement::meshNeighborsSize];
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          meshMeshNeighborsChannelEdge[ii][jj] = globalMeshMeshNeighborsChannelEdge[ii + localMeshElementStart][jj];
+        }
+    }
   
-  meshMeshNeighborsChannelEdge[0][0] = false;
-  meshMeshNeighborsChannelEdge[0][1] = false;
-  meshMeshNeighborsChannelEdge[0][2] = false;
-  meshMeshNeighborsChannelEdge[1][0] = false;
-  meshMeshNeighborsChannelEdge[1][1] = true;
-  meshMeshNeighborsChannelEdge[1][2] = false;
-  meshMeshNeighborsChannelEdge[2][0] = false;
-  meshMeshNeighborsChannelEdge[2][1] = false;
-  meshMeshNeighborsChannelEdge[2][2] = false;
-  meshMeshNeighborsChannelEdge[3][0] = false;
-  meshMeshNeighborsChannelEdge[3][1] = true;
-  meshMeshNeighborsChannelEdge[3][2] = false;
-  meshMeshNeighborsChannelEdge[4][0] = false;
-  meshMeshNeighborsChannelEdge[4][1] = false;
-  meshMeshNeighborsChannelEdge[4][2] = false;
-  meshMeshNeighborsChannelEdge[5][0] = false;
-  meshMeshNeighborsChannelEdge[5][1] = false;
-  meshMeshNeighborsChannelEdge[5][2] = true;
-  meshMeshNeighborsChannelEdge[6][0] = false;
-  meshMeshNeighborsChannelEdge[6][1] = false;
-  meshMeshNeighborsChannelEdge[6][2] = false;
-  meshMeshNeighborsChannelEdge[7][0] = false;
-  meshMeshNeighborsChannelEdge[7][1] = false;
-  meshMeshNeighborsChannelEdge[7][2] = true;
-  
-  // All of these will be calcluated from the vertices.
-  
+  // Will be derived from node data.
   meshMeshNeighborsEdgeLength  = NULL;
   meshMeshNeighborsEdgeNormalX = NULL;
   meshMeshNeighborsEdgeNormalY = NULL;
   
-  meshChannelNeighbors = new int[globalNumberOfMeshElements][MeshElement::channelNeighborsSize];
+  meshChannelNeighbors = new int[localNumberOfMeshElements][MeshElement::channelNeighborsSize];
   
-  meshChannelNeighbors[0][0] = 0;
-  meshChannelNeighbors[0][1] = NOFLOW;
-  meshChannelNeighbors[1][0] = 1;
-  meshChannelNeighbors[1][1] = 2;
-  meshChannelNeighbors[2][0] = NOFLOW;
-  meshChannelNeighbors[2][1] = NOFLOW;
-  meshChannelNeighbors[3][0] = 2;
-  meshChannelNeighbors[3][1] = 3;
-  meshChannelNeighbors[4][0] = 0;
-  meshChannelNeighbors[4][1] = NOFLOW;
-  meshChannelNeighbors[5][0] = 1;
-  meshChannelNeighbors[5][1] = 2;
-  meshChannelNeighbors[6][0] = NOFLOW;
-  meshChannelNeighbors[6][1] = NOFLOW;
-  meshChannelNeighbors[7][0] = 2;
-  meshChannelNeighbors[7][1] = 3;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
+        {
+          meshChannelNeighbors[ii][jj] = globalMeshChannelNeighbors[ii + localMeshElementStart][jj];
+        }
+    }
   
-  meshChannelNeighborsEdgeLength = new double[globalNumberOfMeshElements][MeshElement::channelNeighborsSize];
+  meshChannelNeighborsEdgeLength = new double[localNumberOfMeshElements][MeshElement::channelNeighborsSize];
   
-  meshChannelNeighborsEdgeLength[0][0] = 75.0;
-  meshChannelNeighborsEdgeLength[0][1] =  1.0;
-  meshChannelNeighborsEdgeLength[1][0] = 50.0;
-  meshChannelNeighborsEdgeLength[1][1] = 25.0;
-  meshChannelNeighborsEdgeLength[2][0] =  1.0;
-  meshChannelNeighborsEdgeLength[2][1] =  1.0;
-  meshChannelNeighborsEdgeLength[3][0] = 25.0;
-  meshChannelNeighborsEdgeLength[3][1] = 50.0;
-  meshChannelNeighborsEdgeLength[4][0] = 75.0;
-  meshChannelNeighborsEdgeLength[4][1] =  1.0;
-  meshChannelNeighborsEdgeLength[5][0] = 50.0;
-  meshChannelNeighborsEdgeLength[5][1] = 25.0;
-  meshChannelNeighborsEdgeLength[6][0] =  1.0;
-  meshChannelNeighborsEdgeLength[6][1] =  1.0;
-  meshChannelNeighborsEdgeLength[7][0] = 25.0;
-  meshChannelNeighborsEdgeLength[7][1] = 50.0;
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
+        {
+          meshChannelNeighborsEdgeLength[ii][jj] = globalMeshChannelNeighborsEdgeLength[ii + localMeshElementStart][jj];
+        }
+    }
   
-  channelNodeX = new double[globalNumberOfChannelNodes];
+  channelNodeX = new double[localNumberOfChannelNodes];
   
-  channelNodeX[0]  = -75.0;
-  channelNodeX[1]  =  75.0;
-  channelNodeX[2]  = -75.0;
-  channelNodeX[3]  =   0.0;
-  channelNodeX[4]  =  75.0;
-  channelNodeX[5]  =   0.0;
-  channelNodeX[6]  = -75.0;
-  channelNodeX[7]  =   0.0;
-  channelNodeX[8]  =  75.0;
-  channelNodeX[9]  =   0.0;
-  channelNodeX[10] = -75.0;
-  channelNodeX[11] =   0.0;
-  channelNodeX[12] =  75.0;
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeX[ii] = globalNodeX[ii + localChannelNodeStart];
+    }
   
-  channelNodeY = new double[globalNumberOfChannelNodes];
+  channelNodeY = new double[localNumberOfChannelNodes];
   
-  channelNodeY[0]  = 200.0;
-  channelNodeY[1]  = 200.0;
-  channelNodeY[2]  = 150.0;
-  channelNodeY[3]  = 150.0;
-  channelNodeY[4]  = 150.0;
-  channelNodeY[5]  = 100.0;
-  channelNodeY[6]  =  75.0;
-  channelNodeY[7]  =  75.0;
-  channelNodeY[8]  =  75.0;
-  channelNodeY[9]  =  50.0;
-  channelNodeY[10] =   0.0;
-  channelNodeY[11] =   0.0;
-  channelNodeY[12] =   0.0;
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeY[ii] = globalNodeY[ii + localChannelNodeStart];
+    }
   
-  channelNodeZBank = new double[globalNumberOfChannelNodes];
+  channelNodeZBank = new double[localNumberOfChannelNodes];
   
-  channelNodeZBank[0]  =  30.0;
-  channelNodeZBank[1]  =  30.0;
-  channelNodeZBank[2]  =  25.0;
-  channelNodeZBank[3]  =  15.0;
-  channelNodeZBank[4]  =  25.0;
-  channelNodeZBank[5]  =  10.0;
-  channelNodeZBank[6]  =  17.5;
-  channelNodeZBank[7]  =   7.5;
-  channelNodeZBank[8]  =  17.5;
-  channelNodeZBank[9]  =   5.0;
-  channelNodeZBank[10] =  10.0;
-  channelNodeZBank[11] =   0.0;
-  channelNodeZBank[12] =  10.0;
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeZBank[ii] = globalNodeZ[ii + localChannelNodeStart];
+    }
   
-  channelNodeZBed = new double[globalNumberOfChannelNodes];
+  channelNodeZBed = new double[localNumberOfChannelNodes];
   
-  channelNodeZBed[0]  =  25.0;
-  channelNodeZBed[1]  =  25.0;
-  channelNodeZBed[2]  =  20.0;
-  channelNodeZBed[3]  =  10.0;
-  channelNodeZBed[4]  =  20.0;
-  channelNodeZBed[5]  =   5.0;
-  channelNodeZBed[6]  =  12.5;
-  channelNodeZBed[7]  =   2.5;
-  channelNodeZBed[8]  =  12.5;
-  channelNodeZBed[9]  =   0.0;
-  channelNodeZBed[10] =   5.0;
-  channelNodeZBed[11] =  -5.0;
-  channelNodeZBed[12] =   5.0;
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeZBed[ii] = globalNodeZ[ii + localChannelNodeStart] - 5.0;
+    }
   
-  channelElementVertices = new int[globalNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
+  channelElementVertices = new int[localNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
   
-  channelElementVertices[0][0] =  3;
-  channelElementVertices[0][1] =  5;
-  channelElementVertices[0][2] =  0;
-  channelElementVertices[0][3] =  2;
-  channelElementVertices[0][4] =  3;
-  channelElementVertices[0][5] =  4;
-  channelElementVertices[0][6] =  1;
-  channelElementVertices[1][0] =  2;
-  channelElementVertices[1][1] =  5;
-  channelElementVertices[1][2] =  3;
-  channelElementVertices[1][3] =  5;
-  channelElementVertices[1][4] =  5;
-  channelElementVertices[1][5] =  5;
-  channelElementVertices[1][6] =  5;
-  channelElementVertices[2][0] =  2;
-  channelElementVertices[2][1] =  5;
-  channelElementVertices[2][2] =  5;
-  channelElementVertices[2][3] =  9;
-  channelElementVertices[2][4] =  9;
-  channelElementVertices[2][5] =  9;
-  channelElementVertices[2][6] =  9;
-  channelElementVertices[3][0] =  2;
-  channelElementVertices[3][1] =  5;
-  channelElementVertices[3][2] =  9;
-  channelElementVertices[3][3] = 11;
-  channelElementVertices[3][4] = 11;
-  channelElementVertices[3][5] = 11;
-  channelElementVertices[3][6] = 11;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::channelVerticesSize + 2; jj++)
+        {
+          channelElementVertices[ii][jj] = globalChannelElementVertices[ii + localChannelElementStart][jj];
+        }
+    }
   
+  // Unused.
   channelVertexX         = NULL;
   channelVertexY         = NULL;
   channelVertexZBank     = NULL;
   channelVertexZBed      = NULL;
   
-  channelElementX = new double[globalNumberOfChannelElements];
+  channelElementX = new double[localNumberOfChannelElements];
   
-  channelElementX[0] = 0.0;
-  channelElementX[1] = 0.0;
-  channelElementX[2] = 0.0;
-  channelElementX[3] = 0.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementX[ii] = globalChannelElementX[ii + localChannelElementStart];
+    }
   
-  channelElementY = new double[globalNumberOfChannelElements];
+  channelElementY = new double[localNumberOfChannelElements];
   
-  channelElementY[0] = 175.0;
-  channelElementY[1] = 125.0;
-  channelElementY[2] =  75.0;
-  channelElementY[3] =  25.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementY[ii] = globalChannelElementY[ii + localChannelElementStart];
+    }
   
-  channelElementZBank = new double[globalNumberOfChannelElements];
+  channelElementZBank = new double[localNumberOfChannelElements];
   
-  channelElementZBank[0] = 15.0;
-  channelElementZBank[1] = 12.5;
-  channelElementZBank[2] =  7.5;
-  channelElementZBank[3] =  2.5;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementZBank[ii] = globalChannelElementZ[ii + localChannelElementStart];
+    }
   
-  channelElementZBed = new double[globalNumberOfChannelElements];
+  channelElementZBed = new double[localNumberOfChannelElements];
   
-  channelElementZBed[0] = 12.5;
-  channelElementZBed[1] = 10.0;
-  channelElementZBed[2] =  5.0;
-  channelElementZBed[3] =  0.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementZBed[ii] = globalChannelElementZ[ii + localChannelElementStart] - 2.5;
+    }
   
-  channelElementLength = new double[globalNumberOfChannelElements];
+  channelElementLength = new double[localNumberOfChannelElements];
   
-  channelElementLength[0] = 50.0;
-  channelElementLength[1] = 50.0;
-  channelElementLength[2] = 50.0;
-  channelElementLength[3] = 50.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementLength[ii] = 50.0;
+    }
   
-  channelChannelType = new ChannelTypeEnum[globalNumberOfChannelElements];
+  channelChannelType = new ChannelTypeEnum[localNumberOfChannelElements];
   
-  channelChannelType[0] = WATERBODY;
-  channelChannelType[1] = STREAM;
-  channelChannelType[2] = STREAM;
-  channelChannelType[3] = STREAM;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      if (0 == ii + localChannelElementStart)
+        {
+          channelChannelType[ii] = WATERBODY;
+        }
+      else
+        {
+          channelChannelType[ii] = STREAM;
+        }
+    }
   
-  channelPermanentCode = new int[globalNumberOfChannelElements];
+  channelPermanentCode = new int[localNumberOfChannelElements];
   
-  channelPermanentCode[0] = 1;
-  channelPermanentCode[1] = 1;
-  channelPermanentCode[2] = 1;
-  channelPermanentCode[3] = 1;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelPermanentCode[ii] = 1;
+    }
   
-  channelBaseWidth = new double[globalNumberOfChannelElements];
+  channelBaseWidth = new double[localNumberOfChannelElements];
   
-  channelBaseWidth[0] = 150.0;
-  channelBaseWidth[1] =   1.0;
-  channelBaseWidth[2] =   1.0;
-  channelBaseWidth[3] =   1.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      if (0 == ii + localChannelElementStart)
+        {
+          channelBaseWidth[ii] = 150.0;
+        }
+      else
+        {
+          channelBaseWidth[ii] = 1.0;
+        }
+    }
   
-  channelSideSlope = new double[globalNumberOfChannelElements];
+  channelSideSlope = new double[localNumberOfChannelElements];
   
-  channelSideSlope[0] = 1.0;
-  channelSideSlope[1] = 1.0;
-  channelSideSlope[2] = 1.0;
-  channelSideSlope[3] = 1.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSideSlope[ii] = 1.0;
+    }
   
-  channelBedConductivity = new double[globalNumberOfChannelElements];
+  channelBedConductivity = new double[localNumberOfChannelElements];
   
-  channelBedConductivity[0] = 5.55e-4;
-  channelBedConductivity[1] = 5.55e-4;
-  channelBedConductivity[2] = 5.55e-4;
-  channelBedConductivity[3] = 5.55e-4;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelBedConductivity[ii] = 5.55e-4;
+    }
   
-  channelBedThickness = new double[globalNumberOfChannelElements];
+  channelBedThickness = new double[localNumberOfChannelElements];
   
-  channelBedThickness[0] = 1.0;
-  channelBedThickness[1] = 1.0;
-  channelBedThickness[2] = 1.0;
-  channelBedThickness[3] = 1.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelBedThickness[ii] = 1.0;
+    }
   
-  channelManningsN = new double[globalNumberOfChannelElements];
+  channelManningsN = new double[localNumberOfChannelElements];
   
-  channelManningsN[0] = 0.038;
-  channelManningsN[1] = 0.038;
-  channelManningsN[2] = 0.038;
-  channelManningsN[3] = 0.038;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelManningsN[ii] = 0.038;
+    }
   
-  channelSurfacewaterDepth = new double[globalNumberOfChannelElements];
+  channelSurfacewaterDepth = new double[localNumberOfChannelElements];
   
-  channelSurfacewaterDepth[0] = 0.0;
-  channelSurfacewaterDepth[1] = 0.0;
-  channelSurfacewaterDepth[2] = 0.0;
-  channelSurfacewaterDepth[3] = 0.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSurfacewaterDepth[ii] = 0.0;
+    }
   
-  channelSurfacewaterError = new double[globalNumberOfChannelElements];
+  channelSurfacewaterError = new double[localNumberOfChannelElements];
   
-  channelSurfacewaterError[0] = 0.0;
-  channelSurfacewaterError[1] = 0.0;
-  channelSurfacewaterError[2] = 0.0;
-  channelSurfacewaterError[3] = 0.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSurfacewaterError[ii] = 0.0;
+    }
   
-  channelChannelNeighbors = new int[globalNumberOfChannelElements][ChannelElement::channelNeighborsSize];
+  channelChannelNeighbors = new int[localNumberOfChannelElements][ChannelElement::channelNeighborsSize];
   
-  channelChannelNeighbors[0][0] = 1;
-  channelChannelNeighbors[0][1] = NOFLOW;
-  channelChannelNeighbors[1][0] = 0;
-  channelChannelNeighbors[1][1] = 2;
-  channelChannelNeighbors[2][0] = 1;
-  channelChannelNeighbors[2][1] = 3;
-  channelChannelNeighbors[3][0] = 2;
-  channelChannelNeighbors[3][1] = OUTFLOW;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::channelNeighborsSize; jj++)
+        {
+          channelChannelNeighbors[ii][jj] = globalChannelChannelNeighbors[ii + localChannelElementStart][jj];
+        }
+    }
   
-  channelMeshNeighbors = new int[globalNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  channelMeshNeighbors = new int[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
   
-  channelMeshNeighbors[0][0] = 0;
-  channelMeshNeighbors[0][1] = 4;
-  channelMeshNeighbors[0][2] = NOFLOW;
-  channelMeshNeighbors[0][3] = NOFLOW;
-  channelMeshNeighbors[1][0] = 1;
-  channelMeshNeighbors[1][1] = 5;
-  channelMeshNeighbors[1][2] = NOFLOW;
-  channelMeshNeighbors[1][3] = NOFLOW;
-  channelMeshNeighbors[2][0] = 1;
-  channelMeshNeighbors[2][1] = 5;
-  channelMeshNeighbors[2][2] = 3;
-  channelMeshNeighbors[2][3] = 7;
-  channelMeshNeighbors[3][0] = 3;
-  channelMeshNeighbors[3][1] = 7;
-  channelMeshNeighbors[3][2] = NOFLOW;
-  channelMeshNeighbors[3][3] = NOFLOW;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
+        {
+          channelMeshNeighbors[ii][jj] = globalChannelMeshNeighbors[ii + localChannelElementStart][jj];
+        }
+    }
   
-  channelMeshNeighborsEdgeLength = new double[globalNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  channelMeshNeighborsEdgeLength = new double[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
   
-  channelMeshNeighborsEdgeLength[0][0] = 75.0;
-  channelMeshNeighborsEdgeLength[0][1] = 75.0;
-  channelMeshNeighborsEdgeLength[0][2] =  1.0;
-  channelMeshNeighborsEdgeLength[0][3] =  1.0;
-  channelMeshNeighborsEdgeLength[1][0] = 50.0;
-  channelMeshNeighborsEdgeLength[1][1] = 50.0;
-  channelMeshNeighborsEdgeLength[1][2] =  1.0;
-  channelMeshNeighborsEdgeLength[1][3] =  1.0;
-  channelMeshNeighborsEdgeLength[2][0] = 25.0;
-  channelMeshNeighborsEdgeLength[2][1] = 25.0;
-  channelMeshNeighborsEdgeLength[2][2] = 25.0;
-  channelMeshNeighborsEdgeLength[2][3] = 25.0;
-  channelMeshNeighborsEdgeLength[3][0] = 50.0;
-  channelMeshNeighborsEdgeLength[3][1] = 50.0;
-  channelMeshNeighborsEdgeLength[3][2] =  1.0;
-  channelMeshNeighborsEdgeLength[3][3] =  1.0;
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
+        {
+          channelMeshNeighborsEdgeLength[ii][jj] = globalChannelMeshNeighborsEdgeLength[ii + localChannelElementStart][jj];
+        }
+    }
   
+  meshVertexUpdated     = NULL; // Will be allocated and freed if and when we send messages to update vertices from nodes.
   meshElementUpdated    = new bool[localNumberOfMeshElements];
   channelElementUpdated = new bool[localNumberOfChannelElements];
-  
-  error = writeGeometry(directory, geometryGroup, true);
-  
-  if (!error)
+
+  // Get vertex data form node data.
+  if (NULL == meshVertexX && NULL != meshNodeX && NULL != meshElementVertices)
     {
-      error = writeParameter(directory, parameterGroup, true);
+      meshVertexX         = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGetVertexData = true;
     }
   
-  if (!error)
+  if (NULL == meshVertexY && NULL != meshNodeY && NULL != meshElementVertices)
     {
-      error = writeState(directory, stateGroup, true, time, dt, geometryGroup, parameterGroup);
+      meshVertexY         = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGetVertexData = true;
     }
   
-  if (error)
+  if (NULL == meshVertexZSurface && NULL != meshNodeZSurface && NULL != meshElementVertices)
     {
-      CkExit();
+      meshVertexZSurface  = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGetVertexData = true;
+    }
+  
+  if (NULL == meshVertexZBedrock && NULL != meshNodeZBedrock && NULL != meshElementVertices)
+    {
+      meshVertexZBedrock  = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGetVertexData = true;
+    }
+  
+  // We don't try to get channel vertex data because it is unused.
+  
+  if (needToGetVertexData)
+    {
+      meshVertexUpdated = new bool[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      
+      for(ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
+            {
+              meshVertexUpdated[ii][jj] = false;
+              
+              // FIXME improve efficiency.  Don't send message to myself.  Don't send duplicate messages for the same node.
+              thisProxy[home(meshElementVertices[ii][jj], globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj,
+                                                                                                             meshElementVertices[ii][jj]);
+            }
+        }
+      
+      thisProxy[CkMyPe()].waitForVertexData(outputDirectorySize, outputDirectory, geometryGroup, parameterGroup, stateGroup, time, dt);
+    }
+  else
+    {
+      calculateDerivedValues(outputDirectory, geometryGroup, parameterGroup, stateGroup, time, dt);
     }
 }
 
@@ -740,59 +485,221 @@ void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfIte
     }
 }
 
-void FileManager::getVertexData()
+void FileManager::calculateDerivedValues(char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt)
 {
-  int  element;           // Loop counter.
-  int  vertex;            // Loop counter.
-  bool needToGet = false; // Whether we need to get any vertex data.
-  
-  // FIXME we don't try to get channel vertex data because it is unused.
-  
-  if (NULL != meshElementVertices && NULL != meshNodeX && NULL == meshVertexX)
+  bool   error = false; // Error flag.
+  int    element;       // Loop counter.
+  int    vertex;        // Loop counter.
+  double value;         // For calculating derived values.
+
+  if (NULL == meshElementX && NULL != meshVertexX)
     {
-      meshVertexX = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
-      needToGet   = true;
+      meshElementX = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              value += meshVertexX[element][vertex];
+            }
+
+          meshElementX[element] = value / MeshElement::meshNeighborsSize;
+        }
     }
-  
-  if (NULL != meshElementVertices && NULL != meshNodeY && NULL == meshVertexY)
+
+  if (NULL == meshElementY && NULL != meshVertexY)
     {
-      meshVertexY = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
-      needToGet   = true;
+      meshElementY = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              value += meshVertexY[element][vertex];
+            }
+
+          meshElementY[element] = value / MeshElement::meshNeighborsSize;
+        }
     }
-  
-  if (NULL != meshElementVertices && NULL != meshNodeZSurface && NULL == meshVertexZSurface)
+
+  if (NULL == meshElementZSurface && NULL != meshVertexZSurface)
     {
-      meshVertexZSurface = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
-      needToGet          = true;
+      meshElementZSurface = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              value += meshVertexZSurface[element][vertex];
+            }
+
+          meshElementZSurface[element] = value / MeshElement::meshNeighborsSize;
+        }
     }
-  
-  if (NULL != meshElementVertices && NULL != meshNodeZBedrock && NULL == meshVertexZBedrock)
+
+  if (NULL == meshElementZBedrock && NULL != meshVertexZBedrock)
     {
-      meshVertexZBedrock = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
-      needToGet          = true;
+      meshElementZBedrock = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              value += meshVertexZBedrock[element][vertex];
+            }
+
+          meshElementZBedrock[element] = value / MeshElement::meshNeighborsSize;
+        }
     }
-  
-  if (needToGet)
+
+  if (NULL == meshElementArea && NULL != meshVertexX && NULL != meshVertexY)
     {
-      meshVertexUpdated = new bool[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
-      
-      for(element = 0; element < localNumberOfMeshElements; element++)
+      meshElementArea = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              value += meshVertexX[element][vertex] * (meshVertexY[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                       meshVertexY[element][(vertex + 2) % MeshElement::meshNeighborsSize]);
+            }
+
+          meshElementArea[element] = value * 0.5;
+        }
+    }
+
+  if (NULL == meshElementSlopeX && NULL != meshVertexX && NULL != meshVertexY && NULL != meshVertexZSurface)
+    {
+      meshElementSlopeX = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize - 1; vertex++)
+            {
+              value += (meshVertexY[element][(vertex + 2) % MeshElement::meshNeighborsSize] - meshVertexY[element][vertex]) *
+                       (meshVertexZSurface[element][(vertex + 1) % MeshElement::meshNeighborsSize] - meshVertexZSurface[element][0]);
+            }
+
+          meshElementSlopeX[element] = value / (2.0 * meshElementArea[element]);
+        }
+    }
+
+  if (NULL == meshElementSlopeY && NULL != meshVertexX && NULL != meshVertexY && NULL != meshVertexZSurface)
+    {
+      meshElementSlopeY = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          // This works for triangles.  Don't know about other shapes.
+          value = 0.0;
+
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize - 1; vertex++)
+            {
+              value += (meshVertexX[element][vertex] - meshVertexX[element][(vertex + 2) % MeshElement::meshNeighborsSize]) *
+                       (meshVertexZSurface[element][(vertex + 1) % MeshElement::meshNeighborsSize] - meshVertexZSurface[element][0]);
+            }
+
+          meshElementSlopeY[element] = value / (2.0 * meshElementArea[element]);
+        }
+    }
+
+  if (NULL == meshMeshNeighborsEdgeLength && NULL != meshVertexX && NULL != meshVertexY)
+    {
+      meshMeshNeighborsEdgeLength = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
         {
           for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
             {
-              meshVertexUpdated[element][vertex] = false;
-              
-              // FIXME improve efficiency.  Don't send message to myself.  Don't send duplicate messages for the same node.
-              thisProxy[home(meshElementVertices[element][vertex], globalNumberOfMeshNodes)]
-                        .getMeshVertexDataMessage(CkMyPe(), element + localMeshElementStart, vertex, meshElementVertices[element][vertex]);
+              // This works for triangles.  Don't know about other shapes.
+              meshMeshNeighborsEdgeLength[element][vertex] = sqrt((meshVertexX[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                                   meshVertexX[element][(vertex + 2) % MeshElement::meshNeighborsSize]) *
+                                                                  (meshVertexX[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                                   meshVertexX[element][(vertex + 2) % MeshElement::meshNeighborsSize]) +
+                                                                  (meshVertexY[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                                   meshVertexY[element][(vertex + 2) % MeshElement::meshNeighborsSize]) *
+                                                                  (meshVertexY[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                                   meshVertexY[element][(vertex + 2) % MeshElement::meshNeighborsSize]));
             }
         }
-      
-      thisProxy[CkMyPe()].waitForVertexData();
+    }
+
+  if (NULL == meshMeshNeighborsEdgeNormalX && NULL != meshVertexY && NULL != meshMeshNeighborsEdgeLength)
+    {
+      meshMeshNeighborsEdgeNormalX = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              // This works for triangles.  Don't know about other shapes.
+              meshMeshNeighborsEdgeNormalX[element][vertex] = (meshVertexY[element][(vertex + 2) % MeshElement::meshNeighborsSize] -
+                                                               meshVertexY[element][(vertex + 1) % MeshElement::meshNeighborsSize]) /
+                                                              meshMeshNeighborsEdgeLength[element][vertex];
+            }
+        }
+    }
+
+  if (NULL == meshMeshNeighborsEdgeNormalY && NULL != meshVertexX && NULL != meshMeshNeighborsEdgeLength)
+    {
+      meshMeshNeighborsEdgeNormalY = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              // This works for triangles.  Don't know about other shapes.
+              meshMeshNeighborsEdgeNormalY[element][vertex] = (meshVertexX[element][(vertex + 1) % MeshElement::meshNeighborsSize] -
+                                                               meshVertexX[element][(vertex + 2) % MeshElement::meshNeighborsSize]) /
+                                                              meshMeshNeighborsEdgeLength[element][vertex];
+            }
+        }
+    }
+
+  // FIXME remove, part of the hardcoded mesh
+  if (NULL == meshGroundwaterHead && NULL != meshElementZSurface)
+    {
+      meshGroundwaterHead = new double[localNumberOfMeshElements];
+
+      for (element = 0; element < localNumberOfMeshElements; element++)
+        {
+          meshGroundwaterHead[element] = meshElementZSurface[element];
+        }
+    }
+  
+  error = writeGeometry(directory, geometryGroup, true);
+  
+  if (!error)
+    {
+      error = writeParameter(directory, parameterGroup, true);
+    }
+  
+  if (!error)
+    {
+      error = writeState(directory, stateGroup, true, time, dt, geometryGroup, parameterGroup);
+    }
+  
+  if (!error)
+    {
+      contribute();
     }
   else
     {
-      // FIXME call calculate derived values
+      CkExit();
     }
 }
 

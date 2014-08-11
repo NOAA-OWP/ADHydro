@@ -49,6 +49,10 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
 
+  // Finish initialization after the reduction callback indicating the file
+  // manager is ready.
+  void finishInitialization();
+
   // If currentTime is less than endTime do a timestep and cause a callback to
   // timestepDone, otherwise exit.
   void doTimestep();

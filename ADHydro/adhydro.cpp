@@ -28,23 +28,12 @@ ADHydro::ADHydro(CkArgMsg* msg)
   outputPeriod         =  1.5;
   iteration            =  1;
 
-  // Create file manager, mesh, and channels.
-  // FIXME we need to make sure file manager variables are finished initializing before reading them.
-  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
-  meshProxy        = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
-  channelProxy     = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
-
-  // Initialize mesh and channels.
-  meshProxy.initialize(channelProxy, fileManagerProxy);
-  channelProxy.initialize(meshProxy, fileManagerProxy);
+  // Create file manager.
+  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1],
+                                               strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // Check the invariant.  The invariant callback will start the timestep.
-  checkInvariant();
-#else // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // Just start the timestep.
-  doTimestep();
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  // Set the callback to finish initialization when the file manager is ready.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, finishInitialization), thisProxy));
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -89,6 +78,25 @@ void ADHydro::pup(PUP::er &p)
   p | endTime;
   p | dt;
   p | iteration;
+}
+
+void ADHydro::finishInitialization()
+{
+  // Create mesh and channels.
+  meshProxy    = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
+  channelProxy = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
+
+  // Initialize mesh and channels.
+  meshProxy.initialize(channelProxy, fileManagerProxy);
+  channelProxy.initialize(meshProxy, fileManagerProxy);
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  // Check the invariant.  The invariant callback will start the timestep.
+  checkInvariant();
+#else // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  // Just start the timestep.
+  doTimestep();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
 }
 
 void ADHydro::doTimestep()

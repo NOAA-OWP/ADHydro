@@ -134,7 +134,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   int          edge;                                                                               // Loop counter.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                      // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localMeshElementStart; // Index of this element in file manager arrays.
-  double       coordinate;                                                                         // Used for calculating derived coordinates.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfMeshElements))
@@ -153,17 +152,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementX = fileManagerLocalBranch->meshElementX[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge];
-            }
-          
-          elementX = coordinate / meshNeighborsSize;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -179,17 +167,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementY)
         {
           elementY = fileManagerLocalBranch->meshElementY[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge];
-            }
-          
-          elementY = coordinate / meshNeighborsSize;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -207,17 +184,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementZSurface = fileManagerLocalBranch->meshElementZSurface[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][edge];
-            }
-          
-          elementZSurface = coordinate / meshNeighborsSize;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -233,17 +199,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementZBedrock)
         {
           elementZBedrock = fileManagerLocalBranch->meshElementZBedrock[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexZBedrock)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexZBedrock[fileManagerLocalIndex][edge];
-            }
-          
-          elementZBedrock = coordinate / meshNeighborsSize;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -261,20 +216,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementArea = fileManagerLocalBranch->meshElementArea[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] *
-                            (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]);
-            }
-          
-          elementArea = coordinate * 0.5;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -291,22 +232,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementSlopeX = fileManagerLocalBranch->meshElementSlopeX[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
-               NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
-            {
-              coordinate += (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge]) *
-                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
-            }
-          
-          elementSlopeX = coordinate / (2.0 * elementArea);
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -322,22 +247,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementSlopeY)
         {
           elementSlopeY = fileManagerLocalBranch->meshElementSlopeY[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
-               NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
-            {
-              coordinate += (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] -
-                             fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
-            }
-          
-          elementSlopeY = coordinate / (2.0 * elementArea);
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -544,21 +453,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
               meshNeighborsEdgeLength[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeLength[fileManagerLocalIndex][edge];
             }
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeLength[edge] = sqrt((fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                                                   (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) +
-                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]));
-            }
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -578,16 +472,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
               meshNeighborsEdgeNormalX[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalX[fileManagerLocalIndex][edge];
             }
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeNormalX[edge] = (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
-                                                fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize]) /
-                                               meshNeighborsEdgeLength[edge];
-             }
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -606,16 +490,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
             {
               meshNeighborsEdgeNormalY[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalY[fileManagerLocalIndex][edge];
             }
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeNormalY[edge] = (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) /
-                                               meshNeighborsEdgeLength[edge];
-             }
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else

@@ -58,10 +58,30 @@ public:
   // globalNumberOfItems - The total number of this kind of item.
   static int home(int item, int globalNumberOfItems);
   
-  // Constructor.
-  // FIXME describe initialization.
-  // FIXME document parameters.
-  FileManager(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+  // Constructor.  Reads whatever variables are available from NetCDF files.
+  // If a variable is not available from NetCDF files the file managers attempt
+  // To derive it from other variables, for example element center coordinates
+  // from element vertex coordinates.  If a variable is not available and
+  // cannot be derived its array is unallocated and set to NULL.
+  //
+  // After initialization the file managers write out the initial state
+  // including all derived variables to a separate set of NetCDF files that
+  // will hold all of the simulation's output.  When writing is done the file
+  // managers contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // inputDirectorySize  - The size of the array passed to inputDirectory.
+  // inputDirectory      - Where to find the NetCDF files to read.
+  // outputDirectorySize - The size of the array passed to outputDirectory.
+  // outputDirectory     - Where to create the NetCDF files to write.
+  // geometryGroup       - The group to read and write in geometry.nc.
+  // parameterGroup      - The group to read and write in parameter.nc.
+  // stateGroup          - The group to read and write in state.nc.
+  // time                - The current time to write to state.nc.
+  // dt                  - The timestep to write to state.nc.
+  FileManager(size_t inputDirectorySize, char* inputDirectory, size_t outputDirectorySize, char* outputDirectory, int geometryGroup,
+              int parameterGroup, int stateGroup, double time, double dt);
 
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
@@ -79,7 +99,7 @@ public:
   // The following are pointers to dynamically allocated arrays containing the
   // data owned by this local branch.  The pointers can be NULL indicating the
   // data is not available.  Elements must check that the data they need to
-  // initialize themselves is available.
+  // initialize themselves are available.
   
   // Nodes are a list of points indexed by node number.  A node may be a vertex
   // for multiple elements.  As such, it is not guaranteed that all of an
@@ -200,8 +220,21 @@ private:
   // globalNumberOfItems - The total number of this kind of item.
   static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
   
-  // FIXME comment
-  void getVertexData();
+  // Called at the end of the constructor or after getting vertex data from
+  // node data if necessary.  Completes the work of the constructor by
+  // calculating variables that can be derived from other variables, writing
+  // out the initial state including all derived variables to NetCDF files and
+  // contributing to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directory      - Where to create the NetCDF files to write.
+  // geometryGroup  - The group to write in geometry.nc.
+  // parameterGroup - The group to write in parameter.nc.
+  // stateGroup     - The group to write in state.nc.
+  // time           - The current time to write to state.nc.
+  // dt             - The timestep to write to state.nc.
+  void calculateDerivedValues(char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
 
   // Returns: true if all vertex information is updated, false otherwise.
   bool allVerticesUpdated();
