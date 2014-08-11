@@ -49,6 +49,9 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
 
+  // Reduction callback used as a barrier during file manager initialization.
+  void fileManagerFirstCallback();
+  
   // Finish initialization after the reduction callback indicating the file
   // manager is ready.
   void finishInitialization();

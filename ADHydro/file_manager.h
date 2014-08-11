@@ -59,29 +59,40 @@ public:
   static int home(int item, int globalNumberOfItems);
   
   // Constructor.  Reads whatever variables are available from NetCDF files.
-  // If a variable is not available from NetCDF files the file managers attempt
-  // To derive it from other variables, for example element center coordinates
-  // from element vertex coordinates.  If a variable is not available and
-  // cannot be derived its array is unallocated and set to NULL.
-  //
-  // After initialization the file managers write out the initial state
-  // including all derived variables to a separate set of NetCDF files that
-  // will hold all of the simulation's output.  When writing is done the file
-  // managers contribute to an empty reduction.
+  // After reading variables determines whether a round of messages is needed
+  // to communicate node data to vertex arrays.  It does this round of messages
+  // or not, and then either way the file managers contribute to an empty
+  // reduction.  This reduction is necessary as a barrier before calling
+  // finishInitialization.  When you receive the reduction callback you should
+  // call finishInitialization.
   //
   // Parameters:
   //
-  // inputDirectorySize  - The size of the array passed to inputDirectory.
-  // inputDirectory      - Where to find the NetCDF files to read.
-  // outputDirectorySize - The size of the array passed to outputDirectory.
-  // outputDirectory     - Where to create the NetCDF files to write.
-  // geometryGroup       - The group to read and write in geometry.nc.
-  // parameterGroup      - The group to read and write in parameter.nc.
-  // stateGroup          - The group to read and write in state.nc.
-  // time                - The current time to write to state.nc.
-  // dt                  - The timestep to write to state.nc.
-  FileManager(size_t inputDirectorySize, char* inputDirectory, size_t outputDirectorySize, char* outputDirectory, int geometryGroup,
-              int parameterGroup, int stateGroup, double time, double dt);
+  // directorySize - The size of the array passed to directory.
+  // directory     - Where to find the NetCDF files to read.
+  FileManager(size_t directorySize, char* directory);
+  
+  // This should be called after the callback from the constructor.  If a
+  // variable is not available from NetCDF files the file managers attempt to
+  // derive it from other variables, for example element center coordinates
+  // from element vertex coordinates.  If a variable is not available and
+  // cannot be derived its array is unallocated and left as NULL.
+  //
+  // Then the file managers write out the initial state including all derived
+  // variables to a new set of NetCDF files that will hold all of the
+  // simulation's output.  When writing is done the file managers contribute to
+  // an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize  - The size of the array passed to directory.
+  // directory      - Where to create the NetCDF files to write.
+  // geometryGroup  - The group to write in geometry.nc.
+  // parameterGroup - The group to write in parameter.nc.
+  // stateGroup     - The group to write in state.nc.
+  // time           - The current time to write to state.nc.
+  // dt             - The timestep to write to state.nc.
+  void finishInitialization(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
 
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
@@ -220,22 +231,6 @@ private:
   // globalNumberOfItems - The total number of this kind of item.
   static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
   
-  // Called at the end of the constructor or after getting vertex data from
-  // node data if necessary.  Completes the work of the constructor by
-  // calculating variables that can be derived from other variables, writing
-  // out the initial state including all derived variables to NetCDF files and
-  // contributing to an empty reduction.
-  //
-  // Parameters:
-  //
-  // directory      - Where to create the NetCDF files to write.
-  // geometryGroup  - The group to write in geometry.nc.
-  // parameterGroup - The group to write in parameter.nc.
-  // stateGroup     - The group to write in state.nc.
-  // time           - The current time to write to state.nc.
-  // dt             - The timestep to write to state.nc.
-  void calculateDerivedValues(char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
-
   // Returns: true if all vertex information is updated, false otherwise.
   bool allVerticesUpdated();
   

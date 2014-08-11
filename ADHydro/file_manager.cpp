@@ -34,8 +34,7 @@ int FileManager::home(int item, int globalNumberOfItems)
   return itemHome;
 }
 
-FileManager::FileManager(size_t inputDirectorySize, char* inputDirectory, size_t outputDirectorySize, char* outputDirectory, int geometryGroup,
-                         int parameterGroup, int stateGroup, double time, double dt)
+FileManager::FileManager(size_t directorySize, char* directory)
 {
   int    ii, jj;                                             // Loop counters.
   bool   needToGetVertexData                        = false; // Whether we need to get any vertex data.
@@ -450,42 +449,15 @@ FileManager::FileManager(size_t inputDirectorySize, char* inputDirectory, size_t
             }
         }
       
-      thisProxy[CkMyPe()].waitForVertexData(outputDirectorySize, outputDirectory, geometryGroup, parameterGroup, stateGroup, time, dt);
+      thisProxy[CkMyPe()].waitForVertexData();
     }
   else
     {
-      calculateDerivedValues(outputDirectory, geometryGroup, parameterGroup, stateGroup, time, dt);
+      contribute();
     }
 }
 
-void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
-{
-  int numPes              = CkNumPes();                           // Number of processors.
-  int myPe                = CkMyPe();                             // The processor of this file manager.
-  int numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of file managers that own one extra item.
-  int itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each file manager that owns one extra item.
-  int itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all file managers that own one extra item.
-  int itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each file manager that does not own one extra item.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 < globalNumberOfItems);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  if (myPe < numberOfFatOwners)
-    {
-      // I am a fat owner.
-      *localItemStart     = myPe * itemsPerFatOwner;
-      *localNumberOfItems = itemsPerFatOwner;
-    }
-  else
-    {
-      // I am a thin owner.
-      *localItemStart     = (myPe - numberOfFatOwners) * itemsPerThinOwner + itemsInAllFatOwners;
-      *localNumberOfItems = itemsPerThinOwner;
-    }
-}
-
-void FileManager::calculateDerivedValues(char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt)
+void FileManager::finishInitialization(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt)
 {
   bool   error = false; // Error flag.
   int    element;       // Loop counter.
@@ -700,6 +672,33 @@ void FileManager::calculateDerivedValues(char* directory, int geometryGroup, int
   else
     {
       CkExit();
+    }
+}
+
+void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
+{
+  int numPes              = CkNumPes();                           // Number of processors.
+  int myPe                = CkMyPe();                             // The processor of this file manager.
+  int numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of file managers that own one extra item.
+  int itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each file manager that owns one extra item.
+  int itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all file managers that own one extra item.
+  int itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each file manager that does not own one extra item.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 < globalNumberOfItems);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (myPe < numberOfFatOwners)
+    {
+      // I am a fat owner.
+      *localItemStart     = myPe * itemsPerFatOwner;
+      *localNumberOfItems = itemsPerFatOwner;
+    }
+  else
+    {
+      // I am a thin owner.
+      *localItemStart     = (myPe - numberOfFatOwners) * itemsPerThinOwner + itemsInAllFatOwners;
+      *localNumberOfItems = itemsPerThinOwner;
     }
 }
 

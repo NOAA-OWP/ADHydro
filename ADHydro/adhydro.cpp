@@ -29,11 +29,10 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration            =  1;
 
   // Create file manager.
-  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1],
-                                               strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
+  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
   
   // Set the callback to finish initialization when the file manager is ready.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, finishInitialization), thisProxy));
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerFirstCallback), thisProxy));
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -78,6 +77,15 @@ void ADHydro::pup(PUP::er &p)
   p | endTime;
   p | dt;
   p | iteration;
+}
+
+void ADHydro::fileManagerFirstCallback()
+{
+  // Set the callback to finish initialization when the file manager is ready.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, finishInitialization), thisProxy));
+  
+  // Have the file manager complete initialization
+  fileManagerProxy.finishInitialization(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
 }
 
 void ADHydro::finishInitialization()

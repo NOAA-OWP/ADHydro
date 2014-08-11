@@ -2,8 +2,7 @@ module file_manager
 {
   group FileManager
   {
-    entry FileManager(size_t inputDirectorySize, char inputDirectory[inputDirectorySize], size_t outputDirectorySize,
-                      char outputDirectory[outputDirectorySize], int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+    entry FileManager(size_t directorySize, char directory[directorySize]);
     
     entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node)
     {
@@ -66,8 +65,7 @@ module file_manager
       }
     };
     
-    entry void waitForVertexData(size_t directorySize, char directory[directorySize], int geometryGroup, int parameterGroup, int stateGroup, double time,
-                                 double dt)
+    entry void waitForVertexData()
     {
       while (!allVerticesUpdated())
       {
@@ -125,9 +123,12 @@ module file_manager
       {
         delete[] meshVertexUpdated;
         
-        calculateDerivedValues(directory, geometryGroup, parameterGroup, stateGroup, time, dt);
+        contribute();
       }
     }; // End waitForVertexData.
+    
+    entry void finishInitialization(size_t directorySize, char directory[directorySize], int geometryGroup, int parameterGroup, int stateGroup, double time,
+                                    double dt);
     
     entry void doOutput(size_t directorySize, char directory[directorySize], bool outputGeometry, int geometryGroup, bool outputParameter, int parameterGroup,
                         bool outputState, int stateGroup, double time, double dt)
