@@ -740,7 +740,79 @@ void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfIte
     }
 }
 
-bool FileManager::allUpdated()
+void FileManager::getVertexData()
+{
+  int  element;           // Loop counter.
+  int  vertex;            // Loop counter.
+  bool needToGet = false; // Whether we need to get any vertex data.
+  
+  // FIXME we don't try to get channel vertex data because it is unused.
+  
+  if (NULL != meshElementVertices && NULL != meshNodeX && NULL == meshVertexX)
+    {
+      meshVertexX = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGet   = true;
+    }
+  
+  if (NULL != meshElementVertices && NULL != meshNodeY && NULL == meshVertexY)
+    {
+      meshVertexY = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGet   = true;
+    }
+  
+  if (NULL != meshElementVertices && NULL != meshNodeZSurface && NULL == meshVertexZSurface)
+    {
+      meshVertexZSurface = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGet          = true;
+    }
+  
+  if (NULL != meshElementVertices && NULL != meshNodeZBedrock && NULL == meshVertexZBedrock)
+    {
+      meshVertexZBedrock = new double[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      needToGet          = true;
+    }
+  
+  if (needToGet)
+    {
+      meshVertexUpdated = new bool[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      
+      for(element = 0; element < localNumberOfMeshElements; element++)
+        {
+          for (vertex = 0; vertex < MeshElement::meshNeighborsSize; vertex++)
+            {
+              meshVertexUpdated[element][vertex] = false;
+              
+              // FIXME improve efficiency.  Don't send message to myself.  Don't send duplicate messages for the same node.
+              thisProxy[home(meshElementVertices[element][vertex], globalNumberOfMeshNodes)]
+                        .getMeshVertexDataMessage(CkMyPe(), element + localMeshElementStart, vertex, meshElementVertices[element][vertex]);
+            }
+        }
+      
+      thisProxy[CkMyPe()].waitForVertexData();
+    }
+  else
+    {
+      // FIXME call calculate derived values
+    }
+}
+
+bool FileManager::allVerticesUpdated()
+{
+  int  ii, jj;         // Loop counters.
+  bool updated = true; // Flag to record whether we have found an unupdated vertex.
+  
+  for (ii = 0; updated && ii < localNumberOfMeshElements; ii++)
+  {
+      for (jj = 0; updated && jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          updated = meshVertexUpdated[ii][jj];
+        }
+  }
+  
+  return updated;
+}
+
+bool FileManager::allElementsUpdated()
 {
   int  ii;             // Loop counter.
   bool updated = true; // Flag to record whether we have found an unupdated element.

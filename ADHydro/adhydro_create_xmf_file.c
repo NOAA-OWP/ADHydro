@@ -247,7 +247,7 @@ fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Nam
 fprintf(meshOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/meshSurfacewaterError</DataItem>\n",nMeshEle,grp_stt_name);
 fprintf(meshOut,"        </Attribute>\n");
 fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshGroundwaterHead\">\n");
-fprintf(meshOut,"           <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/meshGroundwaterHead</DataItem>\n",nMeshEle,grp_stt_name);
+fprintf(meshOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/meshGroundwaterHead</DataItem>\n",nMeshEle,grp_stt_name);
 fprintf(meshOut,"        </Attribute>\n");
 fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshGroundwaterError\">\n"); 
 fprintf(meshOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/meshGroundwaterError</DataItem>\n",nMeshEle,grp_stt_name);
@@ -257,8 +257,8 @@ fprintf(meshOut,"      </Grid>\n");
 // for all groups: Channel file
 fprintf(ChannelOut,"      <Grid GridType=\"Uniform\">\n");
 fprintf(ChannelOut,"        <Time Value=\"%f\"/>\n",time);
-fprintf(ChannelOut,"         <Topology NumberOfElements=\"%zu\" Type=\"Mixed\">\n",nChannelEle);
-fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu %zu\" Format=\"HDF\">geometry.nc:/%i/meshElementVertices</DataItem>\n",nChannelEle,nchannelVrtArr, grp_geo);
+fprintf(ChannelOut,"        <Topology NumberOfElements=\"%zu\" Type=\"Mixed\">\n",nChannelEle);
+fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu %zu\" Format=\"HDF\">geometry.nc:/%i/channelElementVertices</DataItem>\n",nChannelEle,nchannelVrtArr, grp_geo);
 fprintf(ChannelOut,"        </Topology>\n");
 fprintf(ChannelOut,"        <Geometry Type=\"X_Y_Z\">\n");
 fprintf(ChannelOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/channelNodeX</DataItem>\n",nnode,grp_geo);   
@@ -284,10 +284,10 @@ fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" 
 fprintf(ChannelOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">geometry.nc:/%i/channelElementLength</DataItem>\n",nChannelEle,grp_geo);
 fprintf(ChannelOut,"        </Attribute>\n");
 fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelChannelType\">\n");  
-fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">parameter.nc:/%i/channelChannelType</DataItem>\n",nChannelEle,grp_par);
+fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu\" Format=\"HDF\">parameter.nc:/%i/channelChannelType</DataItem>\n",nChannelEle,grp_par);
 fprintf(ChannelOut,"        </Attribute>\n");
 fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelPermanentCode\">\n");  
-fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">parameter.nc:/%i/channelPermanentCode</DataItem>\n",nChannelEle,grp_par);
+fprintf(ChannelOut,"          <DataItem DataType=\"Int\" Dimensions=\"%zu\" Format=\"HDF\">parameter.nc:/%i/channelPermanentCode</DataItem>\n",nChannelEle,grp_par);
 fprintf(ChannelOut,"        </Attribute>\n"); 
 fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelBaseWidth\">\n");
 fprintf(ChannelOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">parameter.nc:/%i/channelBaseWidth</DataItem>\n",nChannelEle,grp_par); 
@@ -308,7 +308,7 @@ fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" 
 fprintf(ChannelOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/channelSurfacewaterDepth</DataItem>\n",nChannelEle,grp_stt_name);
 fprintf(ChannelOut,"        </Attribute>\n");
 fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSurfacewaterError\">\n");
-fprintf(ChannelOut,"           <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/channelSurfacewaterError</DataItem>\n",nChannelEle,grp_stt_name);
+fprintf(ChannelOut,"          <DataItem DataType=\"Float\" Dimensions=\"%zu\" Format=\"HDF\" Precision=\"8\">state.nc:/%s/channelSurfacewaterError</DataItem>\n",nChannelEle,grp_stt_name);
 fprintf(ChannelOut,"        </Attribute>\n");     
 fprintf(ChannelOut,"      </Grid>\n");    
 
@@ -316,11 +316,11 @@ fprintf(ChannelOut,"      </Grid>\n");
  
 fprintf(meshOut,"    </Grid>\n");
 fprintf(meshOut,"  </Domain>\n");
-fprintf(meshOut,"</Xdmf>\n");
+fprintf(meshOut,"</Xdmf>\n\n");
 
 fprintf(ChannelOut,"    </Grid>\n");
 fprintf(ChannelOut,"  </Domain>\n");
-fprintf(ChannelOut,"</Xdmf>\n");
+fprintf(ChannelOut,"</Xdmf>\n\n");
 
  free(grpid_stt);
  

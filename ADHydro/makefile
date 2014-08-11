@@ -23,8 +23,8 @@ CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -g -Wall -language charm++
 
 EXES := adhydro                     \
-        adhydro_input_preprocessing \
         adhydro_create_xmf_file
+# FIXME       adhydro_input_preprocessing \
 
 ADHYDRO_OBJS := adhydro.o         \
                 mesh_element.o    \
@@ -84,13 +84,13 @@ adhydro_input_preprocessing.def.h: adhydro_input_preprocessing.ci \
                                    file_manager.ci
 	$(CHARMC) $<
 
+# FIXME all below is reviewed
+
 adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 	$(CC) $^ -o $@ -lnetcdf -g -Wall
 
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
-
-# FIXME all below is reviewed
 
 mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \

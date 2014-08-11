@@ -198,10 +198,16 @@ private:
   // localNumberOfItems  - Scalar passed by reference will be filled in with
   //                       the local number of items.
   // globalNumberOfItems - The total number of this kind of item.
-  void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+  static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+  
+  // FIXME comment
+  void getVertexData();
 
+  // Returns: true if all vertex information is updated, false otherwise.
+  bool allVerticesUpdated();
+  
   // Returns: true if all element information is updated, false otherwise.
-  bool allUpdated();
+  bool allElementsUpdated();
   
   // Write out values stored in arrays to geometry.nc file.
   //
@@ -245,9 +251,10 @@ private:
   //                  attributes.
   bool writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup);
   
-  // These arrays are used to record when state update messages are received.
-  bool* meshElementUpdated;
-  bool* channelElementUpdated;
+  // These arrays are used to record when vertex data and state update messages are received.
+  boolarraymmn* meshVertexUpdated;
+  bool*         meshElementUpdated;
+  bool*         channelElementUpdated;
 };
 
 #endif // __FILE_MANAGER_H__

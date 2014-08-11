@@ -4,6 +4,129 @@ module file_manager
   {
     entry FileManager(size_t directorySize, char directory[directorySize], int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
     
+    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node)
+    {
+      serial
+      {
+        double x        = 0.0;
+        double y        = 0.0;
+        double zSurface = 0.0;
+        double zBedrock = 0.0;
+        
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        if (!(0 <= requester && requester < CkNumPes()))
+          {
+            CkError("ERROR in FileManager::getMeshVertexDataMessage: requester must be greater than or equal to zero and less than CkNumPes().\n");
+            CkExit();
+          }
+        
+        if (!(0 <= element && element < globalNumberOfMeshElements))
+          {
+            CkError("ERROR in FileManager::getMeshVertexDataMessage: element must be greater than or equal to zero and less than "
+                    "globalNumberOfMeshElements.\n");
+            CkExit();
+          }
+        
+        if (!(0 <= vertex && vertex < MeshElement::meshNeighborsSize))
+          {
+            CkError("ERROR in FileManager::getMeshVertexDataMessage: vertex must be greater than or equal to zero and less than "
+                    "MeshElement::meshNeighborsSize.\n");
+            CkExit();
+          }
+        
+        if (!(localMeshNodeStart <= node && node < localMeshNodeStart + localNumberOfMeshNodes))
+          {
+            CkError("ERROR in FileManager::getMeshVertexDataMessage: node data not owned by this local branch.\n");
+            CkExit();
+          }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        
+        if (NULL != meshNodeX)
+        {
+          x = meshNodeX[node - localMeshNodeStart];
+        }
+        
+        if (NULL != meshNodeY)
+        {
+          y = meshNodeY[node - localMeshNodeStart];
+        }
+        
+        if (NULL != meshNodeZSurface)
+        {
+          zSurface = meshNodeZSurface[node - localMeshNodeStart];
+        }
+        
+        if (NULL != meshNodeZBedrock)
+        {
+          zBedrock = meshNodeZBedrock[node - localMeshNodeStart];
+        }
+        
+        thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
+      }
+    };
+    
+    entry void waitForVertexData()
+    {
+      while (!allVerticesUpdated())
+      {
+        when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock)
+        {
+          serial
+          {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+            if (!(localMeshElementStart <= element && element < localMeshElementStart + localNumberOfMeshElements))
+              {
+                CkError("ERROR in FileManager::meshVertexDataMessage: element data not owned by this local branch.\n");
+                CkExit();
+              }
+            
+            if (!(0 <= vertex && vertex < MeshElement::meshNeighborsSize))
+              {
+                CkError("ERROR in FileManager::meshVertexDataMessage: vertex must be greater than or equal to zero and less than "
+                        "MeshElement::meshNeighborsSize.\n");
+                CkExit();
+              }
+            
+            if (!(zSurface >= zBedrock))
+              {
+                CkError("ERROR in FileManager::meshVertexDataMessage: zSurface must be greater than or equal to zBedrock.\n");
+                CkExit();
+              }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+            if (NULL != meshNodeX)
+            {
+              meshVertexX[element - localMeshElementStart][vertex] = x;
+            }
+
+            if (NULL != meshNodeY)
+            {
+              meshVertexY[element - localMeshElementStart][vertex] = y;
+            }
+
+            if (NULL != meshNodeZSurface)
+            {
+              meshVertexZSurface[element - localMeshElementStart][vertex] = zSurface;
+            }
+
+            if (NULL != meshNodeZBedrock)
+            {
+              meshVertexZBedrock[element - localMeshElementStart][vertex] = zBedrock;
+            }
+            
+            meshVertexUpdated[element - localMeshElementStart][vertex] = true;
+          }
+        }
+      } // End while (!allVerticesUpdated()).
+      
+      serial
+      {
+        delete[] meshVertexUpdated;
+        
+        // FIXME call calculate derived values
+      }
+    }; // End waitForVertexData.
+    
     entry void doOutput(size_t directorySize, char directory[directorySize], bool outputGeometry, int geometryGroup, bool outputParameter, int parameterGroup,
                         bool outputState, int stateGroup, double time, double dt)
     {
@@ -22,7 +145,7 @@ module file_manager
         }
       }
       
-      while (!allUpdated())
+      while (!allElementsUpdated())
       {
         case
         {
@@ -75,8 +198,8 @@ module file_manager
               channelElementUpdated[element - localChannelElementStart]    = true;
             }
           }
-        } // End case within while (!allUpdated()).
-      } // End while (!allUpdated()).
+        } // End case within while (!allElementsUpdated()).
+      } // End while (!allElementsUpdated()).
       
       serial
       {
@@ -108,6 +231,7 @@ module file_manager
       }
     }; // End doOutput.
     
+    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
     entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError);
     entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError);
   }; // End group FileManager.
