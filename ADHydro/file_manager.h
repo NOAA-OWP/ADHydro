@@ -58,41 +58,57 @@ public:
   // globalNumberOfItems - The total number of this kind of item.
   static int home(int item, int globalNumberOfItems);
   
-  // Constructor.  Reads whatever variables are available from NetCDF files.
-  // After reading variables determines whether a round of messages is needed
-  // to communicate node data to vertex arrays.  It does this round of messages
-  // or not, and then either way the file managers contribute to an empty
-  // reduction.  This reduction is necessary as a barrier before calling
-  // finishInitialization.  When you receive the reduction callback you should
-  // call finishInitialization.
-  //
-  // Parameters:
-  //
-  // directorySize - The size of the array passed to directory.
-  // directory     - Where to find the NetCDF files to read.
-  FileManager(size_t directorySize, char* directory);
+  // Constructor.  Initializes the file manager to hold no data.
+  FileManager();
   
-  // This should be called after the callback from the constructor.  If a
-  // variable is not available from NetCDF files the file managers attempt to
-  // derive it from other variables, for example element center coordinates
-  // from element vertex coordinates.  If a variable is not available and
-  // cannot be derived its array is unallocated and left as NULL.
-  //
-  // Then the file managers write out the initial state including all derived
-  // variables to a new set of NetCDF files that will hold all of the
-  // simulation's output.  When writing is done the file managers contribute to
-  // an empty reduction.
+  // Initializes the file manager to hold a hardcoded mesh.  When done the file
+  // managers contribute to an empty reduction.
+  void initializeHardcodedMesh();
+  
+  // If a variable is not available the file managers attempt to derive it from
+  // other variables, for example element center coordinates from element
+  // vertex coordinates.  If a variable is not available and cannot be derived
+  // its array is unallocated and left as NULL.  When done the file managers
+  // contribute to an empty reduction.
+  void calculateDerivedValues();
+  
+  // Send requested vertex coordinates.
   //
   // Parameters:
   //
-  // directorySize  - The size of the array passed to directory.
-  // directory      - Where to create the NetCDF files to write.
-  // geometryGroup  - The group to write in geometry.nc.
-  // parameterGroup - The group to write in parameter.nc.
-  // stateGroup     - The group to write in state.nc.
-  // time           - The current time to write to state.nc.
-  // dt             - The timestep to write to state.nc.
-  void finishInitialization(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+  // requester - File manager requesting vertex coordinates.
+  // element   - Element that has vertex.
+  // vertex    - Vertex requesting coordinates for.
+  // node      - Node index of vertex.
+  void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
+  
+  // Create NetCDF files for output including creating dimensions and variables
+  // within the files.  When done the file managers contribute to an empty
+  // reduction.
+  //
+  // Parameters:
+  //
+  // directorySize - The size of the array passed in to directory.
+  // directory     - The directory in which to create the files.
+  void createFiles(size_t directorySize, const char* directory);
+  
+  // Write data to NetCDF files.  Files must already be created.  When done the
+  // file managers contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize  - The size of the array passed in to directory.
+  // directory      - The directory in which to create the files.
+  // writeGeometry  - Whether to write a new instance into the geometry file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeParameter - Whether to write a new instance into the parameter file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeState     - Whether to write a new instance into the state file.
+  void writeFiles(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
 
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
@@ -110,7 +126,7 @@ public:
   // The following are pointers to dynamically allocated arrays containing the
   // data owned by this local branch.  The pointers can be NULL indicating the
   // data is not available.  Elements must check that the data they need to
-  // initialize themselves are available.
+  // initialize themselves is available.
   
   // Nodes are a list of points indexed by node number.  A node may be a vertex
   // for multiple elements.  As such, it is not guaranteed that all of an
@@ -215,6 +231,11 @@ public:
   intarraycmn*     channelMeshNeighbors;
   doublearraycmn*  channelMeshNeighborsEdgeLength;
   
+  // Time information.  This is only kept up to date when inputting or outputting.
+  double currentTime; // Seconds.
+  double dt;          // Next timestep duration in seconds.
+  int    iteration;   // Iteration number to put on all messages this timestep.
+  
 private:
   
   // Calculate which items this file manager owns.  The first
@@ -237,47 +258,23 @@ private:
   // Returns: true if all element information is updated, false otherwise.
   bool allElementsUpdated();
   
-  // Write out values stored in arrays to geometry.nc file.
+  // Receive requested vertex coordinates.
   //
   // Parameters:
   //
-  // directory - The location of the file.
-  // group     - The name of the group to create in the NetCDF file.
-  //             It is an error if the group exists.
-  // create    - Whether to create a new file.
-  //             If true, it is an error if the file exists.
-  //             If false, it is an error if the file does not exist.
-  bool writeGeometry(const char* directory, int group, bool create);
+  // element  - Element that has vertex.
+  // vertex   - Vertex that coordinates are for.
+  // x        - X coordinate of vertex.
+  // y        - Y coordinate of vertex.
+  // zSurface - Surface Z coordinate of vertex.
+  // zBedrock - Bedrock Z coordinate of vertex.
+  void handleMeshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
   
-  // Write out values stored in arrays to parameter.nc file.
-  //
-  // Parameters:
-  //
-  // directory - The location of the file.
-  // group     - The name of the group to create in the NetCDF file.
-  //             It is an error if the group exists.
-  // create    - Whether to create a new file.
-  //             If true, it is an error if the file exists.
-  //             If false, it is an error if the file does not exist.
-  bool writeParameter(const char* directory, int group, bool create);
-  
-  // Write out values stored in arrays to state.nc file.
-  //
-  // Parameters:
-  //
-  // directory      - The location of the file.
-  // group          - The name of the group to create in the NetCDF file.
-  //                  It is an error if the group exists.
-  // create         - Whether to create a new file.
-  //                  If true, it is an error if the file exists.
-  //                  If false, it is an error if the file does not exist.
-  // time           - The time to store in the group attributes.
-  // dt             - The timestep to store in the group attributes.
-  // geometryGroup  - The associated geometry group to store in the group
-  //                  attributes.
-  // parameterGroup - The associated parameter group to store in the group
-  //                  attributes.
-  bool writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup);
+  // Calculating derived values had to be split into two functions because file
+  // managers may have to enter SDAG code to send and receive messages with
+  // vertex coordinates in between.  This function finishes the work of
+  // calculateDerivedValues.
+  void finishCalculateDerivedValues();
   
   // These arrays are used to record when vertex data and state update messages are received.
   boolarraymmn* meshVertexUpdated;

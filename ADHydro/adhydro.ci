@@ -7,8 +7,11 @@ mainmodule adhydro
   mainchare [migratable] ADHydro
   {
     initproc void setLoadBalancingToManual();
-    
     entry ADHydro(CkArgMsg* msg);
+    entry [reductiontarget] void fileManagerBarrier();
+    entry [reductiontarget] void fileManagerInitialized();
+    entry [reductiontarget] void fileManagerWriteFiles();
+    entry [reductiontarget] void doTimestep();
     
     entry void waitForTimestepToFinish()
     {
@@ -21,6 +24,10 @@ mainmodule adhydro
       }
     };
     
+    entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
+    entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
+    entry [reductiontarget] void checkInvariant();
+    
     entry void waitForInvariantToFinish()
     {
       when meshInvariantDone(), channelInvariantDone()
@@ -32,13 +39,7 @@ mainmodule adhydro
       }
     };
     
-    entry [reductiontarget] void fileManagerFirstCallback();
-    entry [reductiontarget] void finishInitialization();
-    entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
-    entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
     entry [reductiontarget] void meshInvariantDone();
     entry [reductiontarget] void channelInvariantDone();
-    entry [reductiontarget] void doTimestep();
-    entry [reductiontarget] void checkInvariant();
   }; // End mainchare [migratable] ADHydro.
 }; // End mainmodule adhydro.
