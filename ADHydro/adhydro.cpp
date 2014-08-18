@@ -143,7 +143,7 @@ void ADHydro::doTimestep()
         }
       
       // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %d\n", currentTime, dt, iteration);
+      CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
       
       // Set callbacks.
       meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));

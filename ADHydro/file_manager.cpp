@@ -1921,7 +1921,7 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
   if (!error)
     {
       dimIDs[0]   = instancesDimID;
-      ncErrorCode = nc_def_var(fileID, "iteration", NC_INT, 1, dimIDs, &varID);
+      ncErrorCode = nc_def_var(fileID, "iteration", NC_USHORT, 1, dimIDs, &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -1966,7 +1966,7 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
   if (!error)
     {
       dimIDs[0]   = instancesDimID;
-      ncErrorCode = nc_def_var(fileID, "geometryInstance", NC_UINT, 1, dimIDs, &varID);
+      ncErrorCode = nc_def_var(fileID, "geometryInstance", NC_UINT64, 1, dimIDs, &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -1981,7 +1981,7 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
   if (!error)
     {
       dimIDs[0]   = instancesDimID;
-      ncErrorCode = nc_def_var(fileID, "parameterInstance", NC_UINT, 1, dimIDs, &varID);
+      ncErrorCode = nc_def_var(fileID, "parameterInstance", NC_UINT64, 1, dimIDs, &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -4398,7 +4398,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
             {
               start[0]    = stateInstance;
               count[0]    = 1;
-              ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &iteration);
+              ncErrorCode = nc_put_vara_ushort(fileID, varID, start, count, &iteration);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
@@ -4486,12 +4486,12 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 
           if (!error)
             {
-              // Assumes size_t is four bytes when casting to unsigned int.
-              CkAssert(sizeof(size_t) == sizeof(unsigned int));
+              // Assumes size_t is eight bytes when casting to unsigned long long.
+              CkAssert(sizeof(size_t) == sizeof(unsigned long long));
               
               start[0]    = stateInstance;
               count[0]    = 1;
-              ncErrorCode = nc_put_vara_uint(fileID, varID, start, count, (unsigned int*)&geometryInstance);
+              ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&geometryInstance);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
@@ -4519,12 +4519,12 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 
           if (!error)
             {
-              // Assumes size_t is four bytes when casting to unsigned int.
-              CkAssert(sizeof(size_t) == sizeof(unsigned int));
+              // Assumes size_t is eight bytes when casting to unsigned long long.
+              CkAssert(sizeof(size_t) == sizeof(unsigned long long));
               
               start[0]    = stateInstance;
               count[0]    = 1;
-              ncErrorCode = nc_put_vara_uint(fileID, varID, start, count, (unsigned int*)&parameterInstance);
+              ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&parameterInstance);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))

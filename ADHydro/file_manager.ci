@@ -32,7 +32,7 @@ module file_manager
     entry void createFiles(size_t directorySize, const char directory[directorySize]);
     entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
     
-    entry void updateState(double currentTimeNew, double dtNew, int iterationNew)
+    entry void updateState(double currentTimeNew, double dtNew, CMK_REFNUM_TYPE iterationNew)
     {
       serial
       {

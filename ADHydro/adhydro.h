@@ -89,12 +89,12 @@ private:
   CkArgMsg* commandLineArguments; // Contains the input and output directory paths.
   
   // Time information.
-  double currentTime;    // Seconds.
-  double endTime;        // Seconds.
-  double dt;             // Next timestep duration in seconds.
-  double outputPeriod;   // Simulation time in seconds between outputting to file.  Zero for output every timestep.
-  double nextOutputTime; // Next time in seconds to output to file.
-  int    iteration;      // Iteration number to put on all messages this timestep.
+  double          currentTime;    // Seconds.
+  double          endTime;        // Seconds.
+  double          dt;             // Next timestep duration in seconds.
+  double          outputPeriod;   // Simulation time in seconds between outputting to file.  Zero for output every timestep.
+  double          nextOutputTime; // Next time in seconds to output to file.
+  CMK_REFNUM_TYPE iteration;      // Iteration number to put on all messages this timestep.
   
   // Flags to indicate whether the geometry or parameters have changed and need
   // to be outputted.
