@@ -92,6 +92,18 @@ public:
   // directory     - The directory in which to create the files.
   void createFiles(size_t directorySize, const char* directory);
   
+  // This is a workaround for a problematic interaction when using NetCDF
+  // parallel collective I/O with Charm++.  A write to a NetCDF file that
+  // resizes an unlimited dimension must be done in collective mode, but doing
+  // so in Charm++ causes an MPI error because Charm++ is also using MPI.
+  //
+  // Instead of calling writeFiles on all file managers, call this function on
+  // file manager zero. It opens the files serially and writes one value at the
+  // outside corner of every variable to resize the dimensions, and then closes
+  // the files.  Then it calls writeFiles on all PEs.  They write the data
+  // independently and contribute to an empty reduction.
+  void resizeUnlimitedDimensions(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
+
   // Write data to NetCDF files.  Files must already be created.  When done the
   // file managers contribute to an empty reduction.
   //

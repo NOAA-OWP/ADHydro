@@ -2121,6 +2121,2486 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
     }
 }
 
+void FileManager::resizeUnlimitedDimensions(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState)
+{
+  bool               error      = false;       // Error flag.
+  char*              nameString = NULL;        // Temporary string for file names.
+  size_t             nameStringSize;           // Size of buffer allocated for nameString.
+  size_t             numPrinted;               // Used to check that snprintf printed the correct number of characters.
+  int                ncErrorCode;              // Return value of NetCDF functions.
+  int                fileID;                   // ID of NetCDF file.
+  bool               fileOpen   = false;       // Whether fileID refers to an open file.
+  int                dimID;                    // ID of dimension in NetCDF file.
+  int                varID;                    // ID of variable in NetCDF file.
+  size_t             geometryInstance;         // Instance index for geometry file.
+  size_t             parameterInstance;        // Instance index for parameter file.
+  size_t             stateInstance;            // Instance index for state file.
+  size_t             start[NC_MAX_VAR_DIMS];   // For specifying subarrays when writing to NetCDF file.
+  int                intZero = 0;              // For writing dummy value to resize dimension.
+  double             doubleZero = 0.0;         // For writing dummy value to resize dimension.
+  signed char        signedCharZero = 0;       // For writing dummy value to resize dimension.
+  unsigned short     unsignedShortZero = 0;    // For writing dummy value to resize dimension.
+  unsigned long long unsignedLongLongZero = 0; // For writing dummy value to resize dimension.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+  // This function should only be called if using the NetCDF collective I/O workaround.
+  CkAssert(false);
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+  if (0 == CkMyPe())
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      if (!(NULL != directory))
+        {
+          CkError("ERROR in FileManager::resizeUnlimitedDimensions: directory must not be null.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+      // Allocate space for file name strings.
+      if (!error)
+        {
+          nameStringSize = strlen(directory) + strlen("/parameter.nc") + 1; // The longest file name is parameter.nc.  +1 for null terminating character.
+          nameString     = new char[nameStringSize];
+        }
+
+      if (writeGeometry)
+        {
+          // Create file name.
+          if (!error)
+            {
+              numPrinted = snprintf(nameString, nameStringSize, "%s/geometry.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(strlen(directory) + strlen("/geometry.nc") == numPrinted && numPrinted < nameStringSize))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: incorrect return value of snprintf when generating geometry file name %s.  "
+                          "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/geometry.nc"), nameStringSize);
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Open file.
+          if (!error)
+            {
+              ncErrorCode = nc_open(nameString, NC_NETCDF4 | NC_WRITE, &fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to open NetCDF geometry file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+              else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                {
+                  fileOpen = true;
+                }
+            }
+
+          // Get the number of existing instances.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimid(fileID, "instances", &dimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get dimension instances in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimlen(fileID, dimID, &geometryInstance);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get length of dimension instances in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Write variables.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "numberOfMeshNodes", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = geometryInstance;
+              ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "numberOfMeshElements", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = geometryInstance;
+              ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable numberOfMeshElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "numberOfChannelNodes", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = geometryInstance;
+              ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "numberOfChannelElements", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable numberOfChannelElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = geometryInstance;
+              ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable numberOfChannelElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (NULL != meshNodeX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshNodeX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshNodeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshNodeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshNodeY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshNodeY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshNodeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshNodeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshNodeZSurface)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshNodeZSurface", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshNodeZSurface in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshNodeZSurface in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshNodeZBedrock)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshNodeZBedrock", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshNodeZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshNodeZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementVertices)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementVertices", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementVertices in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementVertices in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshVertexX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshVertexX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshVertexX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshVertexX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshVertexY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshVertexY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshVertexY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshVertexY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshVertexZSurface)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshVertexZSurface", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshVertexZSurface in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshVertexZSurface in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshVertexZBedrock)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshVertexZBedrock", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshVertexZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshVertexZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementZSurface)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementZSurface", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementZSurface in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementZSurface in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementZBedrock)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementZBedrock", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementZBedrock in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementArea)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementArea", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementArea in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementArea in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementSlopeX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementSlopeX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementSlopeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementSlopeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshElementSlopeY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshElementSlopeY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshElementSlopeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshElementSlopeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshMeshNeighbors)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshMeshNeighbors", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshMeshNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshMeshNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshMeshNeighborsChannelEdge)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshMeshNeighborsChannelEdge", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshMeshNeighborsChannelEdge in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_schar(fileID, varID, start, &signedCharZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshMeshNeighborsChannelEdge in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshMeshNeighborsEdgeLength)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshMeshNeighborsEdgeLength", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshMeshNeighborsEdgeLength in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshMeshNeighborsEdgeLength in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshMeshNeighborsEdgeNormalX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshMeshNeighborsEdgeNormalX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshMeshNeighborsEdgeNormalX in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshMeshNeighborsEdgeNormalX in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshMeshNeighborsEdgeNormalY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshMeshNeighborsEdgeNormalY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshMeshNeighborsEdgeNormalY in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshMeshNeighborsEdgeNormalY in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshChannelNeighbors)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshChannelNeighbors", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshChannelNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::channelNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshChannelNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshChannelNeighborsEdgeLength)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshChannelNeighborsEdgeLength", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshChannelNeighborsEdgeLength in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  start[2]    = MeshElement::channelNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshChannelNeighborsEdgeLength in NetCDF geometry "
+                              "file %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelNodeX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelNodeX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelNodeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelNodeX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelNodeY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelNodeY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelNodeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelNodeY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelNodeZBank)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelNodeZBank", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelNodeZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelNodeZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelNodeZBed)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelNodeZBed", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelNodeZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelNodes - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelNodeZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementVertices)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementVertices", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementVertices in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelVerticesSize + 2 - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementVertices in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelVertexX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelVertexX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelVertexX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelVerticesSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelVertexX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelVertexY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelVertexY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelVertexY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelVerticesSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelVertexY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelVertexZBank)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelVertexZBank", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelVertexZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelVerticesSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelVertexZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelVertexZBed)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelVertexZBed", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelVertexZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelVerticesSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelVertexZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementX)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementX", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementX in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementY)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementY", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementY in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementZBank)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementZBank", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementZBank in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementZBed)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementZBed", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementZBed in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelElementLength)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelElementLength", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelElementLength in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelElementLength in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelChannelNeighbors)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelChannelNeighbors", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelChannelNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::channelNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelChannelNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelMeshNeighbors)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelMeshNeighbors", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelMeshNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelMeshNeighbors in NetCDF geometry file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelMeshNeighborsEdgeLength)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelMeshNeighborsEdgeLength", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelMeshNeighborsEdgeLength in NetCDF geometry file "
+                              "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = geometryInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  start[2]    = ChannelElement::meshNeighborsSize - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelMeshNeighborsEdgeLength in NetCDF geometry "
+                              "file %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          // Close file.
+          if (fileOpen)
+            {
+              ncErrorCode = nc_close(fileID);
+              fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to close NetCDF geometry file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        } // End if (writeGeometry).
+
+      if (writeParameter)
+        {
+          // Create file name.
+          if (!error)
+            {
+              numPrinted = snprintf(nameString, nameStringSize, "%s/parameter.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(strlen(directory) + strlen("/parameter.nc") == numPrinted && numPrinted < nameStringSize))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: incorrect return value of snprintf when generating parameter file name %s.  "
+                          "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/parameter.nc"), nameStringSize);
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Open file.
+          if (!error)
+            {
+              ncErrorCode = nc_open(nameString, NC_NETCDF4 | NC_WRITE, &fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to open NetCDF parameter file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+              else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                {
+                  fileOpen = true;
+                }
+            }
+
+          // Get the number of existing instances.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimid(fileID, "instances", &dimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get dimension instances in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimlen(fileID, dimID, &parameterInstance);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get length of dimension instances in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Write variables.
+          if (NULL != meshCatchment)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshCatchment", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshCatchment in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshCatchment in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshConductivity)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshConductivity", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshConductivity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshConductivity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshPorosity)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshPorosity", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshPorosity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshPorosity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshManningsN)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshManningsN", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshManningsN in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshManningsN in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelChannelType)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelChannelType", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelChannelType in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelChannelType in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelPermanentCode)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelPermanentCode", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelPermenentCode in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_int(fileID, varID, start, &intZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelPermanentCode in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelBaseWidth)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelBaseWidth", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelBaseWidth in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelBaseWidth in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelSideSlope)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelSideSlope", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelSideSlope in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelSideSlope in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelBedConductivity)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelBedConductivity", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelBedConductivity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelBedConductivity in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelBedThickness)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelBedThickness", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelBedThickness in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelBedThickness in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelManningsN)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelManningsN", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelManningsN in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = parameterInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelManningsN in NetCDF parameter file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          // Close file.
+          if (fileOpen)
+            {
+              ncErrorCode = nc_close(fileID);
+              fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to close NetCDF parameter file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        } // End if (writeParameter).
+
+      if (writeState)
+        {
+          // Create file name.
+          if (!error)
+            {
+              numPrinted = snprintf(nameString, nameStringSize, "%s/state.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(strlen(directory) + strlen("/state.nc") == numPrinted && numPrinted < nameStringSize))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: incorrect return value of snprintf when generating state file name %s.  "
+                          "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/state.nc"), nameStringSize);
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Open file.
+          if (!error)
+            {
+              ncErrorCode = nc_open(nameString, NC_NETCDF4 | NC_WRITE, &fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to open NetCDF state file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+              else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                {
+                  fileOpen = true;
+                }
+            }
+
+          // Get the number of existing instances.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimid(fileID, "instances", &dimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get dimension instances in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_dimlen(fileID, dimID, &stateInstance);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get length of dimension instances in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          // Write variables.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "iteration", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable iteration in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              ncErrorCode = nc_put_var1_ushort(fileID, varID, start, &unsignedShortZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable iteration in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "currentTime", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable currentTime in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable currentTime in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "dt", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "geometryInstance", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable geometryInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              ncErrorCode = nc_put_var1_ulonglong(fileID, varID, start, &unsignedLongLongZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable geometryInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "parameterInstance", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable parameterInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              ncErrorCode = nc_put_var1_ulonglong(fileID, varID, start, &unsignedLongLongZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable parameterInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (NULL != meshSurfacewaterDepth)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshSurfacewaterDepth", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshSurfacewaterDepth in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshSurfacewaterDepth in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshSurfacewaterError)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshSurfacewaterError", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshSurfacewaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshSurfacewaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshGroundwaterHead)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshGroundwaterHead", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshGroundwaterHead in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshGroundwaterHead in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != meshGroundwaterError)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "meshGroundwaterError", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable meshGroundwaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfMeshElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable meshGroundwaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelSurfacewaterDepth)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelSurfacewaterDepth", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelSurfacewaterDepth in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelSurfacewaterDepth in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          if (NULL != channelSurfacewaterError)
+            {
+              if (!error)
+                {
+                  ncErrorCode = nc_inq_varid(fileID, "channelSurfacewaterError", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable channelSurfacewaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+
+              if (!error)
+                {
+                  start[0]    = stateInstance;
+                  start[1]    = globalNumberOfChannelElements - 1;
+                  ncErrorCode = nc_put_var1_double(fileID, varID, start, &doubleZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                  if (!(NC_NOERR == ncErrorCode))
+                    {
+                      CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable channelSurfacewaterError in NetCDF state file %s.  "
+                              "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                      error = true;
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                }
+            }
+
+          // Close file.
+          if (fileOpen)
+            {
+              ncErrorCode = nc_close(fileID);
+              fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to close NetCDF state file %s.  NetCDF error message: %s.\n",
+                          nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        } // End if (writeState).
+
+      // Delete nameString.
+      if (NULL != nameString)
+        {
+          delete[] nameString;
+        }
+
+      if (!error)
+        {
+          thisProxy.writeFiles(directorySize, directory, writeGeometry, writeParameter, writeState);
+        }
+      else
+        {
+          CkExit();
+        }
+    } // End if (0 == CkMyPe()).
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  else
+    {
+      // This function should only be called on file manager zero.
+      CkAssert(false);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+}
+
 void FileManager::writeFiles(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState)
 {
   bool   error      = false;     // Error flag.
@@ -2216,6 +4696,11 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
   // Write variables.
   if (writeGeometry)
     {
+#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
+      // The new instance was already created in resizeUnlimitedDimensions so use the last existing instance, not a new one.
+      geometryInstance--;
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+      
       if (0 == CkMyPe())
         {
           if (!error)
@@ -2225,12 +4710,28 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
                 {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -2241,8 +4742,8 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
                 {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshNodes in NetCDF geometry file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -2255,12 +4756,28 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
                 {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshElements in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -2285,12 +4802,28 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
                 {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -2321,6 +4854,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelElements in NetCDF geometry file "
+                          "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -2354,6 +4903,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshNodeX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2389,6 +4954,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshNodeY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2424,6 +5005,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshNodeZSurface in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2459,6 +5056,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshNodeZBedrock in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2494,6 +5107,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementVertices in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2531,6 +5160,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshVertexX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2568,6 +5213,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshVertexY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2605,6 +5266,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshVertexZSurface in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2642,6 +5319,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshVertexZBedrock in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2679,6 +5372,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2714,6 +5423,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2749,6 +5474,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementZSurface in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2784,6 +5525,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementZBedrock in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2819,6 +5576,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementArea in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2854,6 +5627,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementSlopeX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2889,6 +5678,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementSlopeY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2924,6 +5729,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshMeshNeighbors in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -2961,6 +5782,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshMeshNeighborsChannelEdge in NetCDF geometry file"
+                          " %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3001,6 +5838,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshMeshNeighborsEdgeLength in NetCDF geometry file "
+                          "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3038,6 +5891,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshMeshNeighborsEdgeNormalX in NetCDF geometry file"
+                          " %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3075,6 +5944,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshMeshNeighborsEdgeNormalY in NetCDF geometry file"
+                          " %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3112,6 +5997,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshChannelNeighbors in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3149,6 +6050,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshChannelNeighborsEdgeLength in NetCDF geometry "
+                          "file %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3186,6 +6103,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelNodeX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3221,6 +6154,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelNodeY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3256,6 +6205,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelNodeZBank in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3291,6 +6256,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelNodeZBed in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3326,6 +6307,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementVertices in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3363,6 +6360,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelVertexX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3400,6 +6413,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelVertexY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3437,6 +6466,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelVertexZBank in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3474,6 +6519,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelVertexZBed in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3511,6 +6572,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementX in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3546,6 +6623,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementY in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3581,6 +6674,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementZBank in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3616,6 +6725,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementZBed in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3651,6 +6776,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementLength in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3686,6 +6827,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelChannelNeighbors in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3723,6 +6880,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelMeshNeighbors in NetCDF geometry file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3760,6 +6933,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelMeshNeighborsEdgeLength in NetCDF geometry "
+                          "file %s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3813,7 +7002,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::createFiles: unable to close NetCDF geometry file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::writeFiles: unable to close NetCDF geometry file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -3886,6 +7075,11 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
   // Write variables.
   if (writeParameter)
     {
+#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
+      // The new instance was already created in resizeUnlimitedDimensions so use the last existing instance, not a new one.
+      parameterInstance--;
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+      
       if (NULL != meshCatchment)
         {
           if (!error)
@@ -3901,6 +7095,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshCatchment in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3936,6 +7146,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshConductivity in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -3971,7 +7197,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshPorosity in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = parameterInstance;
@@ -4006,7 +7248,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshManningsN in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = parameterInstance;
@@ -4041,7 +7299,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelChannelType in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               // Assumes ChannelTypeEnum is four bytes when casting to int.
@@ -4079,7 +7353,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelPermenentCode in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = parameterInstance;
@@ -4114,7 +7404,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelBaseWidth in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = parameterInstance;
@@ -4149,7 +7455,23 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
-          
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelSideSlope in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = parameterInstance;
@@ -4184,6 +7506,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelBedConductivity in NetCDF parameter file "
+                          "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4219,6 +7557,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelBedThickness in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4254,6 +7608,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelManningsN in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4305,7 +7675,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::createFiles: unable to close NetCDF parameter file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::writeFiles: unable to close NetCDF parameter file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -4378,6 +7748,11 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
   // Write variables.
   if (writeState)
     {
+#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
+      // The new instance was already created in resizeUnlimitedDimensions so use the last existing instance, not a new one.
+      stateInstance--;
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+      
       if (0 == CkMyPe())
         {
           if (!error)
@@ -4393,6 +7768,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable iteration in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -4424,6 +7815,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
 
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable currentTime in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = stateInstance;
@@ -4454,6 +7861,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
 
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable dt in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
           if (!error)
             {
               start[0]    = stateInstance;
@@ -4483,6 +7906,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable geometryInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -4516,6 +7955,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable parameterInstance in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
           if (!error)
             {
@@ -4552,6 +8007,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshSurfacewaterDepth in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4587,6 +8058,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshSurfacewaterError in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4622,6 +8109,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshGroundwaterHead in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4657,6 +8160,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshGroundwaterError in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4692,6 +8211,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelSurfacewaterDepth in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4727,6 +8262,22 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelSurfacewaterError in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
           
           if (!error)
             {
@@ -4757,7 +8308,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::createFiles: unable to close NetCDF state file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::writeFiles: unable to close NetCDF state file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }

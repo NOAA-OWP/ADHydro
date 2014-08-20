@@ -100,9 +100,9 @@ void ADHydro::fileManagerInitialized()
   
   // Initialize member variables.
   currentTime    = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime        = currentTime + 10.0; // FIXME
+  endTime        = currentTime + 1000.0; // FIXME
   dt             = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod   = 1.5; // FIXME
+  outputPeriod   = 0.0; // FIXME
   nextOutputTime = currentTime + outputPeriod;
   iteration      = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry  = true;
@@ -125,7 +125,11 @@ void ADHydro::fileManagerWriteFiles()
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   
+#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
+  fileManagerProxy[0].resizeUnlimitedDimensions(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
+#else // NETCDF_COLLECTIVE_IO_WORKAROUND
   fileManagerProxy.writeFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
