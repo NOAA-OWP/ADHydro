@@ -29,8 +29,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
   
   // Initialize the file manager.
-  // FIXME initialize from NetCDF file strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]
-  fileManagerProxy.initializeHardcodedMesh();
+  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
