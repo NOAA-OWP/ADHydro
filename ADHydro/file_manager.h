@@ -65,6 +65,10 @@ public:
   // managers contribute to an empty reduction.
   void initializeHardcodedMesh();
   
+  // Initializes the file manager from NetCDF files.  When done the file
+  // managers contribute to an empty reduction.
+  void initializeFromNetCDFFiles(size_t directorySize, const char* directory);
+  
   // If a variable is not available the file managers attempt to derive it from
   // other variables, for example element center coordinates from element
   // vertex coordinates.  If a variable is not available and cannot be derived

@@ -4,6 +4,7 @@ module file_manager
   {
     entry FileManager();
     entry void initializeHardcodedMesh();
+    entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
     entry void calculateDerivedValues();
     entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
     

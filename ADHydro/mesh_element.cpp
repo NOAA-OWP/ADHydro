@@ -1283,6 +1283,52 @@ void MeshElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
   // FIXME currently there is no infiltration state and groundwater head also represents the presence of water.
   groundwaterHead += groundwaterRecharge / porosity;
   
+  /* FIXME here's the old code for updating groundwater head
+              // Resolve groundwater_recharge by moving groundwater_head and putting or taking water from the infiltration domain.
+              groundwater_head[ii] += groundwater_recharge[ii] / infiltration_specific_yield(ii, mesh->elements_xyz[ii][3] - groundwater_head[ii]);
+
+              // Cap groundwater_head at the surface.
+              if (groundwater_head[ii] > mesh->elements_xyz[ii][3])
+                {
+                  groundwater_head[ii] = mesh->elements_xyz[ii][3];
+                }
+
+              if (epsilon_less(0.0, groundwater_recharge[ii]))
+                {
+                  // If there is excess water put it immediately into the groundwater front of the infiltration domain.
+                  infiltration_add_groundwater(ii, &groundwater_recharge[ii]);
+
+                  if (epsilon_less(0.0, groundwater_recharge[ii]))
+                    {
+                      // Not all of the water could fit in to the infiltration domain because the domain is full.
+                      // Put the excess water on the surface and the groundwater head moves up to the surface.
+                      // The real groundwater head is at the top of the surfacewater, but we set the variable to be at the surface and inside
+                      // groundwater_timestep we add surfacewater_depth because if we set groundwater_head to be at the top of the surfacewater
+                      // we would need to update it any time the value of surfacewater_depth changed.
+                      surfacewater_depth[ii]   += groundwater_recharge[ii];
+                      groundwater_recharge[ii]  = 0.0;
+                      groundwater_head[ii]      = mesh->elements_xyz[ii][3];
+                    }
+                }
+              else if (epsilon_greater(0.0, groundwater_recharge[ii]))
+                {
+                  // If there is a water deficit take it immediately from the groundwater front of the infiltration domain.
+                  infiltration_take_groundwater(ii, mesh->elements_xyz[ii][3] - groundwater_head[ii], &groundwater_recharge[ii]);
+
+                  // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+                }
+                
+                
+                
+                
+          // If use_groundwater is FALSE then treat the water put into groundwater_recharge as if it passed out of a groundwater outflow boundary.
+          for (ii = 1; ii <= mesh->num_elements; ii++)
+            {
+              groundwater_volume_out += groundwater_recharge[ii] * mesh->elements_area[ii];
+              groundwater_recharge[ii] = 0.0;
+            }
+   */
+  
   // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
   // FIXME should we try to take the water back from the error accumulator later?
   if (elementZBedrock > groundwaterHead)
