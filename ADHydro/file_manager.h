@@ -61,6 +61,9 @@ public:
   // Constructor.  Initializes the file manager to hold no data.
   FileManager();
   
+  // Destructor.  Dynamically allocated arrays need to be deleted.
+  ~FileManager();
+  
   // Initializes the file manager to hold a hardcoded mesh.  When done the file
   // managers contribute to an empty reduction.
   void initializeHardcodedMesh();

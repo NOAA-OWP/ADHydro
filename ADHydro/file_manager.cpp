@@ -113,6 +113,309 @@ FileManager::FileManager()
   iteration                      = 1;
 }
 
+FileManager::~FileManager()
+{
+  if (NULL != meshNodeX)
+    {
+      delete[] meshNodeX;
+    }
+  
+  if (NULL != meshNodeY)
+    {
+      delete[] meshNodeY;
+    }
+  
+  if (NULL != meshNodeZSurface)
+    {
+      delete[] meshNodeZSurface;
+    }
+  
+  if (NULL != meshNodeZBedrock)
+    {
+      delete[] meshNodeZBedrock;
+    }
+  
+  if (NULL != meshElementVertices)
+    {
+      delete[] meshElementVertices;
+    }
+  
+  if (NULL != meshVertexX)
+    {
+      delete[] meshVertexX;
+    }
+  
+  if (NULL != meshVertexY)
+    {
+      delete[] meshVertexY;
+    }
+  
+  if (NULL != meshVertexZSurface)
+    {
+      delete[] meshVertexZSurface;
+    }
+  
+  if (NULL != meshVertexZBedrock)
+    {
+      delete[] meshVertexZBedrock;
+    }
+  
+  if (NULL != meshElementX)
+    {
+      delete[] meshElementX;
+    }
+  
+  if (NULL != meshElementY)
+    {
+      delete[] meshElementY;
+    }
+  
+  if (NULL != meshElementZSurface)
+    {
+      delete[] meshElementZSurface;
+    }
+  
+  if (NULL != meshElementZBedrock)
+    {
+      delete[] meshElementZBedrock;
+    }
+  
+  if (NULL != meshElementArea)
+    {
+      delete[] meshElementArea;
+    }
+  
+  if (NULL != meshElementSlopeX)
+    {
+      delete[] meshElementSlopeX;
+    }
+  
+  if (NULL != meshElementSlopeY)
+    {
+      delete[] meshElementSlopeY;
+    }
+  
+  if (NULL != meshCatchment)
+    {
+      delete[] meshCatchment;
+    }
+  
+  if (NULL != meshConductivity)
+    {
+      delete[] meshConductivity;
+    }
+  
+  if (NULL != meshPorosity)
+    {
+      delete[] meshPorosity;
+    }
+  
+  if (NULL != meshManningsN)
+    {
+      delete[] meshManningsN;
+    }
+  
+  if (NULL != meshSurfacewaterDepth)
+    {
+      delete[] meshSurfacewaterDepth;
+    }
+  
+  if (NULL != meshSurfacewaterError)
+    {
+      delete[] meshSurfacewaterError;
+    }
+  
+  if (NULL != meshGroundwaterHead)
+    {
+      delete[] meshGroundwaterHead;
+    }
+  
+  if (NULL != meshGroundwaterError)
+    {
+      delete[] meshGroundwaterError;
+    }
+  
+  if (NULL != meshMeshNeighbors)
+    {
+      delete[] meshMeshNeighbors;
+    }
+  
+  if (NULL != meshMeshNeighborsChannelEdge)
+    {
+      delete[] meshMeshNeighborsChannelEdge;
+    }
+  
+  if (NULL != meshMeshNeighborsEdgeLength)
+    {
+      delete[] meshMeshNeighborsEdgeLength;
+    }
+  
+  if (NULL != meshMeshNeighborsEdgeNormalX)
+    {
+      delete[] meshMeshNeighborsEdgeNormalX;
+    }
+  
+  if (NULL != meshMeshNeighborsEdgeNormalY)
+    {
+      delete[] meshMeshNeighborsEdgeNormalY;
+    }
+  
+  if (NULL != meshChannelNeighbors)
+    {
+      delete[] meshChannelNeighbors;
+    }
+  
+  if (NULL != meshChannelNeighborsEdgeLength)
+    {
+      delete[] meshChannelNeighborsEdgeLength;
+    }
+  
+  if (NULL != channelNodeX)
+    {
+      delete[] channelNodeX;
+    }
+  
+  if (NULL != channelNodeY)
+    {
+      delete[] channelNodeY;
+    }
+  
+  if (NULL != channelNodeZBank)
+    {
+      delete[] channelNodeZBank;
+    }
+  
+  if (NULL != channelNodeZBed)
+    {
+      delete[] channelNodeZBed;
+    }
+  
+  if (NULL != channelElementVertices)
+    {
+      delete[] channelElementVertices;
+    }
+  
+  if (NULL != channelVertexX)
+    {
+      delete[] channelVertexX;
+    }
+  
+  if (NULL != channelVertexY)
+    {
+      delete[] channelVertexY;
+    }
+  
+  if (NULL != channelVertexZBank)
+    {
+      delete[] channelVertexZBank;
+    }
+  
+  if (NULL != channelVertexZBed)
+    {
+      delete[] channelVertexZBed;
+    }
+  
+  if (NULL != channelElementX)
+    {
+      delete[] channelElementX;
+    }
+  
+  if (NULL != channelElementY)
+    {
+      delete[] channelElementY;
+    }
+  
+  if (NULL != channelElementZBank)
+    {
+      delete[] channelElementZBank;
+    }
+  
+  if (NULL != channelElementZBed)
+    {
+      delete[] channelElementZBed;
+    }
+  
+  if (NULL != channelElementLength)
+    {
+      delete[] channelElementLength;
+    }
+  
+  if (NULL != channelChannelType)
+    {
+      delete[] channelChannelType;
+    }
+  
+  if (NULL != channelPermanentCode)
+    {
+      delete[] channelPermanentCode;
+    }
+  
+  if (NULL != channelBaseWidth)
+    {
+      delete[] channelBaseWidth;
+    }
+  
+  if (NULL != channelSideSlope)
+    {
+      delete[] channelSideSlope;
+    }
+  
+  if (NULL != channelBedConductivity)
+    {
+      delete[] channelBedConductivity;
+    }
+  
+  if (NULL != channelBedThickness)
+    {
+      delete[] channelBedThickness;
+    }
+  
+  if (NULL != channelManningsN)
+    {
+      delete[] channelManningsN;
+    }
+  
+  if (NULL != channelSurfacewaterDepth)
+    {
+      delete[] channelSurfacewaterDepth;
+    }
+  
+  if (NULL != channelSurfacewaterError)
+    {
+      delete[] channelSurfacewaterError;
+    }
+  
+  if (NULL != channelChannelNeighbors)
+    {
+      delete[] channelChannelNeighbors;
+    }
+  
+  if (NULL != channelMeshNeighbors)
+    {
+      delete[] channelMeshNeighbors;
+    }
+  
+  if (NULL != channelMeshNeighborsEdgeLength)
+    {
+      delete[] channelMeshNeighborsEdgeLength;
+    }
+  
+  if (NULL != meshVertexUpdated)
+    {
+      delete[] meshVertexUpdated;
+    }
+  
+  if (NULL != meshElementUpdated)
+    {
+      delete[] meshElementUpdated;
+    }
+  
+  if (NULL != channelElementUpdated)
+    {
+      delete[] channelElementUpdated;
+    }
+}
+
 void FileManager::initializeHardcodedMesh()
 {
   int    ii, jj; // Loop counters.
@@ -2415,6 +2718,12 @@ void FileManager::initializeFromNetCDFFiles(size_t directorySize, const char* di
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      meshElementUpdated    = new bool[localNumberOfMeshElements];
+      channelElementUpdated = new bool[localNumberOfChannelElements];
     }
   
   // Delete nameString.
