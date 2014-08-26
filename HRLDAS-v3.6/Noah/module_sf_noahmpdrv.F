@@ -955,14 +955,14 @@ end if
     character(len=*), intent(in) :: MMINLU
     MMINSL='STAS'
 
-    call read_mp_veg_parameters(trim(MMINLU))
+    call read_mp_veg_parameters(trim(MMINLU), "MPTABLE.TBL")
 
     !
     ! initialize three Noah LSM related tables
     !
     IF ( allowed_to_read ) THEN
        CALL wrf_message( 'INITIALIZE THREE Noah LSM RELATED TABLES' )
-       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL )
+       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL" )
     ENDIF
 
     IF( .NOT. restart ) THEN
@@ -1504,13 +1504,13 @@ END  SUBROUTINE EQSMOISTURE
 !------------------------------------------------------------------------------------------
 !
 !-----------------------------------------------------------------
-        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL)
+        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE)
 !-----------------------------------------------------------------
 
 !        USE module_wrf_error
         IMPLICIT NONE
 
-        CHARACTER(LEN=*), INTENT(IN) :: MMINLU, MMINSL
+        CHARACTER(LEN=*), INTENT(IN) :: MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE
         integer :: LUMATCH, IINDEX, LC, NUM_SLOPE
         integer :: ierr
         INTEGER , PARAMETER :: OPEN_OK = 0
@@ -1545,10 +1545,10 @@ END  SUBROUTINE EQSMOISTURE
 
        IF ( wrf_dm_on_monitor() ) THEN
 
-        OPEN(19, FILE='VEGPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+        OPEN(19, FILE=VEGPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
         IF(ierr .NE. OPEN_OK ) THEN
-          WRITE(message,FMT='(A)') &
-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening VEGPARM.TBL'
+          WRITE(message,FMT='(A, A)') &
+          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', VEGPARM_FILE
           CALL wrf_error_fatal ( message )
         END IF
 
@@ -1657,10 +1657,10 @@ END  SUBROUTINE EQSMOISTURE
 !-----READ IN SOIL PROPERTIES FROM SOILPARM.TBL
 !
       IF ( wrf_dm_on_monitor() ) THEN
-        OPEN(19, FILE='SOILPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+        OPEN(19, FILE=SOILPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
         IF(ierr .NE. OPEN_OK ) THEN
-          WRITE(message,FMT='(A)') &
-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening SOILPARM.TBL'
+          WRITE(message,FMT='(A, A)') &
+          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', SOILPARM_FILE
           CALL wrf_error_fatal ( message )
         END IF
 
@@ -1731,10 +1731,10 @@ END  SUBROUTINE EQSMOISTURE
 !-----READ IN GENERAL PARAMETERS FROM GENPARM.TBL
 !
       IF ( wrf_dm_on_monitor() ) THEN
-        OPEN(19, FILE='GENPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+        OPEN(19, FILE=GENPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
         IF(ierr .NE. OPEN_OK ) THEN
-          WRITE(message,FMT='(A)') &
-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening GENPARM.TBL'
+          WRITE(message,FMT='(A, A)') &
+          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', GENPARM_FILE
           CALL wrf_error_fatal ( message )
         END IF
 

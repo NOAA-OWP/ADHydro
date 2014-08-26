@@ -271,9 +271,9 @@ MODULE NOAHMP_VEG_PARAMETERS
     real eps(MVT,5)
 
 CONTAINS
-  subroutine read_mp_veg_parameters(DATASET_IDENTIFIER)
+  subroutine read_mp_veg_parameters(DATASET_IDENTIFIER, MPTABLE_FILE)
     implicit none
-    character(len=*), intent(in) :: DATASET_IDENTIFIER
+    character(len=*), intent(in) :: DATASET_IDENTIFIER, MPTABLE_FILE
     integer :: ierr
 
     ! Temporary arrays used in reshaping namelist arrays
@@ -345,10 +345,10 @@ CONTAINS
     SLAREA = -1.E36
     EPS    = -1.E36
 
-    open(15, file="MPTABLE.TBL", status='old', form='formatted', action='read', iostat=ierr)
+    open(15, file=MPTABLE_FILE, status='old', form='formatted', action='read', iostat=ierr)
     if (ierr /= 0) then
        write(*,'("****** Error ******************************************************")')
-       write(*,'("Cannot find file MPTABLE.TBL")')
+       write(*,'("Cannot find file ''", A, "''")') MPTABLE_FILE
        write(*,'("STOP")')
        write(*,'("*******************************************************************")')
        call wrf_error_fatal("STOP in Noah-MP read_mp_veg_parameters")
