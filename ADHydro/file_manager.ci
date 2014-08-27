@@ -2,14 +2,55 @@ module file_manager
 {
   group FileManager
   {
-    entry FileManager(size_t directorySize, char directory[directorySize], int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+    entry FileManager();
+    entry void initializeHardcodedMesh();
+    entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
+    entry void calculateDerivedValues();
+    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
     
-    entry void doOutput(size_t directorySize, char directory[directorySize], bool outputGeometry, int geometryGroup, bool outputParameter, int parameterGroup,
-                        bool outputState, int stateGroup, double time, double dt)
+    entry void waitForVertexData()
+    {
+      while (!allVerticesUpdated())
+      {
+        when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock)
+        {
+          serial
+          {
+            handleMeshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
+          }
+        }
+      }
+      
+      serial
+      {
+        delete[] meshVertexUpdated;
+        
+        finishCalculateDerivedValues();
+      }
+    };
+    
+    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
+    entry void createFiles(size_t directorySize, const char directory[directorySize]);
+    entry void resizeUnlimitedDimensions(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
+    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
+    
+    entry void updateState(double currentTimeNew, double dtNew, CMK_REFNUM_TYPE iterationNew)
     {
       serial
       {
         int ii; // Loop counter.
+        
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        if (!(0.0 < dtNew))
+          {
+            CkError("ERROR in FileManager::updateState: dtNew must be greater than zero.\n");
+            CkExit();
+          }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+        currentTime = currentTimeNew;
+        dt          = dtNew;
+        iteration   = iterationNew;
         
         for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
@@ -22,7 +63,7 @@ module file_manager
         }
       }
       
-      while (!allUpdated())
+      while (!allElementsUpdated())
       {
         case
         {
@@ -75,38 +116,14 @@ module file_manager
               channelElementUpdated[element - localChannelElementStart]    = true;
             }
           }
-        } // End case within while (!allUpdated()).
-      } // End while (!allUpdated()).
+        } // End case within while (!allElementsUpdated()).
+      } // End while (!allElementsUpdated()).
       
       serial
       {
-        bool error = false; // Error flag.
-        
-        if (!error && outputGeometry)
-        {
-          error = writeGeometry(directory, geometryGroup, false);
-        }
-        
-        if (!error && outputParameter)
-        {
-          error = writeParameter(directory, parameterGroup, false);
-        }
-        
-        if (!error && outputState)
-        {
-          error = writeState(directory, stateGroup, false, time, dt, geometryGroup, parameterGroup);
-        }
-        
-        if (!error)
-        {
-          contribute();
-        }
-        else
-        {
-          CkExit();
-        }
+        contribute();
       }
-    }; // End doOutput.
+    }; // End updateState.
     
     entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError);
     entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError);

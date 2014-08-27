@@ -67,6 +67,12 @@
 #define GRAVITY      (9.81) // Meters per second squared.
 #define PONDED_DEPTH (0.01) // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
 
+// Using NetCDF parallel collective I/O with Charm++ causes a problematic
+// interaction.  Setting this flag causes a workaround to be used.  See the
+// comment of FileManager::resizeUnlimitedDimensions in file_manager.h for more
+// details.
+#define NETCDF_COLLECTIVE_IO_WORKAROUND
+
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
 {

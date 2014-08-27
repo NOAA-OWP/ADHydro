@@ -134,7 +134,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   int          edge;                                                                               // Loop counter.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                      // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localMeshElementStart; // Index of this element in file manager arrays.
-  double       coordinate;                                                                         // Used for calculating derived coordinates.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfMeshElements))
@@ -153,17 +152,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementX = fileManagerLocalBranch->meshElementX[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge];
-            }
-          
-          elementX = coordinate / meshNeighborsSize;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -179,17 +167,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementY)
         {
           elementY = fileManagerLocalBranch->meshElementY[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge];
-            }
-          
-          elementY = coordinate / meshNeighborsSize;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -207,17 +184,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementZSurface = fileManagerLocalBranch->meshElementZSurface[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][edge];
-            }
-          
-          elementZSurface = coordinate / meshNeighborsSize;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -233,17 +199,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementZBedrock)
         {
           elementZBedrock = fileManagerLocalBranch->meshElementZBedrock[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexZBedrock)
-        {
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexZBedrock[fileManagerLocalIndex][edge];
-            }
-          
-          elementZBedrock = coordinate / meshNeighborsSize;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -261,20 +216,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementArea = fileManagerLocalBranch->meshElementArea[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              coordinate += fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] *
-                            (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]);
-            }
-          
-          elementArea = coordinate * 0.5;
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -291,22 +232,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
         {
           elementSlopeX = fileManagerLocalBranch->meshElementSlopeX[fileManagerLocalIndex];
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
-               NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
-            {
-              coordinate += (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge]) *
-                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
-            }
-          
-          elementSlopeX = coordinate / (2.0 * elementArea);
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -322,22 +247,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       if (NULL != fileManagerLocalBranch->meshElementSlopeY)
         {
           elementSlopeY = fileManagerLocalBranch->meshElementSlopeY[fileManagerLocalIndex];
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY &&
-               NULL != fileManagerLocalBranch->meshVertexZSurface)
-        {
-          // This works for triangles.  Don't know about other shapes.
-          coordinate = 0.0;
-          
-          for (edge = 0; edge < meshNeighborsSize - 1; edge++)
-            {
-              coordinate += (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge] -
-                             fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                            (fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                             fileManagerLocalBranch->meshVertexZSurface[fileManagerLocalIndex][0]);
-            }
-          
-          elementSlopeY = coordinate / (2.0 * elementArea);
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -544,21 +453,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
               meshNeighborsEdgeLength[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeLength[fileManagerLocalIndex][edge];
             }
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeLength[edge] = sqrt((fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                                                   (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) +
-                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) *
-                                                   (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                    fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]));
-            }
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -578,16 +472,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
               meshNeighborsEdgeNormalX[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalX[fileManagerLocalIndex][edge];
             }
         }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeNormalX[edge] = (fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize] -
-                                                fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize]) /
-                                               meshNeighborsEdgeLength[edge];
-             }
-        }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
@@ -606,16 +490,6 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
             {
               meshNeighborsEdgeNormalY[edge] = fileManagerLocalBranch->meshMeshNeighborsEdgeNormalY[fileManagerLocalIndex][edge];
             }
-        }
-      else if (NULL != fileManagerLocalBranch->meshVertexX && NULL != fileManagerLocalBranch->meshVertexY)
-        {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
-            {
-              // This works for triangles.  Don't know about other shapes.
-              meshNeighborsEdgeNormalY[edge] = (fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 1) % meshNeighborsSize] -
-                                                fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][(edge + 2) % meshNeighborsSize]) /
-                                               meshNeighborsEdgeLength[edge];
-             }
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
@@ -1408,6 +1282,52 @@ void MeshElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
   // Update groundwaterHead and get or put water from the infiltration state.
   // FIXME currently there is no infiltration state and groundwater head also represents the presence of water.
   groundwaterHead += groundwaterRecharge / porosity;
+  
+  /* FIXME here's the old code for updating groundwater head
+              // Resolve groundwater_recharge by moving groundwater_head and putting or taking water from the infiltration domain.
+              groundwater_head[ii] += groundwater_recharge[ii] / infiltration_specific_yield(ii, mesh->elements_xyz[ii][3] - groundwater_head[ii]);
+
+              // Cap groundwater_head at the surface.
+              if (groundwater_head[ii] > mesh->elements_xyz[ii][3])
+                {
+                  groundwater_head[ii] = mesh->elements_xyz[ii][3];
+                }
+
+              if (epsilon_less(0.0, groundwater_recharge[ii]))
+                {
+                  // If there is excess water put it immediately into the groundwater front of the infiltration domain.
+                  infiltration_add_groundwater(ii, &groundwater_recharge[ii]);
+
+                  if (epsilon_less(0.0, groundwater_recharge[ii]))
+                    {
+                      // Not all of the water could fit in to the infiltration domain because the domain is full.
+                      // Put the excess water on the surface and the groundwater head moves up to the surface.
+                      // The real groundwater head is at the top of the surfacewater, but we set the variable to be at the surface and inside
+                      // groundwater_timestep we add surfacewater_depth because if we set groundwater_head to be at the top of the surfacewater
+                      // we would need to update it any time the value of surfacewater_depth changed.
+                      surfacewater_depth[ii]   += groundwater_recharge[ii];
+                      groundwater_recharge[ii]  = 0.0;
+                      groundwater_head[ii]      = mesh->elements_xyz[ii][3];
+                    }
+                }
+              else if (epsilon_greater(0.0, groundwater_recharge[ii]))
+                {
+                  // If there is a water deficit take it immediately from the groundwater front of the infiltration domain.
+                  infiltration_take_groundwater(ii, mesh->elements_xyz[ii][3] - groundwater_head[ii], &groundwater_recharge[ii]);
+
+                  // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+                }
+                
+                
+                
+                
+          // If use_groundwater is FALSE then treat the water put into groundwater_recharge as if it passed out of a groundwater outflow boundary.
+          for (ii = 1; ii <= mesh->num_elements; ii++)
+            {
+              groundwater_volume_out += groundwater_recharge[ii] * mesh->elements_area[ii];
+              groundwater_recharge[ii] = 0.0;
+            }
+   */
   
   // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
   // FIXME should we try to take the water back from the error accumulator later?

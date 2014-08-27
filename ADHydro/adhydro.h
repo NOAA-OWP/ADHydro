@@ -49,18 +49,31 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
 
-  // If currentTime is less than endTime do a timestep and cause a callback to
-  // timestepDone, otherwise exit.
+  // Reduction callback used as a barrier during file manager initialization.
+  void fileManagerBarrier();
+  
+  // Finish initialization after the reduction callback indicating the file
+  // manager is ready.
+  void fileManagerInitialized();
+  
+  // Tell the file manager to write files.  Will cause a callback to
+  // doTimestep or checkInvariant.
+  void fileManagerWriteFiles();
+
+  // If currentTime is less than endTime do a timestep, otherwise exit.  If it
+  // does a timestep it will cause a callback to timestepDone.
   void doTimestep();
   
   // Check invariant conditions on member variables.  Exit if invariant is
-  // violated.  When the invariant check is done will cause a callback to
+  // violated.  When the invariant check is done it will cause a callback to
   // doTimestep.
   void checkInvariant();
   
 private:
   
-  // Callback for the dtNew reduction at the end of a timestep.
+  // Callback for the dtNew reduction at the end of a timestep.  Will output
+  // files, if applicable, check the invariant, if applicable, and then do
+  // another timestep.
   //
   // Parameters:
   //
@@ -76,12 +89,17 @@ private:
   CkArgMsg* commandLineArguments; // Contains the input and output directory paths.
   
   // Time information.
-  double currentTime;    // Seconds.
-  double endTime;        // Seconds.
-  double dt;             // Next timestep duration in seconds.
-  double nextOutputTime; // Next time in seconds to output to file.
-  double outputPeriod;   // Simulation time in seconds between outputting to file.  Zero for output every timestep.
-  int    iteration;      // Iteration number to put on all messages this timestep.
+  double          currentTime;    // Seconds.
+  double          endTime;        // Seconds.
+  double          dt;             // Next timestep duration in seconds.
+  double          outputPeriod;   // Simulation time in seconds between outputting to file.  Zero for output every timestep.
+  double          nextOutputTime; // Next time in seconds to output to file.
+  CMK_REFNUM_TYPE iteration;      // Iteration number to put on all messages this timestep.
+  
+  // Flags to indicate whether the geometry or parameters have changed and need
+  // to be outputted.
+  bool writeGeometry;
+  bool writeParameter;
 };
 
 #endif // __ADHYDRO_H__

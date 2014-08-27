@@ -474,7 +474,7 @@ module mesh_element
             } // End while (!surfacewaterDone).
           } // End when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep).
           
-          when doOutput()
+          when updateState()
           {
             serial
             {
@@ -559,7 +559,7 @@ module mesh_element
     entry void channelSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void meshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
     entry void channelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
-    entry void doOutput();
+    entry void updateState();
     entry void checkInvariant();
     entry void checkMeshNeighborInvariant(int neighbor, int edge, int neighborEdge, bool neighborChannelEdge, InteractionEnum neighborInteraction,
                                           double neighborX, double neighborY, double neighborZSurface, double neighborZBedrock, double neighborArea,

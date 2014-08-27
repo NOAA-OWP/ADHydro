@@ -58,10 +58,76 @@ public:
   // globalNumberOfItems - The total number of this kind of item.
   static int home(int item, int globalNumberOfItems);
   
-  // Constructor.
-  // FIXME describe initialization.
-  // FIXME document parameters.
-  FileManager(size_t directorySize, char* directory, int geometryGroup, int parameterGroup, int stateGroup, double time, double dt);
+  // Constructor.  Initializes the file manager to hold no data.
+  FileManager();
+  
+  // Destructor.  Dynamically allocated arrays need to be deleted.
+  ~FileManager();
+  
+  // Initializes the file manager to hold a hardcoded mesh.  When done the file
+  // managers contribute to an empty reduction.
+  void initializeHardcodedMesh();
+  
+  // Initializes the file manager from NetCDF files.  When done the file
+  // managers contribute to an empty reduction.
+  void initializeFromNetCDFFiles(size_t directorySize, const char* directory);
+  
+  // If a variable is not available the file managers attempt to derive it from
+  // other variables, for example element center coordinates from element
+  // vertex coordinates.  If a variable is not available and cannot be derived
+  // its array is unallocated and left as NULL.  When done the file managers
+  // contribute to an empty reduction.
+  void calculateDerivedValues();
+  
+  // Send requested vertex coordinates.
+  //
+  // Parameters:
+  //
+  // requester - File manager requesting vertex coordinates.
+  // element   - Element that has vertex.
+  // vertex    - Vertex requesting coordinates for.
+  // node      - Node index of vertex.
+  void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
+  
+  // Create NetCDF files for output including creating dimensions and variables
+  // within the files.  When done the file managers contribute to an empty
+  // reduction.
+  //
+  // Parameters:
+  //
+  // directorySize - The size of the array passed in to directory.
+  // directory     - The directory in which to create the files.
+  void createFiles(size_t directorySize, const char* directory);
+  
+  // This is a workaround for a problematic interaction when using NetCDF
+  // parallel collective I/O with Charm++.  A write to a NetCDF file that
+  // resizes an unlimited dimension must be done in collective mode, but doing
+  // so in Charm++ causes an MPI error because Charm++ is also using MPI.
+  //
+  // Instead of calling writeFiles on all file managers, call this function on
+  // file manager zero. It opens the files serially and writes one value at the
+  // outside corner of every variable to resize the dimensions, and then closes
+  // the files.  Then it calls writeFiles on all PEs.  They write the data
+  // independently and contribute to an empty reduction.
+  void resizeUnlimitedDimensions(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
+
+  // Write data to NetCDF files.  Files must already be created.  When done the
+  // file managers contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize  - The size of the array passed in to directory.
+  // directory      - The directory in which to create the files.
+  // writeGeometry  - Whether to write a new instance into the geometry file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeParameter - Whether to write a new instance into the parameter file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeState     - Whether to write a new instance into the state file.
+  void writeFiles(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
 
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
@@ -184,6 +250,11 @@ public:
   intarraycmn*     channelMeshNeighbors;
   doublearraycmn*  channelMeshNeighborsEdgeLength;
   
+  // Time information.  This is only kept up to date when inputting or outputting.
+  double          currentTime; // Seconds.
+  double          dt;          // Next timestep duration in seconds.
+  CMK_REFNUM_TYPE iteration;   // Iteration number to put on all messages this timestep.
+  
 private:
   
   // Calculate which items this file manager owns.  The first
@@ -198,56 +269,36 @@ private:
   // localNumberOfItems  - Scalar passed by reference will be filled in with
   //                       the local number of items.
   // globalNumberOfItems - The total number of this kind of item.
-  void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
-
+  static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+  
+  // Returns: true if all vertex information is updated, false otherwise.
+  bool allVerticesUpdated();
+  
   // Returns: true if all element information is updated, false otherwise.
-  bool allUpdated();
+  bool allElementsUpdated();
   
-  // Write out values stored in arrays to geometry.nc file.
+  // Receive requested vertex coordinates.
   //
   // Parameters:
   //
-  // directory - The location of the file.
-  // group     - The name of the group to create in the NetCDF file.
-  //             It is an error if the group exists.
-  // create    - Whether to create a new file.
-  //             If true, it is an error if the file exists.
-  //             If false, it is an error if the file does not exist.
-  bool writeGeometry(const char* directory, int group, bool create);
+  // element  - Element that has vertex.
+  // vertex   - Vertex that coordinates are for.
+  // x        - X coordinate of vertex.
+  // y        - Y coordinate of vertex.
+  // zSurface - Surface Z coordinate of vertex.
+  // zBedrock - Bedrock Z coordinate of vertex.
+  void handleMeshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
   
-  // Write out values stored in arrays to parameter.nc file.
-  //
-  // Parameters:
-  //
-  // directory - The location of the file.
-  // group     - The name of the group to create in the NetCDF file.
-  //             It is an error if the group exists.
-  // create    - Whether to create a new file.
-  //             If true, it is an error if the file exists.
-  //             If false, it is an error if the file does not exist.
-  bool writeParameter(const char* directory, int group, bool create);
+  // Calculating derived values had to be split into two functions because file
+  // managers may have to enter SDAG code to send and receive messages with
+  // vertex coordinates in between.  This function finishes the work of
+  // calculateDerivedValues.
+  void finishCalculateDerivedValues();
   
-  // Write out values stored in arrays to state.nc file.
-  //
-  // Parameters:
-  //
-  // directory      - The location of the file.
-  // group          - The name of the group to create in the NetCDF file.
-  //                  It is an error if the group exists.
-  // create         - Whether to create a new file.
-  //                  If true, it is an error if the file exists.
-  //                  If false, it is an error if the file does not exist.
-  // time           - The time to store in the group attributes.
-  // dt             - The timestep to store in the group attributes.
-  // geometryGroup  - The associated geometry group to store in the group
-  //                  attributes.
-  // parameterGroup - The associated parameter group to store in the group
-  //                  attributes.
-  bool writeState(const char* directory, int group, bool create, double time, double dt, int geometryGroup, int parameterGroup);
-  
-  // These arrays are used to record when state update messages are received.
-  bool* meshElementUpdated;
-  bool* channelElementUpdated;
+  // These arrays are used to record when vertex data and state update messages are received.
+  boolarraymmn* meshVertexUpdated;
+  bool*         meshElementUpdated;
+  bool*         channelElementUpdated;
 };
 
 #endif // __FILE_MANAGER_H__

@@ -9,9 +9,12 @@ void ADHydro::setLoadBalancingToManual()
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
+  // Save command line arguments.
+  commandLineArguments = msg;
+
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // Print usage message and exit if number of arguments is incorrect or either argument is any flag.
-  if (!(3 == msg->argc && '-' != msg->argv[1][0] && '-' != msg->argv[2][0]))
+  if (!(3 == commandLineArguments->argc && '-' != commandLineArguments->argv[1][0] && '-' != commandLineArguments->argv[2][0]))
     {
       CkPrintf("\nUsage:\n\nadhydro <input directory> <output directory>\n\n");
       CkPrintf("E.g.:\n\nadhydro ../input/mesh.1 ../output/mesh.1/run_1\n\n");
@@ -19,32 +22,15 @@ ADHydro::ADHydro(CkArgMsg* msg)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  // Initialize member variables.
-  commandLineArguments = msg;
-  currentTime          =  0.0;
-  endTime              = 10.0;
-  dt                   =  1.0;
-  nextOutputTime       = currentTime;
-  outputPeriod         =  1.5;
-  iteration            =  1;
-
-  // Create file manager, mesh, and channels.
-  // FIXME we need to make sure file manager variables are finished initializing before reading them.
-  fileManagerProxy = CProxy_FileManager::ckNew(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], 1, 1, iteration, currentTime, dt);
-  meshProxy        = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
-  channelProxy     = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
-
-  // Initialize mesh and channels.
-  meshProxy.initialize(channelProxy, fileManagerProxy);
-  channelProxy.initialize(meshProxy, fileManagerProxy);
+  // Create file manager.
+  fileManagerProxy = CProxy_FileManager::ckNew();
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // Check the invariant.  The invariant callback will start the timestep.
-  checkInvariant();
-#else // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // Just start the timestep.
-  doTimestep();
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  // Set the callback to continue initialization when the file manager is ready.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
+  
+  // Initialize the file manager.
+  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -88,7 +74,66 @@ void ADHydro::pup(PUP::er &p)
   p | currentTime;
   p | endTime;
   p | dt;
+  p | outputPeriod;
+  p | nextOutputTime;
   p | iteration;
+}
+
+void ADHydro::fileManagerBarrier()
+{
+  // Set the callback to continue initialization when the file manager is ready.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerInitialized), thisProxy));
+  
+  // Have the file manager complete initialization.
+  fileManagerProxy.calculateDerivedValues();
+}
+
+void ADHydro::fileManagerInitialized()
+{
+  // Create mesh and channels.
+  meshProxy    = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
+  channelProxy = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
+
+  // Initialize mesh and channels.
+  meshProxy.initialize(channelProxy, fileManagerProxy);
+  channelProxy.initialize(meshProxy, fileManagerProxy);
+  
+  // Initialize member variables.
+  currentTime    = fileManagerProxy.ckLocalBranch()->currentTime;
+  endTime        = currentTime + 1000.0; // FIXME
+  dt             = fileManagerProxy.ckLocalBranch()->dt;
+  outputPeriod   = 0.0; // FIXME
+  nextOutputTime = currentTime + outputPeriod;
+  iteration      = fileManagerProxy.ckLocalBranch()->iteration;
+  writeGeometry  = true;
+  writeParameter = true;
+  
+  // Set the callback to write output files after they are created.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerWriteFiles), thisProxy));
+  
+  // Have the file manager create output files.
+  fileManagerProxy.createFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2]);
+}
+
+void ADHydro::fileManagerWriteFiles()
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  // Set the callback to check the invariant when output is done.  The invariant callback will start the timestep.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkInvariant), thisProxy));
+#else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  // Set the callback to just start the timestep when output is done.
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  
+#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
+  fileManagerProxy[0].resizeUnlimitedDimensions(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
+#else // NETCDF_COLLECTIVE_IO_WORKAROUND
+  fileManagerProxy.writeFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+  
+  // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
+  writeGeometry  = false;
+  writeParameter = false;
 }
 
 void ADHydro::doTimestep()
@@ -102,7 +147,7 @@ void ADHydro::doTimestep()
         }
       
       // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %d\n", currentTime, dt, iteration);
+      CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
       
       // Set callbacks.
       meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
@@ -116,6 +161,51 @@ void ADHydro::doTimestep()
   else
     {
       CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
+      CkExit();
+    }
+}
+
+void ADHydro::checkInvariant()
+{
+  bool error = false; // Error flag.
+  
+  if (!(NULL != commandLineArguments))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: commandLineArguments must not be NULL.\n");
+      error = true;
+    }
+  
+  if (!(currentTime <= endTime))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: currentTime must be less than or equal to endTime.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < dt))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: dt must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= outputPeriod))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: outputPeriod must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!error)
+    {
+      // Set callbacks.
+      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInvariantDone), thisProxy));
+      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelInvariantDone), thisProxy));
+
+      // Check invariant.
+      meshProxy.checkInvariant();
+      channelProxy.checkInvariant();
+      thisProxy.waitForInvariantToFinish();
+    }
+  else
+    {
       CkExit();
     }
 }
@@ -146,23 +236,17 @@ void ADHydro::timestepDone(double dtNew)
     {
       if (0.0 < outputPeriod)
         {
-          // Force nextOutputTime to be the next multiple of outputPeriod that is greater than currentTime.
+          // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.
           nextOutputTime += outputPeriod * (floor((currentTime - nextOutputTime) / outputPeriod) + 1);
         }
       
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-      // Set the callback to check the invariant when output is done.  The invariant callback will start the timestep.
-      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkInvariant), thisProxy));
-#else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-      // Set the callback to just start the timestep when output is done.
-      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+      // Set the callback to write output files after state information is updated.
+      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerWriteFiles), thisProxy));
       
       // Start the output phase.
-      fileManagerProxy.doOutput(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], false, 1, false, 1, true, iteration, currentTime,
-                                dt);
-      meshProxy.doOutput();
-      channelProxy.doOutput();
+      fileManagerProxy.updateState(currentTime, dt, iteration);
+      meshProxy.updateState();
+      channelProxy.updateState();
     }
   else
     {
@@ -173,45 +257,6 @@ void ADHydro::timestepDone(double dtNew)
       // Just start the timestep.
       doTimestep();
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-    }
-}
-
-void ADHydro::checkInvariant()
-{
-  bool error = false; // Error flag.
-  
-  if (!(NULL != commandLineArguments))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: commandLineArguments must not be NULL.\n");
-      error = true;
-    }
-  
-  if (!(currentTime <= endTime))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: currentTime must be less than or equal to endTime.\n");
-      error = true;
-    }
-  
-  if (!(0.0 < dt))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: dt must be greater than zero.\n");
-      error = true;
-    }
-  
-  if (!error)
-    {
-      // Set callbacks.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInvariantDone), thisProxy));
-      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelInvariantDone), thisProxy));
-
-      // Check invariant.
-      meshProxy.checkInvariant();
-      channelProxy.checkInvariant();
-      thisProxy.waitForInvariantToFinish();
-    }
-  else
-    {
-      CkExit();
     }
 }
 
