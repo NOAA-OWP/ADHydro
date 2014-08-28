@@ -326,7 +326,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float fpIce    = NAN;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  // Variables used for invariant checking.
+  // Variables used for assertions.
   int   iLocOriginal     = iLoc;
   int   jLocOriginal     = jLoc;
   float latOriginal      = lat;
