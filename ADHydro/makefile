@@ -17,10 +17,12 @@ LIBDIRNAME := lib64
 
 CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 METISLDFLAGS   := $(EXTRAMETISLDFLAGS) -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
-LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -g -Wall -language charm++
+LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -lgfortran -g -Wall -language charm++
+
+VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines
 
 EXES := adhydro                     \
         adhydro_create_xmf_file
@@ -31,7 +33,20 @@ ADHYDRO_OBJS := adhydro.o         \
                 channel_element.o \
                 file_manager.o    \
                 surfacewater.o    \
-                groundwater.o
+                groundwater.o     \
+                evapo_transpiration.o
+
+NOAHMP_OBJS := module_sf_noahmpdrv.o          \
+               module_sf_noahmplsm.o          \
+               module_sf_noahmp_glacier.o     \
+               module_sf_noahmp_groundwater.o \
+               module_sf_myjsfc.o             \
+               module_sf_sfclay.o             \
+               module_NoahMP_hrldas_driver.o  \
+               module_hrldas_netcdf_io.o      \
+               kwm_string_utilities.o         \
+               module_date_utilities.o        \
+               module_wrf_utilities.o
 
 ADHYDRO_INPUT_PREPROCESSING_OBJS := adhydro_input_preprocessing.o \
                                     file_manager.o
@@ -42,7 +57,7 @@ all: $(EXES)
 
 .PHONY: all
 
-adhydro: $(ADHYDRO_OBJS)
+adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
 
 adhydro.o: adhydro.cpp            \
@@ -102,6 +117,7 @@ mesh_element.o: mesh_element.cpp       \
                 file_manager.decl.h    \
                 surfacewater.h         \
                 groundwater.h          \
+                evapo_transpiration.h  \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
@@ -134,6 +150,7 @@ file_manager.o: file_manager.cpp       \
                 mesh_element.decl.h    \
                 channel_element.h      \
                 channel_element.decl.h \
+                evapo_transpiration.h  \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
@@ -149,6 +166,11 @@ surfacewater.o: surfacewater.cpp \
 groundwater.o: groundwater.cpp \
                groundwater.h   \
                all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
+
+evapo_transpiration.o: evapo_transpiration.cpp \
+                       evapo_transpiration.h   \
+                       all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:

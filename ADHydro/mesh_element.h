@@ -14,6 +14,7 @@ class CProxy_ChannelElement;
 
 #include "mesh_element.decl.h"
 #include "channel_element.decl.h"
+#include "evapo_transpiration.h"
 
 // A MeshElement object represents one triangle in the simulation mesh.
 // A chare array of MeshElement objects represents the entire simulation mesh.
@@ -465,6 +466,10 @@ private:
                                    // groundwater.  Negative means flow from the groundwater to the vadose zone.  During moveGroundwater this is used to store
                                    // the net meters of water added to or removed from the groundwater including infiltration and all groundwater flows.
                                    // Positive means water added to the groundwater.  Negative means water removed from the groundwater.
+  
+  // Evapo-transpiration state variables.
+  EvapoTranspirationStateStruct evapoTranspirationState; // state variables that are simulated by the evapo-transpiration module.
+                                                         // FIXME to do a hotstart we will eventually need to write these state variables out.
   
   // Sequencing and timestep information.
   bool   groundwaterDone;  // Flag indicating when the groundwater phase is done.

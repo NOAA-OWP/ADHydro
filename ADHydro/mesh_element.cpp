@@ -44,6 +44,7 @@ void MeshElement::pup(PUP::er &p)
   p | groundwaterError;
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
+  p | evapoTranspirationState;
   p | groundwaterDone;
   p | infiltrationDone;
   p | surfacewaterDone;
@@ -390,6 +391,51 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
     {
       surfacewaterInfiltration = 0.0;
       groundwaterRecharge      = 0.0;
+      
+      // FIXME initialize evapoTranspirationState
+      evapoTranspirationState.albOld = 1.0;
+      evapoTranspirationState.stc[0] = 300.0;
+      evapoTranspirationState.stc[1] = 300.0;
+      evapoTranspirationState.stc[2] = 300.0;
+      evapoTranspirationState.stc[3] = 300.0;
+      evapoTranspirationState.stc[4] = 300.0;
+      evapoTranspirationState.stc[5] = 300.0;
+      evapoTranspirationState.stc[6] = 300.0;
+      evapoTranspirationState.tah    = 300.0;
+      evapoTranspirationState.eah    = 3600.0;
+      evapoTranspirationState.fWet   = 0.0;
+      evapoTranspirationState.canLiq = 0.0;
+      evapoTranspirationState.canIce = 0.0;
+      evapoTranspirationState.tv     = 300.0;
+      evapoTranspirationState.tg     = 300.0;
+      evapoTranspirationState.iSnow  = 0;
+      evapoTranspirationState.zSnso[0] = 0.0;
+      evapoTranspirationState.zSnso[1] = 0.0;
+      evapoTranspirationState.zSnso[2] = 0.0;
+      evapoTranspirationState.zSnso[3] = 0.05 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[4] = 0.2 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[5] = 0.5 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[6] = (elementZSurface - elementZBedrock);
+      evapoTranspirationState.snIce[0] = 0.0;
+      evapoTranspirationState.snIce[1] = 0.0;
+      evapoTranspirationState.snIce[2] = 0.0;
+      evapoTranspirationState.snLiq[0] = 0.0;
+      evapoTranspirationState.snLiq[1] = 0.0;
+      evapoTranspirationState.snLiq[2] = 0.0;
+      evapoTranspirationState.lfMass   = 100000.0;
+      evapoTranspirationState.rtMass   = 100000.0;
+      evapoTranspirationState.stMass   = 100000.0;
+      evapoTranspirationState.wood     = 200000.0;
+      evapoTranspirationState.stblCp   = 200000.0;
+      evapoTranspirationState.fastCp   = 200000.0;
+      evapoTranspirationState.lai      = 4.6;
+      evapoTranspirationState.sai      = 0.6;
+      evapoTranspirationState.cm       = 0.002;
+      evapoTranspirationState.ch       = 0.002;
+      evapoTranspirationState.tauss    = 0.0;
+      evapoTranspirationState.deepRech = 0.0;
+      evapoTranspirationState.rech     = 0.0;
+      
       groundwaterDone          = true;
       infiltrationDone         = true;
       surfacewaterDone         = true;
@@ -666,84 +712,119 @@ void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReci
 #pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
 {
-  int edge; // Loop counter.
+  bool  error = false; // Error flag.
+  int   edge;          // Loop counter.
+  float smceq[4];      // FIXME input to evapoTranspirationSoil.
+  float sh2o[4];       // FIXME input to evapoTranspirationSoil.
+  float smc[4];        // FIXME input to evapoTranspirationSoil.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
     {
       CkError("ERROR in MeshElement::handleDoTimestep, element %d: dtThisTimestep must be greater than zero.\n", thisIndex);
-      CkExit();
+      error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Initialize sequencing and timestep information.
-  groundwaterDone  = false;
-  infiltrationDone = false;
-  surfacewaterDone = false;
-  dt               = dtThisTimestep;
-  dtNew            = 2.0 * dt;
-
-  // Do point processes for snowmelt, rainfall, and evapo-transpiration.
-  // FIXME implement these on mesh
-  
-  // Initiate groundwater phase.
-  for (edge = 0; edge < meshNeighborsSize; edge++)
+  if (!error)
     {
-      // Set the flow rate state for this timestep to not ready.
-      meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
+      // Initialize sequencing and timestep information.
+      groundwaterDone  = false;
+      infiltrationDone = false;
+      surfacewaterDone = false;
+      dt               = dtThisTimestep;
+      dtNew            = 2.0 * dt;
+
+      // Do point processes for snowmelt, rainfall, and evapo-transpiration.
+      // FIXME implement these on mesh
       
-      if (!isBoundary(meshNeighbors[edge]))
+      if (0 == thisIndex)
         {
-          // Send my state to my neighbor.
-          switch (meshNeighborsInteraction[edge])
-          {
-          // case I_CALCULATE_FLOW_RATE:
-            // Do nothing.  I will calculate the flow rate after receiving a state message from my neighbor.
-            // break;
-          case NEIGHBOR_CALCULATES_FLOW_RATE:
-            // Fallthrough.
-          case BOTH_CALCULATE_FLOW_RATE:
-            // Send state message.
-            thisProxy[meshNeighbors[edge]].meshGroundwaterStateMessage(iterationThisTimestep, meshNeighborsReciprocalEdge[edge], surfacewaterDepth,
-                                                                       groundwaterHead);
-            break;
-          }
+          // FIXME get real values for parameters.
+          smceq[0] = 0.05;
+          smceq[1] = 0.1;
+          smceq[2] = 0.15;
+          smceq[3] = 0.2;
+          sh2o[0] = 0.05;
+          sh2o[1] = 0.1;
+          sh2o[2] = 0.15;
+          sh2o[3] = 0.2;
+          smc[0] = 0.05;
+          smc[1] = 0.1;
+          smc[2] = 0.15;
+          smc[3] = 0.2;
+          error = evapoTranspirationSoil(11, 8, elementZSurface - elementZBedrock, 0.0, 365, 183.0, 1.0, dt, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, 300.0,
+                                         101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 800.0, 250.0, 0.0, 300.0, 30000.0, sh2o, smc,
+                                         elementZSurface - elementZBedrock, 5000.0, 10000.0, 0.0, 0.2, &evapoTranspirationState);
         }
     }
   
-  for (edge = 0; edge < channelNeighborsSize; edge++)
+  if (!error)
     {
-      if (!isBoundary(channelNeighbors[edge]))
+      // Initiate groundwater phase.
+      for (edge = 0; edge < meshNeighborsSize; edge++)
         {
           // Set the flow rate state for this timestep to not ready.
-          channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
-          
-          // Send my state to my neighbor.
-          switch (channelNeighborsInteraction[edge])
-          {
-          // case I_CALCULATE_FLOW_RATE:
-            // Do nothing.  I will calculate the flow rate after receiving a state message from my neighbor.
-            // break;
-          case NEIGHBOR_CALCULATES_FLOW_RATE:
-            // Fallthrough.
-          case BOTH_CALCULATE_FLOW_RATE:
-            // Send state message.
-            channelProxy[channelNeighbors[edge]].meshGroundwaterStateMessage(iterationThisTimestep, channelNeighborsReciprocalEdge[edge], surfacewaterDepth,
-                                                                             groundwaterHead);
-            break;
-          }
+          meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
+
+          if (!isBoundary(meshNeighbors[edge]))
+            {
+              // Send my state to my neighbor.
+              switch (meshNeighborsInteraction[edge])
+              {
+              // case I_CALCULATE_FLOW_RATE:
+                // Do nothing.  I will calculate the flow rate after receiving a state message from my neighbor.
+                // break;
+              case NEIGHBOR_CALCULATES_FLOW_RATE:
+                // Fallthrough.
+              case BOTH_CALCULATE_FLOW_RATE:
+                // Send state message.
+                thisProxy[meshNeighbors[edge]].meshGroundwaterStateMessage(iterationThisTimestep, meshNeighborsReciprocalEdge[edge], surfacewaterDepth,
+                                                                           groundwaterHead);
+                break;
+              }
+            }
         }
-      else
+
+      for (edge = 0; edge < channelNeighborsSize; edge++)
         {
-          // Only NOFLOW is a valid mesh channel neighbor boundary condition code.
-          channelNeighborsGroundwaterFlowRate[edge]      = 0.0;
-          channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
+          if (!isBoundary(channelNeighbors[edge]))
+            {
+              // Set the flow rate state for this timestep to not ready.
+              channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
+
+              // Send my state to my neighbor.
+              switch (channelNeighborsInteraction[edge])
+              {
+              // case I_CALCULATE_FLOW_RATE:
+                // Do nothing.  I will calculate the flow rate after receiving a state message from my neighbor.
+                // break;
+              case NEIGHBOR_CALCULATES_FLOW_RATE:
+                // Fallthrough.
+              case BOTH_CALCULATE_FLOW_RATE:
+                // Send state message.
+                channelProxy[channelNeighbors[edge]].meshGroundwaterStateMessage(iterationThisTimestep, channelNeighborsReciprocalEdge[edge], surfacewaterDepth,
+                                                                                 groundwaterHead);
+                break;
+              }
+            }
+          else
+            {
+              // Only NOFLOW is a valid mesh channel neighbor boundary condition code.
+              channelNeighborsGroundwaterFlowRate[edge]      = 0.0;
+              channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
+            }
         }
+
+      // Send myself a message to calculate boundary conditions.
+      // This is sent as a message instead of doing it immediately to better overlap communication and computation.
+      thisProxy[thisIndex].calculateGroundwaterBoundaryConditionsMessage(iterationThisTimestep);
     }
   
-  // Send myself a message to calculate boundary conditions.
-  // This is sent as a message instead of doing it immediately to better overlap communication and computation.
-  thisProxy[thisIndex].calculateGroundwaterBoundaryConditionsMessage(iterationThisTimestep);
+  if (error)
+    {
+      CkExit();
+    }
 }
 #pragma GCC diagnostic warning "-Wswitch"
 

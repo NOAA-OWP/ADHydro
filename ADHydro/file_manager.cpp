@@ -1,4 +1,5 @@
 #include "file_manager.h"
+#include "evapo_transpiration.h"
 #include "all.h"
 #include <netcdf.h>
 #include <netcdf_par.h>
@@ -789,6 +790,9 @@ void FileManager::initializeHardcodedMesh()
   meshVertexUpdated     = NULL; // Will be allocated and freed if and when we send messages to update vertices from nodes.
   meshElementUpdated    = new bool[localNumberOfMeshElements];
   channelElementUpdated = new bool[localNumberOfChannelElements];
+  
+  // Have to call evapoTranspirationInit once on each Pe. This is a convenient place to do that.
+  evapoTranspirationInit(".");
   
   contribute();
 }
@@ -2731,6 +2735,9 @@ void FileManager::initializeFromNetCDFFiles(size_t directorySize, const char* di
     {
       delete[] nameString;
     }
+  
+  // Have to call evapoTranspirationInit once on each Pe. This is a convenient place to do that.
+  evapoTranspirationInit(directory);
 
   if (!error)
     {

@@ -70,6 +70,11 @@ public:
   
   // Initializes the file manager from NetCDF files.  When done the file
   // managers contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize - The size of the array passed in to directory.
+  // directory     - The directory from which to read the files.
   void initializeFromNetCDFFiles(size_t directorySize, const char* directory);
   
   // If a variable is not available the file managers attempt to derive it from
@@ -109,6 +114,20 @@ public:
   // outside corner of every variable to resize the dimensions, and then closes
   // the files.  Then it calls writeFiles on all PEs.  They write the data
   // independently and contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize  - The size of the array passed in to directory.
+  // directory      - The directory in which to write the files.
+  // writeGeometry  - Whether to write a new instance into the geometry file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeParameter - Whether to write a new instance into the parameter file.
+  //                  If false, the last exsisting instance is used as the
+  //                  instance to write into the state file and it is an error
+  //                  if no instance exists.
+  // writeState     - Whether to write a new instance into the state file.
   void resizeUnlimitedDimensions(size_t directorySize, const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
 
   // Write data to NetCDF files.  Files must already be created.  When done the
@@ -117,7 +136,7 @@ public:
   // Parameters:
   //
   // directorySize  - The size of the array passed in to directory.
-  // directory      - The directory in which to create the files.
+  // directory      - The directory in which to write the files.
   // writeGeometry  - Whether to write a new instance into the geometry file.
   //                  If false, the last exsisting instance is used as the
   //                  instance to write into the state file and it is an error
