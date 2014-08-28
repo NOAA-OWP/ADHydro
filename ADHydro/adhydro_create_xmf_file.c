@@ -106,9 +106,9 @@ int main(int argc, char*argv[])
     exit(0);
   }
 
- sprintf(namestring, "%s%s",argv[1],"/mesh1.xmf");
+ sprintf(namestring, "%s%s",argv[1],"/mesh.xmf");
  meshOut = fopen (namestring, "w");
- sprintf(namestring, "%s%s",argv[1],"/channels1.xmf");
+ sprintf(namestring, "%s%s",argv[1],"/channels.xmf");
  ChannelOut = fopen (namestring, "w");
 
  free(namestring);
