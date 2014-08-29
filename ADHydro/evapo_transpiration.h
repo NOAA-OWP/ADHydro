@@ -11,14 +11,14 @@
 // to three snow layers, and there are always four soil layers.  The interface
 // includes some array variables that store values for snow and/or soil layers.
 // Arrays of size three hold snow layers.  Arrays of size four hold soil
-// layers.  Arrays of size seven hold both snow and soil layers.  In these
-// arrays the first entry is the top layer followed by lower layers.  For snow
-// layers if less than the maximum number of layers exist then the existing
-// layers come first, top to bottom, followed by unused entries in the array
-// for layers that do not exist.  For array variables that contain both snow
-// and soil layers the existing snow layers come first, top to bottom, followed
-// by unused entries in the array for snow layers that do not exist, followed
-// by the soil layers, top to bottom.
+// layers.  Arrays of size seven hold both snow and soil layers.  For all of
+// these arrays layers are ordered top to bottom.  For array variables that
+// contain snow layers if less than the maximum number of layers exist then the
+// existing layers are at the end of the array.  That is, unused array elements
+// come first followed by existing layers top to bottom.  For array variables
+// that contain both snow and soil layers unused array elements come first
+// followed by existing snow layers top to bottom followed by soil layers top
+// to bottom.
 
 // This struct holds the inout state variables that are simulated by the
 // evapo-transpiration module.  The calling code must initialize these values
@@ -27,6 +27,7 @@
 typedef struct
 {
   float albOld;   // Snow albedo, unitless.
+  float snEqvO;   // The value of snEqv at the beginning of the last timestep.
   float stc[7];   // Temperature in Kelvin of each snow and soil layer.
   float tah;      // Canopy air temperature in Kelvin.
   float eah;      // Canopy air water vapor pressure in Pascal.
@@ -38,8 +39,14 @@ typedef struct
   float tv;       // Vegetation temperature in Kelvin.
   float tg;       // Ground temperature in Kelvin.
   int   iSnow;    // Actual number of snow layers.
-  float zSnso[7]; // Layer bottom depth from snow surface in meters of each
+  float zSnso[7]; // Layer bottom depth in meters from snow surface of each
                   // snow and soil layer.
+  float snowH;    // Snow height in meters of an additional layer of snow
+                  // sitting on top of the layers represented by iSnow, zSnso,
+                  // snIce, and snLiq.
+  float snEqv;    // Quantity of snow in millimeters of water equivalent of an
+                  // additional layer of snow sitting on top of the layers
+                  // represented by iSnow, zSnso, snIce, and snLiq.
   float snIce[3]; // Solid water in each snow layer in millimeters of water
                   // equivalent.
   float snLiq[3]; // Liquid water in each snow layer in millimeters of water

@@ -235,10 +235,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   int  ii;            // Loop counter.
   
   // Input parameters for redprm function.  Some are also used for sflx function.
-  int   slopeType = 8;     // I just arbitrarily chose a slope type with zero slope.  I think slope is only used to calculate runoff, which we ignore. FIXME
-  float zSoil[4]  = {0.05 * soilThickness, 0.2 * soilThickness, 0.5 * soilThickness, soilThickness};
-  int   nSoil     = 4;     // Always use four soil layers.  Arbitrarily use fixed ratios of the total soil thickness.
-  int   isUrban   = 1;     // USGS vegetation type for urban land.
+  int   slopeType = 8; // I just arbitrarily chose a slope type with zero slope.  I think slope is only used to calculate runoff, which we ignore. FIXME
+  float zSoil[4];      // Layer bottom depth in meters from soil surface of each soil layer.  Values are set below from zSnso.
+  int   nSoil     = 4; // Always use four soil layers.
+  int   isUrban   = 1; // USGS vegetation type for urban land.
   
   // Input parameters to sflx function.
   int   iLoc    = 1;               // Grid location index, unused.
@@ -257,13 +257,9 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float zLvl    = dz8w;            // Thickness in meters of lowest atmosphere layer in forcing data.  Redundant with dz8w.
   
   // Input/output parameters to sflx function.
-  float snEqvO = 0.0; // Total water in all snow layers in millimeters of water equivalent.  Value is set below from snIce and snLiq.
   float qsfc   = q2;  // This is actually an input only variable.  Water vapor mixing ratio, unitless, at middle of lowest atmosphere layer in forcing data.
                       // Redundant with q2.
   float qSnow  = NAN; // This is actually an output only variable.  Snowfall rate below the canopy in millimeters of water equivalent per second.
-  float snowH;        // Total snow height in meters.  Value is set below from zSnso.
-  float snEqv;        // Total water in all snow layers in millimeters of water equivalent.  Redundant with snEqvO.  Value is set below from snEqvO after
-                      // snEqvO is set from snIce and snLiq.
 
   // Output parameters to sflx function.  Set to NAN so we can detect if the values are used before being set.  FIXME comment
   float fsa      = NAN;
@@ -380,7 +376,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float fIceOldOriginal[3];
   float pblhOriginal     = pblh;
   float zLvlOriginal     = zLvl;
-  int   totalSnow        = 0.0; // Total water in all snow layers in millimeters of water equivalent.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                                                     
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -399,21 +394,34 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   // FIXME do other checks on inputs.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
+  // Set zSoil from zSnso.
+  for (ii = 0; ii < 4; ii++)
+    {
+      if (0 > evapoTranspirationState->iSnow)
+        {
+          zSoil[ii] = evapoTranspirationState->zSnso[ii + 3] - evapoTranspirationState->zSnso[2];
+        }
+      else
+        {
+          zSoil[ii] = evapoTranspirationState->zSnso[ii + 3];
+        }
+    }
+  
+  // Set fIceOld from snIce and snLiq.
   for (ii = 0; ii < 3; ii++)
     {
-      if (ii < evapoTranspirationState->iSnow)
+      if (ii - 2 > evapoTranspirationState->iSnow)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
           if (!(0.0 < evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]))
             {
-              CkError("ERROR in evapoTranspirationSoil: snow layer %d exists with no water in it.\n", ii);
+              CkError("ERROR in evapoTranspirationSoil: snow layer %d exists with no water in it.\n", ii - 2);
               error = true;
             }
           else
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
             {
               fIceOld[ii] = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
-              snEqvO     += evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii];
             }
         }
       else
@@ -428,25 +436,15 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   
   if (!error)
     {
-      if (0 < evapoTranspirationState->iSnow)
-        {
-          snowH = evapoTranspirationState->zSnso[evapoTranspirationState->iSnow - 1];
-        }
-      else
-        {
-          snowH = 0.0;
-        }
-      
-      snEqv = snEqvO;
-      
       __noahmp_routines_MOD_redprm(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
       __noahmp_routines_MOD_noahmp_sflx(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
                                         &isUrban, &ice, &ist, &isc, smceq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot,
-                                        &co2Air, &o2Air, &folN, fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld, &snEqvO, evapoTranspirationState->stc,
-                                        sh2o, smc, &evapoTranspirationState->tah, &evapoTranspirationState->eah, &evapoTranspirationState->fWet,
-                                        &evapoTranspirationState->canLiq, &evapoTranspirationState->canIce, &evapoTranspirationState->tv,
-                                        &evapoTranspirationState->tg, &qsfc, &qSnow, &evapoTranspirationState->iSnow, evapoTranspirationState->zSnso, &snowH,
-                                        &snEqv, evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt, &wsLake,
+                                        &co2Air, &o2Air, &folN, fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld, &evapoTranspirationState->snEqvO,
+                                        evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah, &evapoTranspirationState->eah,
+                                        &evapoTranspirationState->fWet, &evapoTranspirationState->canLiq, &evapoTranspirationState->canIce,
+                                        &evapoTranspirationState->tv, &evapoTranspirationState->tg, &qsfc, &qSnow, &evapoTranspirationState->iSnow,
+                                        evapoTranspirationState->zSnso, &evapoTranspirationState->snowH, &evapoTranspirationState->snEqv,
+                                        evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt, &wsLake,
                                         &evapoTranspirationState->lfMass, &evapoTranspirationState->rtMass, &evapoTranspirationState->stMass,
                                         &evapoTranspirationState->wood, &evapoTranspirationState->stblCp, &evapoTranspirationState->fastCp,
                                         &evapoTranspirationState->lai, &evapoTranspirationState->sai, &evapoTranspirationState->cm,
@@ -494,26 +492,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
       // FIXME remove
       // It appears that the output value of qsfc is always 0.  Check this.
       CkAssert(0.0f == qsfc);
-      
-      /* FIXME
-      // Verify that the redundant snow water equivalent variables are consistent.
-      for (ii = 0; ii < evapoTranspirationState->iSnow; ii++)
-        {
-          totalSnow += evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii];
-        }
-      
-      // FIXME CkAssert(totalSnow == snEqvO && totalSnow == snEqv);
-      
-      // Verify that redundant snow height variables are consistent.
-      if (0 < evapoTranspirationState->iSnow)
-        {
-          // FIXME CkAssert(snowH == evapoTranspirationState->zSnso[evapoTranspirationState->iSnow - 1]);
-        }
-      else
-        {
-          // FIXME CkAssert(0.0 == snowH);
-        }
-      */
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
