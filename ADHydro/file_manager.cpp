@@ -792,7 +792,10 @@ void FileManager::initializeHardcodedMesh()
   channelElementUpdated = new bool[localNumberOfChannelElements];
   
   // Have to call evapoTranspirationInit once on each Pe. This is a convenient place to do that.
-  evapoTranspirationInit(".");
+  if (evapoTranspirationInit("."))
+    {
+      CkExit();
+    }
   
   contribute();
 }
@@ -2737,7 +2740,10 @@ void FileManager::initializeFromNetCDFFiles(size_t directorySize, const char* di
     }
   
   // Have to call evapoTranspirationInit once on each Pe. This is a convenient place to do that.
-  evapoTranspirationInit(directory);
+  if (!error)
+    {
+      error = evapoTranspirationInit(directory);
+    }
 
   if (!error)
     {

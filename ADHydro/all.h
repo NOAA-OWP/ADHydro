@@ -179,4 +179,56 @@ inline bool epsilonEqual(double a, double b)
   return !epsilonLess(a, b) && !epsilonGreater(a, b);
 }
 
+// Utility functions for near equality testing of floats.  Same as the
+// functions for doubles, but using 10^-8 for epsilon instead of 10^-10.
+
+// Returns: the epsilon value to use for near-equality testing with x.
+inline float epsilon(float x)
+{
+  float eps = 1.0e-8;
+  
+  // Don't use library fabs and max to avoid including headers in all.h.
+  if (0.0 > x)
+    {
+      x *= -1;
+    }
+  
+  if (1.0 < x)
+    {
+      eps *= x;
+    }
+  
+  return eps;
+}
+
+// Returns: true if a is less than and not near equal to b, false otherwise.
+inline bool epsilonLess(float a, float b)
+{
+  return a < b - epsilon(b);
+}
+
+// Returns: true if a is greater than and not near equal to b, false otherwise.
+inline bool epsilonGreater(float a, float b)
+{
+  return a > b + epsilon(b);
+}
+
+// Returns: true if a is less than or near equal to b, false otherwise.
+inline bool epsilonLessOrEqual(float a, float b)
+{
+  return !epsilonGreater(a, b);
+}
+
+// Returns: true if a is greater than or near equal to b, false otherwise.
+inline bool epsilonGreaterOrEqual(float a, float b)
+{
+  return !epsilonLess(a, b);
+}
+
+// Returns: true if a is near equal to b, false otherwise.
+inline bool epsilonEqual(float a, float b)
+{
+  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+}
+
 #endif // __ALL_H__
