@@ -257,8 +257,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float zLvl    = dz8w;            // Thickness in meters of lowest atmosphere layer in forcing data.  Redundant with dz8w.
   
   // Input/output parameters to sflx function.
-  float qsfc   = q2;  // This is actually an input only variable.  Water vapor mixing ratio, unitless, at middle of lowest atmosphere layer in forcing data.
-                      // Redundant with q2.
+  float qsfc   = q2;  // Water vapor mixing ratio at middle of lowest atmosphere layer in forcing data, unitless.  Redundant with q2.
   float qSnow  = NAN; // This is actually an output only variable.  Snowfall rate below the canopy in millimeters of water equivalent per second.
 
   // Output parameters to sflx function.  Set to NAN so we can detect if the values are used before being set.  FIXME comment
@@ -348,7 +347,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float dxOriginal       = dx;
   float dz8wOriginal     = dz8w;
   int   nSoilOriginal    = nSoil;
-  float zSoilOriginal[4] = {zSoil[0], zSoil[1], zSoil[2], zSoil[3]};
+  float zSoilOriginal[4];
   int   nSnowOriginal    = nSnow;
   float shdFacOriginal   = shdFac;
   float shdMaxOriginal   = shdMax;
@@ -405,6 +404,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
         {
           zSoil[ii] = evapoTranspirationState->zSnso[ii + 3];
         }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      zSoilOriginal[ii] = zSoil[ii];
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
   // Set fIceOld from snIce and snLiq.
@@ -488,10 +491,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
       // Because it is a derived value it can be slightly negative due to roundoff error.
       // FIXME If it is try to take the water from canLiq or canIce.
       CkAssert(epsilonLessOrEqual(0.0f, rainBelowCanopy));
-      
-      // FIXME remove
-      // It appears that the output value of qsfc is always 0.  Check this.
-      CkAssert(0.0f == qsfc);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
