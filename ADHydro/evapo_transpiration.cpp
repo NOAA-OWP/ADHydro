@@ -13,7 +13,7 @@ extern "C" void __noahmp_glacier_routines_MOD_noahmp_options_glacier(int* dveg, 
 extern "C" void __noahmp_routines_MOD_redprm(int* vegType, int* soilType, int* slopeType, float* zSoil, int* nSoil, int* isUrban);
 extern "C" void __noahmp_routines_MOD_noahmp_sflx(int* iLoc, int* jLoc, float* lat, int* yearLen, float* julian, float* cosZ, float* dt, float* dx,
                                                   float* dz8w, int* nSoil, float* zSoil, int* nSnow, float* shdFac, float* shdMax, int* vegType, int* isUrban,
-                                                  int* ice, int* ist, int* isc, float* smceq, int* iz0tlnd, float* sfcTmp, float* sfcPrs, float* psfc,
+                                                  int* ice, int* ist, int* isc, float* smcEq, int* iz0tlnd, float* sfcTmp, float* sfcPrs, float* psfc,
                                                   float* uu, float* vv, float* q2, float* qc, float* solDn, float* lwDn, float* prcp, float* tBot,
                                                   float* co2Air, float* o2Air, float* folN, float* fIceOld, float* pblh, float* zLvl, float* albOld,
                                                   float* snEqvO, float* stc, float* sh2o, float* smc, float* tah, float* eah, float* fWet, float* canLiq,
@@ -227,9 +227,9 @@ bool evapoTranspirationInit(const char* directory)
 }
 
 bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w,
-                            float shdFac, float shdMax, float smceq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc,
+                            float shdFac, float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc,
                             float solDn, float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,
-                            float wsLake, float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState)
+                            float wsLake, float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError)
 {
   bool error = false; // Error flag.
   int  ii;            // Loop counter.
@@ -321,19 +321,34 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   float fpIce    = NAN;
   
   // Derived output variables.
-  float evaporationFromCanopy;                            // Quantity of evaporation from canopy in millimeters of water equivalent.
   float canIceOriginal = evapoTranspirationState->canIce; // Quantity of canopy ice before timestep in millimeters of water equivalent.
   float changeInCanopyIce;                                // Change in canopy ice during timestep in millimeters of water equivalent.
   float canLiqOriginal = evapoTranspirationState->canLiq; // Quantity of canopy liquid before timestep in millimeters of water.
   float changeInCanopyLiquid;                             // Change in canopy liquid during timestep in millimeters of water.
-  float snowAboveCanopy;                                  // Quantity of snowfall above the canopy in millimeters of water equivalent.
-  float snowInterceptedByCanopy;                          // Quantity of snowfall intercepted by the canopy in millimeters of water equivalent.
+  int   iSnowOriginal  = evapoTranspirationState->iSnow;  // Actual number of snow layers before timestep.
+  float totalSnowIce;                                     // Quantity of ice in snow layer in millimeters of water equivalent.
+  float totalSnowLiquid;                                  // Quantity of liquid in snow layer in millimeters of water.
+  float evaporationFromCanopy;                            // Quantity of evaporation from canopy in millimeters of water equivalent.
+  float evaporationFromSurface;                           // Quantity of evaporation from surface in millimeters of water equivalent.
+                                                          // Surface evaporation sometimes comes from snow and is taken out by Noah-MP, but if there is not
+                                                          // enough snow we have to take the evaporation from the water in the ADHydro state variables.
+  float evaporationFromSnow;                              // Quantity of evaporation that Noah-MP takes from the snow in millimeters of water equivalent.
+  float evaporationFromGround;                            // Quantity of evaporation that we need to take from the ADHydro state variables in millimeters of
+                                                          // water equivalent.
+  float snowfallAboveCanopy;                              // Quantity of snowfall above the canopy in millimeters of water equivalent.
+  float snowfallInterceptedByCanopy;                      // Quantity of snowfall intercepted by the canopy in millimeters of water equivalent.
                                                           // Can be negative if snow is falling off of the canopy.
-  float snowBelowCanopy;                                  // Quantity of snowfall below the canopy in millimeters of water equivalent.
-  float rainAboveCanopy;                                  // Quantity of rainfall above the canopy in millimeters of water.
-  float rainInterceptedByCanopy;                          // Quantity of rainfall intercepted by the canopy in millimeters of water.
+  float snowfallBelowCanopy;                              // Quantity of snowfall below the canopy in millimeters of water equivalent.
+  float snowmeltOnGround;                                 // Quantity of water that reaches the ground from the snow layer in millimeters of water.
+  float rainfallAboveCanopy;                              // Quantity of rainfall above the canopy in millimeters of water.
+  float rainfallInterceptedByCanopy;                      // Quantity of rainfall intercepted by the canopy in millimeters of water.
                                                           // Can be negative if rain is dripping from the canopy.
-  float rainBelowCanopy;                                  // Quantity of rainfall below the canopy in millimeters of water.
+  float rainfallBelowCanopy;                              // Quantity of rainfall below the canopy in millimeters of water.
+  float rainfallInterceptedBySnow;                        // Quantity of rainfall intercepted by the snow layer in millimeters of water.
+  float rainfallOnGround;                                 // Quantity of rainfall that reaches the ground in millimeters of water.
+  float snEqvShouldBe;                                    // If snEqv falls below 0.001 Noah-MP sets it to zero.  We don't want this behavior so in this
+                                                          // variable we calculate what snEqv should be and set it back if it gets set to zero.
+                                                          // If snEqv is not set to zero this instead performs a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -356,7 +371,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
   int   iceOriginal      = ice;
   int   istOriginal      = ist;
   int   iscOriginal      = isc;
-  float smceqOriginal[4] = {smceq[0], smceq[1], smceq[2], smceq[3]};
+  float smcEqOriginal[4] = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
   int   iz0tlndOriginal  = iz0tlnd;
   float sfcTmpOriginal   = sfcTmp;
   float sfcPrsOriginal   = sfcPrs;
@@ -390,58 +405,86 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
       error = true;
     }
   
+  if (!(NULL != waterError))
+    {
+      CkError("ERROR in evapoTranspirationSoil: water error must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *waterError = 0.0;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   // FIXME do other checks on inputs.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Set zSoil from zSnso.
-  for (ii = 0; ii < 4; ii++)
+  if (!error)
     {
-      if (0 > evapoTranspirationState->iSnow)
+      // Set zSoil from zSnso.
+      for (ii = 0; ii < 4; ii++)
         {
-          zSoil[ii] = evapoTranspirationState->zSnso[ii + 3] - evapoTranspirationState->zSnso[2];
-        }
-      else
-        {
-          zSoil[ii] = evapoTranspirationState->zSnso[ii + 3];
-        }
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      zSoilOriginal[ii] = zSoil[ii];
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-    }
-  
-  // Set fIceOld from snIce and snLiq.
-  for (ii = 0; ii < 3; ii++)
-    {
-      if (ii - 2 > evapoTranspirationState->iSnow)
-        {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-          if (!(0.0 < evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]))
+          if (0 > evapoTranspirationState->iSnow)
             {
-              CkError("ERROR in evapoTranspirationSoil: snow layer %d exists with no water in it.\n", ii - 2);
-              error = true;
+              zSoil[ii] = evapoTranspirationState->zSnso[ii + 3] - evapoTranspirationState->zSnso[2];
             }
           else
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
             {
-              fIceOld[ii] = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
+              zSoil[ii] = evapoTranspirationState->zSnso[ii + 3];
             }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          zSoilOriginal[ii] = zSoil[ii];
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
-      else
+
+      // Set fIceOld and calculate total ice and liquid in snow layer from snIce and snLiq.
+      totalSnowIce    = 0.0;
+      totalSnowLiquid = 0.0;
+      
+      for (ii = 0; ii < 3; ii++)
         {
-          fIceOld[ii] = 0.0;
+          if (ii - 2 > evapoTranspirationState->iSnow)
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+              if (!(0.0 < evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]))
+                {
+                  CkError("ERROR in evapoTranspirationSoil: snow layer %d exists with no water in it.\n", ii - 2);
+                  error = true;
+                }
+              else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                {
+                  fIceOld[ii]      = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
+                  totalSnowIce    += evapoTranspirationState->snIce[ii];
+                  totalSnowLiquid += evapoTranspirationState->snLiq[ii];
+                }
+            }
+          else
+            {
+              fIceOld[ii] = 0.0;
+            }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          fIceOldOriginal[ii] = fIceOld[ii];
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
       
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      fIceOldOriginal[ii] = fIceOld[ii];
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      if (0 > evapoTranspirationState->iSnow && !(totalSnowIce + totalSnowLiquid == evapoTranspirationState->snEqv))
+        {
+          CkError("ERROR in evapoTranspirationSoil: snEqv must be equal to the total of snIce and snLiq.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     }
   
   if (!error)
     {
       __noahmp_routines_MOD_redprm(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
       __noahmp_routines_MOD_noahmp_sflx(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
-                                        &isUrban, &ice, &ist, &isc, smceq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot,
+                                        &isUrban, &ice, &ist, &isc, smcEq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot,
                                         &co2Air, &o2Air, &folN, fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld, &evapoTranspirationState->snEqvO,
                                         evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah, &evapoTranspirationState->eah,
                                         &evapoTranspirationState->fWet, &evapoTranspirationState->canLiq, &evapoTranspirationState->canIce,
@@ -457,25 +500,14 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
                                         &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap, &chv, &chb, &emissi, &shg, &shc, &shb,
                                         &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
       
-      // Calculate derived output variables.
-      evaporationFromCanopy   = eCan * dt;
-      changeInCanopyIce       = evapoTranspirationState->canIce - canIceOriginal;
-      changeInCanopyLiquid    = evapoTranspirationState->canLiq - canLiqOriginal;
-      snowAboveCanopy         = prcp * dt * fpIce;
-      snowBelowCanopy         = qSnow * dt;
-      snowInterceptedByCanopy = snowAboveCanopy - snowBelowCanopy;
-      rainAboveCanopy         = prcp * dt - snowAboveCanopy;
-      rainInterceptedByCanopy = evaporationFromCanopy + changeInCanopyIce + changeInCanopyLiquid - snowInterceptedByCanopy;
-      rainBelowCanopy         = rainAboveCanopy - rainInterceptedByCanopy;
-      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.
       CkAssert(iLocOriginal == iLoc && jLocOriginal == jLoc && latOriginal == lat && yearLenOriginal == yearLen && julianOriginal == julian &&
                cosZOriginal == cosZ && dtOriginal == dt && dxOriginal == dx && dz8wOriginal == dz8w && nSoilOriginal == nSoil &&
                zSoilOriginal[0] == zSoil[0] && zSoilOriginal[1] == zSoil[1] && zSoilOriginal[2] == zSoil[2] && zSoilOriginal[3] == zSoil[3] &&
                nSnowOriginal == nSnow && shdFacOriginal == shdFac && shdMaxOriginal == shdMax && vegTypeOriginal == vegType && isUrbanOriginal == isUrban &&
-               iceOriginal == ice && istOriginal == ist && iscOriginal == isc && smceqOriginal[0] == smceq[0] && smceqOriginal[1] == smceq[1] &&
-               smceqOriginal[2] == smceq[2] && smceqOriginal[3] == smceq[3] && iz0tlndOriginal == iz0tlnd && sfcTmpOriginal == sfcTmp &&
+               iceOriginal == ice && istOriginal == ist && iscOriginal == isc && smcEqOriginal[0] == smcEq[0] && smcEqOriginal[1] == smcEq[1] &&
+               smcEqOriginal[2] == smcEq[2] && smcEqOriginal[3] == smcEq[3] && iz0tlndOriginal == iz0tlnd && sfcTmpOriginal == sfcTmp &&
                sfcPrsOriginal == sfcPrs && psfcOriginal == psfc && uuOriginal == uu && vvOriginal == vv && q2Original == q2 && qcOriginal == qc &&
                solDnOriginal == solDn && lwDnOriginal == lwDn && prcpOriginal == prcp && tBotOriginal == tBot && co2AirOriginal == co2Air &&
                o2AirOriginal == o2Air && folNOriginal == folN && fIceOldOriginal[0] == fIceOld[0] && fIceOldOriginal[1] == fIceOld[1] &&
@@ -487,10 +519,105 @@ bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, flo
       // Verify that the snowfall rate below the canopy is not negative.
       CkAssert(0.0f <= qSnow);
       
-      // Verify that the rainfall below the canopy is not epsilon negative.
-      // Because it is a derived value it can be slightly negative due to roundoff error.
-      // FIXME If it is try to take the water from canLiq or canIce.
-      CkAssert(epsilonLessOrEqual(0.0f, rainBelowCanopy));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      // Calculate derived output variables.
+      changeInCanopyIce      = evapoTranspirationState->canIce - canIceOriginal;
+      changeInCanopyLiquid   = evapoTranspirationState->canLiq - canLiqOriginal;
+      evaporationFromCanopy  = eCan * dt;
+      evaporationFromSurface = eDir * dt;
+      
+      // Surface evaporation is taken first from the snow layer up to the amount in snEqv at the beginning of the timestep, which is now in snEqvO.
+      if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
+        {
+          evaporationFromSnow   = evaporationFromSurface;
+          evaporationFromGround = 0.0;
+        }
+      else
+        {
+          evaporationFromSnow   = evapoTranspirationState->snEqvO;
+          evaporationFromGround = evaporationFromSurface - evapoTranspirationState->snEqvO;
+        }
+      
+      snowfallAboveCanopy         = prcp * dt * fpIce;
+      snowfallBelowCanopy         = qSnow * dt;
+      snowfallInterceptedByCanopy = snowfallAboveCanopy - snowfallBelowCanopy;
+      snowmeltOnGround            = qSnBot * dt;
+      rainfallAboveCanopy         = prcp * dt - snowfallAboveCanopy;
+      rainfallInterceptedByCanopy = changeInCanopyIce + changeInCanopyLiquid + evaporationFromCanopy - snowfallInterceptedByCanopy;
+      rainfallBelowCanopy         = rainfallAboveCanopy - rainfallInterceptedByCanopy;
+      
+      // Because rainfallBelowCanopy is a derived value it can be slightly negative due to roundoff error.
+      // If it is try to take the water from canLiq or canIce.
+      if (0.0 > rainfallBelowCanopy)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(0.0f, rainfallBelowCanopy));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          if (evapoTranspirationState->canLiq >= -rainfallBelowCanopy)
+            {
+              evapoTranspirationState->canLiq += rainfallBelowCanopy;
+              rainfallBelowCanopy              = 0.0;
+            }
+          else
+            {
+              rainfallBelowCanopy             += evapoTranspirationState->canLiq;
+              evapoTranspirationState->canLiq  = 0.0;
+
+              if (evapoTranspirationState->canIce >= -rainfallBelowCanopy)
+                {
+                  evapoTranspirationState->canIce += rainfallBelowCanopy;
+                  rainfallBelowCanopy              = 0.0;
+                }
+              else
+                {
+                  rainfallBelowCanopy             += evapoTranspirationState->canIce;
+                  evapoTranspirationState->canIce  = 0.0;
+                  *waterError                     -= rainfallBelowCanopy;
+                  rainfallBelowCanopy              = 0.0;
+                }
+            }
+        }
+      
+      // If there is a snow layer at the beginning and end of the timestep it intercepts all of the rainfall.
+      // FIXME beginning and end?
+      if (0 > iSnowOriginal && 0 > evapoTranspirationState->iSnow)
+        {
+          rainfallInterceptedBySnow = rainfallBelowCanopy;
+          rainfallOnGround          = 0.0;
+        }
+      else
+        {
+          rainfallInterceptedBySnow = 0.0;
+          rainfallOnGround          = rainfallBelowCanopy;
+        }
+      
+      // When the total snow height gets less than 2.5mm the multi-layer snow simulation turns off.  When this happens all of the liquid water in snLiq becomes
+      // snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during the
+      // timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value of
+      // snEqv to back out the value of snowmeltOnGround.
+      if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
+        {
+          snowmeltOnGround = evapoTranspirationState->snEqvO + snowfallBelowCanopy - evaporationFromSnow - evapoTranspirationState->snEqv;
+        }
+      
+      // If snEqv falls below 0.001 mm then NOAM-MP sets it to zero and the water is lost.  We are calculating what snEqv should be and putting the water back.
+      snEqvShouldBe = evapoTranspirationState->snEqvO + snowfallBelowCanopy + rainfallInterceptedBySnow - evaporationFromSnow - snowmeltOnGround;
+      
+      if (0.0 == evapoTranspirationState->snEqv)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          evapoTranspirationState->snEqv = snEqvShouldBe;
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe));
+
+      // FIXME verify the snEqv is equal to the total water equivalent in the snow layers.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   

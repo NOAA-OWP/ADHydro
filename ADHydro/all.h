@@ -180,12 +180,12 @@ inline bool epsilonEqual(double a, double b)
 }
 
 // Utility functions for near equality testing of floats.  Same as the
-// functions for doubles, but using 10^-8 for epsilon instead of 10^-10.
+// functions for doubles, but using 10^-6 for epsilon instead of 10^-10.
 
 // Returns: the epsilon value to use for near-equality testing with x.
 inline float epsilon(float x)
 {
-  float eps = 1.0e-8;
+  float eps = 1.0e-6;
   
   // Don't use library fabs and max to avoid including headers in all.h.
   if (0.0 > x)

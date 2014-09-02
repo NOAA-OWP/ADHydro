@@ -102,7 +102,7 @@ bool evapoTranspirationInit(const char* directory);
 //                           1.0.
 // shdMax                  - Yearly maximum fraction of land area shaded by
 //                           vegetation, 0.0 to 1.0.
-// smceq                   - Equlibrium water content of each soil layer,
+// smcEq                   - Equlibrium water content of each soil layer,
 //                           unitless.
 // sfcTmp                  - Air temperature in Kelvin at surface.
 // sfcPrs                  - Air pressure in Pascal at surface.
@@ -139,10 +139,14 @@ bool evapoTranspirationInit(const char* directory);
 //                           before first use.  Then will be filled in with new
 //                           values that should be passed back in to the next
 //                           call.
+// waterError              - Scalar passed by reference will be filled in with
+//                           the water error in Millimeters of water.  Positive
+//                           means water was created.  Negative means water was
+//                           destroyed.
 bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w,
-                            float shdFac, float shdMax, float smceq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc,
+                            float shdFac, float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc,
                             float solDn, float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,
-                            float wsLake, float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState);
+                            float wsLake, float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
 // FIXME add functions for evapoTranspirationWater and evapoTranspirationGlacier
 

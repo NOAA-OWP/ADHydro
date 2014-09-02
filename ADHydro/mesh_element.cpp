@@ -395,20 +395,20 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       // FIXME initialize evapoTranspirationState
       evapoTranspirationState.albOld   = 1.0;
       evapoTranspirationState.snEqvO   = 0.0;
-      evapoTranspirationState.stc[0]   = 270.0;
-      evapoTranspirationState.stc[1]   = 270.0;
-      evapoTranspirationState.stc[2]   = 270.0;
-      evapoTranspirationState.stc[3]   = 270.0;
-      evapoTranspirationState.stc[4]   = 270.0;
-      evapoTranspirationState.stc[5]   = 270.0;
-      evapoTranspirationState.stc[6]   = 270.0;
-      evapoTranspirationState.tah      = 270.0;
+      evapoTranspirationState.stc[0]   = 300.0;
+      evapoTranspirationState.stc[1]   = 300.0;
+      evapoTranspirationState.stc[2]   = 300.0;
+      evapoTranspirationState.stc[3]   = 300.0;
+      evapoTranspirationState.stc[4]   = 300.0;
+      evapoTranspirationState.stc[5]   = 300.0;
+      evapoTranspirationState.stc[6]   = 300.0;
+      evapoTranspirationState.tah      = 300.0;
       evapoTranspirationState.eah      = 2000.0;
       evapoTranspirationState.fWet     = 0.0;
       evapoTranspirationState.canLiq   = 0.0;
       evapoTranspirationState.canIce   = 0.0;
-      evapoTranspirationState.tv       = 270.0;
-      evapoTranspirationState.tg       = 270.0;
+      evapoTranspirationState.tv       = 300.0;
+      evapoTranspirationState.tg       = 300.0;
       evapoTranspirationState.iSnow    = 0;
       evapoTranspirationState.zSnso[0] = 0.0;
       evapoTranspirationState.zSnso[1] = 0.0;
@@ -720,6 +720,9 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
   float smceq[4];      // FIXME input to evapoTranspirationSoil.
   float sh2o[4];       // FIXME input to evapoTranspirationSoil.
   float smc[4];        // FIXME input to evapoTranspirationSoil.
+  float prcp;          // FIXME input to evapoTranspirationSoil.
+  float sfcTmp;        // FIXME input to evapoTranspirationSoil.
+  float waterError;    // FIXME output of evapoTranspirationSoil.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -757,9 +760,27 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
           smc[2] = 0.15;
           smc[3] = 0.2;
           
-          error = evapoTranspirationSoil(11, 8, elementZSurface - elementZBedrock, 0.0, 365, 183.0, 0.0, dt, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, 270.0,
-                                         101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 800.0, 250.0, 0.01, 270.0, 30000.0, sh2o, smc,
-                                         elementZSurface - elementZBedrock, 5000.0, 10000.0, 0.0, 0.2, &evapoTranspirationState);
+          if (iterationThisTimestep < 200)
+            {
+              prcp = 0.005;
+            }
+          else
+            {
+              prcp = 0.0;
+            }
+          
+          if (iterationThisTimestep < 140)
+            {
+              sfcTmp = 270.0;
+            }
+          else
+            {
+              sfcTmp = 300.0;
+            }
+          
+          error = evapoTranspirationSoil(11, 8, elementZSurface - elementZBedrock, 0.0, 365, 183.0, 1.0, dt * 10.0, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, sfcTmp,
+                                         101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 1600.0, 250.0, prcp, 270.0, 30000.0, sh2o, smc,
+                                         elementZSurface - elementZBedrock, 5000.0, 10000.0, 0.0, 0.2, &evapoTranspirationState, &waterError);
         }
     }
   
