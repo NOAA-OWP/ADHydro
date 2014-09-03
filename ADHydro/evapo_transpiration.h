@@ -26,47 +26,48 @@
 // one call back in to the next call.
 typedef struct
 {
-  float albOld;   // Snow albedo, unitless.
-  float snEqvO;   // The value of snEqv at the beginning of the last timestep.
-  float stc[7];   // Temperature in Kelvin of each snow and soil layer.
-  float tah;      // Canopy air temperature in Kelvin.
-  float eah;      // Canopy air water vapor pressure in Pascal.
-  float fWet;     // Wetted or snowed fraction of canopy, unitless.
-  float canLiq;   // Intercepted liquid water in canopy in millimeters of water
-                  // equivalent.
-  float canIce;   // Intercepted solid water in canopy in millimeters of water
-                  // equivalent.
-  float tv;       // Vegetation temperature in Kelvin.
-  float tg;       // Ground temperature in Kelvin.
-  int   iSnow;    // Actual number of snow layers.
-  float zSnso[7]; // Layer bottom depth in meters from snow surface of each
-                  // snow and soil layer.
-  float snowH;    // Snow height in meters of an additional layer of snow
-                  // sitting on top of the layers represented by iSnow, zSnso,
-                  // snIce, and snLiq.
-  float snEqv;    // Quantity of snow in millimeters of water equivalent of an
-                  // additional layer of snow sitting on top of the layers
-                  // represented by iSnow, zSnso, snIce, and snLiq.
-  float snIce[3]; // Solid water in each snow layer in millimeters of water
-                  // equivalent.
-  float snLiq[3]; // Liquid water in each snow layer in millimeters of water
-                  // equivalent.
-  float lfMass;   // Leaf mass in grams per square meter.
-  float rtMass;   // Fine root mass in grams per square meter.
-  float stMass;   // Stem mass in grams per square meter.
-  float wood;     // Wood mass including woody roots in grams per square meter.
-  float stblCp;   // Stable carbon in deep soil in grams per square meter.
-  float fastCp;   // Short lived carbon in shallow soil in grams per square
-                  // meter.
-  float lai;      // Leaf area index, unitless.
-  float sai;      // Stem area index, unitless.
-  float cm;       // Momentum drag coefficient.
-  float ch;       // Sensible heat exchange coefficient.
-  float tauss;    // Non-dimensional snow age.
-  float deepRech; // Recharge in meters of water to or from the water table
-                  // when deep.
-  float rech;     // Recharge in meters of water to or from the water table
-                  // when shallow.
+  float fIceOld[3]; // Ice fraction of each snow layer at the beginning of the
+                    // last timestep.
+  float albOld;     // Snow albedo, unitless.
+  float snEqvO;     // The value of snEqv at the beginning of the last
+                    // timestep.
+  float stc[7];     // Temperature in Kelvin of each snow and soil layer.
+  float tah;        // Canopy air temperature in Kelvin.
+  float eah;        // Canopy air water vapor pressure in Pascal.
+  float fWet;       // Wetted or snowed fraction of canopy, unitless.
+  float canLiq;     // Intercepted liquid water in canopy in millimeters of
+                    // water equivalent.
+  float canIce;     // Intercepted solid water in canopy in millimeters of
+                    // water equivalent.
+  float tv;         // Vegetation temperature in Kelvin.
+  float tg;         // Ground temperature in Kelvin.
+  int   iSnow;      // Actual number of snow layers.
+  float zSnso[7];   // Layer bottom depth in meters from snow surface of each
+                    // snow and soil layer.
+  float snowH;      // Total snow height in meters.
+  float snEqv;      // Total quantity of snow in millimeters of water
+                    // equivalent.
+  float snIce[3];   // Solid water in each snow layer in millimeters of water
+                    // equivalent.
+  float snLiq[3];   // Liquid water in each snow layer in millimeters of water
+                    // equivalent.
+  float lfMass;     // Leaf mass in grams per square meter.
+  float rtMass;     // Fine root mass in grams per square meter.
+  float stMass;     // Stem mass in grams per square meter.
+  float wood;       // Wood mass including woody roots in grams per square
+                    // meter.
+  float stblCp;     // Stable carbon in deep soil in grams per square meter.
+  float fastCp;     // Short lived carbon in shallow soil in grams per square
+                    // meter.
+  float lai;        // Leaf area index, unitless.
+  float sai;        // Stem area index, unitless.
+  float cm;         // Momentum drag coefficient.
+  float ch;         // Sensible heat exchange coefficient.
+  float tauss;      // Non-dimensional snow age.
+  float deepRech;   // Recharge in meters of water to or from the water table
+                    // when deep.
+  float rech;       // Recharge in meters of water to or from the water table
+                    // when shallow.
 } EvapoTranspirationStateStruct;
 
 PUPbytes(EvapoTranspirationStateStruct);
@@ -85,12 +86,16 @@ bool evapoTranspirationInit(const char* directory);
 //
 // Parameters:
 //
+// vegType                 - Vegetation type from VEGPARM.TBL file.
+// soilType                - Soil type form SOILPARM.TBL file.
 // lat                     - Latitude in radians.
 // yearLen                 - Number of days in the current year, 365 or 366.
 // julian                  - Julian day of year.  Time in days including
 //                           fractional day since midnight at the beginning of
 //                           January 1 of the current year.
 // cosZ                    - Cosine of the solar zenith angle, 0.0 to 1.0.
+//                           1.0 means the sun is directly overhead.
+//                           0.0 means the sun is at or below the horizon.
 // dt                      - Time step in seconds.
 // dx                      - Horizontal grid scale in meters.  Pass square root
 //                           of element area for non-square grid cells.
@@ -143,10 +148,10 @@ bool evapoTranspirationInit(const char* directory);
 //                           the water error in Millimeters of water.  Positive
 //                           means water was created.  Negative means water was
 //                           destroyed.
-bool evapoTranspirationSoil(int vegType, int soilType, double soilThickness, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w,
-                            float shdFac, float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc,
-                            float solDn, float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,
-                            float wsLake, float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
+                            float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
+                            float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float wsLake,
+                            float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
 // FIXME add functions for evapoTranspirationWater and evapoTranspirationGlacier
 

@@ -393,51 +393,54 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       groundwaterRecharge      = 0.0;
       
       // FIXME initialize evapoTranspirationState
-      evapoTranspirationState.albOld   = 1.0;
-      evapoTranspirationState.snEqvO   = 0.0;
-      evapoTranspirationState.stc[0]   = 300.0;
-      evapoTranspirationState.stc[1]   = 300.0;
-      evapoTranspirationState.stc[2]   = 300.0;
-      evapoTranspirationState.stc[3]   = 300.0;
-      evapoTranspirationState.stc[4]   = 300.0;
-      evapoTranspirationState.stc[5]   = 300.0;
-      evapoTranspirationState.stc[6]   = 300.0;
-      evapoTranspirationState.tah      = 300.0;
-      evapoTranspirationState.eah      = 2000.0;
-      evapoTranspirationState.fWet     = 0.0;
-      evapoTranspirationState.canLiq   = 0.0;
-      evapoTranspirationState.canIce   = 0.0;
-      evapoTranspirationState.tv       = 300.0;
-      evapoTranspirationState.tg       = 300.0;
-      evapoTranspirationState.iSnow    = 0;
-      evapoTranspirationState.zSnso[0] = 0.0;
-      evapoTranspirationState.zSnso[1] = 0.0;
-      evapoTranspirationState.zSnso[2] = 0.0;
-      evapoTranspirationState.zSnso[3] = 0.05 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[4] = 0.2 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[5] = 0.5 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[6] = (elementZSurface - elementZBedrock);
-      evapoTranspirationState.snowH    = 0.0;
-      evapoTranspirationState.snEqv    = 0.0;
-      evapoTranspirationState.snIce[0] = 0.0;
-      evapoTranspirationState.snIce[1] = 0.0;
-      evapoTranspirationState.snIce[2] = 0.0;
-      evapoTranspirationState.snLiq[0] = 0.0;
-      evapoTranspirationState.snLiq[1] = 0.0;
-      evapoTranspirationState.snLiq[2] = 0.0;
-      evapoTranspirationState.lfMass   = 100000.0;
-      evapoTranspirationState.rtMass   = 100000.0;
-      evapoTranspirationState.stMass   = 100000.0;
-      evapoTranspirationState.wood     = 200000.0;
-      evapoTranspirationState.stblCp   = 200000.0;
-      evapoTranspirationState.fastCp   = 200000.0;
-      evapoTranspirationState.lai      = 4.6;
-      evapoTranspirationState.sai      = 0.6;
-      evapoTranspirationState.cm       = 0.002;
-      evapoTranspirationState.ch       = 0.002;
-      evapoTranspirationState.tauss    = 0.0;
-      evapoTranspirationState.deepRech = 0.0;
-      evapoTranspirationState.rech     = 0.0;
+      evapoTranspirationState.fIceOld[0] = 0.0;
+      evapoTranspirationState.fIceOld[1] = 0.0;
+      evapoTranspirationState.fIceOld[2] = 0.0;
+      evapoTranspirationState.albOld     = 1.0;
+      evapoTranspirationState.snEqvO     = 0.0;
+      evapoTranspirationState.stc[0]     = 300.0;
+      evapoTranspirationState.stc[1]     = 300.0;
+      evapoTranspirationState.stc[2]     = 300.0;
+      evapoTranspirationState.stc[3]     = 300.0;
+      evapoTranspirationState.stc[4]     = 300.0;
+      evapoTranspirationState.stc[5]     = 300.0;
+      evapoTranspirationState.stc[6]     = 300.0;
+      evapoTranspirationState.tah        = 300.0;
+      evapoTranspirationState.eah        = 2000.0;
+      evapoTranspirationState.fWet       = 0.0;
+      evapoTranspirationState.canLiq     = 0.0;
+      evapoTranspirationState.canIce     = 0.0;
+      evapoTranspirationState.tv         = 300.0;
+      evapoTranspirationState.tg         = 300.0;
+      evapoTranspirationState.iSnow      = 0;
+      evapoTranspirationState.zSnso[0]   = 0.0;
+      evapoTranspirationState.zSnso[1]   = 0.0;
+      evapoTranspirationState.zSnso[2]   = 0.0;
+      evapoTranspirationState.zSnso[3]   = 0.05 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[4]   = 0.2 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[5]   = 0.5 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[6]   = (elementZSurface - elementZBedrock);
+      evapoTranspirationState.snowH      = 0.0;
+      evapoTranspirationState.snEqv      = 0.0;
+      evapoTranspirationState.snIce[0]   = 0.0;
+      evapoTranspirationState.snIce[1]   = 0.0;
+      evapoTranspirationState.snIce[2]   = 0.0;
+      evapoTranspirationState.snLiq[0]   = 0.0;
+      evapoTranspirationState.snLiq[1]   = 0.0;
+      evapoTranspirationState.snLiq[2]   = 0.0;
+      evapoTranspirationState.lfMass     = 100000.0;
+      evapoTranspirationState.rtMass     = 100000.0;
+      evapoTranspirationState.stMass     = 100000.0;
+      evapoTranspirationState.wood       = 200000.0;
+      evapoTranspirationState.stblCp     = 200000.0;
+      evapoTranspirationState.fastCp     = 200000.0;
+      evapoTranspirationState.lai        = 4.6;
+      evapoTranspirationState.sai        = 0.6;
+      evapoTranspirationState.cm         = 0.002;
+      evapoTranspirationState.ch         = 0.002;
+      evapoTranspirationState.tauss      = 0.0;
+      evapoTranspirationState.deepRech   = 0.0;
+      evapoTranspirationState.rech       = 0.0;
       
       groundwaterDone          = true;
       infiltrationDone         = true;
@@ -760,7 +763,7 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
           smc[2] = 0.15;
           smc[3] = 0.2;
           
-          if (iterationThisTimestep < 200)
+          if (iterationThisTimestep < 20000)
             {
               prcp = 0.005;
             }
@@ -769,18 +772,18 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
               prcp = 0.0;
             }
           
-          if (iterationThisTimestep < 140)
+          if (iterationThisTimestep < 20000)
             {
-              sfcTmp = 270.0;
+              sfcTmp = 274.0;
             }
           else
             {
               sfcTmp = 300.0;
             }
           
-          error = evapoTranspirationSoil(11, 8, elementZSurface - elementZBedrock, 0.0, 365, 183.0, 1.0, dt * 10.0, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, sfcTmp,
-                                         101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 1600.0, 250.0, prcp, 270.0, 30000.0, sh2o, smc,
-                                         elementZSurface - elementZBedrock, 5000.0, 10000.0, 0.0, 0.2, &evapoTranspirationState, &waterError);
+          error = evapoTranspirationSoil(11, 8, 0.0, 365, 183.0, 1.0, dt * 10.0, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, sfcTmp, 101300.0, 101175.0, 0.0,
+                                         0.0, 0.02, 0.0, 1600.0, 250.0, prcp, 300.0, 30000.0, sh2o, smc, elementZSurface - elementZBedrock, 5000.0, 10000.0,
+                                         0.0, 0.2, &evapoTranspirationState, &waterError);
         }
     }
   
