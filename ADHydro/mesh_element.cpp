@@ -35,6 +35,8 @@ void MeshElement::pup(PUP::er &p)
   p | elementSlopeX;
   p | elementSlopeY;
   p | catchment;
+  p | vegetationType;
+  p | soilType;
   p | conductivity;
   p | porosity;
   p | manningsN;
@@ -45,6 +47,21 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | evapoTranspirationState;
+  p | atmosphereLayerThickness;
+  p | shadedFraction;
+  p | shadedFractionMaximum;
+  p | surfaceTemperature;
+  p | surfacePressure;
+  p | atomsphereLayerPressure;
+  p | eastWindSpeed;
+  p | northWindSpeed;
+  p | atmosphereLayerMixingRatio;
+  p | cloudMixingRatio;
+  p | shortWaveRadiationDown;
+  p | longWaveRadiationDown;
+  p | precipitationRate;
+  p | soilBottomTemperature;
+  p | planetaryBoundaryLayerHeight;
   p | groundwaterDone;
   p | infiltrationDone;
   p | surfacewaterDone;
@@ -275,6 +292,10 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
+  // FIXME initialize from file manager.
+  vegetationType = 11;
+  soilType       = 8;
+  
   if (!error)
     {
       if (NULL != fileManagerLocalBranch->meshConductivity)
@@ -389,10 +410,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   
   if (!error)
     {
-      surfacewaterInfiltration = 0.0;
-      groundwaterRecharge      = 0.0;
-      
-      // FIXME initialize evapoTranspirationState
+      // FIXME initialize from file manager
       evapoTranspirationState.fIceOld[0] = 0.0;
       evapoTranspirationState.fIceOld[1] = 0.0;
       evapoTranspirationState.fIceOld[2] = 0.0;
@@ -441,7 +459,14 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       evapoTranspirationState.tauss      = 0.0;
       evapoTranspirationState.deepRech   = 0.0;
       evapoTranspirationState.rech       = 0.0;
-      
+    }
+  
+  // Forcing data will be initialized when the sdag code forces the object to receive a forcing data message before processing any timesteps.
+  
+  if (!error)
+    {
+      surfacewaterInfiltration = 0.0;
+      groundwaterRecharge      = 0.0;
       groundwaterDone          = true;
       infiltrationDone         = true;
       surfacewaterDone         = true;
@@ -714,18 +739,43 @@ void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReci
     }
 }
 
+void MeshElement::handleForcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew,
+                                           double surfaceTemperatureNew, double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew,
+                                           double northWindSpeedNew, double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew,
+                                           double shortWaveRadiationDownNew, double longWaveRadiationDownNew, double precipitationRateNew,
+                                           double soilBottomTemperatureNew, double planetaryBoundaryLayerHeightNew)
+{
+  // FIXME error checking on inputs.
+  
+  atmosphereLayerThickness     = atmosphereLayerThicknessNew;
+  shadedFraction               = shadedFractionNew;
+  shadedFractionMaximum        = shadedFractionMaximumNew;
+  surfaceTemperature           = surfaceTemperatureNew;
+  surfacePressure              = surfacePressureNew;
+  atomsphereLayerPressure      = atomsphereLayerPressureNew;
+  eastWindSpeed                = eastWindSpeedNew;
+  northWindSpeed               = northWindSpeedNew;
+  atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
+  cloudMixingRatio             = cloudMixingRatioNew;
+  shortWaveRadiationDown       = shortWaveRadiationDownNew;
+  longWaveRadiationDown        = longWaveRadiationDownNew;
+  precipitationRate            = precipitationRateNew;
+  soilBottomTemperature        = soilBottomTemperatureNew;
+  planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+  
+  contribute();
+}
+
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
 {
   bool  error = false; // Error flag.
   int   edge;          // Loop counter.
-  float smceq[4];      // FIXME input to evapoTranspirationSoil.
-  float sh2o[4];       // FIXME input to evapoTranspirationSoil.
-  float smc[4];        // FIXME input to evapoTranspirationSoil.
-  float prcp;          // FIXME input to evapoTranspirationSoil.
-  float sfcTmp;        // FIXME input to evapoTranspirationSoil.
-  float waterError;    // FIXME output of evapoTranspirationSoil.
+  float smceq[4];      // input to evapoTranspirationSoil.
+  float sh2o[4];       // input to evapoTranspirationSoil.
+  float smc[4];        // input to evapoTranspirationSoil.
+  float waterError;    // output of evapoTranspirationSoil.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -744,47 +794,30 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
       dt               = dtThisTimestep;
       dtNew            = 2.0 * dt;
 
-      // Do point processes for snowmelt, rainfall, and evapo-transpiration.
-      // FIXME implement these on mesh
-      
-      if (0 == thisIndex)
-        {
-          // FIXME get real values for parameters.
-          smceq[0] = 0.05;
-          smceq[1] = 0.1;
-          smceq[2] = 0.15;
-          smceq[3] = 0.2;
-          sh2o[0] = 0.05;
-          sh2o[1] = 0.1;
-          sh2o[2] = 0.15;
-          sh2o[3] = 0.2;
-          smc[0] = 0.05;
-          smc[1] = 0.1;
-          smc[2] = 0.15;
-          smc[3] = 0.2;
-          
-          if (iterationThisTimestep < 20000)
-            {
-              prcp = 0.005;
-            }
-          else
-            {
-              prcp = 0.0;
-            }
-          
-          if (iterationThisTimestep < 20000)
-            {
-              sfcTmp = 274.0;
-            }
-          else
-            {
-              sfcTmp = 300.0;
-            }
-          
-          error = evapoTranspirationSoil(11, 8, 0.0, 365, 183.0, 1.0, dt * 10.0, sqrt(elementArea), 20.0, 0.8, 0.8, smceq, sfcTmp, 101300.0, 101175.0, 0.0,
-                                         0.0, 0.02, 0.0, 1600.0, 250.0, prcp, 300.0, 30000.0, sh2o, smc, elementZSurface - elementZBedrock, 5000.0, 10000.0,
-                                         0.0, 0.2, &evapoTranspirationState, &waterError);
-        }
+      // Do point processes for rainfall, snowmelt, and evapo-transpiration.
+      // FIXME get real values for parameters from infiltration state.
+      smceq[0] = 0.05;
+      smceq[1] = 0.1;
+      smceq[2] = 0.15;
+      smceq[3] = 0.2;
+      sh2o[0] = 0.05;
+      sh2o[1] = 0.1;
+      sh2o[2] = 0.15;
+      sh2o[3] = 0.2;
+      smc[0] = 0.05;
+      smc[1] = 0.1;
+      smc[2] = 0.15;
+      smc[3] = 0.2;
+
+      // FIXME calculate yearlen, julian, and cosZ from absolute time.
+      // FIXME use output values of this call.
+      error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0, 1.0, dt, sqrt(elementArea),
+                                     atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smceq, surfaceTemperature + ZERO_C_IN_KELVIN,
+                                     surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
+                                     shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0, soilBottomTemperature + ZERO_C_IN_KELVIN,
+                                     planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
+                                     (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, 0.0,
+                                     smc[3], &evapoTranspirationState, &waterError);
     }
   
   if (!error)

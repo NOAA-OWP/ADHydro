@@ -77,6 +77,9 @@ void ADHydro::pup(PUP::er &p)
   p | outputPeriod;
   p | nextOutputTime;
   p | iteration;
+  p | writeGeometry;
+  p | writeParameter;
+  p | needToUpdateForcingData;
 }
 
 void ADHydro::fileManagerBarrier()
@@ -107,6 +110,7 @@ void ADHydro::fileManagerInitialized()
   iteration      = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry  = true;
   writeParameter = true;
+  needToUpdateForcingData = true; // FIXME change how this is done
   
   // Set the callback to write output files after they are created.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerWriteFiles), thisProxy));
@@ -140,23 +144,36 @@ void ADHydro::doTimestep()
 {
   if (endTime > currentTime)
     {
-      // Limit dt to time remaining.
-      if (endTime - currentTime < dt)
+      if (needToUpdateForcingData)
         {
-          dt = endTime - currentTime;
+          needToUpdateForcingData = false;
+
+          // Set callback.
+          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, doTimestep), thisProxy));
+
+          // Update forcing data.
+          fileManagerProxy.readForcingData(meshProxy);
         }
-      
-      // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
-      
-      // Set callbacks.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
-      
-      // Start timestep.
-      meshProxy.doTimestep(iteration, dt);
-      channelProxy.doTimestep(iteration, dt);
-      thisProxy.waitForTimestepToFinish();
+      else
+        {
+          // Limit dt to time remaining.
+          if (endTime - currentTime < dt)
+            {
+              dt = endTime - currentTime;
+            }
+
+          // Print at beginning of timestep.
+          CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
+
+          // Set callbacks.
+          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
+          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
+
+          // Start timestep.
+          meshProxy.doTimestep(iteration, dt);
+          channelProxy.doTimestep(iteration, dt);
+          thisProxy.waitForTimestepToFinish();
+        }
     }
   else
     {
