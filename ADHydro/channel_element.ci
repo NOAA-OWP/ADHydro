@@ -43,10 +43,28 @@ module channel_element
         }
       }
       
+      // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+      when forcingDataMessage()
+      {
+        serial
+        {
+          handleForcingDataMessage();
+        }
+      }
+      
       while(true)
       {
         case
         {
+          // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+          when forcingDataMessage()
+          {
+            serial
+            {
+              handleForcingDataMessage();
+            }
+          }
+          
           when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
           {
             serial
@@ -439,6 +457,7 @@ module channel_element
                                          double neighborSideSlope, double neighborManningsN);
     entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
                                       double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
+    entry void forcingDataMessage();
     entry void doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep);
     entry void meshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
     entry void meshGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);

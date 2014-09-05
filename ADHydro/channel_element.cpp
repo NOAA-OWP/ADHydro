@@ -552,6 +552,13 @@ void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReci
     }
 }
 
+void ChannelElement::handleForcingDataMessage()
+{
+  // FIXME add forcing data for channels.
+  
+  contribute();
+}
+
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
 void ChannelElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)

@@ -61,18 +61,24 @@ public:
   
   // Tell the file manager to write files.  Will cause a callback to
   // doTimestep or checkInvariant.
-  void fileManagerWriteFiles();
-
-  // If currentTime is less than endTime do a timestep, otherwise exit.  If it
-  // does a timestep it will cause a callback to timestepDone.
-  void doTimestep();
+  void writeFiles();
+  
+  // FIXME
+  void checkForcingData();
+  
+private:
+  
+  // FIXME
+  void forcingDataDone();
   
   // Check invariant conditions on member variables.  Exit if invariant is
   // violated.  When the invariant check is done it will cause a callback to
   // doTimestep.
   void checkInvariant();
-  
-private:
+
+  // If currentTime is less than endTime do a timestep, otherwise exit.  If it
+  // does a timestep it will cause a callback to timestepDone.
+  void doTimestep();
   
   // Callback for the dtNew reduction at the end of a timestep.  Will output
   // files, if applicable, check the invariant, if applicable, and then do
@@ -99,14 +105,11 @@ private:
   double          nextOutputTime; // Next time in seconds to output to file.
   CMK_REFNUM_TYPE iteration;      // Iteration number to put on all messages this timestep.
   
-  // Flags to indicate whether the geometry or parameters have changed and need
-  // to be outputted.
-  bool writeGeometry;
-  bool writeParameter;
-  
-  // Flag to indicate whether forcing data needs to be updated.
-  // FIXME change this to be based on absolute time.
-  bool needToUpdateForcingData;
+  // Flags.
+  bool writeGeometry;           // Flag to indicate whether the geometry has changed and needs to be outputted.
+  bool writeParameter;          // Flag to indicate whether the parameters have changed and need to be outputted.
+  bool needToUpdateForcingData; // Flag to indicate whether forcing data needs to be updated.  FIXME Change this to be based on absolute time.
+  bool needToCheckInvariant;    // Flag to indicate whether the invariant needs to be checked.
 };
 
 #endif // __ADHYDRO_H__

@@ -99,6 +99,11 @@ private:
   void handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
                                     double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
   
+  // Receive a message with new forcing data.  Store this data in member
+  // variables for future use.  When complete, all of the elements will
+  // contribute to an empty reduction.
+  void handleForcingDataMessage();
+  
   // Step forward one timestep.  Performs point processes and starts the
   // groundwater and surfacewater phases.  When the timestep is done all of the
   // elements will contribute to a dtNew reduction.  Exit on error.
