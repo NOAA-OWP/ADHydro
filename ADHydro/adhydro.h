@@ -16,7 +16,41 @@ class CProxy_ChannelElement;
 #pragma GCC diagnostic warning "-Wsign-compare"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its
-// constructor.
+// constructor.  Here is a flowchart of how the execution proceeds.
+//
+// create file managers
+// initialize file managers
+// initialize adhydro member variables
+// create mesh and channel elements
+// initialize mesh and channel elements
+// create files
+//   |
+//   V
+// write files <----------------\
+//   |                          |
+//   V                          |
+// check forcing data <------\  |
+//   |      |                |  |
+//   |      V                |  |
+//   |  update forcing data  |  |
+//   |      |                |  |
+//   V      V                |  |
+// forcing data done         |  |
+//   |      |                |  |
+//   |      V                |  |
+//   |  check invariant      |  |
+//   |      |                |  |
+//   V      V                |  |
+// do timestep               |  |
+//   |      |                |  |
+//   |      V                |  |
+//   |    exit               |  |
+//   |                       |  |
+//   V                       |  |
+// timestep done ------------/  |
+//   |                          |
+//   V                          |
+// update state ----------------/
 class ADHydro : public CBase_ADHydro
 {
   ADHydro_SDAG_CODE
@@ -29,6 +63,7 @@ public:
   static void setLoadBalancingToManual();
   
   // Constructor.  This is the mainchare constructor where the program starts.
+  // Will cause a callback to fileManagerBarrier.
   //
   // Parameters:
   //
@@ -53,36 +88,38 @@ public:
   void pup(PUP::er &p);
 
   // Reduction callback used as a barrier during file manager initialization.
+  // Will cause a callback to fileManagerInitialized.
   void fileManagerBarrier();
   
   // Finish initialization after the reduction callback indicating the file
-  // manager is ready.
+  // manager is ready.  Will cause a callback to writeFiles.
   void fileManagerInitialized();
   
   // Tell the file manager to write files.  Will cause a callback to
-  // doTimestep or checkInvariant.
+  // checkForcingData.
   void writeFiles();
   
-  // FIXME
+  // Check if the forcing data needs to be updated and if so update it.
+  // Will cause a callback or direct call to forcingDataDone.
   void checkForcingData();
   
 private:
   
-  // FIXME
+  // After the forcing data is checked and possibly updated this function
+  // serves as a branch point to decide whether to check the invariant.
+  // Will cause a direct call to checkInvariant or doTimestep.
   void forcingDataDone();
   
   // Check invariant conditions on member variables.  Exit if invariant is
-  // violated.  When the invariant check is done it will cause a callback to
-  // doTimestep.
+  // violated.  Will cause a callback to doTimestep.
   void checkInvariant();
 
   // If currentTime is less than endTime do a timestep, otherwise exit.  If it
   // does a timestep it will cause a callback to timestepDone.
   void doTimestep();
   
-  // Callback for the dtNew reduction at the end of a timestep.  Will output
-  // files, if applicable, check the invariant, if applicable, and then do
-  // another timestep.
+  // Callback for the dtNew reduction at the end of a timestep.  Will cause a
+  // callback to writeFiles or a direct call to checkForcingData.
   //
   // Parameters:
   //
