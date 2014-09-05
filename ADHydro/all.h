@@ -64,8 +64,10 @@
 #define DEBUG_LEVEL (DEBUG_LEVEL_DEVELOPMENT)
 
 // Constants.
-#define GRAVITY      (9.81) // Meters per second squared.
-#define PONDED_DEPTH (0.01) // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
+#define GRAVITY               (9.81)      // Meters per second squared.
+#define POLAR_RADIUS_OF_EARTH (6356752.3) // Meters.
+#define ZERO_C_IN_KELVIN      (273.15)    // Kelvin.
+#define PONDED_DEPTH          (0.01)      // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
 
 // Using NetCDF parallel collective I/O with Charm++ causes a problematic
 // interaction.  Setting this flag causes a workaround to be used.  See the

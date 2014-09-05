@@ -10,23 +10,22 @@ mainmodule adhydro
     entry ADHydro(CkArgMsg* msg);
     entry [reductiontarget] void fileManagerBarrier();
     entry [reductiontarget] void fileManagerInitialized();
-    entry [reductiontarget] void fileManagerWriteFiles();
-    entry [reductiontarget] void doTimestep();
+    entry [reductiontarget] void writeFiles();
+    entry [reductiontarget] void checkForcingData();
     
-    entry void waitForTimestepToFinish()
+    entry void waitForForcingDataToFinish()
     {
-      when meshTimestepDone(double dtNewMesh), channelTimestepDone(double dtNewChannel)
+      when meshForcingDataDone(), channelForcingDataDone()
       {
         serial
         {
-          timestepDone((dtNewMesh < dtNewChannel) ? dtNewMesh : dtNewChannel);
+          forcingDataDone();
         }
       }
     };
     
-    entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
-    entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
-    entry [reductiontarget] void checkInvariant();
+    entry [reductiontarget] void meshForcingDataDone();
+    entry [reductiontarget] void channelForcingDataDone();
     
     entry void waitForInvariantToFinish()
     {
@@ -41,5 +40,19 @@ mainmodule adhydro
     
     entry [reductiontarget] void meshInvariantDone();
     entry [reductiontarget] void channelInvariantDone();
+    
+    entry void waitForTimestepToFinish()
+    {
+      when meshTimestepDone(double dtNewMesh), channelTimestepDone(double dtNewChannel)
+      {
+        serial
+        {
+          timestepDone((dtNewMesh < dtNewChannel) ? dtNewMesh : dtNewChannel);
+        }
+      }
+    };
+    
+    entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
+    entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
   }; // End mainchare [migratable] ADHydro.
 }; // End mainmodule adhydro.

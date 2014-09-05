@@ -2872,6 +2872,23 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
   thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
 }
 
+void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy)
+{
+  int ii; // Loop counter.
+  
+  // FIXME implement
+  
+  for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
+    {
+      meshProxy[ii].forcingDataMessage(20.0, 0.8, 0.8, 300.0, 101300.0, 101175.0, 0.0, 0.0,0.02, 0.0, 800.0, 200.0, 0.001, 300.0, 30000.0);
+    }
+  
+  for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
+    {
+      channelProxy[ii].forcingDataMessage();
+    }
+}
+
 void FileManager::createFiles(size_t directorySize, const char* directory)
 {
   bool   error      = false;                     // Error flag.

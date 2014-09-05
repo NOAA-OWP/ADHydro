@@ -43,10 +43,42 @@ module mesh_element
         }
       }
       
+      // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+      when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
+                              double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
+                              double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
+                              double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
+                              double planetaryBoundaryLayerHeightNew)
+      {
+        serial
+        {
+          handleForcingDataMessage(atmosphereLayerThicknessNew, shadedFractionNew, shadedFractionMaximumNew, surfaceTemperatureNew, surfacePressureNew,
+                                   atomsphereLayerPressureNew, eastWindSpeedNew, northWindSpeedNew, atmosphereLayerMixingRatioNew, cloudMixingRatioNew,
+                                   shortWaveRadiationDownNew, longWaveRadiationDownNew, precipitationRateNew, soilBottomTemperatureNew,
+                                   planetaryBoundaryLayerHeightNew);
+        }
+      }
+      
       while(true)
       {
         case
         {
+          // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+          when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
+                                  double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
+                                  double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
+                                  double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
+                                  double planetaryBoundaryLayerHeightNew)
+          {
+            serial
+            {
+              handleForcingDataMessage(atmosphereLayerThicknessNew, shadedFractionNew, shadedFractionMaximumNew, surfaceTemperatureNew, surfacePressureNew,
+                                       atomsphereLayerPressureNew, eastWindSpeedNew, northWindSpeedNew, atmosphereLayerMixingRatioNew, cloudMixingRatioNew,
+                                       shortWaveRadiationDownNew, longWaveRadiationDownNew, precipitationRateNew, soilBottomTemperatureNew,
+                                       planetaryBoundaryLayerHeightNew);
+            }
+          }
+      
           when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
           {
             serial
@@ -544,6 +576,11 @@ module mesh_element
     entry void initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
                                          double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
                                          double neighborBedThickness);
+    entry void forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
+                                  double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
+                                  double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
+                                  double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
+                                  double planetaryBoundaryLayerHeightNew);
     entry void doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep);
     entry void calculateGroundwaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage);
     entry void meshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
