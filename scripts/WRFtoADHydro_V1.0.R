@@ -13,7 +13,7 @@ library(ncdf)
 library(abind)
 ################ INPUT MODULE ############################################################################################################################
 
-
+# New version
 WRF_Folder<<-"/share/CI-WATER Simulation Data/WRF/Utah_WRF_output/2005/"  # path to the WRF files
 WRF_Files<<-c("wrfout_d03_2005-01-01_00:00:00","wrfout_d03_2005-01-31_12:00:00","wrfout_d03_2005-03-03_00:00:00") # ordered names of the WRF files to read 
 TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.node"  # txt file with the AD-Hydro nodes for which the WRF data will be extracted
