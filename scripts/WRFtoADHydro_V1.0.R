@@ -13,7 +13,7 @@ library(ncdf)
 library(abind)
 ################ INPUT MODULE ############################################################################################################################
 
-# New version
+
 WRF_Folder<<-"/share/CI-WATER Simulation Data/WRF/Utah_WRF_output/2005/"  # path to the WRF files
 WRF_Files<<-c("wrfout_d03_2005-01-01_00:00:00","wrfout_d03_2005-01-31_12:00:00","wrfout_d03_2005-03-03_00:00:00") # ordered names of the WRF files to read 
 TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.node"  # txt file with the AD-Hydro nodes for which the WRF data will be extracted
@@ -24,7 +24,7 @@ FalseNorth<<-10000000
 cell_Buffer<<-4 # number of cells to be added to the selected rectangular from the minimum and maximum TIN points to efficiently read the WRF data. Use a number >2
 Outnames<<-c("Times","T2","Q2","QVAPOR","QCLOUD","PSFC","W10","W","VEGFRA","TPREC","FRAC_FROZ_PREC","SWDOWN","GLW","PBLH")
 Outfolder<<-"/share/CI-WATER Simulation Data/WRF_to_ADHydro/"
-Outncfile<<-"WRF_ADHydro_Green_River_mod" # Base name for output file
+Outncfile<<-"WRF_ADHydro_Green_River" # Base name for output file
 
 
 ############### MODULE METADATA AND HEADERS #####################################################################################################
