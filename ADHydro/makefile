@@ -19,14 +19,14 @@ CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 METISLDFLAGS   := $(EXTRAMETISLDFLAGS) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) -g -Wall -fdiagnostics-show-option
+CPPFLAGS       := $(NETCDFCPPFLAGS)  -I/usr/include/libshp -g -Wall -fdiagnostics-show-option
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -lgfortran -g -Wall -language charm++
 
 VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines
 
-EXES := adhydro                     \
+EXES := adhydro                       \
+        adhydro_channel_preprocessing \
         adhydro_create_xmf_file
-# FIXME       adhydro_input_preprocessing \
 
 ADHYDRO_OBJS := adhydro.o         \
                 mesh_element.o    \
@@ -48,8 +48,7 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
                module_date_utilities.o        \
                module_wrf_utilities.o
 
-ADHYDRO_INPUT_PREPROCESSING_OBJS := adhydro_input_preprocessing.o \
-                                    file_manager.o
+ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
 
@@ -80,26 +79,12 @@ adhydro.def.h: adhydro.ci         \
                file_manager.ci
 	$(CHARMC) $<
 
-# FIXME all above is reviewed
+adhydro_channel_preprocessing: $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS)
+	$(CXX) $^ -o $@ -lshp -g -Wall
 
-adhydro_input_preprocessing: $(ADHYDRO_INPUT_PREPROCESSING_OBJS)
-	$(CHARMC) $^ -o $@ $(LDFLAGS)
-
-adhydro_input_preprocessing.o: adhydro_input_preprocessing.cpp         \
-                               adhydro_input_preprocessing.h           \
-                               adhydro_input_preprocessing.decl.h      \
-                               adhydro_input_preprocessing.def.h       \
-                               file_manager.h                          \
-                               file_manager.decl.h                     \
-                               all.h
+adhydro_channel_preprocessing.o: adhydro_channel_preprocessing.cpp \
+                                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
-
-adhydro_input_preprocessing.decl.h \
-adhydro_input_preprocessing.def.h: adhydro_input_preprocessing.ci \
-                                   file_manager.ci
-	$(CHARMC) $<
-
-# FIXME all below is reviewed
 
 adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 	$(CC) $^ -o $@ -lnetcdf -g -Wall
@@ -174,6 +159,6 @@ evapo_transpiration.o: evapo_transpiration.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_INPUT_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) *.decl.h *.def.h
 
 .PHONY: clean
