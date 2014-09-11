@@ -110,18 +110,13 @@ enum FlowRateReadyEnum
 PUPbytes(FlowRateReadyEnum);
 
 // Used for the type of channel links.
-// FIXME scrub this when redoing channel preprocessing.
 enum ChannelTypeEnum
 {
   NOT_USED                           = 0, // Not all link numbers are used.
   STREAM                             = 1, // Stream link.
   WATERBODY                          = 2, // Waterbody link.
   ICEMASS                            = 3, // Equivalent to WATERBODY, but made of ice.
-  FAKE                               = 4, // Used to create 3-way branches in a binary tree.
-  INTERNAL_BOUNDARY_CONDITION        = 5, // For defining arbitrary flow constraints.
-  PRUNED_STREAM                      = 6, // A pruned link was once used but is no longer needed.  Type is set to one of the pruned types,
-  PRUNED_FAKE                        = 7, // and upstream links are broken, but other structure values are preserved.
-  PRUNED_INTERNAL_BOUNDARY_CONDITION = 8,
+  PRUNED_STREAM                      = 4, // A pruned link was once used but is no longer needed.
 };
 
 PUPbytes(ChannelTypeEnum);
