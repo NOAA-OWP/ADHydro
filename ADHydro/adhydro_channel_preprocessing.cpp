@@ -2,9 +2,8 @@
 #include <shapefil.h>
 #include <assert.h>
 
-// FIXME put in .h file
-#define SHAPES_SIZE   (2) // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE (4) // Size of array of upstream links in ChannelLinkStruct.
+#define SHAPES_SIZE   (2)  // Size of array of shapes in ChannelLinkStruct.
+#define UPSTREAM_SIZE (64) // Size of array of upstream links in ChannelLinkStruct.
 
 // This code is a separate executable used to pre-process the channel network
 // into a .chan file and a .chanxy file that are read into the adhydro
@@ -27,6 +26,11 @@
 // indicates if this link was split and part of the link was moved to a new
 // link number.  For a description of how splitting and moving links works see
 // the comment of the function splitLink.
+//
+// These structures are also used in waterbody links to store lists of
+// intersections with other links.  The link number of the other link is stored
+// in edge.  If the other link is a stream the 1D location of the intersection
+// along the stream is stored in endLocation.
 typedef struct LinkElementStruct LinkElementStruct;
 struct LinkElementStruct
 {
@@ -111,32 +115,35 @@ bool createLinkElementAfter(ChannelLinkStruct* channels, int size, int linkNo, L
   LinkElementStruct* newLinkElement; // To point to the created LinkElementStruct.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  assert(NULL != channels && 0 <= linkNo && linkNo < size && STREAM == channels[linkNo].type);
+  assert(NULL != channels && 0 <= linkNo && linkNo < size);
   
-  if (NULL == prevLinkElement)
+  if (STREAM == channels[linkNo].type)
     {
-      assert(0.0 < endLocation);
-      
-      if (NULL != channels[linkNo].firstElement)
+      if (NULL == prevLinkElement)
         {
-          assert(endLocation < channels[linkNo].firstElement->endLocation);
+          assert(0.0 < endLocation);
+
+          if (NULL != channels[linkNo].firstElement)
+            {
+              assert(endLocation < channels[linkNo].firstElement->endLocation);
+            }
+          else
+            {
+              assert(endLocation == channels[linkNo].length);
+            }
         }
       else
         {
-          assert(endLocation == channels[linkNo].length);
-        }
-    }
-  else
-    {
-      assert(prevLinkElement->endLocation < endLocation);
-      
-      if (NULL != prevLinkElement->next)
-        {
-          assert(endLocation < prevLinkElement->next->endLocation);
-        }
-      else
-        {
-          assert(endLocation == channels[linkNo].length);
+          assert(prevLinkElement->endLocation < endLocation);
+
+          if (NULL != prevLinkElement->next)
+            {
+              assert(endLocation < prevLinkElement->next->endLocation);
+            }
+          else
+            {
+              assert(endLocation == channels[linkNo].length);
+            }
         }
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
@@ -197,7 +204,7 @@ bool killLinkElement(ChannelLinkStruct* channels, int size, int linkNo, LinkElem
   int error = false; // Error flag.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  assert(NULL != channels && 0 <= linkNo && linkNo < size && STREAM == channels[linkNo].type && NULL != linkElementToKill);
+  assert(NULL != channels && 0 <= linkNo && linkNo < size && NULL != linkElementToKill);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
   // Remove from the list.
@@ -235,6 +242,106 @@ bool killLinkElement(ChannelLinkStruct* channels, int size, int linkNo, LinkElem
   return error;
 }
 
+// Add upstreamLinkNo to the upstream connection list of downstreamLinkNo.
+//
+// Returns: true if there is an error, false otherwise.  If there is an error
+// no connections are modified.
+// 
+// Parameters:
+//
+// channels         - The channel network as a 1D array of ChannelLinkStruct.
+// size             - The number of elements in channels.
+// upstreamLinkNo   - The link to make flow into downstreamLinkNo or a boundary
+//                    condition code.
+// downstreamLinkNo - The link that upstreamLinkNo will flow into.  Cannot be a
+//                    boundary condition code.
+bool addUpstreamConnection(ChannelLinkStruct* channels, int size, int upstreamLinkNo, int downstreamLinkNo)
+{
+  bool error = false; // Error flag.
+  int  ii;            // Loop counter.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size && (isBoundary(upstreamLinkNo) || (0 <= upstreamLinkNo && upstreamLinkNo < size)) && 0 <= downstreamLinkNo &&
+         downstreamLinkNo < size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Find the first empty upstream connection.
+  ii = 0;
+  
+  while (UPSTREAM_SIZE > ii && NOFLOW != channels[downstreamLinkNo].upstream[ii])
+    {
+      ii++;
+    }
+  
+  if (UPSTREAM_SIZE > ii)
+    {
+      channels[downstreamLinkNo].upstream[ii] = upstreamLinkNo;
+    }
+  else
+    {
+      fprintf(stderr, "ERROR in addUpstreamConnection: Channel link %d has more than the maximum allowable %d upstream neighbors.\n",
+              downstreamLinkNo, UPSTREAM_SIZE);
+      error = true;
+    }
+  
+  return error;
+}
+
+// Remove upstreamLinkNo from the upstream connection list of downstreamLinkNo.
+//
+// Returns: true if there is an error, false otherwise.  If there is an error
+// no connections are modified.
+// 
+// Parameters:
+//
+// channels         - The channel network as a 1D array of ChannelLinkStruct.
+// size             - The number of elements in channels.
+// upstreamLinkNo   - The link to remove from downstreamLinkNo or a boundary
+//                    condition code.
+// downstreamLinkNo - The link that upstreamLinkNo will be removed from.
+//                    Cannot be a boundary condition code.
+bool removeUpstreamConnection(ChannelLinkStruct* channels, int size, int upstreamLinkNo, int downstreamLinkNo)
+{
+  bool error = false; // Error flag.
+  int  ii;            // Loop counter.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size && (isBoundary(upstreamLinkNo) || (0 <= upstreamLinkNo && upstreamLinkNo < size)) && 0 <= downstreamLinkNo &&
+         downstreamLinkNo < size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Find UpstreamLinkNo in the upstream connection list of its downstream neighbor.
+  ii = 0;
+  
+  while (UPSTREAM_SIZE > ii && upstreamLinkNo != channels[downstreamLinkNo].upstream[ii])
+    {
+      ii++;
+    }
+  
+  // Remove UpstreamLinkNo from the list and move all other upstream connections forward to fill the gap.
+  while (UPSTREAM_SIZE - 1 > ii && NOFLOW != channels[downstreamLinkNo].upstream[ii])
+    {
+      channels[downstreamLinkNo].upstream[ii] = channels[downstreamLinkNo].upstream[ii + 1];
+      ii++;
+    }
+  
+  // Fill in the last connection with NOFLOW.
+  if (UPSTREAM_SIZE - 1 == ii)
+    {
+      channels[downstreamLinkNo].upstream[ii] = NOFLOW;
+    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  else if (UPSTREAM_SIZE == ii)
+    {
+      fprintf(stderr, "ERROR in removeUpstreamConnection: Trying to break upstream connection to channel link %d from channel link %d and no connection "
+                      "exists.\n", upstreamLinkNo, downstreamLinkNo);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  
+  return error;
+}
+
 // Connect upstreamLinkNo to flow into downstreamLinkNo.  If upstreamLinkNo
 // already has a downstream connection it is broken.  If downstreamLinkNo
 // already has upstream connections they are left connected and it is an error
@@ -259,7 +366,6 @@ bool killLinkElement(ChannelLinkStruct* channels, int size, int linkNo, LinkElem
 bool makeChannelConnection(ChannelLinkStruct* channels, int size, int upstreamLinkNo, int downstreamLinkNo)
 {
   bool error = false; // Error flag.
-  int  ii;            // Loop counter.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size && (isBoundary(upstreamLinkNo) || (0 <= upstreamLinkNo && upstreamLinkNo < size)) &&
@@ -269,24 +375,7 @@ bool makeChannelConnection(ChannelLinkStruct* channels, int size, int upstreamLi
   // Add upstreamLinkNo to downstreamLinkNo.
   if (!isBoundary(downstreamLinkNo) && NOFLOW != upstreamLinkNo)
     {
-      // Find the first empty upstream connection.
-      ii = 0;
-      
-      while (UPSTREAM_SIZE > ii && NOFLOW != channels[downstreamLinkNo].upstream[ii])
-        {
-          ii++;
-        }
-      
-      if (UPSTREAM_SIZE > ii)
-        {
-          channels[downstreamLinkNo].upstream[ii] = upstreamLinkNo;
-        }
-      else
-        {
-          fprintf(stderr, "ERROR in makeChannelConnection: Channel link %d has more than the maximum allowable %d upstream neighbors.\n",
-                  downstreamLinkNo, UPSTREAM_SIZE);
-          error = true;
-        }
+      error = addUpstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
     }
   
   // Add downstreamLinkNo to UpstreamLinkNo.
@@ -295,38 +384,19 @@ bool makeChannelConnection(ChannelLinkStruct* channels, int size, int upstreamLi
       // Break downstream connection of upstreamLinkNo.
       if (!isBoundary(channels[upstreamLinkNo].downstream))
         {
-          // Find UpstreamLinkNo in the upstream connection list of its downstream neighbor.
-          ii = 0;
-          
-          while (UPSTREAM_SIZE > ii && upstreamLinkNo != channels[channels[upstreamLinkNo].downstream].upstream[ii])
-            {
-              ii++;
-            }
-          
-          // Remove UpstreamLinkNo from the list and move all other upstream connections forward to fill the gap.
-          while (UPSTREAM_SIZE - 1 > ii && NOFLOW != channels[channels[upstreamLinkNo].downstream].upstream[ii])
-            {
-              channels[channels[upstreamLinkNo].downstream].upstream[ii] = channels[channels[upstreamLinkNo].downstream].upstream[ii + 1];
-              ii++;
-            }
-          
-          // Fill in the last connection with NOFLOW.
-          if (UPSTREAM_SIZE - 1 == ii)
-            {
-              channels[channels[upstreamLinkNo].downstream].upstream[ii] = NOFLOW;
-            }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-          else if (UPSTREAM_SIZE == ii)
-            {
-              // Just a warning because we are breaking the connection anyway.
-              fprintf(stderr, "WARNING in makeChannelConnection: Breaking downstream connection of channel link %d and there is no reciprocal connection from "
-                              "its downstream neighbor %d.\n", upstreamLinkNo, channels[upstreamLinkNo].downstream);
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          error = removeUpstreamConnection(channels, size, upstreamLinkNo, channels[upstreamLinkNo].downstream);
         }
       
       // Make new downstream connection.
-      channels[upstreamLinkNo].downstream = downstreamLinkNo;
+      if (!error)
+        {
+          channels[upstreamLinkNo].downstream = downstreamLinkNo;
+        }
+      else if (!isBoundary(downstreamLinkNo))
+        {
+          // Remove the connection we added to make no change to connections on error.
+          removeUpstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
+        }
     }
   
   return error;
@@ -469,6 +539,245 @@ double getLocation(SHPObject* link, double linkLength, double x, double y)
     }
 
   return location;
+}
+
+// Used for the return value of upstreamDownstream.
+typedef enum
+{
+  UPSTREAM,   // intersection is upstream   of streamLinkNo, location.
+  DOWNSTREAM, // intersection is downstream of streamLinkNo, location.
+  UNRELATED,  // neither is upstream or downstream of the other.
+} UpstreamDownstreamEnum;
+
+// Return the upstream/downstream relationship between intersection and
+// streamLinkNo, location.
+//
+// Parameters:
+//
+// channels     - The channel network as a 1D array of ChannelLinkStruct.
+// size         - The number of elements in channels.
+// intersection - The first intersection point.
+// streamLinkNo - The stream of the second intersection point.
+// location     - The 1D location in meters along streamLinkNo of the second
+//                intersection point.
+UpstreamDownstreamEnum upstreamDownstream(ChannelLinkStruct* channels, int size, LinkElementStruct* intersection, int streamLinkNo, double location)
+{
+  UpstreamDownstreamEnum returnValue = UNRELATED; // Used to store the return value of the function.
+  int                    tempLinkNo;              // Used to search upstream and downstream links.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && NULL != intersection && 0 <= intersection->edge && intersection->edge < size && STREAM == channels[intersection->edge].type &&
+         0.0 <= intersection->endLocation && intersection->endLocation <= channels[intersection->edge].lastElement->endLocation && 0 <= streamLinkNo &&
+         streamLinkNo < size && 0.0 <= location && location <= channels[streamLinkNo].lastElement->endLocation);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // If they are on the same link the 1D location determines the relationship.
+  if (intersection->edge == streamLinkNo)
+    {
+      if (intersection->endLocation < location)
+        {
+          returnValue = UPSTREAM;
+        }
+      else if (intersection->endLocation > location)
+        {
+          returnValue = DOWNSTREAM;
+        }
+    }
+  else
+    {
+      // Search downstream of intersection to find streamLinkNo.
+      tempLinkNo = channels[intersection->edge].downstream;
+      
+      while (UNRELATED == returnValue && !isBoundary(tempLinkNo))
+        {
+          if (tempLinkNo == streamLinkNo)
+            {
+              returnValue = UPSTREAM;
+            }
+          
+          tempLinkNo = channels[tempLinkNo].downstream;
+        }
+      
+      // Search downstream of streamLinkNo to find intersection.
+      tempLinkNo = channels[streamLinkNo].downstream;
+      
+      while (UNRELATED == returnValue && !isBoundary(tempLinkNo))
+        {
+          if (tempLinkNo == intersection->edge)
+            {
+              returnValue = DOWNSTREAM;
+            }
+          
+          tempLinkNo = channels[tempLinkNo].downstream;
+        }
+    }
+  
+  return returnValue;
+}
+
+// Split a link element and place the piece after the split in a new link
+// number.
+// 
+// When a link is split the part before the split always stays where it is and
+// the part after the split always moves.  So a link will have a contiguous
+// region of unmoved elements at the beginning of the link possibly followed by
+// a contiguous region of moved elements.
+// 
+// The length of channel represented by a link is only the unmoved elements.
+// When water hits the end of the unmoved elements it flows to the downstream
+// link of the ChannelLinkStruct.  When a link is split, the length value in
+// the ChannelLinkStruct is updated to reflect the new length of unmoved
+// elements only.  The moved elements are just there for record keeping to find
+// where those sections of channel went.
+// 
+// In the moved link, location values start over at zero.  Zero on the moved
+// link is the same location as the begin location of the LinkElementStruct
+// recording the move in the original link.
+//
+// Returns: true if there is an error, false otherwise.
+// 
+// Parameters:
+//
+// channels - The channel network as a 1D array of ChannelLinkStruct.
+// size     - The number of elements in channels.
+// linkNo   - The link to split.
+// element  - The element to split the link near.  The split could be at the
+//            beginning, middle, or end of this element.
+// location - The 1D location in meters along the link to split at.
+bool splitLink(ChannelLinkStruct* channels, int size, int linkNo, LinkElementStruct* element, double location)
+{
+  bool               error = false; // Error flag.
+  int                ii;            // Loop counter.
+  int                newLinkNo;     // The moved part of the split link.
+  LinkElementStruct* endElement;    // The last element that will be moved.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= linkNo && linkNo < size && NULL != element && beginLocation(element) <= location && location <= element->endLocation);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Get an unused link number.
+  newLinkNo = 0;
+  
+  while (newLinkNo < size && NOT_USED != channels[newLinkNo].type)
+    {
+      newLinkNo++;
+    }
+  
+  if (newLinkNo == size)
+    {
+      fprintf(stderr, "ERROR in splitLink: Need an unused link and none are left.  Add unused links to the .link file and run again.\n");
+      error = true;
+    }
+  
+  if (!error)
+    {
+      // If you are at the end of an element, point to the next one, the first one that will be moved.
+      if (epsilonEqual(location, element->endLocation))
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          assert(NULL != element->next); // There must be a next element or we would have been at the end of the link and we would not have split the link.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+          element = element->next;
+        }
+      else if (!epsilonEqual(location, beginLocation(element)))
+        {
+          // If you are in the middle of an element split the element.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+          assert(-1 == element->edge); // Element must be unassociated or we would have moved to the end of it before here.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+
+          error = createLinkElementAfter(channels, size, linkNo, element->prev, location, element->edge, element->movedTo);
+        }
+    }
+  
+  if (!error)
+    {
+      // Element now points to the beginning of the list of elements to move.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+      // There must be a previous element or we would have been at the beginning of the link and we would not have split the link.
+      // We are also now splitting at the beginning of element.
+      assert(NULL != element->prev && epsilon_equal(location, element->prev->end_location));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+
+      // Find the end of the list of elements to move.
+      endElement = element;
+      
+      while (NULL != endElement->next && -1 == endElement->next->movedTo)
+        {
+          // Update the locations relative to the beginning of the new link.
+          endElement->endLocation -= location;
+          endElement               = endElement->next;
+        }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+      // endElement now points to the last unmoved element in linkNo.
+      assert(endElement->endLocation == channels[linkNo].length);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+
+      endElement->endLocation -= location;
+    }
+  
+  // Now element is the first element that will be moved and end_element is the last element that will be moved, and their locations are the correct values for
+  // the new moved link.
+  
+  // Create the movedTo element after endElement.
+  if (!error)
+    {
+      error = createLinkElementAfter(channels, size, linkNo, endElement, channels[linkNo].length, -1, newLinkNo);
+    }
+  
+  // Split the link.
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+      // Can't move the first element in a link, and the movedTo element is after endElement so these must not be NULL.
+      assert(NULL != element->prev && NULL != endElement->next);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
+      
+      // Move everything between element and endElement to newLinkNo.
+      element->prev->next              = endElement->next;
+      endElement->next->prev           = element->prev;
+      element->prev                    = NULL;
+      endElement->next                 = NULL;
+      channels[newLinkNo].firstElement = element;
+      channels[newLinkNo].lastElement  = endElement;
+      
+      // Update connection from the downstream link to the new stream link.
+      ii = 0;
+      
+      while (ii < UPSTREAM_SIZE && linkNo != channels[channels[linkNo].downstream].upstream[ii])
+        {
+          ii++;
+        }
+      
+      if (ii < UPSTREAM_SIZE)
+        {
+          channels[channels[linkNo].downstream].upstream[ii] = newLinkNo;
+        }
+      else
+        {
+          fprintf(stderr, "ERROR in splitLink: Channel link %d not found in downstream neighbor's upstream connection list.\n", linkNo);
+          error = true;
+        }
+      
+      if (!error)
+        {
+          // Configure the new stream link.
+          channels[newLinkNo].type                         = STREAM;
+          channels[newLinkNo].permanent                    = channels[linkNo].permanent;
+          channels[newLinkNo].length                       = channels[linkNo].length - location;
+          channels[newLinkNo].upstream[0]                  = linkNo;
+          channels[newLinkNo].downstream                   = channels[linkNo].downstream;
+
+          // Update old stream link.
+          channels[linkNo].downstream = newLinkNo;
+          channels[linkNo].length     = location;
+        }
+    }
+  
+  return error;
 }
 
 // Read a .link file and allocate and initialize an array of ChannelLinkStruct.
@@ -1010,7 +1319,7 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           // Fill in the ChannelLinkStruct.
-          // FIXME error check these values, maybe do it in invariant?
+          // FIXME error check these values, maybe do it in invariant?  Must check length, both contributing areas, upstream/downstream relationships
           channels[linkNo].type                       = STREAM;
           channels[linkNo].shapes[0]                  = SHPReadObject(shpFile, ii);
           channels[linkNo].length                     = DBFReadDoubleAttribute(dbfFile, ii, lengthIndex);
@@ -1110,21 +1419,29 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
 // edge         - The edge number of the mesh edge.
 bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double location1, double location2, int edge)
 {
-  bool               error = false;  // Error flag.
-  double             tempLocation;   // For swapping locations.
-  LinkElementStruct* element1;       // The element at location1.
-  LinkElementStruct* element2;       // The element at location2.
-  LinkElementStruct* tempElement;    // For looping through elements between element1 and element2.
-  LinkElementStruct* nextElement;    // For looping through elements between element1 and element2.
-  LinkElementStruct* elementToUse;   // The LinkElementStruct that will be used for an added edge.
-  double             element1Length; // Length of element1.
-  double             element2Length; // Length of element2.
-  double             length;         // Length of the element being added.
-  double             afterGap;       // Used to calculate gaps when overlapping elements have to be shifted.
-  double             beforeGap;      // Used to calculate gaps when overlapping elements have to be shifted.
-  double             newLocation;    // Used for moving location1 or location2 when overlapping elements have to be shifted.
-  double             oldEndLocation; // Used for remembering the old end location of an element that is being shifted.
-  bool               killElement2;   // Flag to indicate delayed removal of element2.
+  bool               error = false;         // Error flag.
+  double             tempLocation;          // For swapping locations.
+  LinkElementStruct* element1;              // The element at location1.
+  LinkElementStruct* element2;              // The element at location2.
+  LinkElementStruct* newElement1;           // The new element to use as element1 after the occluded element scan.
+  LinkElementStruct* newElement2;           // The new element to use as element2 after the occluded element scan.
+  LinkElementStruct* tempElement;           // For looping through elements between element1 and element2.
+  LinkElementStruct* nextElement;           // For looping through elements between element1 and element2.
+  LinkElementStruct* elementToUse;          // The LinkElementStruct that will be used for an added edge.
+  LinkElementStruct* beginGapElement;       // The LinkElementStruct at the beginning of an unassociated gap in the occluded element scan.
+  double             beginGapLocation;      // The 1D location in meters of the beginning of an unassociated gap in the occluded element scan.
+  double             element1Length;        // Length of element1.
+  double             element2Length;        // Length of element2.
+  double             element2BeginLocation; // For saving the old value of the beginning of element2.
+  bool               killElement2;          // Flag to indicate delayed removal of element2.
+  double             length;                // Length of the element being added.
+  double             afterGap;              // Used to calculate gaps when overlapping elements have to be shifted.
+  double             beforeGap;             // Used to calculate gaps when overlapping elements have to be shifted.
+  double             newLocation;           // Used for moving location1 or location2 when overlapping elements have to be shifted.
+  double             oldEndLocation;        // For saving the old end location of an element that is being shifted.
+  bool               secondOccludedScan;    // Flag for the second time through the occluded element scan.
+  bool               foundUnassociated;     // Flag for whether the occluded element scan has found an unassociated gap.
+  bool               inAssociated;          // Flag for whether the occluded element scan is in a stretch of associated elements.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 <= linkNo && linkNo < size && STREAM == channels[linkNo].type && 0.0 <= location1 && location1 <= channels[linkNo].length &&
@@ -1239,7 +1556,6 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
       else // if (-1 == element1->edge)
         {
           // This element is unassociated.
-          
           if (epsilonEqual(location1, beginLocation(element1)) && epsilonEqual(location2, element1->endLocation))
             {
               // The new element takes up all of the unassociated space.
@@ -1253,7 +1569,7 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
           else if (epsilonEqual(location2, element1->endLocation))
             {
               // The new element is at the end of the unassociated space.
-              location2             = element1->endLocation;
+              location2             = element1->endLocation; // Could be only epsilon equal.  Set it to exactly equal.
               element1->endLocation = location1;
               error                 = createLinkElementAfter(channels, size, linkNo, element1, location2, edge, -1);
             }
@@ -1273,8 +1589,10 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
     {
       // The new element spans across multiple existing elements.
       
-      // Deal with occluded elements.
-      tempElement = element1->next;
+      // Deal with occluded elements.  If an element between element1 and element2 is associated it is occluded and we need to leave it in place and put the
+      // new element either before or after it.
+      tempElement        = element1->next;
+      secondOccludedScan = false;
 
       while (tempElement != element2)
         {
@@ -1284,14 +1602,212 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
           
           if (-1 != tempElement->edge)
             {
-              // tempElement is an associated occluded element.
-              fprintf(stderr, "WARNING in addStreamMeshEdge: Occlusion on channel link %d.  Mesh edge %d from %lf to %lf occluded by mesh edge %d from %lf to "
-                              "%lf.\n", linkNo, tempElement->edge, beginLocation(tempElement), tempElement->endLocation, edge, location1, location2);
-              
-              // FIXLATER We could deal with the occluded element in a more sophisticated way.  For example, we could find the largest unallocated gap.
-              // But for now, just move the insertion region past the occluded element by setting element1 to the occluded element.
-              element1 = tempElement;
-              location1 = beginLocation(element1);
+              if (epsilonEqual(location1, beginLocation(tempElement)))
+                {
+                  // location1 is at the beginning of tempElement, but element1 got set to tempElement->prev because location1 is also at the end of
+                  // tempElement->prev.  This case is not really an occlusion.  It is just an overlap and we should just use tempElement as element1.
+                  element1 = tempElement;
+                  location1 = beginLocation(element1); // Could be only epsilon equal.  Set it to exactly equal.
+                }
+              else
+                {
+                  // tempElement is an associated occluded element.
+                  fprintf(stderr, "WARNING in addStreamMeshEdge: Occlusion on channel link %d.  Mesh edge %d from %lf to %lf occluded by mesh edge %d from %lf"
+                                  " to %lf.\n", linkNo, tempElement->edge, beginLocation(tempElement), tempElement->endLocation, edge, location1, location2);
+                  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                  // A second occluded scan after fixing associated occluded elements should never find an associated occluded element.
+                  assert(!secondOccludedScan);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                  
+                  // Find the largest unassociated gap between element1 and element2 and put the new element in that gap.  If there is no unassociated gap put
+                  // the new element in the junction between associated elements that is closest to the midpoint of location1 and location2.
+                  if (-1 != element1->edge)
+                    {
+                      // We are starting in a stretch of associated elements.
+                      length            = element2->endLocation -  // Until we have found an unassociated gap, length stores the distance from the closest
+                                          beginLocation(element1); // junction found so far to the midpoint of location1 and location2.  There is guaranteed to
+                                                                   // be such a junction closer than the distance from the beginning of element1 to the end of
+                                                                   // element2.
+                      foundUnassociated = false;
+                      inAssociated      = true;
+                    }
+                  else
+                    {
+                      // We are starting in a stretch of unassociated elements.
+                      length            = 0.0; // Once we have found an unassociated gap, length stores the length of the longest gap found so far.  There is
+                                               // guaranteed to be such a gap longer than zero.
+                      foundUnassociated = true;
+                      inAssociated      = false;
+                      beginGapElement   = element1;
+                      beginGapLocation  = location1;
+                    }
+                  
+                  newElement1 = element1; // this will always be overwritten, but initialize it to be safe.
+                  newElement2 = element2; // this will always be overwritten, but initialize it to be safe.
+                  tempElement = element1->next;
+                  
+                  while(tempElement != element2)
+                    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                      // tempElement must be strictly beyond element1 so it must have a previous element.
+                      assert(NULL != tempElement->prev);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                      if (inAssociated)
+                        {
+                          if (-1 != tempElement->edge)
+                            {
+                              if (!foundUnassociated)
+                                {
+                                  // If you are in a stretch of associated elements and the next element is associated and you haven't found an unassociated
+                                  // gap yet check if the junction is the closest to the midpoint of location1 and location2 found so far, and if it is use
+                                  // this junction.
+                                  if (length > fabs(tempElement->prev->endLocation - ((location1 + location2) * 0.5)))
+                                    {
+                                      length      = fabs(tempElement->prev->endLocation - ((location1 + location2) * 0.5));
+                                      newElement1 = tempElement->prev;
+                                      newElement2 = tempElement;
+                                    }
+                                }
+                            }
+                          else
+                            {
+                              // If you are in a stretch of associated elements and the next element is unassociated start recording an unassociated gap.
+                              if (!foundUnassociated)
+                                {
+                                  length            = 0.0; // If this is the first unassociated gap set length to zero.
+                                  foundUnassociated = true;
+                                }
+                              
+                              inAssociated      = false;
+                              beginGapElement   = tempElement->prev;
+                              beginGapLocation  = tempElement->prev->endLocation;
+                            }
+                        }
+                      else
+                        {
+                          if (-1 != tempElement->edge)
+                            {
+                              // If you are in a stretch of unassociated elements and the next element is associated check if this gap is the longest gap found
+                              // so far, and if it is use this gap.
+                              inAssociated = true;
+                              
+                              if (length < tempElement->prev->endLocation - beginGapLocation)
+                                {
+                                  length      = tempElement->prev->endLocation - beginGapLocation;
+                                  newElement1 = beginGapElement;
+                                  newElement2 = tempElement;
+                                }
+                            }
+                          else
+                            {
+                              // If you are in a stretch of unassociated elements and the next element is unassociated do nothing.
+                            }
+                        }
+                      
+                      tempElement = tempElement->next; // Move on to the next element.
+                    }
+                  
+                  // Close out the possibly last gap or last junction that ends at element2.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  // element2 must be strictly beyond element1 so it must have a previous element.
+                  assert(NULL != element2->prev);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                  if (inAssociated)
+                    {
+                      if (-1 != element2->edge)
+                        {
+                          if (!foundUnassociated)
+                            {
+                              // If you are in a stretch of associated elements and element2 is associated and you haven't found an unassociated
+                              // gap yet check if the junction is the closest to the midpoint of location1 and location2 found so far, and if it is use
+                              // this junction.
+                              if (length > fabs(element2->prev->endLocation - ((location1 + location2) * 0.5)))
+                                {
+                                  length      = fabs(element2->prev->endLocation - ((location1 + location2) * 0.5));
+                                  newElement1 = element2->prev;
+                                  newElement2 = element2;
+                                }
+                            }
+                        }
+                      else
+                        {
+                          // If you are in a stretch of associated elements and element2 is unassociated it is the beginning and end of an unassociated gap.
+                          if (!foundUnassociated)
+                            {
+                              length            = 0.0; // If this is the first unassociated gap set length to zero.
+                              foundUnassociated = true;
+                            }
+                          
+                          inAssociated      = false;
+                          beginGapElement   = element2->prev;
+                          beginGapLocation  = element2->prev->endLocation;
+                          
+                          if (length < location2 - beginGapLocation)
+                            {
+                              length      = location2 - beginGapLocation;
+                              newElement1 = beginGapElement;
+                              newElement2 = element2;
+                            }
+                        }
+                    }
+                  else
+                    {
+                      if (-1 != element2->edge)
+                        {
+                          // If you are in a stretch of unassociated elements and element2 is associated check if this gap is the longest gap found
+                          // so far, and if it is use this gap.
+                          inAssociated = true;
+                          
+                          if (length < element2->prev->endLocation - beginGapLocation)
+                            {
+                              length      = element2->prev->endLocation - beginGapLocation;
+                              newElement1 = beginGapElement;
+                              newElement2 = element2;
+                            }
+                        }
+                      else
+                        {
+                          // If you are in a stretch of unassociated elements and element2 is unassociated check if this gap is the longest gap found
+                          // so far, and if it is use this gap.
+                          if (length < location2 - beginGapLocation)
+                            {
+                              length      = location2 - beginGapLocation;
+                              newElement1 = beginGapElement;
+                              newElement2 = element2;
+                            }
+                        }
+                    }
+                  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  // Make sure that we have changed one or both of element1 and element2 and that they do not point to the same element.
+                  assert((newElement1 != element1 || newElement2 != element2) && newElement1 != newElement2);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  
+                  element1 = newElement1;
+                  element2 = newElement2;
+                  
+                  if (location1 < beginLocation(element1))
+                    {
+                      location1 = beginLocation(element1);
+                    }
+                  
+                  if (location2 > element2->endLocation)
+                    {
+                      location2 = element2->endLocation;
+                    }
+                  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                  // Scan for occluded elements again between the new element1 and element2.  This should never find an occluded element.
+                  tempElement        = element1;
+                  secondOccludedScan = true;
+#else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                  // Set tempElement to jump out of the loop.
+                  tempElement = element2->prev;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                }
             }
 
           tempElement = tempElement->next; // Move on to the next element.
@@ -1302,10 +1818,13 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
-      // At this point any elements between element1 and element2 are unassociated.  element1 and element2 themselves may be associated.
+      // At this point any elements between element1 and element2 are unassociated.  element1 and element2 themselves may be associated or unassociated.
       
-      elementToUse = NULL;  // The LinkElementStruct that will be used for the added edge.  NULL until that struct is found.
-      killElement2 = false; // Flag to indicate delayed removal of element2.
+      elementToUse          = NULL;                    // The LinkElementStruct that will be used for the added edge.  NULL until that struct is found.
+      element2BeginLocation = beginLocation(element2); // The code after this might move the end location of element1, which might also be storing the begin
+                                                       // location of element2 if element2 is immediately after element1.  Store the begin location of element2
+                                                       // now for use later.
+      killElement2          = false;                   // Flag to indicate delayed removal of element2.
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       assert(beginLocation(element1) <= location1 && epsilonGreaterOrEqual(element2->endLocation, location2));
@@ -1318,6 +1837,7 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
           if (epsilonEqual(location1, element1->endLocation))
             {
               // The new edge starts at the end of element1.  Nothing to do.
+              location1 = element1->endLocation; // Could be only epsilon equal.  Set it to exactly equal.
             }
           else
             {
@@ -1346,10 +1866,12 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
           if (epsilonEqual(location1, element1->endLocation))
             {
               // The new edge starts at the end of element1.  Nothing to do.
+              location1 = element1->endLocation; // Could be only epsilon equal.  Set it to exactly equal.
             }
           else if (epsilonEqual(location1, beginLocation(element1)))
             {
               // The new edge starts at the beginning of element1.  Use element1 as the struct.
+              location1    = beginLocation(element1); // Could be only epsilon equal.  Set it to exactly equal.
               elementToUse = element1;
             }
           else
@@ -1367,25 +1889,26 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
       if (-1 != element2->edge)
         {
           // element2 is associated.
-          if (epsilonEqual(location2, beginLocation(element2)))
+          if (epsilonEqual(location2, element2BeginLocation))
             {
               // The new edge ends at the beginning of element2.  Nothing to do.
+              location2 = element2BeginLocation; // Could be only epsilon equal.  Set it to exactly equal.
             }
           else
             {
               // The new edge overlaps element2.  Chop off element2.
-              element2Length = element2->endLocation - beginLocation(element2);
+              element2Length = element2->endLocation - element2BeginLocation;
               length         = location2             - location1;
               
               // Calculate the split point that shortens both elements by the same ratio.  For example, each 1/3 shorter.
-              newLocation = (location2 * element2Length + beginLocation(element2) * length) / (element2Length + length);
+              newLocation = (location2 * element2Length + element2BeginLocation * length) / (element2Length + length);
               
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-              assert(beginLocation(element2) < newLocation && newLocation < location2);
+              assert(element2BeginLocation < newLocation && newLocation < location2);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
               fprintf(stderr, "WARNING in addStreamMeshEdge: Overlap on channel link %d.  Mesh edge %d moved from (%lf to %lf) to (%lf to %lf).  Mesh edge %d "
-                              "moved from (%lf to %lf) to (%lf to %lf).\n", linkNo, element2->edge, beginLocation(element2), element2->endLocation,
+                              "moved from (%lf to %lf) to (%lf to %lf).\n", linkNo, element2->edge, element2BeginLocation, element2->endLocation,
                       newLocation, element2->endLocation, edge, location1, location2, location1, newLocation);
 
               location2 = newLocation;
@@ -1394,13 +1917,16 @@ bool addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
       else // if (-1 == element2->edge)
         {
           // element2 is not associated
-          if (epsilonEqual(location2, beginLocation(element2)))
+          if (epsilonEqual(location2, element2BeginLocation))
             {
               // The new edge ends at the beginning of element2.  Nothing to do.
+              location2 = element2BeginLocation; // Could be only epsilon equal.  Set it to exactly equal.
             }
           else if (epsilonEqual(location2, element2->endLocation))
             {
               // The new edge ends at the end of element2.
+              location2 = element2->endLocation; // Could be only epsilon equal.  Set it to exactly equal.
+              
               // Use element2 as the struct unless element1 is already being used as the struct in which case we need to kill element2.
               if (NULL == elementToUse)
                 {
@@ -1726,12 +2252,761 @@ bool addAllStreamMeshEdges(ChannelLinkStruct* channels, int size, const char* no
   return error;
 }
 
-// FIXME remove
+// Read all of the intersections between waterbodies and streams.  Each
+// intersection is placed in a sorted linked list in its waterbody.  The linked
+// lists are sorted with the downstream intersections toward the head of the
+// list.  This function uses LinkElementStructs to store the linked list.  This
+// function assumes that no links have been split and moved yet so movedTo
+// should be -1 for all elements.
+// 
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels     - The channel network as a 1D array of ChannelLinkStruct.
+// size         - The number of elements in channels.
+// fileBasename - The basename of the intersection shapefile to read.
+//                readWaterbodyStreamIntersections will read the following
+//                files: fileBasename.shp, and fileBasename.dbf.
+bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, const char* fileBasename)
+{
+  bool               error = false;    // Error flag.
+  int                ii;               // Loop counter.
+  SHPHandle          shpFile;          // Geometry  part of the shapefile.
+  DBFHandle          dbfFile;          // Attribute part of the shapefile.
+  int                numberOfShapes;   // Number of shapes in the shapefile.
+  int                linknoIndex;      // Index of metadata field.
+  int                permanentIndex;   // Index of metadata field.
+  int                streamLinkNo;     // The link number of the intersecting stream.
+  int                permanent;        // The permanent code of the intersecting waterbody.
+  int                waterbodyLinkNo;  // The link number of the intersecting waterbody.
+  SHPObject*         shape;            // The intersection point.
+  double             location;         // 1D location in meters along streamLinkNo of the intersection.
+  LinkElementStruct* tempIntersection; // For sorting the linked list of intersections.
+  bool               foundIt;          // For sorting the linked list of intersections.
+  bool               ignoreIt;         // For sorting the linked list of intersections.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size && NULL != fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+
+  // Open the geometry and attribute files.
+  shpFile = SHPOpen(fileBasename, "rb");
+  dbfFile = DBFOpen(fileBasename, "rb");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(NULL != shpFile))
+    {
+      fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open shp file %s.\n", fileBasename);
+      error = true;
+    }
+
+  if (!(NULL != dbfFile))
+    {
+      fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open dbf file %s.\n", fileBasename);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+  // Get the number of shapes and attribute indices
+  if (!error)
+    {
+      numberOfShapes = DBFGetRecordCount(dbfFile);
+      linknoIndex    = DBFGetFieldIndex(dbfFile, "LINKNO");
+      permanentIndex = DBFGetFieldIndex(dbfFile, "Permanent_");
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < numberOfShapes))
+        {
+          // Only warn because you could have zero intersections.
+          fprintf(stderr, "WARNING in readWaterbodyStreamIntersections: Zero shapes in dbf file %s.\n", fileBasename);
+        }
+      
+      if (!(-1 != linknoIndex))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not find field LINKNO in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != permanentIndex))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not find field Permanent_ in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+
+  // Fill the intersections into the sorted linked lists.
+  for (ii = 0; !error && ii < numberOfShapes; ii++)
+    {
+      streamLinkNo    = DBFReadIntegerAttribute(dbfFile, ii, linknoIndex);
+      permanent       = DBFReadIntegerAttribute(dbfFile, ii, permanentIndex);
+      waterbodyLinkNo = 0;
+      shape           = NULL;
+      location        = 0.0;
+      
+      while(waterbodyLinkNo < size && ((WATERBODY != channels[waterbodyLinkNo].type && ICEMASS != channels[waterbodyLinkNo].type) || permanent != channels[waterbodyLinkNo].permanent))
+        {
+          waterbodyLinkNo++;
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 <= streamLinkNo && streamLinkNo <= size && STREAM == channels[streamLinkNo % size].type))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Stream link number %d out of range or not a stream link for intersection with waterbody "
+                          "permanent code %d in dbf file %s.\n", streamLinkNo, permanent, fileBasename);
+          error = true;
+        }
+      
+      if (!(0 <= waterbodyLinkNo && waterbodyLinkNo < size && (WATERBODY == channels[waterbodyLinkNo].type || ICEMASS == channels[waterbodyLinkNo].type)))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not find waterbody permanent code %d in channel network.\n", permanent);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      if (!error)
+        {
+          // The array is zero based, but the shapefile might be one based.  Use mod rather than minus so that only one link gets renumbered, the last one.
+          streamLinkNo %= size;
+          
+          // Read the intersection point.
+          shape = SHPReadObject(shpFile, ii);
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NULL != shape))
+            {
+              fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Failed to read shape %d from shp file %s.\n", ii, fileBasename);
+              error = true;
+            }
+          else if (!((8 == shape->nSHPType || 18 == shape->nSHPType || 28 == shape->nSHPType) && 0 == shape->nParts && 1 == shape->nVertices))
+            {
+              fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Invalid shape %d from shp file %s.\n", ii, fileBasename);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          location = getLocation(channels[streamLinkNo].shapes[0], channels[streamLinkNo].length, shape->padfX[0], shape->padfY[0]);
+        }
+
+      if (NULL != shape)
+        {
+          SHPDestroyObject(shape);
+        }
+      
+      // At this point we have an intersection between waterbodyLinkNo and streamLinkNo at location along streamLinkNo.
+      
+      // Insert the intersection into the list for the waterbody.  Do an insertion sort to order downstream intersections toward the head of the list.
+      if (!error)
+        {
+          // Start at the tail of the list and walk towards the head until you find the first intersection downstream of this one.
+          tempIntersection = channels[waterbodyLinkNo].lastElement;
+          foundIt          = false;
+          ignoreIt         = false;
+          
+          while (NULL != tempIntersection && !foundIt)
+            {
+              if (tempIntersection->edge == streamLinkNo && epsilonEqual(tempIntersection->endLocation, location))
+                {
+                  // This is a duplicate.  Ignore it.
+                  foundIt  = true;
+                  ignoreIt = true;
+                }
+              else if (DOWNSTREAM == upstreamDownstream(channels, size, tempIntersection, streamLinkNo, location))
+                {
+                  // Insert the new intersection after here.
+                  foundIt = true;
+                }
+              else
+                {
+                  tempIntersection = tempIntersection->prev;
+                }
+            }
+          
+          if (!ignoreIt)
+            {
+              error = createLinkElementAfter(channels, size, waterbodyLinkNo, tempIntersection, location, streamLinkNo, -1);
+            }
+        }
+    }
+  
+  // Close the files.
+  if (NULL != shpFile)
+    {
+      SHPClose(shpFile);
+    }
+  
+  if (NULL != dbfFile)
+    {
+      DBFClose(dbfFile);
+    }
+  
+  return error;
+}
+
+// Create a single upstream/downstream link between a waterbody and a stream.
+// 
+// This function is the first point in the code where stream links can get
+// split and moved so from here on out we have to handle the case where
+// movedTo is not -1.
+// 
+// To link the waterbody and stream, first find the location on the stream.
+// This may involve traversing moved links.  If the location of the
+// intersection is at the beginning or end of a link, just create the
+// connection between the existing links.  If the location of the intersection
+// is in the middle of a link, split the stream.
+//
+// This function allows a stream to flow downstream into more than one
+// waterbody or a waterbody to flow downstream into more than one stream.
+// Additional downstream connections after the first are placed in the upstream
+// connection list.  This is okay because we eventually ignore the distinction
+// between upstream and downstream links in the simulation.  Flow direction is
+// determined by water level only.  However, if we are making a connection
+// where a stream is supposed to flow downstream into a waterbody and it
+// currently flows downstream into a stream we break that existing downstream
+// connection.
+// 
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels                    - The channel network as a 1D array of
+//                               ChannelLinkStruct.
+// size                        - The number of elements in channels.
+// waterbodyLinkNo             - The waterbody to link to the stream.
+// waterbodyUpstreamDownstream - Specifies whether to link the waterbody
+//                               upstream or downstream of the stream.  If
+//                               UPSTREAM the waterbody will flow into the
+//                               stream.  IF DOWNSTREAM the stream will flow
+//                               into the waterbody.
+// streamLinkNo                - The stream to link to the waterbody.
+// location                    - The 1D location in meters along streamLinkNo
+//                               to make the link.
+bool linkWaterbodyStreamIntersection(ChannelLinkStruct* channels, int size, int waterbodyLinkNo, UpstreamDownstreamEnum waterbodyUpstreamDownstream,
+                                     int streamLinkNo, double location)
+{
+  bool               error   = false; // Error flag.
+  int                ii;              // Loop counter.
+  LinkElementStruct* element = NULL;  // The stream element that will be linked to the waterbody.
+  double             oldLocation;     // For storing the old location if it is moved.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= waterbodyLinkNo && waterbodyLinkNo < size &&
+         (WATERBODY == channels[waterbodyLinkNo].type || ICEMASS == channels[waterbodyLinkNo].type) &&
+         (UPSTREAM == waterbodyUpstreamDownstream || DOWNSTREAM == waterbodyUpstreamDownstream) &&
+         0 <= streamLinkNo && streamLinkNo < size && STREAM == channels[streamLinkNo].type &&
+         0.0 <= location && location <= channels[streamLinkNo].lastElement->endLocation);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Find the element of the stream that will be linked to the waterbody.
+  while (NULL == element)
+    {
+      element = channels[streamLinkNo].firstElement;
+
+      while (epsilonLess(element->endLocation, location))
+        {
+          element = element->next; // Move on to the next element.
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // The last element's endLocation should never be less than the location of the intersection so we should be guaranteed that there is another
+          // element.
+          assert(NULL != element);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
+      
+      if (-1 != element->movedTo)
+        {
+          // The stream element was moved.
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          assert(NULL != element->prev && 0 <= element->movedTo && element->movedTo < size && STREAM == channels[element->movedTo].type);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          location       -= element->prev->endLocation;
+          streamLinkNo    = element->movedTo;
+          element         = NULL;
+        }
+    }
+  
+  // At this point element points to the unmoved element that will be linked to this waterbody.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  assert(-1 == element->movedTo);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  // If element is associated and the intersection location is in the middle of element move the intersection to the beginning or end of element.
+  if (-1 != element->edge && !epsilonEqual(location, element->endLocation) && !epsilonEqual(location, beginLocation(element)))
+    {
+      oldLocation = location;
+      
+      if (UPSTREAM == waterbodyUpstreamDownstream)
+        {
+          // The waterbody will be upstream, move the intersection to the end of element.
+          location = element->endLocation;
+        }
+      else
+        {
+          // The waterbody will be downstream, move the intersection to the beginning of element.
+          location = beginLocation(element);
+        }
+      
+      fprintf(stderr, "WARNING in linkWaterbodyStreamIntersection: Overlap between waterbody %d and mesh edge %d on stream %d.  Intersection moved from %lf "
+                      "to %lf.\n", waterbodyLinkNo, element->edge, streamLinkNo, oldLocation, location);
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  assert(0 <= streamLinkNo && streamLinkNo < size && STREAM == channels[streamLinkNo].type && 0.0 <= location && location <= channels[streamLinkNo].length);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  if (epsilonEqual(location, 0.0))
+    {
+      if (UPSTREAM == waterbodyUpstreamDownstream)
+        {
+          // The waterbody flows into the beginning of the stream.
+          error = addUpstreamConnection(channels, size, waterbodyLinkNo, streamLinkNo);
+          
+          // Make the waterbody flow into the stream, but don't break any existing downstream connection.  If the waterbody already has a downstream connection
+          // just add the new connection to the upstream connection list.
+          if (!error)
+            {
+              if (NOFLOW == channels[waterbodyLinkNo].downstream)
+                {
+                  channels[waterbodyLinkNo].downstream = streamLinkNo;
+                }
+              else
+                {
+                  error = addUpstreamConnection(channels, size, streamLinkNo, waterbodyLinkNo);
+                }
+            }
+        }
+      else
+        {
+          // The links upstream of the stream flow into the waterbody.
+          ii = 0;
+          
+          while (!error && ii < UPSTREAM_SIZE && NOFLOW != channels[streamLinkNo].upstream[ii])
+            {
+              if (isBoundary(channels[streamLinkNo].upstream[ii]))
+                {
+                  // If it's a boundary condition code add it to the waterbody and remove it form the stream.
+                  error = addUpstreamConnection(channels, size, channels[streamLinkNo].upstream[ii], waterbodyLinkNo);
+                  
+                  if (!error)
+                    {
+                      error = removeUpstreamConnection(channels, size, channels[streamLinkNo].upstream[ii], streamLinkNo);
+                    }
+                }
+              else if (STREAM == channels[channels[streamLinkNo].upstream[ii]].type)
+                {
+                  // If it's a stream break the existing downstream link.
+                  error = makeChannelConnection(channels, size, channels[streamLinkNo].upstream[ii], waterbodyLinkNo);
+                }
+              else
+                {
+                  // If it's a waterbody don't break the existing downstream link.
+                  error = addUpstreamConnection(channels, size, channels[streamLinkNo].upstream[ii], waterbodyLinkNo);
+                  
+                  if (!error)
+                    {
+                      if (NOFLOW == channels[channels[streamLinkNo].upstream[ii]].downstream)
+                        {
+                          channels[channels[streamLinkNo].upstream[ii]].downstream = waterbodyLinkNo;
+                        }
+                      else
+                        {
+                          error = addUpstreamConnection(channels, size, waterbodyLinkNo, channels[streamLinkNo].upstream[ii]);
+                        }
+                    }
+                  
+                  // Since the existing connection is left go on to the next connection.
+                  ii++;
+                }
+            }
+        }
+    }
+  else if (epsilonEqual(location, channels[streamLinkNo].length))
+    {
+      if (UPSTREAM == waterbodyUpstreamDownstream)
+        {
+          // The waterbody flows into the link downstream of the stream.
+          error = addUpstreamConnection(channels, size, waterbodyLinkNo, channels[streamLinkNo].downstream);
+          
+          // Make the waterbody flow into the downstream link, but don't break any existing downstream connection.  If the waterbody already has a downstream
+          // connection just add the new connection to the upstream connection list.
+          if (!error)
+            {
+              if (NOFLOW == channels[waterbodyLinkNo].downstream)
+                {
+                  channels[waterbodyLinkNo].downstream = channels[streamLinkNo].downstream;
+                }
+              else
+                {
+                  error = addUpstreamConnection(channels, size, channels[streamLinkNo].downstream, waterbodyLinkNo);
+                }
+            }
+        }
+      else
+        {
+          // The end of the stream flows into the waterbody.
+          if (!isBoundary(channels[streamLinkNo].downstream) && WATERBODY == channels[channels[streamLinkNo].downstream].type)
+            {
+              // Don't break the stream's exsting downstream connection to a waterbody.
+              error = addUpstreamConnection(channels, size, streamLinkNo, waterbodyLinkNo);
+              
+              if (!error)
+                {
+                  error = addUpstreamConnection(channels, size, waterbodyLinkNo, streamLinkNo);
+                }
+            }
+          else
+            {
+              // Do break the stream's existing downstream connection to a stream or boundary condition.
+              error = makeChannelConnection(channels, size, streamLinkNo, waterbodyLinkNo);
+            }
+        }
+    }
+  else
+    {
+      // If you flow into the middle of a stream, split the stream at location.
+      error = splitLink(channels, size, streamLinkNo, element, location);
+      
+      if (!error)
+        {
+          if (UPSTREAM == waterbodyUpstreamDownstream)
+            {
+              // The waterbody will now flow into the beginning of the split link, which is immediately downstream of streamLinkNo.
+              error = addUpstreamConnection(channels, size, waterbodyLinkNo, channels[streamLinkNo].downstream);
+              
+              // Make the waterbody flow into the stream, but don't break any existing downstream connection.  If the waterbody already has a downstream connection
+              // just add the new connection to the upstream connection list.
+              if (!error)
+                {
+                  if (NOFLOW == channels[waterbodyLinkNo].downstream)
+                    {
+                      channels[waterbodyLinkNo].downstream = channels[streamLinkNo].downstream;
+                    }
+                  else
+                    {
+                      error = addUpstreamConnection(channels, size, channels[streamLinkNo].downstream, waterbodyLinkNo);
+                    }
+                }
+            }
+          else
+            {
+              // The end of the unmoved part of the stream will now flow into the waterbody.
+              error = makeChannelConnection(channels, size, streamLinkNo, waterbodyLinkNo);
+            }
+        }
+    }
+  
+  return error;
+}
+
+// Create all of the upstream/downstream links between waterbodies and streams.
+// 
+// For any intersection that does not have another intersection downstream of
+// it the waterbody will flow into the stream.  For all other intersections the
+// stream will flow into the waterbody.
+// 
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels - The channel network as a 1D array of ChannelLinkStruct.
+// size     - The number of elements in channels.
+bool linkAllWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size)
+{
+  int                    error = false;               // Error flag.
+  int                    ii;                          // Loop counter.
+  LinkElementStruct*     tempIntersection1;           // For looping over intersections.
+  LinkElementStruct*     tempIntersection2;           // For looping over intersections.
+  UpstreamDownstreamEnum waterbodyUpstreamDownstream; // Used to flag whether the waterbody is upstream or downstream of the intersection.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // Resolve all of the intersections.
+  for (ii = 0; !error && ii < size; ii++)
+    {
+      if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+        {
+          tempIntersection1 = channels[ii].firstElement;
+          
+          while (!error && NULL != tempIntersection1)
+            {
+              tempIntersection2           = tempIntersection1->prev;
+              waterbodyUpstreamDownstream = UPSTREAM;
+              
+              // If there is an intersection downstream of intersection1 then the waterbody will be downstream of tempIntersection1.
+              while (NULL != tempIntersection2 && DOWNSTREAM != waterbodyUpstreamDownstream)
+                {
+                  if (DOWNSTREAM == upstreamDownstream(channels, size, tempIntersection2, tempIntersection1->edge, tempIntersection1->endLocation))
+                    {
+                      waterbodyUpstreamDownstream = DOWNSTREAM;
+                    }
+                  
+                  tempIntersection2 = tempIntersection2->prev;
+                }
+              
+              error = linkWaterbodyStreamIntersection(channels, size, ii, waterbodyUpstreamDownstream, tempIntersection1->edge, tempIntersection1->endLocation);
+              
+              tempIntersection1 = tempIntersection1->next;
+            }
+        }
+    }
+
+  return error;
+}
+
+// Read all of the intersections between waterbodies and other waterbodies and
+// make those links.
+// 
+// This function opens the waterbodies waterbodies intersections shapefile and
+// for each intersection links the two waterbodies together.  No links are
+// broken.  Connections are made by adding upstream links if the waterbodies
+// already have downstream links.
+// 
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels     - The channel network as a 1D array of ChannelLinkStruct.
+// size         - The number of elements in channels.
+// fileBasename - The basename of the waterbody shapefile to read.
+//                readAndLinkWaterbodyWaterbodyIntersections will read the
+//                following files: fileBasename.shp, and fileBasename.dbf.
+bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int size, const char* fileBasename)
+{
+  bool               error = false;        // Error flag.
+  int                ii;                   // Loop counter.
+  SHPHandle          shpFile;              // Geometry  part of the shapefile.
+  DBFHandle          dbfFile;              // Attribute part of the shapefile.
+  int                numberOfShapes;       // Number of shapes in the shapefile.
+  int                permanent1Index;      // Index of metadata field.
+  int                permanent2Index;      // Index of metadata field.
+  int                permanent1;           // The permanent code of the first  intersecting waterbody.
+  int                permanent2;           // The permanent code of the second intersecting waterbody.
+  int                linkNo1;              // The linkno of the first  intersecting waterbody.
+  int                linkNo2;              // The linkno of the second intersecting waterbody.
+  LinkElementStruct* intersections = NULL; // Singly linked list of intersections for eliminating duplicates.  The two waterbody link numbers are stored in
+                                           // edge and movedTo.
+  LinkElementStruct* tempIntersection;     // Used for searching intersections.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_ALL_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size && NULL != fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_ALL_FUNCTIONS_SIMPLE)
+  
+  // Open the geometry and attribute files.
+  shpFile = SHPOpen(fileBasename, "rb");
+  dbfFile = DBFOpen(fileBasename, "rb");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(NULL != shpFile))
+    {
+      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open shp file %s.\n", fileBasename);
+      error = true;
+    }
+
+  if (NULL == dbfFile)
+    {
+      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open dbf file %s.\n", fileBasename);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+  // Get the number of shapes and attribute indices
+  if (!error)
+    {
+      numberOfShapes  = DBFGetRecordCount(dbfFile);
+      permanent1Index = DBFGetFieldIndex(dbfFile, "Permanent1");
+      permanent2Index = DBFGetFieldIndex(dbfFile, "Permanent_");
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < numberOfShapes))
+        {
+          // Only warn because you could have zero intersections.
+          fprintf(stderr, "WARNING in readAndLinkWaterbodyWaterbodyIntersections: Zero shapes in dbf file %s.\n", fileBasename);
+        }
+      
+      if (!(-1 != permanent1Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field Permanent1 in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != permanent2Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field Permanent_ in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+
+  // Read the intersections.
+  for (ii = 0; !error && ii < numberOfShapes; ii++)
+    {
+      permanent1 = DBFReadIntegerAttribute(dbfFile, ii, permanent1Index);
+      permanent2 = DBFReadIntegerAttribute(dbfFile, ii, permanent2Index);
+      linkNo1    = 0;
+      linkNo2    = 0;
+      
+      if (permanent1 != permanent2)
+        {
+          while(linkNo1 < size && ((WATERBODY != channels[linkNo1].type && ICEMASS != channels[linkNo1].type) || permanent1 != channels[linkNo1].permanent))
+            {
+              linkNo1++;
+            }
+
+          while(linkNo2 < size && ((WATERBODY != channels[linkNo2].type && ICEMASS != channels[linkNo2].type) || permanent2 != channels[linkNo2].permanent))
+            {
+              linkNo2++;
+            }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(linkNo1 < size && (WATERBODY == channels[linkNo1].type || ICEMASS == channels[linkNo1].type)))
+            {
+              fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find waterbody permanent code %d in channel network.\n",
+                      permanent1);
+              error = true;
+            }
+      
+          if (!(linkNo2 < size && (WATERBODY == channels[linkNo2].type || ICEMASS == channels[linkNo2].type)))
+            {
+              fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find waterbody permanent code %d in channel network.\n",
+                      permanent2);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+          if (!error)
+            {
+              tempIntersection = intersections;
+              
+              while(NULL != tempIntersection && !((linkNo1 == tempIntersection->edge    && linkNo2 == tempIntersection->movedTo) ||
+                                                  (linkNo1 == tempIntersection->movedTo && linkNo2 == tempIntersection->edge)))
+                {
+                  tempIntersection = tempIntersection->next;
+                }
+              
+              if (NULL == tempIntersection)
+                {
+                  // This intersection is not a duplicate.
+                  tempIntersection          = new LinkElementStruct;
+                  tempIntersection->next    = intersections;
+                  tempIntersection->edge    = linkNo1;
+                  tempIntersection->movedTo = linkNo2;
+                  intersections             = tempIntersection;
+                }
+            }
+        } // End  if (permanent1 != permanent2).
+    } // End read the intersections.
+  
+  // Process the intersections.
+  while(!error && NULL != intersections)
+    {
+      if (NOFLOW == channels[intersections->edge].downstream)
+        {
+          channels[intersections->edge].downstream = intersections->movedTo;
+        }
+      else
+        {
+          error = addUpstreamConnection(channels, size, intersections->movedTo, intersections->edge);
+        }
+      
+      if (!error)
+        {
+          if (NOFLOW == channels[intersections->movedTo].downstream)
+            {
+              channels[intersections->movedTo].downstream = intersections->edge;
+            }
+          else
+            {
+              error = addUpstreamConnection(channels, size, intersections->edge, intersections->movedTo);
+            }
+        }
+      
+      if (!error)
+        {
+          tempIntersection = intersections->next;
+
+          delete intersections;
+          
+          intersections = tempIntersection;
+        }
+    }
+
+  // Close the files.
+  if (NULL != shpFile)
+    {
+      SHPClose(shpFile);
+    }
+  
+  if (NULL != dbfFile)
+    {
+      DBFClose(dbfFile);
+    }
+  
+  return error;
+}
+
+// Free memory allocated for the channel network.
+//
+// Returns: true if there is an error, false otherwise.  Even if there is an
+// error every effort is made to free as much as possible.
+//
+// Parameters:
+//
+// channels - A pointer to the channel network passed by reference.
+//            Will be set to NULL after the memory is deallocated.
+// size     - A scalar passed by reference containing the number of elements in
+//            channels.  Will be set to zero after the memory is deallocated.
+bool channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
+{
+  bool error = false; // Error flag.
+  bool tempError;     // Error flag.
+  int  ii, jj;        // Loop counters.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && NULL != *channels && NULL != size && 0 < *size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  for (ii = 0; ii < *size; ii++)
+    {
+      for (jj = 0; jj < SHAPES_SIZE; jj++)
+        {
+          if (NULL != (*channels)[ii].shapes[jj])
+            {
+              SHPDestroyObject((*channels)[ii].shapes[jj]);
+            }
+        }
+      
+      while (NULL != (*channels)[ii].firstElement)
+        {
+          tempError = killLinkElement(*channels, *size, ii, (*channels)[ii].firstElement);
+          error     = error || tempError;
+        }
+    }
+  
+  delete[] *channels;
+  
+  *channels = NULL;
+  *size     = 0;
+
+  return error;
+}
+
+// FIXME make into a more user friendly main program.
 int main(void)
 {
-  bool               error = false;
-  ChannelLinkStruct* channels;
-  int                size;
+  bool               error = false; // Error flag.
+  bool               tempError;     // Error flag.
+  int                ii;            // Loop counter.
+  ChannelLinkStruct* channels;      // The channel network.
+  int                size;          // The number of elements in channels.
   
   error = readLink(&channels, &size, "/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.link");
   
@@ -1751,7 +3026,35 @@ int main(void)
                                     "/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.edge");
     }
   
-  // FIXME clean up channels.
+  if (!error)
+    {
+      error = readWaterbodyStreamIntersections(channels, size, "/share/CI-WATER Simulation Data/small_green_mesh/mesh_waterbodies_streams_intersections");
+    }
+  
+  if (!error)
+    {
+      error = linkAllWaterbodyStreamIntersections(channels, size);
+    }
+  
+  if (!error)
+    {
+      error = readAndLinkWaterbodyWaterbodyIntersections(channels, size,
+                                                         "/share/CI-WATER Simulation Data/small_green_mesh/mesh_waterbodies_waterbodies_intersections");
+    }
+  
+  if (!error)
+    {
+      for (ii = 0; ii < size; ii++)
+        {
+          tryToPruneLink(channels, size, ii);
+        }
+    }
+  
+  if (NULL != channels)
+    {
+      tempError = channelNetworkDealloc(&channels, &size);
+      error     = error || tempError;
+    }
   
   return 0;
 }
