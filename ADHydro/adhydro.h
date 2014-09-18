@@ -26,7 +26,7 @@ class CProxy_ChannelElement;
 // create files
 //   |
 //   V
-// write files <----------------\
+// write files <----------------|
 //   |                          |
 //   V                          |
 // check forcing data <------\  |

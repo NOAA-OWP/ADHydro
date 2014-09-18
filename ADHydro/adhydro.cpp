@@ -29,7 +29,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
   
   // Initialize the file manager.
-  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
+  // FIXME fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  // FIXME make ascii fileBasename a command line parameter.
   // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }
 
@@ -96,9 +98,9 @@ void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 1000.0; // FIXME
+  endTime                 = currentTime + 100.0; // FIXME
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 0.0; // FIXME
+  outputPeriod            = 10.0; // FIXME
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry           = true;
@@ -107,12 +109,26 @@ void ADHydro::fileManagerInitialized()
   needToCheckInvariant    = true;
   
   // Create mesh and channels.
-  meshProxy    = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
-  channelProxy = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
+  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+    {
+      meshProxy = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
+    }
+  
+  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+    {
+      channelProxy = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
+    }
 
   // Initialize mesh and channels.
-  meshProxy.initialize(channelProxy, fileManagerProxy);
-  channelProxy.initialize(meshProxy, fileManagerProxy);
+  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+    {
+      meshProxy.initialize(channelProxy, fileManagerProxy);
+    }
+  
+  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+    {
+      channelProxy.initialize(meshProxy, fileManagerProxy);
+    }
   
   // Set the callback to write output files after they are created.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
@@ -142,8 +158,23 @@ void ADHydro::checkForcingData()
   if (needToUpdateForcingData)
     {
       // Set callback.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshForcingDataDone), thisProxy));
-      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelForcingDataDone), thisProxy));
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+        {
+          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshForcingDataDone), thisProxy));
+        }
+      else
+        {
+          thisProxy.meshForcingDataDone();
+        }
+      
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+        {
+          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelForcingDataDone), thisProxy));
+        }
+      else
+        {
+          thisProxy.channelForcingDataDone();
+        }
 
       // Update forcing data.
       fileManagerProxy.readForcingData(meshProxy, channelProxy);
@@ -207,13 +238,27 @@ void ADHydro::checkInvariant()
   
   if (!error)
     {
-      // Set callbacks.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInvariantDone), thisProxy));
-      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelInvariantDone), thisProxy));
+      // Set callbacks and check invariant.
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+        {
+          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInvariantDone), thisProxy));
+          meshProxy.checkInvariant();
+        }
+      else
+        {
+          thisProxy.meshInvariantDone();
+        }
+      
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+        {
+          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelInvariantDone), thisProxy));
+          channelProxy.checkInvariant();
+        }
+      else
+        {
+          thisProxy.channelInvariantDone();
+        }
 
-      // Check invariant.
-      meshProxy.checkInvariant();
-      channelProxy.checkInvariant();
       thisProxy.waitForInvariantToFinish();
     }
   else
@@ -235,13 +280,27 @@ void ADHydro::doTimestep()
       // Print at beginning of timestep.
       CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
 
-      // Set callbacks.
-      meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-      channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
+      // Set callbacks and start timestep.
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+        {
+          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
+          meshProxy.doTimestep(iteration, dt);
+        }
+      else
+        {
+          thisProxy.meshTimestepDone(2.0 * dt);
+        }
+      
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+        {
+          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
+          channelProxy.doTimestep(iteration, dt);
+        }
+      else
+        {
+          thisProxy.channelTimestepDone(2.0 * dt);
+        }
 
-      // Start timestep.
-      meshProxy.doTimestep(iteration, dt);
-      channelProxy.doTimestep(iteration, dt);
       thisProxy.waitForTimestepToFinish();
     }
   else
@@ -287,8 +346,16 @@ void ADHydro::timestepDone(double dtNew)
 
       // Start the output phase.
       fileManagerProxy.updateState(currentTime, dt, iteration);
-      meshProxy.updateState();
-      channelProxy.updateState();
+      
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
+        {
+          meshProxy.updateState();
+        }
+      
+      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
+        {
+          channelProxy.updateState();
+        }
     }
   else
     {

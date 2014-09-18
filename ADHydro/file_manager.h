@@ -71,9 +71,25 @@ public:
   // Destructor.  Dynamically allocated arrays need to be deleted.
   ~FileManager();
   
+  // FIXME move handle initialization functions to private
+  
   // Initializes the file manager to hold a hardcoded mesh.  When done the file
   // managers contribute to an empty reduction.
-  void initializeHardcodedMesh();
+  void handleInitializeHardcodedMesh();
+  
+  // Initializes the file manager from ASCII files.  When done the file
+  // managers contribute to an empty reduction.
+  //
+  // Parameters:
+  //
+  // directorySize    - The size of the array passed in to directory.
+  // directory        - The directory from which to read the files.
+  // fileBasenameSize - The size of the array passed in to fileBasename.
+  // fileBasename     - The base name not including the directory path of the
+  //                    files to read.  initializeFromASCIIFiles will read the
+  //                    following files: directory/fileBasename.node,
+  //                    FIXME etc.
+  void handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename);
   
   // Initializes the file manager from NetCDF files.  When done the file
   // managers contribute to an empty reduction.
@@ -82,7 +98,7 @@ public:
   //
   // directorySize - The size of the array passed in to directory.
   // directory     - The directory from which to read the files.
-  void initializeFromNetCDFFiles(size_t directorySize, const char* directory);
+  void handleInitializeFromNetCDFFiles(size_t directorySize, const char* directory);
   
   // If a variable is not available the file managers attempt to derive it from
   // other variables, for example element center coordinates from element

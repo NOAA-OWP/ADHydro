@@ -3,7 +3,41 @@ module file_manager
   group FileManager
   {
     entry FileManager();
+    
+    entry void initialize()
+    {
+      case
+      {
+        when initializeHardcodedMesh()
+        {
+          serial
+          {
+            handleInitializeHardcodedMesh();
+          }
+        }
+        
+        when initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
+                                      size_t fileBasenameSize, const char fileBasename[fileBasenameSize])
+        {
+          serial
+          {
+            handleInitializeFromASCIIFiles(directorySize, directory, fileBasenameSize, fileBasename);
+          }
+        }
+        
+        when initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize])
+        {
+          serial
+          {
+            handleInitializeFromNetCDFFiles(directorySize, directory);
+          }
+        }
+      }
+    };
+    
     entry void initializeHardcodedMesh();
+    entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
+                                        size_t fileBasenameSize, const char fileBasename[fileBasenameSize]);
     entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
     entry void calculateDerivedValues();
     entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);

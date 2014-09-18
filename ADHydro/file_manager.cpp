@@ -112,6 +112,9 @@ FileManager::FileManager()
   currentTime                    = 0.0;
   dt                             = 1.0;
   iteration                      = 1;
+  
+  // Use sdag code to force receipt of only one initialization call.
+  thisProxy[CkMyPe()].initialize();
 }
 
 FileManager::~FileManager()
@@ -417,7 +420,7 @@ FileManager::~FileManager()
     }
 }
 
-void FileManager::initializeHardcodedMesh()
+void FileManager::handleInitializeHardcodedMesh()
 {
   int    ii, jj; // Loop counters.
   double globalNodeX[13]                            = {-75.0, 75.0, -75.0, 0.0, 75.0, 0.0, -75.0, 0.0, 75.0, 0.0, -75.0, 0.0, 75.0};
@@ -800,7 +803,747 @@ void FileManager::initializeHardcodedMesh()
   contribute();
 }
 
-void FileManager::initializeFromNetCDFFiles(size_t directorySize, const char* directory)
+void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename)
+{
+  bool   error      = false;  // Error flag.
+  int    ii;                  // Loop counter.
+  char*  nameString = NULL;   // Temporary string for file names.
+  size_t nameStringSize;      // Size of buffer allocated for nameString.
+  size_t numPrinted;          // Used to check that snprintf printed the correct number of characters.
+  size_t numScanned;          // Used to check that fscanf scanned the correct number of inputs.
+  FILE*  nodeFile   = NULL;   // The node file to read from.
+  FILE*  zFile      = NULL;   // The z file to read from.
+  FILE*  eleFile    = NULL;   // The ele file to read from.
+  FILE*  neighFile  = NULL;   // The neigh file to read from.
+  int    dimension;           // Used to check the dimensions in the files.
+  int    numberOfAttributes;  // Used to check the number of attributes in the files.
+  int    boundary;            // Used to check the number of boundary markers in the files.
+  int    numberCheck;         // Used to check numbers that are error checked but otherwise unused.
+  int    index;               // Used to read node and element numbers.
+  int    firstIndex;          // Used to store if node and element numbers are zero based or one based.
+  double xCoordinate;         // Used to read coordinates from file.
+  double yCoordinate;         // Used to read coordinates from file.
+  double zCoordinate;         // Used to read coordinates from file.
+  int    vertex0;             // A vertex of an element.
+  int    vertex1;             // A vertex of an element.
+  int    vertex2;             // A vertex of an element.
+  int    catchment;           // The catchment of an element.
+  int    neighbor0;           // A neighbor of an element.
+  int    neighbor1;           // A neighbor of an element.
+  int    neighbor2;           // A neighbor of an element.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != directory))
+    {
+      CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: directory must not be null.\n");
+      error = true;
+    }
+  
+  if (!(NULL != fileBasename))
+    {
+      CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: fileBasename must not be null.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      // Allocate space for file name strings.
+      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.node") + 1; // The longest file extension is .chan.node.
+      nameString     = new char[nameStringSize];                                                          // +1 for null terminating character.
+
+      // Create file name.
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.node", directory, fileBasename);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".node") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating node file name %s.  %d should be "
+                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".node"),
+                  nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open file.
+  if (!error)
+    {
+      nodeFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != nodeFile))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open node file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(nodeFile, "%d %d %d %d", &globalNumberOfMeshNodes, &dimension, &numberOfAttributes, &boundary);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(4 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from node file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < globalNumberOfMeshNodes && 2 == dimension && 0 == numberOfAttributes && 1 == boundary))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in node file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+
+  // Create file name.
+  if (!error)
+    {
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.z", directory, fileBasename);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".z") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating z file name %s.  %d should be "
+                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".z"),
+                  nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open file.
+  if (!error)
+    {
+      zFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != zFile))
+        {
+          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open z file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(zFile, "%d %d", &numberCheck, &dimension);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(2 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from z file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(globalNumberOfMeshNodes == numberCheck && 1 == dimension))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in z file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Calculate local start and number and allocate arrays.
+  if (!error)
+    {
+      localStartAndNumber(&localMeshNodeStart, &localNumberOfMeshNodes, globalNumberOfMeshNodes);
+      
+      meshNodeX        = new double[localNumberOfMeshNodes];
+      meshNodeY        = new double[localNumberOfMeshNodes];
+      meshNodeZSurface = new double[localNumberOfMeshNodes];
+      meshNodeZBedrock = new double[localNumberOfMeshNodes];
+    }
+  
+  // Read mesh nodes.
+  for (ii = 0; !error && ii < globalNumberOfMeshNodes; ii++)
+    {
+      // Read node file.
+      numScanned = fscanf(nodeFile, "%d %lf %lf %*d", &index, &xCoordinate, &yCoordinate);
+      
+      // Set zero based or one based indices.
+      if (0 == ii)
+        {
+          if (0 == index)
+            {
+              firstIndex = 0;
+            }
+          else
+            {
+              firstIndex = 1;
+            }
+        }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(3 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from node file.\n", ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(ii + firstIndex == index))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid node number in node file.  %d should be %d.\n", index, ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      // Read z file.
+      if (!error)
+        {
+          numScanned = fscanf(zFile, "%d %lf", &numberCheck, &zCoordinate);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(2 == numScanned))
+            {
+              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from z file.\n", ii + firstIndex);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(index == numberCheck))
+            {
+              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid node number in z file.  %d should be %d.\n", numberCheck, index);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+      
+      // Save values.
+      if (!error)
+        {
+          index %= globalNumberOfMeshNodes;
+          
+          if (localMeshNodeStart <= index && index < localMeshNodeStart + localNumberOfMeshNodes)
+            {
+              meshNodeX[       index - localMeshNodeStart] = xCoordinate;
+              meshNodeY[       index - localMeshNodeStart] = yCoordinate;
+              meshNodeZSurface[index - localMeshNodeStart] = zCoordinate;
+              meshNodeZBedrock[index - localMeshNodeStart] = zCoordinate - 5.0; // FIXME figure out real soil depth.
+            }
+        }
+    } // End read mesh nodes.
+
+  // Create file name.
+  if (!error)
+    {
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.ele", directory, fileBasename);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".ele") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating ele file name %s.  %d should be "
+                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".ele"),
+                  nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open file.
+  if (!error)
+    {
+      eleFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != eleFile))
+        {
+          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open ele file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(eleFile, "%d %d %d", &globalNumberOfMeshElements, &dimension, &numberOfAttributes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(3 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from ele file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < globalNumberOfMeshElements && 3 == dimension && 1 == numberOfAttributes))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in ele file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Create file name.
+  if (!error)
+    {
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.neigh", directory, fileBasename);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".neigh") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating neigh file name %s.  %d should be "
+                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".neigh"),
+                  nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open file.
+  if (!error)
+    {
+      neighFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != neighFile))
+        {
+          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open neigh file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(neighFile, "%d %d", &numberCheck, &dimension);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(2 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from neigh file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(globalNumberOfMeshElements == numberCheck && 3 == dimension))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in neigh file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Calculate local start and number and allocate arrays.
+  if (!error)
+    {
+      localStartAndNumber(&localMeshElementStart, &localNumberOfMeshElements, globalNumberOfMeshElements);
+      
+      meshElementVertices = new int[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      meshCatchment       = new int[localNumberOfMeshElements];
+      meshConductivity = new double[localNumberOfMeshElements];
+      meshPorosity = new double[localNumberOfMeshElements];
+      meshManningsN = new double[localNumberOfMeshElements];
+      meshSurfacewaterDepth =  new double[localNumberOfMeshElements];
+      meshSurfacewaterError = new double[localNumberOfMeshElements];
+      // meshGroundwaterHead will be allocated and set in finishCalculateDerivedValues where it will default to saturated.
+      meshGroundwaterError = new double[localNumberOfMeshElements];
+      meshMeshNeighbors = new int[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      meshMeshNeighborsChannelEdge = new bool[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      meshChannelNeighbors = new int[localNumberOfMeshElements][MeshElement::channelNeighborsSize];
+      meshChannelNeighborsEdgeLength = new double[localNumberOfMeshElements][MeshElement::channelNeighborsSize];
+    }
+  
+  // Read mesh elements.
+  for (ii = 0; !error && ii < globalNumberOfMeshElements; ii++)
+    {
+      // Read ele file.
+      numScanned = fscanf(eleFile, "%d %d %d %d %d", &index, &vertex0, &vertex1, &vertex2, &catchment);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(5 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from ele file.\n", ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(ii + firstIndex == index))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid element number in ele file.  %d should be %d.\n", index, ii + firstIndex);
+          error = true;
+        }
+      
+      if (!(firstIndex <= vertex0 && vertex0 < globalNumberOfMeshNodes + firstIndex))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid vertex number %d in ele file.\n", vertex0);
+          error = true;
+        }
+      
+      if (!(firstIndex <= vertex1 && vertex1 <= globalNumberOfMeshNodes + firstIndex))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid vertex number %d in ele file.\n", vertex1);
+          error = true;
+        }
+      
+      if (!(firstIndex <= vertex2 && vertex2 <= globalNumberOfMeshNodes + firstIndex))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid vertex number %d in ele file.\n", vertex2);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      // Read neigh file.
+      numScanned = fscanf(neighFile, "%d %d %d %d", &numberCheck, &neighbor0, &neighbor1, &neighbor2);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(4 == numScanned))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from neigh file.\n", ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(index == numberCheck))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid element number in neigh file.  %d should be %d.\n", numberCheck, index);
+          error = true;
+        }
+      
+      if (!(isBoundary(neighbor0) || (firstIndex <= neighbor0 && neighbor0 <= globalNumberOfMeshElements + firstIndex)))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid neighbor number %d in neigh file.\n", neighbor0);
+          error = true;
+        }
+      
+      if (!(isBoundary(neighbor1) || (firstIndex <= neighbor1 && neighbor1 <= globalNumberOfMeshElements + firstIndex)))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid neighbor number %d in neigh file.\n", neighbor1);
+          error = true;
+        }
+      
+      if (!(isBoundary(neighbor2) || (firstIndex <= neighbor2 && neighbor2 <= globalNumberOfMeshElements + firstIndex)))
+        {
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid neighbor number %d in neigh file.\n", neighbor2);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      // Save values.
+      if (!error)
+        {
+          index %= globalNumberOfMeshElements;
+          
+          if (localMeshElementStart <= index && index < localMeshElementStart + localNumberOfMeshElements)
+            {
+              meshElementVertices[         index - localMeshElementStart][0] = vertex0 % globalNumberOfMeshNodes;
+              meshElementVertices[         index - localMeshElementStart][1] = vertex1 % globalNumberOfMeshNodes;
+              meshElementVertices[         index - localMeshElementStart][2] = vertex2 % globalNumberOfMeshNodes;
+              meshCatchment[               index - localMeshElementStart]    = catchment;
+              
+              // FIXME fill these in with real data.
+              meshConductivity[            index - localMeshElementStart]    = 5.55e-4;
+              meshPorosity[                index - localMeshElementStart]    = 0.5;
+              meshManningsN[               index - localMeshElementStart]    = 0.038;
+              
+              meshSurfacewaterDepth[       index - localMeshElementStart]    = 0.0;
+              meshSurfacewaterError[       index - localMeshElementStart]    = 0.0;
+              meshGroundwaterError[        index - localMeshElementStart]    = 0.0;
+              meshMeshNeighbors[           index - localMeshElementStart][0] = isBoundary(neighbor0) ? neighbor0 : neighbor0 % globalNumberOfMeshElements;
+              meshMeshNeighbors[           index - localMeshElementStart][1] = isBoundary(neighbor1) ? neighbor1 : neighbor1 % globalNumberOfMeshElements;
+              meshMeshNeighbors[           index - localMeshElementStart][2] = isBoundary(neighbor2) ? neighbor2 : neighbor2 % globalNumberOfMeshElements;
+              meshMeshNeighborsChannelEdge[index - localMeshElementStart][0] = false;
+              meshMeshNeighborsChannelEdge[index - localMeshElementStart][1] = false;
+              meshMeshNeighborsChannelEdge[index - localMeshElementStart][2] = false;
+              
+              // FIXME fill these in with real data.
+              for (int jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
+                {
+                  meshChannelNeighbors[          index - localMeshElementStart][jj] = NOFLOW;
+                  meshChannelNeighborsEdgeLength[index - localMeshElementStart][jj] = 1.0;
+                }
+            }
+        }
+    } // End read mesh elements.
+  
+  // FIXME
+  globalNumberOfChannelNodes    = 0;
+  globalNumberOfChannelElements = 0;
+  
+  localStartAndNumber(&localChannelNodeStart,    &localNumberOfChannelNodes,    globalNumberOfChannelNodes);
+  localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
+  
+  /*
+  globalNumberOfChannelNodes    = 13;
+  globalNumberOfChannelElements = 4;
+  
+  localStartAndNumber(&localChannelNodeStart,    &localNumberOfChannelNodes,    globalNumberOfChannelNodes);
+  localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
+  
+  
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
+        {
+          meshChannelNeighbors[ii][jj] = globalMeshChannelNeighbors[ii + localMeshElementStart][jj];
+        }
+    }
+  
+  
+  for (ii = 0; ii < localNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
+        {
+          meshChannelNeighborsEdgeLength[ii][jj] = globalMeshChannelNeighborsEdgeLength[ii + localMeshElementStart][jj];
+        }
+    }
+  
+  channelNodeX = new double[localNumberOfChannelNodes];
+  
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeX[ii] = globalNodeX[ii + localChannelNodeStart];
+    }
+  
+  channelNodeY = new double[localNumberOfChannelNodes];
+  
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeY[ii] = globalNodeY[ii + localChannelNodeStart];
+    }
+  
+  channelNodeZBank = new double[localNumberOfChannelNodes];
+  
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeZBank[ii] = globalNodeZ[ii + localChannelNodeStart];
+    }
+  
+  channelNodeZBed = new double[localNumberOfChannelNodes];
+  
+  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
+    {
+      channelNodeZBed[ii] = globalNodeZ[ii + localChannelNodeStart] - 5.0;
+    }
+  
+  channelElementVertices = new int[localNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::channelVerticesSize + 2; jj++)
+        {
+          channelElementVertices[ii][jj] = globalChannelElementVertices[ii + localChannelElementStart][jj];
+        }
+    }
+  
+  // Unused.
+  channelVertexX         = NULL;
+  channelVertexY         = NULL;
+  channelVertexZBank     = NULL;
+  channelVertexZBed      = NULL;
+  
+  channelElementX = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementX[ii] = globalChannelElementX[ii + localChannelElementStart];
+    }
+  
+  channelElementY = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementY[ii] = globalChannelElementY[ii + localChannelElementStart];
+    }
+  
+  channelElementZBank = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementZBank[ii] = globalChannelElementZ[ii + localChannelElementStart];
+    }
+  
+  channelElementZBed = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementZBed[ii] = globalChannelElementZ[ii + localChannelElementStart] - 2.5;
+    }
+  
+  channelElementLength = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelElementLength[ii] = 50.0;
+    }
+  
+  channelChannelType = new ChannelTypeEnum[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      if (0 == ii + localChannelElementStart)
+        {
+          channelChannelType[ii] = WATERBODY;
+        }
+      else
+        {
+          channelChannelType[ii] = STREAM;
+        }
+    }
+  
+  channelPermanentCode = new int[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelPermanentCode[ii] = 1;
+    }
+  
+  channelBaseWidth = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      if (0 == ii + localChannelElementStart)
+        {
+          channelBaseWidth[ii] = 150.0;
+        }
+      else
+        {
+          channelBaseWidth[ii] = 1.0;
+        }
+    }
+  
+  channelSideSlope = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSideSlope[ii] = 1.0;
+    }
+  
+  channelBedConductivity = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelBedConductivity[ii] = 5.55e-4;
+    }
+  
+  channelBedThickness = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelBedThickness[ii] = 1.0;
+    }
+  
+  channelManningsN = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelManningsN[ii] = 0.038;
+    }
+  
+  channelSurfacewaterDepth = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSurfacewaterDepth[ii] = 0.0;
+    }
+  
+  channelSurfacewaterError = new double[localNumberOfChannelElements];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      channelSurfacewaterError[ii] = 0.0;
+    }
+  
+  channelChannelNeighbors = new int[localNumberOfChannelElements][ChannelElement::channelNeighborsSize];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::channelNeighborsSize; jj++)
+        {
+          channelChannelNeighbors[ii][jj] = globalChannelChannelNeighbors[ii + localChannelElementStart][jj];
+        }
+    }
+  
+  channelMeshNeighbors = new int[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
+        {
+          channelMeshNeighbors[ii][jj] = globalChannelMeshNeighbors[ii + localChannelElementStart][jj];
+        }
+    }
+  
+  channelMeshNeighborsEdgeLength = new double[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+  
+  for (ii = 0; ii < localNumberOfChannelElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
+        {
+          channelMeshNeighborsEdgeLength[ii][jj] = globalChannelMeshNeighborsEdgeLength[ii + localChannelElementStart][jj];
+        }
+    }
+  */
+  
+  // Close the files.
+  if (NULL != nodeFile)
+    {
+      fclose(nodeFile);
+    }
+
+  if (NULL != zFile)
+    {
+      fclose(zFile);
+    }
+
+  if (NULL != eleFile)
+    {
+      fclose(eleFile);
+    }
+
+  if (NULL != neighFile)
+    {
+      fclose(neighFile);
+    }
+
+  if (!error)
+    {
+      meshElementUpdated    = new bool[localNumberOfMeshElements];
+      channelElementUpdated = new bool[localNumberOfChannelElements];
+    }
+  
+  // Delete nameString.
+  if (NULL != nameString)
+    {
+      delete[] nameString;
+    }
+  
+  // Have to call evapoTranspirationInit once on each Pe. This is a convenient place to do that.
+  if (!error)
+    {
+      error = evapoTranspirationInit(directory);
+    }
+
+  if (!error)
+    {
+      contribute();
+    }
+  else
+    {
+      CkExit();
+    }
+}
+
+void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const char* directory)
 {
   bool   error         = false;  // Error flag.
   char*  nameString    = NULL;   // Temporary string for file names.
@@ -3930,6 +4673,21 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
     }
   
   // Create variables.
+  if (!error)
+    {
+      dimIDs[0]   = instancesDimID;
+      ncErrorCode = nc_def_var(fileID, "geometryInstance", NC_UINT64, 1, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable geometryInstance in NetCDF parameter file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
   if (!error && NULL != meshCatchment)
     {
       dimIDs[0]   = instancesDimID;
@@ -6053,6 +6811,35 @@ void FileManager::resizeUnlimitedDimensions(size_t directorySize, const char* di
             }
 
           // Write variables.
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "geometryInstance", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to get variable geometryInstance in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              start[0]    = parameterInstance;
+              ncErrorCode = nc_put_var1_ulonglong(fileID, varID, start, &unsignedLongLongZero);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::resizeUnlimitedDimensions: unable to write variable geometryInstance in NetCDF parameter file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
           if (NULL != meshCatchment)
             {
               if (!error)
@@ -6983,192 +7770,189 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
       geometryInstance--;
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
       
-      if (0 == CkMyPe())
+      if (!error)
         {
-          if (!error)
-            {
-              ncErrorCode = nc_inq_varid(fileID, "numberOfMeshNodes", &varID);
+          ncErrorCode = nc_inq_varid(fileID, "numberOfMeshNodes", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = geometryInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfMeshNodes);
+      if (!error)
+        {
+          start[0]    = geometryInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfMeshNodes);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "numberOfMeshElements", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshNodes in NetCDF geometry file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "numberOfMeshElements", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshElements in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfMeshElements in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = geometryInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfMeshElements);
+      if (!error)
+        {
+          start[0]    = geometryInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfMeshElements);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshElements in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "numberOfChannelNodes", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfMeshElements in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "numberOfChannelNodes", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = geometryInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfChannelNodes);
+      if (!error)
+        {
+          start[0]    = geometryInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfChannelNodes);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfChannelNodes in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "numberOfChannelElements", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfChannelNodes in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "numberOfChannelElements", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelElements in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable numberOfChannelElements in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelElements in NetCDF geometry file "
-                          "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable numberOfChannelElements in NetCDF geometry file "
+                      "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = geometryInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfChannelElements);
+      if (!error)
+        {
+          start[0]    = geometryInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_int(fileID, varID, start, count, &globalNumberOfChannelElements);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfChannelElements in NetCDF geometry file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to write variable numberOfChannelElements in NetCDF geometry file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
-        } // End if (0 == CkMyPe()).
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
       
       if (NULL != meshNodeX)
         {
@@ -9362,6 +10146,55 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
       parameterInstance--;
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
       
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "geometryInstance", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable geometryInstance in NetCDF parameter file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable geometryInstance in NetCDF parameter file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+
+      if (!error)
+        {
+          // Assumes size_t is eight bytes when casting to unsigned long long.
+          CkAssert(sizeof(size_t) == sizeof(unsigned long long));
+
+          start[0]    = parameterInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&geometryInstance);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to write variable geometryInstance in NetCDF parameter file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
       if (NULL != meshCatchment)
         {
           if (!error)
@@ -10035,244 +10868,241 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
       stateInstance--;
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
       
-      if (0 == CkMyPe())
+      if (!error)
         {
-          if (!error)
-            {
-              ncErrorCode = nc_inq_varid(fileID, "iteration", &varID);
+          ncErrorCode = nc_inq_varid(fileID, "iteration", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable iteration in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable iteration in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable iteration in NetCDF state file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable iteration in NetCDF state file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = stateInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_ushort(fileID, varID, start, count, &iteration);
+      if (!error)
+        {
+          start[0]    = stateInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_ushort(fileID, varID, start, count, &iteration);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable iteration in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "currentTime", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable iteration in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "currentTime", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable currentTime in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable currentTime in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable currentTime in NetCDF state file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable currentTime in NetCDF state file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = stateInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, &currentTime);
+      if (!error)
+        {
+          start[0]    = stateInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_double(fileID, varID, start, count, &currentTime);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable currentTime in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "dt", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable currentTime in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "dt", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable dt in NetCDF state file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable dt in NetCDF state file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              start[0]    = stateInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, &dt);
+      if (!error)
+        {
+          start[0]    = stateInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_double(fileID, varID, start, count, &dt);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "geometryInstance", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable dt in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "geometryInstance", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable geometryInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable geometryInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable geometryInstance in NetCDF state file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable geometryInstance in NetCDF state file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              // Assumes size_t is eight bytes when casting to unsigned long long.
-              CkAssert(sizeof(size_t) == sizeof(unsigned long long));
-              
-              start[0]    = stateInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&geometryInstance);
+      if (!error)
+        {
+          // Assumes size_t is eight bytes when casting to unsigned long long.
+          CkAssert(sizeof(size_t) == sizeof(unsigned long long));
+
+          start[0]    = stateInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&geometryInstance);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable geometryInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-
-          if (!error)
+          if (!(NC_NOERR == ncErrorCode))
             {
-              ncErrorCode = nc_inq_varid(fileID, "parameterInstance", &varID);
+              CkError("ERROR in FileManager::writeFiles: unable to write variable geometryInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          ncErrorCode = nc_inq_varid(fileID, "parameterInstance", &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to get variable parameterInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to get variable parameterInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 
 #ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
-          if (!error)
-            {
-              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+      if (!error)
+        {
+          ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable parameterInstance in NetCDF state file %s.  "
-                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable parameterInstance in NetCDF state file %s.  "
+                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
 #endif // NETCDF_COLLECTIVE_IO_WORKAROUND
 
-          if (!error)
-            {
-              // Assumes size_t is eight bytes when casting to unsigned long long.
-              CkAssert(sizeof(size_t) == sizeof(unsigned long long));
-              
-              start[0]    = stateInstance;
-              count[0]    = 1;
-              ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&parameterInstance);
+      if (!error)
+        {
+          // Assumes size_t is eight bytes when casting to unsigned long long.
+          CkAssert(sizeof(size_t) == sizeof(unsigned long long));
+
+          start[0]    = stateInstance;
+          count[0]    = 1;
+          ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&parameterInstance);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(NC_NOERR == ncErrorCode))
-                {
-                  CkError("ERROR in FileManager::writeFiles: unable to write variable parameterInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
-                          nameString, nc_strerror(ncErrorCode));
-                  error = true;
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::writeFiles: unable to write variable parameterInstance in NetCDF state file %s.  NetCDF error message: %s.\n",
+                      nameString, nc_strerror(ncErrorCode));
+              error = true;
             }
-        } // End if (0 == CkMyPe()).
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
       
       if (NULL != meshSurfacewaterDepth)
         {
@@ -10623,7 +11453,7 @@ void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfIte
   int itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each file manager that does not own one extra item.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 < globalNumberOfItems);
+  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 <= globalNumberOfItems);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
   if (myPe < numberOfFatOwners)
@@ -10901,7 +11731,7 @@ void FileManager::finishCalculateDerivedValues()
         }
     }
 
-  // FIXME remove, part of the hardcoded mesh
+  // If meshGroundwaterHead is uninitialized it defaults to saturated (water table at the surface).
   if (NULL == meshGroundwaterHead && NULL != meshElementZSurface)
     {
       meshGroundwaterHead = new double[localNumberOfMeshElements];
