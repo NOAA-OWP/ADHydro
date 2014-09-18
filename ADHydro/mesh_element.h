@@ -113,7 +113,7 @@ private:
   // shadedFractionMaximumNew        - New value for yearly maximum fraction of
   //                                   land area shaded by vegetation, 0.0 to
   //                                   1.0.
-  // surfaceTemperatureNew           - New value for air temperature in Celcius
+  // surfaceTemperatureNew           - New value for air temperature in Celsius
   //                                   at surface.
   // surfacePressureNew              - New value for air pressure in Pascal at
   //                                   surface.
@@ -140,7 +140,7 @@ private:
   //                                   meters of water per second at the top of
   //                                   the canopy.
   // soilBottomTemperatureNew        - New value for Boundary condition for
-  //                                   soil temperature in Celcius at the
+  //                                   soil temperature in Celsius at the
   //                                   bottom of the lowest soil layer.
   // planetaryBoundaryLayerHeightNew - New value for Planetary boundary layer
   //                                   height in meters.
@@ -531,7 +531,7 @@ private:
                                        // northWindSpeed, atmosphereLayerMixingRatio.
   double shadedFraction;               // Fraction of land area shaded by vegetation, 0.0 to 1.0.
   double shadedFractionMaximum;        // Yearly maximum fraction of land area shaded by vegetation, 0.0 to 1.0.
-  double surfaceTemperature;           // Air temperature in Celcius at surface.
+  double surfaceTemperature;           // Air temperature in Celsius at surface.
   double surfacePressure;              // Air pressure in Pascal at surface.
   double atomsphereLayerPressure;      // Air pressure in Pascal at middle of lowest atmosphere layer in forcing data.
   double eastWindSpeed;                // Eastward wind speed in meters per second at middle of lowest atmosphere layer in forcing data.
@@ -541,7 +541,7 @@ private:
   double shortWaveRadiationDown;       // Downward short wave radiation in Watts per square meter at the top of the canopy.
   double longWaveRadiationDown;        // Downward long wave radiation in Watts per square meter at the top of the canopy.
   double precipitationRate;            // Precipitation rate in meters of water per second at the top of the canopy.
-  double soilBottomTemperature;        // Boundary condition for soil temperature in Celcius at the bottom of the lowest soil layer.
+  double soilBottomTemperature;        // Boundary condition for soil temperature in Celsius at the bottom of the lowest soil layer.
   double planetaryBoundaryLayerHeight; // Planetary boundary layer height in meters.
   
   // Sequencing and timestep information.
