@@ -153,6 +153,12 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float wsLake,
                             float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
+bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* struc);                            
+// Checks the invariants of EvapoTranspirationState Structure
+// Input:
+// pointer to EvapoTranspirationStateStruct
+// Outputs true if there is a na error
+//         false otherwise 
 // FIXME add functions for evapoTranspirationWater and evapoTranspirationGlacier
 
 #endif // __EVAPO_TRANSPIRATION_H__
