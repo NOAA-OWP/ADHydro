@@ -434,10 +434,10 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       evapoTranspirationState.zSnso[0]   = 0.0;
       evapoTranspirationState.zSnso[1]   = 0.0;
       evapoTranspirationState.zSnso[2]   = 0.0;
-      evapoTranspirationState.zSnso[3]   = 0.05 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[4]   = 0.2 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[5]   = 0.5 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[6]   = (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[3]   = -0.05 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[4]   = -0.2 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[5]   = -0.5 * (elementZSurface - elementZBedrock);
+      evapoTranspirationState.zSnso[6]   = -(elementZSurface - elementZBedrock);
       evapoTranspirationState.snowH      = 0.0;
       evapoTranspirationState.snEqv      = 0.0;
       evapoTranspirationState.snIce[0]   = 0.0;

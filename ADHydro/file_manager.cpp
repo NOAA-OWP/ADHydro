@@ -3623,7 +3623,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
   
   for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
     {
-      meshProxy[ii].forcingDataMessage(20.0, 0.8, 0.8, 300.0, 101300.0, 101175.0, 0.0, 0.0,0.02, 0.0, 800.0, 200.0, 0.001, 300.0, 30000.0);
+      meshProxy[ii].forcingDataMessage(20.0, 0.8, 0.8, 0.0, 101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 800.0, 200.0, 0.01, 0.0, 30000.0);
     }
   
   for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
