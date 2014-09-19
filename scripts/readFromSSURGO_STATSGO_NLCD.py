@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import pandas as pd
 import numpy as np
 import glob
@@ -92,11 +93,12 @@ def getSoilTypDRV():
 #  ELEfilepath         -> element file path and name
 #  NODEfilepath        -> node file path and name
 #  output_SoilTyp_file -> output: soil type file path and name
-   sufixPath             = '/user2/nfrazier/Desktop/mesh_python/small_green_mesh/'
-   ELEfilepath           = sufixPath + 'mesh.1.ele'
-   NODEfilepath          = sufixPath + 'mesh.1.node'
-   output_SoilTyp_file   = sufixPath + "mesh.1.soilType_test_1.3_2"
-   output_VegTyp_file    = sufixPath + 'mesh.1.LandCover'
+   print os.path.join(os.path.join(os.path.split(os.getcwd())[0],'input'), 'small_green_mesh')
+   sufixPath             = os.path.join(os.path.join(os.path.split(os.getcwd())[0],'input'), 'small_green_mesh')
+   ELEfilepath           = os.path.join(sufixPath, 'mesh.1.ele')
+   NODEfilepath          = os.path.join(sufixPath, 'mesh.1.node')
+   output_SoilTyp_file   = os.path.join(sufixPath, 'mesh.1.soilType')
+   output_VegTyp_file    = os.path.join(sufixPath, 'mesh.1.LandCover')
    
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'V4'], index_col=0, engine='c').dropna()
    
@@ -151,7 +153,7 @@ def getSoilTypDRV():
    elements['long_center'] = elements['long_center']*180/pi
    
    #TODO remove, for debugging only
-   elements = elements.head()
+   #elements = elements.head()
    
    #elements now contains coordinates for the center of each element in three different coordinates:
    #  X, Y sinusoidal projection X_center, Y_center
@@ -176,7 +178,7 @@ def getSoilTypDRV():
    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
    #SoilType
    elements = elements.apply(getSoilContent, axis=1)
-   print elements
+   #print elements
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
    #VegParm
    elements = elements.apply(getVegParm, axis=1)
