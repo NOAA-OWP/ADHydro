@@ -93,7 +93,6 @@ def getSoilTypDRV():
 #  ELEfilepath         -> element file path and name
 #  NODEfilepath        -> node file path and name
 #  output_SoilTyp_file -> output: soil type file path and name
-   print os.path.join(os.path.join(os.path.split(os.getcwd())[0],'input'), 'small_green_mesh')
    sufixPath             = os.path.join(os.path.join(os.path.split(os.getcwd())[0],'input'), 'small_green_mesh')
    ELEfilepath           = os.path.join(sufixPath, 'mesh.1.ele')
    NODEfilepath          = os.path.join(sufixPath, 'mesh.1.node')
