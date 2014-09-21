@@ -231,8 +231,9 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float wsLake,
                             float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError)
 {
-  bool error = false; // Error flag.
-  int  ii;            // Loop counter.
+  bool  error = false; // Error flag.
+  int   ii;            // Loop counter.
+  float epsilon;       // For near equality testing.
   
   // Input parameters for redprm function.  Some are also used for sflx function.
   int   slopeType = 8; // I just arbitrarily chose a slope type with zero slope.  I think slope is only used to calculate runoff, which we ignore.
@@ -241,20 +242,20 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   int   isUrban   = 1; // USGS vegetation type for urban land.
   
   // Input parameters to sflx function.
-  int   iLoc    = 1;               // Grid location index, unused.
-  int   jLoc    = 1;               // Grid location index, unused.
-  int   nSnow   = 3;               // Maximum number of snow layers.  Always pass 3.
-  int   ice     = 0;               // Flag to indicate permanent ice cover, 0 for no, 1 for yes.  Always pass 0.  If permanent ice cover call
-                                   // evapoTranspirationGlacier instead.
-  int   ist     = 1;               // Flag to indicate permanent water cover, 1 for soil, 2 for lake.  Always pass 1.  If permanent water cover call
-                                   // evapoTranspirationWater instead.
-  int   isc     = 4;               // Soil color type, 1 for lightest to 8 for darkest.  Always pass 4 unless we find a data source for soil color.
-  int   iz0tlnd = 0;               // Unused.
-  float co2Air  = 0.0004 * sfcPrs; // CO2 partial pressure in Pascal at surface.  Always pass 400 parts per million of surface pressure.
-  float o2Air   = 0.21 * sfcPrs;   // O2 partial pressure in Pascal at surface.  Always pass 21 percent of surface pressure.
-  float folN    = 3.0;             // Foliage nitrogen percentage, 0.0 to 100.0.  Always pass 3.0 unless we find a data source for foliage nitrogen.
-  float fIce[3];                   // Frozen fraction of each snow layer, unitless.  Values are set below from snIce and snLiq.
-  float zLvl    = dz8w;            // Thickness in meters of lowest atmosphere layer in forcing data.  Redundant with dz8w.
+  int   iLoc    = 1;                // Grid location index, unused.
+  int   jLoc    = 1;                // Grid location index, unused.
+  int   nSnow   = 3;                // Maximum number of snow layers.  Always pass 3.
+  int   ice     = 0;                // Flag to indicate permanent ice cover, 0 for no, 1 for yes.  Always pass 0.  If permanent ice cover call
+                                    // evapoTranspirationGlacier instead.
+  int   ist     = 1;                // Flag to indicate permanent water cover, 1 for soil, 2 for lake.  Always pass 1.  If permanent water cover call
+                                    // evapoTranspirationWater instead.
+  int   isc     = 4;                // Soil color type, 1 for lightest to 8 for darkest.  Always pass 4 unless we find a data source for soil color.
+  int   iz0tlnd = 0;                // Unused.
+  float co2Air  = 0.0004f * sfcPrs; // CO2 partial pressure in Pascal at surface.  Always pass 400 parts per million of surface pressure.
+  float o2Air   = 0.21f * sfcPrs;   // O2 partial pressure in Pascal at surface.  Always pass 21 percent of surface pressure.
+  float folN    = 3.0f;             // Foliage nitrogen percentage, 0.0 to 100.0.  Always pass 3.0 unless we find a data source for foliage nitrogen.
+  float fIce[3];                    // Frozen fraction of each snow layer, unitless.  Values are set below from snIce and snLiq.
+  float zLvl    = dz8w;             // Thickness in meters of lowest atmosphere layer in forcing data.  Redundant with dz8w.
   
   // Input/output parameters to sflx function.
   float qsfc   = q2;  // Water vapor mixing ratio at middle of lowest atmosphere layer in forcing data, unitless.  Redundant with q2.
@@ -417,7 +418,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   else
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-      *waterError = 0.0;
+      *waterError = 0.0f;
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -505,7 +506,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
             }
           else
             {
-              evapoTranspirationState->fIceOld[ii] = 0.0;
+              evapoTranspirationState->fIceOld[ii] = 0.0f;
             }
         }
       
@@ -519,7 +520,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
         {
           evaporationFromSnow   = evaporationFromSurface;
-          evaporationFromGround = 0.0;
+          evaporationFromGround = 0.0f;
         }
       else
         {
@@ -537,33 +538,64 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       
       // Because rainfallBelowCanopy is a derived value it can be slightly negative due to roundoff error.
       // If it is try to take the water from canLiq or canIce.
-      if (0.0 > rainfallBelowCanopy)
+      if (0.0f > rainfallBelowCanopy)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonEqual(0.0f, rainfallBelowCanopy));
+          // We want to test that rainfallBelowCanopy is epsilon equal to zero, but it can be the result of subtracting two big numbers that are close to each
+          // other so we have to base epsilon on the largest of the numbers used to generate it.
+          epsilon = 1.0f;
+          
+          if (epsilon < prcp * dt)
+            {
+              epsilon = prcp * dt;
+            }
+          
+          if (epsilon < evapoTranspirationState->canIce)
+            {
+              epsilon = evapoTranspirationState->canIce;
+            }
+          
+          if (epsilon < evapoTranspirationState->canLiq)
+            {
+              epsilon = evapoTranspirationState->canLiq;
+            }
+          
+          if (epsilon < fabs(evaporationFromCanopy))
+            {
+              epsilon = fabs(evaporationFromCanopy);
+            }
+          
+          if (epsilon < snowfallBelowCanopy)
+            {
+              epsilon = snowfallBelowCanopy;
+            }
+          
+          epsilon *= -1.0e-6f;
+          
+          CkAssert(epsilon <= rainfallBelowCanopy);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           if (evapoTranspirationState->canLiq >= -rainfallBelowCanopy)
             {
               evapoTranspirationState->canLiq += rainfallBelowCanopy;
-              rainfallBelowCanopy              = 0.0;
+              rainfallBelowCanopy              = 0.0f;
             }
           else
             {
               rainfallBelowCanopy             += evapoTranspirationState->canLiq;
-              evapoTranspirationState->canLiq  = 0.0;
+              evapoTranspirationState->canLiq  = 0.0f;
 
               if (evapoTranspirationState->canIce >= -rainfallBelowCanopy)
                 {
                   evapoTranspirationState->canIce += rainfallBelowCanopy;
-                  rainfallBelowCanopy              = 0.0;
+                  rainfallBelowCanopy              = 0.0f;
                 }
               else
                 {
                   rainfallBelowCanopy             += evapoTranspirationState->canIce;
-                  evapoTranspirationState->canIce  = 0.0;
+                  evapoTranspirationState->canIce  = 0.0f;
                   *waterError                     -= rainfallBelowCanopy;
-                  rainfallBelowCanopy              = 0.0;
+                  rainfallBelowCanopy              = 0.0f;
                 }
             }
         }
@@ -572,11 +604,11 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       if (0 > evapoTranspirationState->iSnow)
         {
           rainfallInterceptedBySnow = rainfallBelowCanopy;
-          rainfallOnGround          = 0.0;
+          rainfallOnGround          = 0.0f;
         }
       else
         {
-          rainfallInterceptedBySnow = 0.0;
+          rainfallInterceptedBySnow = 0.0f;
           rainfallOnGround          = rainfallBelowCanopy;
         }
       
@@ -589,14 +621,35 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           snowmeltOnGround = evapoTranspirationState->snEqvO + snowfallBelowCanopy - evaporationFromSnow - evapoTranspirationState->snEqv;
         }
       
-      // If snEqv falls below 0.001 mm then NOAM-MP sets it to zero and the water is lost.  We are calculating what snEqv should be and putting the water back.
+      // If snEqv falls below 0.001 mm then Noah-MP sets it to zero and the water is lost.  If snEqv grows above 2000 mm then Noah-MP sets it to 2000 and the
+      // water is lost.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = evapoTranspirationState->snEqvO + snowfallBelowCanopy + rainfallInterceptedBySnow - evaporationFromSnow - snowmeltOnGround;
       
-      if (0.0 == evapoTranspirationState->snEqv)
+      if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          evapoTranspirationState->snEqv = snEqvShouldBe;
+        }
+      else if (epsilonEqual(2000.0f, evapoTranspirationState->snEqv))
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonLessOrEqual(2000.0f, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          if (0 > evapoTranspirationState->iSnow)
+            {
+              evapoTranspirationState->zSnso[2] = -evapoTranspirationState->snowH;
+              
+              for (ii = 0; ii < 4; ii++)
+                {
+                  evapoTranspirationState->zSnso[ii + 3] = evapoTranspirationState->zSnso[2] + zSoil[ii];
+                }
+              
+              evapoTranspirationState->snIce[2] += snEqvShouldBe - evapoTranspirationState->snEqv;
+            }
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
@@ -622,11 +675,11 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
 {
   bool  error          = false; // Error flag.
   int   ii;                     // Loop counter.
-  float totalSnowWater = 0.0;   // Total water in all snow layers in millimeters of water equivalent.
+  float totalSnowWater = 0.0f;  // Total water in all snow layers in millimeters of water equivalent.
 
   for (ii = 0; ii < 3; ii++)
     {
-      if (!(0.0 <= evapoTranspirationState->fIceOld[ii] && evapoTranspirationState->fIceOld[ii] <= 1.0))
+      if (!(0.0f <= evapoTranspirationState->fIceOld[ii] && evapoTranspirationState->fIceOld[ii] <= 1.0f))
         {
           CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow layer %d: fIceOld must be greater than or equal to zero and less than or equal "
                   "to one.\n", ii);
@@ -634,13 +687,13 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
         }
     }
 
-  if (!(0.0 <= evapoTranspirationState->albOld && evapoTranspirationState->albOld <= 1.0))
+  if (!(0.0f <= evapoTranspirationState->albOld && evapoTranspirationState->albOld <= 1.0f))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: albOld must be greater than or equal to zero and less than or equal to one.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->snEqvO))
+  if (!(0.0f <= evapoTranspirationState->snEqvO))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: snEqvO must be greater than or equal to zero.\n");
       error = true;
@@ -651,7 +704,7 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       if (ii < evapoTranspirationState->iSnow + 3)
         {
           // Snow layer does not exist.
-          if (!(0.0 == evapoTranspirationState->stc[ii]))
+          if (!(0.0f == evapoTranspirationState->stc[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, non-existant snow layer %d: stc must be equal to zero.\n", ii);
               error = true;
@@ -660,84 +713,84 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       else
         {
           // Snow or soil layer does exist.
-          if (!(0.0 <= evapoTranspirationState->stc[ii]))
+          if (!(0.0f <= evapoTranspirationState->stc[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc must be greater than or equal to zero.\n", ii);
               error = true;
             }
-          else if (!(-60.0 + ZERO_C_IN_KELVIN <= evapoTranspirationState->stc[ii]))
+          else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->stc[ii]))
             {
               CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc below -60 degrees C.\n", ii);
             }
-          else if (!(60.0 + ZERO_C_IN_KELVIN >= evapoTranspirationState->stc[ii]))
+          else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->stc[ii]))
             {
               CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc above 60 degrees C.\n", ii);
             }
         }
     }
 
-  if (!(0.0 <= evapoTranspirationState->tah))
+  if (!(0.0f <= evapoTranspirationState->tah))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tah must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0 + ZERO_C_IN_KELVIN <= evapoTranspirationState->tah))
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tah))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah below -60 degrees C.\n");
     }
-  else if (!(60.0 + ZERO_C_IN_KELVIN >= evapoTranspirationState->tah))
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tah))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah above 60 degrees C.\n");
     }
 
-  if (!(0.0 <= evapoTranspirationState->eah))
+  if (!(0.0f <= evapoTranspirationState->eah))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: eah must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->fWet && evapoTranspirationState->fWet <= 1.0))
+  if (!(0.0f <= evapoTranspirationState->fWet && evapoTranspirationState->fWet <= 1.0f))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: fWet must be greater than or equal to zero and less than or equal to one.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->canLiq))
+  if (!(0.0f <= evapoTranspirationState->canLiq))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: canLiq must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->canIce))
+  if (!(0.0f <= evapoTranspirationState->canIce))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: canIce must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->tv))
+  if (!(0.0f <= evapoTranspirationState->tv))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tv must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0 + ZERO_C_IN_KELVIN <= evapoTranspirationState->tv))
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tv))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv below -60 degrees C.\n");
     }
-  else if (!(60.0 + ZERO_C_IN_KELVIN >= evapoTranspirationState->tv))
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tv))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv above 60 degrees C.\n");
     }
 
-  if (!(0.0 <= evapoTranspirationState->tg))
+  if (!(0.0f <= evapoTranspirationState->tg))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tg must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0 + ZERO_C_IN_KELVIN <= evapoTranspirationState->tg))
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tg))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg below -60 degrees C.\n");
     }
-  else if (!(60.0 + ZERO_C_IN_KELVIN >= evapoTranspirationState->tg))
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tg))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg above 60 degrees C.\n");
     }
@@ -753,19 +806,19 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       if (ii < evapoTranspirationState->iSnow + 3)
         {
           // Snow layer does not exist.
-          if (!(0.0 == evapoTranspirationState->zSnso[ii]))
+          if (!(0.0f == evapoTranspirationState->zSnso[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, non-existant snow layer %d: zSnso must be equal to zero.\n", ii);
               error = true;
             }
 
-          if (!(0.0 == evapoTranspirationState->snIce[ii]))
+          if (!(0.0f == evapoTranspirationState->snIce[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, non-existant snow layer %d: snIce must be equal to zero.\n", ii);
               error = true;
             }
 
-          if (!(0.0 == evapoTranspirationState->snLiq[ii]))
+          if (!(0.0f == evapoTranspirationState->snLiq[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, non-existant snow layer %d: snLiq must be equal to zero.\n", ii);
               error = true;
@@ -777,7 +830,7 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
           if (ii == evapoTranspirationState->iSnow + 3)
             {
               // Top snow layer.
-              if (!(0.0 > evapoTranspirationState->zSnso[ii]))
+              if (!(0.0f > evapoTranspirationState->zSnso[ii]))
                 {
                   CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow layer %d: zSnso must be less than zero.\n", ii);
                   error = true;
@@ -793,13 +846,13 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
                 }
             }
 
-          if (!(0.0 < evapoTranspirationState->snIce[ii]))
+          if (!(0.0f < evapoTranspirationState->snIce[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow layer %d: snIce must be greater than zero.\n", ii);
               error = true;
             }
 
-          if (!(0.0 <= evapoTranspirationState->snLiq[ii]))
+          if (!(0.0f <= evapoTranspirationState->snLiq[ii]))
             {
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow layer %d: snLiq must be greater than or equal to zero.\n", ii);
               error = true;
@@ -818,13 +871,13 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
         }
     }
 
-  if (!(0.0 <= evapoTranspirationState->snowH))
+  if (!(0.0f <= evapoTranspirationState->snowH))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: snowH must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->snEqv))
+  if (!(0.0f <= evapoTranspirationState->snEqv))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: snEqv must be greater than or equal to zero.\n");
       error = true;
@@ -833,71 +886,71 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
   // If multi-layer snow simulation is turned on snowH and snEqv must be consistent with zSnso, snIce, and snLiq.
   if (0 > evapoTranspirationState->iSnow)
     {
-      if (!(-evapoTranspirationState->zSnso[2] == evapoTranspirationState->snowH))
+      if (!epsilonEqual(-evapoTranspirationState->zSnso[2], evapoTranspirationState->snowH))
         {
           CkError("ERROR in checkEvapoTranspirationStateStructInvariant: snowH must be consistent with zSnso.\n");
           error = true;
         }
 
-      if (!(epsilonEqual(totalSnowWater, evapoTranspirationState->snEqv)))
+      if (!epsilonEqual(totalSnowWater, evapoTranspirationState->snEqv))
         {
           CkError("ERROR in checkEvapoTranspirationStateStructInvariant: snEqv must be consistent with snIce and snLiq.\n");
           error = true;
         }
     }
 
-  if (!(0.0 <= evapoTranspirationState->lfMass))
+  if (!(0.0f <= evapoTranspirationState->lfMass))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: lfMass must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->rtMass))
+  if (!(0.0f <= evapoTranspirationState->rtMass))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: rtMass must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->stMass))
+  if (!(0.0f <= evapoTranspirationState->stMass))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: stMass must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->wood))
+  if (!(0.0f <= evapoTranspirationState->wood))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: wood must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->stblCp))
+  if (!(0.0f <= evapoTranspirationState->stblCp))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: stblCp must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->fastCp))
+  if (!(0.0f <= evapoTranspirationState->fastCp))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: fastCp must be greater than or equal to zero.\n");
       error = true;
     }
 
-  if (!(0.0 <= evapoTranspirationState->lai))
+  if (!(0.0f <= evapoTranspirationState->lai))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: lai must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(6.0 >= evapoTranspirationState->lai))
+  else if (!(6.0f >= evapoTranspirationState->lai))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: lai above six.\n");
     }
 
-  if (!(0.0 <= evapoTranspirationState->sai))
+  if (!(0.0f <= evapoTranspirationState->sai))
     {
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: sai must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(1.0 >= evapoTranspirationState->sai))
+  else if (!(1.0f >= evapoTranspirationState->sai))
     {
       CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above one.\n");
     }
