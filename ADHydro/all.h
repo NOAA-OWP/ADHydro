@@ -73,7 +73,7 @@
 // interaction.  Setting this flag causes a workaround to be used.  See the
 // comment of FileManager::resizeUnlimitedDimensions in file_manager.h for more
 // details.
-#define NETCDF_COLLECTIVE_IO_WORKAROUND
+//#define NETCDF_COLLECTIVE_IO_WORKAROUND
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
@@ -182,7 +182,7 @@ inline bool epsilonEqual(double a, double b)
 // Returns: the epsilon value to use for near-equality testing with x.
 inline float epsilon(float x)
 {
-  float eps = 1.0e-6;
+  float eps = 1.0e-6f;
   
   // Don't use library fabs and max to avoid including headers in all.h.
   if (0.0 > x)

@@ -43,7 +43,8 @@ typedef struct
   float tg;         // Ground temperature in Kelvin.
   int   iSnow;      // Actual number of snow layers.
   float zSnso[7];   // Layer bottom depth in meters from snow surface of each
-                    // snow and soil layer.
+                    // snow and soil layer.  Specify depths as negative
+                    // numbers.
   float snowH;      // Total snow height in meters.
   float snEqv;      // Total quantity of snow in millimeters of water
                     // equivalent.
@@ -75,6 +76,8 @@ PUPbytes(EvapoTranspirationStateStruct);
 // Call this once to initialize the evapo-transpiration module before calling
 // any of the other functions.
 //
+// Returns: true if there is an error, false otherwise.
+//
 // Parameters:
 //
 // directory - The directory from which to read the .TBL files.
@@ -83,6 +86,8 @@ bool evapoTranspirationInit(const char* directory);
 // Calculate evapo-transpiration for a location with a soil surface.  The soil
 // might be currently covered with surfacewater or snow, but it is not
 // permanently covered with surfacewater or ice such as a waterbody or glacier.
+//
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //
@@ -132,7 +137,8 @@ bool evapoTranspirationInit(const char* directory);
 // sh2o                    - Liquid water content of each soil layer, unitless.
 // smc                     - Total water content, liquid and solid, of each
 //                           soil layer, unitless.
-// zwt                     - Depth in meters to water table.
+// zwt                     - Depth in meters to water table.  Specify depth as
+//                           a positive number.
 // wa                      - Water stored in aquifer in millimeters of water.
 // wt                      - Water stored in aquifer and saturated soil in
 //                           millimeters of water.
@@ -152,17 +158,21 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float wsLake,
                             float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
-
+                            
 bool evapoTranspirationIce( float cosZ, float dt, float dx, float dz8w, float smcEq[4], float sfcTmp, float sfcPrs, 
                             float uu, float vv, float q2, float solDn, float lwDn, float prcp, float tBot, float sh2o[4], 
                             float smc[4], EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
-bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* struc);                            
-// Checks the invariants of EvapoTranspirationState Structure
-// Input:
-// pointer to EvapoTranspirationStateStruct
-// Outputs true if there is a na error
-//         false otherwise 
-// FIXME add functions for evapoTranspirationWater and evapoTranspirationGlacier
+
+// FIXME add functions for evapoTranspirationWater
+
+// Check invariant conditions on an EvapoTranspirationStateStruct.
+//
+// Returns: true if the invariant is violated, false otherwise.
+//
+// Parameters:
+//
+// evapoTranspirationState - State to be invariant checked passed by reference.
+bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* evapoTranspirationState);
 
 #endif // __EVAPO_TRANSPIRATION_H__

@@ -2953,6 +2953,56 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
   return error;
 }
 
+// FIXME this is a kludge so far
+bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
+{
+  bool  error         = false; // Error flag.
+  int   ii, jj, kk;            // Loop counters.
+  FILE* nodeFile;              // Output file for channel nodes.
+  FILE* elementFile;           // Output file for channel elements.
+  int   nodeNumber    = 0;     // Global numbering of nodes.
+  int   elementNumber = 0;     // Global numbering of elements.
+  
+  nodeFile     = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node", "w");
+  elementFile  = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.ele",  "w");
+  
+  for (ii = 0; ii < size; ii++)
+    {
+      fprintf(elementFile, "%d", elementNumber++);
+      
+      if (STREAM == channels[ii].type || WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+        {
+          for (jj = 0; jj < SHAPES_SIZE; jj++)
+            {
+              if (NULL != channels[ii].shapes[jj])
+                {
+                  // In the TauDEM stream network shapefile the beginning of the polyline is the downstream end so start with the last vertex in the shape.
+                  for (kk = channels[ii].shapes[jj]->nVertices - 1; kk >= 0; kk--)
+                    {
+                      fprintf(nodeFile, "%d %lf %lf\n", nodeNumber, channels[ii].shapes[jj]->padfX[kk], channels[ii].shapes[jj]->padfY[kk]);
+                      fprintf(elementFile, " %d", nodeNumber++);
+                    }
+                }
+            }
+        }
+      
+      fprintf(elementFile, "\n");
+    }
+
+  // Close the files.
+  if (NULL != nodeFile)
+    {
+      fclose(nodeFile);
+    }
+
+  if (NULL != elementFile)
+    {
+      fclose(elementFile);
+    }
+
+  return error;
+}
+
 // Free memory allocated for the channel network.
 //
 // Returns: true if there is an error, false otherwise.  Even if there is an
@@ -3048,6 +3098,11 @@ int main(void)
         {
           tryToPruneLink(channels, size, ii);
         }
+    }
+  
+  if (!error)
+    {
+      error = writeChannelNetwork(channels, size);
     }
   
   if (NULL != channels)
