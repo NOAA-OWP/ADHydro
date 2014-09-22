@@ -98,6 +98,9 @@ public:
   // Initializes the file manager from ASCII files.  When done the file
   // managers contribute to an empty reduction.
   //
+  // ASCII files contain geometry and parameters only so the water state is
+  // initialized to groundwater completely saturated and no surfacewater.
+  //
   // Parameters:
   //
   // directorySize    - The size of the array passed in to directory.
