@@ -803,7 +803,7 @@ void FileManager::handleInitializeHardcodedMesh()
   contribute();
 }
 
-void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename)
+bool FileManager::readNodeAndZFiles(const char* directory, const char* fileBasename, bool readMesh)
 {
   bool   error      = false;  // Error flag.
   int    ii;                  // Loop counter.
@@ -813,8 +813,7 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
   size_t numScanned;          // Used to check that fscanf scanned the correct number of inputs.
   FILE*  nodeFile   = NULL;   // The node file to read from.
   FILE*  zFile      = NULL;   // The z file to read from.
-  FILE*  eleFile    = NULL;   // The ele file to read from.
-  FILE*  neighFile  = NULL;   // The neigh file to read from.
+  int    globalNumberOfNodes; // The number of nodes to read.
   int    dimension;           // Used to check the dimensions in the files.
   int    numberOfAttributes;  // Used to check the number of attributes in the files.
   int    boundary;            // Used to check the number of boundary markers in the files.
@@ -824,6 +823,263 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
   double xCoordinate;         // Used to read coordinates from file.
   double yCoordinate;         // Used to read coordinates from file.
   double zCoordinate;         // Used to read coordinates from file.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(NULL != directory && NULL != fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+
+  // Allocate space for file name strings.
+  nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.node") + 1; // The longest file extension is .chan.node.
+  nameString     = new char[nameStringSize];                                                          // +1 for null terminating character.
+
+  // Create file name.
+  numPrinted = snprintf(nameString, nameStringSize, "%s/%s%s", directory, fileBasename, (readMesh ? ".node" : ".chan.node"));
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(readMesh ? ".node" : ".chan.node") == numPrinted && numPrinted < nameStringSize))
+    {
+      CkError("ERROR in FileManager::readNodeAndZFiles: incorrect return value of snprintf when generating node file name %s.  %d should be equal to %d and "
+              "less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(readMesh ? ".node" : ".chan.node"),
+              nameStringSize);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  
+  // Open file.
+  if (!error)
+    {
+      nodeFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != nodeFile))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: Could not open node file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(nodeFile, "%d %d %d %d", &globalNumberOfNodes, &dimension, &numberOfAttributes, &boundary);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(4 == numScanned))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: unable to read header from node file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < globalNumberOfNodes && 2 == dimension && 0 == numberOfAttributes && 1 == boundary))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: invalid header in node file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Create file name.
+  if (!error)
+    {
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s%s", directory, fileBasename, (readMesh ? ".z" : ".chan.z"));
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(readMesh ? ".z" : ".chan.z") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: incorrect return value of snprintf when generating z file name %s.  %d should be equal to %d and "
+                  "less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(readMesh ? ".z" : ".chan.z"),
+                  nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open file.
+  if (!error)
+    {
+      zFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != zFile))
+        {
+          fprintf(stderr, "ERROR in FileManager::readNodeAndZFiles: Could not open z file %s.\n", nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Read header.
+  if (!error)
+    {
+      numScanned = fscanf(zFile, "%d %d", &numberCheck, &dimension);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(2 == numScanned))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: unable to read header from z file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(globalNumberOfNodes == numberCheck && 1 == dimension))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: invalid header in z file.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  // Calculate local start and number and allocate arrays.
+  if (!error)
+    {
+      if (readMesh)
+        {
+          globalNumberOfMeshNodes = globalNumberOfNodes;
+          
+          localStartAndNumber(&localMeshNodeStart, &localNumberOfMeshNodes, globalNumberOfMeshNodes);
+
+          meshNodeX        = new double[localNumberOfMeshNodes];
+          meshNodeY        = new double[localNumberOfMeshNodes];
+          meshNodeZSurface = new double[localNumberOfMeshNodes];
+          meshNodeZBedrock = new double[localNumberOfMeshNodes];
+        }
+      else
+        {
+          globalNumberOfChannelNodes = globalNumberOfNodes;
+          
+          localStartAndNumber(&localChannelNodeStart, &localNumberOfChannelNodes, globalNumberOfChannelNodes);
+
+          channelNodeX     = new double[localNumberOfChannelNodes];
+          channelNodeY     = new double[localNumberOfChannelNodes];
+          channelNodeZBank = new double[localNumberOfChannelNodes];
+          channelNodeZBed  = new double[localNumberOfChannelNodes];
+        }
+    }
+  
+  // Read nodes.
+  for (ii = 0; !error && ii < globalNumberOfNodes; ii++)
+    {
+      // Read node file.
+      numScanned = fscanf(nodeFile, "%d %lf %lf %*d", &index, &xCoordinate, &yCoordinate);
+      
+      // Set zero based or one based indices.
+      if (0 == ii)
+        {
+          if (0 == index)
+            {
+              firstIndex = 0;
+            }
+          else
+            {
+              firstIndex = 1;
+            }
+        }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(3 == numScanned))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: unable to read entry %d from node file.\n", ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(ii + firstIndex == index))
+        {
+          CkError("ERROR in FileManager::readNodeAndZFiles: invalid node number in node file.  %d should be %d.\n", index, ii + firstIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      // Read z file.
+      if (!error)
+        {
+          numScanned = fscanf(zFile, "%d %lf", &numberCheck, &zCoordinate);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(2 == numScanned))
+            {
+              CkError("ERROR in FileManager::readNodeAndZFiles: unable to read entry %d from z file.\n", ii + firstIndex);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(index == numberCheck))
+            {
+              CkError("ERROR in FileManager::readNodeAndZFiles: invalid node number in z file.  %d should be %d.\n", numberCheck, index);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+      
+      // Save values.
+      if (!error)
+        {
+          index %= globalNumberOfNodes;
+          
+          if (readMesh)
+            {
+              if (localMeshNodeStart <= index && index < localMeshNodeStart + localNumberOfMeshNodes)
+                {
+                  meshNodeX[       index - localMeshNodeStart] = xCoordinate;
+                  meshNodeY[       index - localMeshNodeStart] = yCoordinate;
+                  meshNodeZSurface[index - localMeshNodeStart] = zCoordinate;
+                  meshNodeZBedrock[index - localMeshNodeStart] = zCoordinate - 5.0; // FIXME figure out real soil depth.
+                }
+            }
+          else
+            {
+              if (localChannelNodeStart <= index && index < localChannelNodeStart + localNumberOfChannelNodes)
+                {
+                  channelNodeX[    index - localChannelNodeStart] = xCoordinate;
+                  channelNodeY[    index - localChannelNodeStart] = yCoordinate;
+                  channelNodeZBank[index - localChannelNodeStart] = zCoordinate;
+                  channelNodeZBed[ index - localChannelNodeStart] = zCoordinate - 5.0; // FIXME figure out real bank full depth.
+                }
+            }
+        }
+    } // End read nodes.
+  
+  // Close the files.
+  if (NULL != nodeFile)
+    {
+      fclose(nodeFile);
+    }
+
+  if (NULL != zFile)
+    {
+      fclose(zFile);
+    }
+
+  // Delete nameString.
+  if (NULL != nameString)
+    {
+      delete[] nameString;
+    }
+  
+  return error;
+}
+
+void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename)
+{
+  bool   error      = false;  // Error flag.
+  int    ii;                  // Loop counter.
+  char*  nameString = NULL;   // Temporary string for file names.
+  size_t nameStringSize;      // Size of buffer allocated for nameString.
+  size_t numPrinted;          // Used to check that snprintf printed the correct number of characters.
+  size_t numScanned;          // Used to check that fscanf scanned the correct number of inputs.
+  FILE*  eleFile    = NULL;   // The ele file to read from.
+  FILE*  neighFile  = NULL;   // The neigh file to read from.
+  int    dimension;           // Used to check the dimensions in the files.
+  int    numberOfAttributes;  // Used to check the number of attributes in the files.
+  int    numberCheck;         // Used to check numbers that are error checked but otherwise unused.
+  int    index;               // Used to read node and element numbers.
+  int    firstIndex;          // Used to store if node and element numbers are zero based or one based.
   int    vertex0;             // A vertex of an element.
   int    vertex1;             // A vertex of an element.
   int    vertex2;             // A vertex of an element.
@@ -846,200 +1102,19 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
+  // Read mesh nodes.
+  if (!error)
+    {
+      error = readNodeAndZFiles(directory, fileBasename, true);
+    }
+
   if (!error)
     {
       // Allocate space for file name strings.
-      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.node") + 1; // The longest file extension is .chan.node.
-      nameString     = new char[nameStringSize];                                                          // +1 for null terminating character.
+      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.ele") + 1; // The longest file extension is .chan.ele.
+      nameString     = new char[nameStringSize];                                                         // +1 for null terminating character.
 
       // Create file name.
-      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.node", directory, fileBasename);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".node") == numPrinted && numPrinted < nameStringSize))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating node file name %s.  %d should be "
-                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".node"),
-                  nameStringSize);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Open file.
-  if (!error)
-    {
-      nodeFile = fopen(nameString, "r");
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NULL != nodeFile))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open node file %s.\n", nameString);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Read header.
-  if (!error)
-    {
-      numScanned = fscanf(nodeFile, "%d %d %d %d", &globalNumberOfMeshNodes, &dimension, &numberOfAttributes, &boundary);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(4 == numScanned))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from node file.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(0 < globalNumberOfMeshNodes && 2 == dimension && 0 == numberOfAttributes && 1 == boundary))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in node file.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-    }
-
-  // Create file name.
-  if (!error)
-    {
-      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.z", directory, fileBasename);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".z") == numPrinted && numPrinted < nameStringSize))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating z file name %s.  %d should be "
-                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".z"),
-                  nameStringSize);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Open file.
-  if (!error)
-    {
-      zFile = fopen(nameString, "r");
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NULL != zFile))
-        {
-          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: Could not open z file %s.\n", nameString);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Read header.
-  if (!error)
-    {
-      numScanned = fscanf(zFile, "%d %d", &numberCheck, &dimension);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(2 == numScanned))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from z file.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(globalNumberOfMeshNodes == numberCheck && 1 == dimension))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in z file.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-    }
-  
-  // Calculate local start and number and allocate arrays.
-  if (!error)
-    {
-      localStartAndNumber(&localMeshNodeStart, &localNumberOfMeshNodes, globalNumberOfMeshNodes);
-      
-      meshNodeX        = new double[localNumberOfMeshNodes];
-      meshNodeY        = new double[localNumberOfMeshNodes];
-      meshNodeZSurface = new double[localNumberOfMeshNodes];
-      meshNodeZBedrock = new double[localNumberOfMeshNodes];
-    }
-  
-  // Read mesh nodes.
-  for (ii = 0; !error && ii < globalNumberOfMeshNodes; ii++)
-    {
-      // Read node file.
-      numScanned = fscanf(nodeFile, "%d %lf %lf %*d", &index, &xCoordinate, &yCoordinate);
-      
-      // Set zero based or one based indices.
-      if (0 == ii)
-        {
-          if (0 == index)
-            {
-              firstIndex = 0;
-            }
-          else
-            {
-              firstIndex = 1;
-            }
-        }
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(3 == numScanned))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from node file.\n", ii + firstIndex);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(ii + firstIndex == index))
-        {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid node number in node file.  %d should be %d.\n", index, ii + firstIndex);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      
-      // Read z file.
-      if (!error)
-        {
-          numScanned = fscanf(zFile, "%d %lf", &numberCheck, &zCoordinate);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(2 == numScanned))
-            {
-              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from z file.\n", ii + firstIndex);
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          if (!(index == numberCheck))
-            {
-              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid node number in z file.  %d should be %d.\n", numberCheck, index);
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-        }
-      
-      // Save values.
-      if (!error)
-        {
-          index %= globalNumberOfMeshNodes;
-          
-          if (localMeshNodeStart <= index && index < localMeshNodeStart + localNumberOfMeshNodes)
-            {
-              meshNodeX[       index - localMeshNodeStart] = xCoordinate;
-              meshNodeY[       index - localMeshNodeStart] = yCoordinate;
-              meshNodeZSurface[index - localMeshNodeStart] = zCoordinate;
-              meshNodeZBedrock[index - localMeshNodeStart] = zCoordinate - 5.0; // FIXME figure out real soil depth.
-            }
-        }
-    } // End read mesh nodes.
-
-  // Create file name.
-  if (!error)
-    {
       numPrinted = snprintf(nameString, nameStringSize, "%s/%s.ele", directory, fileBasename);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1166,6 +1241,19 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
     {
       // Read ele file.
       numScanned = fscanf(eleFile, "%d %d %d %d %d", &index, &vertex0, &vertex1, &vertex2, &catchment);
+      
+      // Set zero based or one based indices.
+      if (0 == ii)
+        {
+          if (0 == index)
+            {
+              firstIndex = 0;
+            }
+          else
+            {
+              firstIndex = 1;
+            }
+        }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(5 == numScanned))
@@ -1275,11 +1363,15 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
         }
     } // End read mesh elements.
   
+  // Read channel nodes.
+  if (!error)
+    {
+      error = readNodeAndZFiles(directory, fileBasename, false);
+    }
+
   // FIXME
-  globalNumberOfChannelNodes    = 0;
   globalNumberOfChannelElements = 0;
   
-  localStartAndNumber(&localChannelNodeStart,    &localNumberOfChannelNodes,    globalNumberOfChannelNodes);
   localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
   
   /*
@@ -1305,34 +1397,6 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
         {
           meshChannelNeighborsEdgeLength[ii][jj] = globalMeshChannelNeighborsEdgeLength[ii + localMeshElementStart][jj];
         }
-    }
-  
-  channelNodeX = new double[localNumberOfChannelNodes];
-  
-  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
-    {
-      channelNodeX[ii] = globalNodeX[ii + localChannelNodeStart];
-    }
-  
-  channelNodeY = new double[localNumberOfChannelNodes];
-  
-  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
-    {
-      channelNodeY[ii] = globalNodeY[ii + localChannelNodeStart];
-    }
-  
-  channelNodeZBank = new double[localNumberOfChannelNodes];
-  
-  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
-    {
-      channelNodeZBank[ii] = globalNodeZ[ii + localChannelNodeStart];
-    }
-  
-  channelNodeZBed = new double[localNumberOfChannelNodes];
-  
-  for (ii = 0; ii < localNumberOfChannelNodes; ii++)
-    {
-      channelNodeZBed[ii] = globalNodeZ[ii + localChannelNodeStart] - 5.0;
     }
   
   channelElementVertices = new int[localNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
@@ -1495,16 +1559,6 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
   */
   
   // Close the files.
-  if (NULL != nodeFile)
-    {
-      fclose(nodeFile);
-    }
-
-  if (NULL != zFile)
-    {
-      fclose(zFile);
-    }
-
   if (NULL != eleFile)
     {
       fclose(eleFile);

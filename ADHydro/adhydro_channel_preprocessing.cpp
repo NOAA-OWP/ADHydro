@@ -2979,7 +2979,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                   // In the TauDEM stream network shapefile the beginning of the polyline is the downstream end so start with the last vertex in the shape.
                   for (kk = channels[ii].shapes[jj]->nVertices - 1; kk >= 0; kk--)
                     {
-                      fprintf(nodeFile, "%d %lf %lf\n", nodeNumber, channels[ii].shapes[jj]->padfX[kk], channels[ii].shapes[jj]->padfY[kk]);
+                      fprintf(nodeFile, "%d %lf %lf 0\n", nodeNumber, channels[ii].shapes[jj]->padfX[kk], channels[ii].shapes[jj]->padfY[kk]);
                       fprintf(elementFile, " %d", nodeNumber++);
                     }
                 }
