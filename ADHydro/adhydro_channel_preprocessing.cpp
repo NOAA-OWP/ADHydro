@@ -1,12 +1,10 @@
+#include "channel_element.h"
 #include "all.h"
 #include <shapefil.h>
 #include <assert.h>
 
-#define SHAPES_SIZE   (2)  // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE (64) // Size of array of upstream links in ChannelLinkStruct.
-
 // This code is a separate executable used to pre-process the channel network
-// into a .chan file and a .chanxy file that are read into the adhydro
+// into a .chan.ele file and a .chan.node file that are read into the adhydro
 // executable by the file managers.  In this code the channel network is
 // represented as a tree of links including TauDEM stream links and NHD
 // waterbodies.  The tree of links is stored as an array of ChannelLinkStruct
@@ -15,6 +13,13 @@
 // not contiguous in the TauDEM output so there may be some elements in the
 // array that are unused.  The gaps in the TauDEM link numbers are used for
 // waterbodies.
+
+// FIXME refactor to have multiple downstream connections for each link.
+
+#define SHAPES_SIZE   (2)  // Size of array of shapes in ChannelLinkStruct.
+#define UPSTREAM_SIZE (64) // Size of array of upstream links in ChannelLinkStruct.
+
+typedef int intarraycvn[ChannelElement::channelVerticesSize]; // Fixed size array of ints.  Size is channel vertices.
 
 // A linkElementStruct represents a section of a stream link.  The section
 // goes from prev->endLocation to endLocation along the 1D length of the link
@@ -85,6 +90,8 @@ typedef struct
   int                downstream;                 // Array index of link downstream from this link or a boundary condition code.
   LinkElementStruct* firstElement;               // Sections of the link associated with mesh edges or NULL if no elements.
   LinkElementStruct* lastElement;                // Sections of the link associated with mesh edges or NULL if no elements.
+  int                elementStart;               // The first channel element number on this link after assigning global element numbers.
+  int                numberOfElements;           // The number of channel elements on this link after assigning global element numbers.
 } ChannelLinkStruct;
 
 // Create a new LinkElementStruct in the channel network in the given link
@@ -872,9 +879,11 @@ bool readLink(ChannelLinkStruct** channels, int* size, const char* filename)
           (*channels)[ii].upstream[jj] = NOFLOW;
         }
       
-      (*channels)[ii].downstream   = NOFLOW;
-      (*channels)[ii].firstElement = NULL;
-      (*channels)[ii].lastElement  = NULL;
+      (*channels)[ii].downstream       = NOFLOW;
+      (*channels)[ii].firstElement     = NULL;
+      (*channels)[ii].lastElement      = NULL;
+      (*channels)[ii].elementStart     = 0;
+      (*channels)[ii].numberOfElements = 0;
       
       // Fill in the permanent codes from the file.
       numScanned = fscanf(linkFile, "%d %d", &linkNo, &permanent);
@@ -2796,9 +2805,9 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
                                            // edge and movedTo.
   LinkElementStruct* tempIntersection;     // Used for searching intersections.
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_ALL_FUNCTIONS_SIMPLE)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size && NULL != fileBasename);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_ALL_FUNCTIONS_SIMPLE)
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
   // Open the geometry and attribute files.
   shpFile = SHPOpen(fileBasename, "rb");
@@ -2953,16 +2962,265 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
   return error;
 }
 
-// FIXME this is a kludge so far
+// Determine the integer number of chanel elements in a given channel link.
+// The number of elements will be the link length divided by desiredLength
+// rounded either up or down.  Try to get the actual element length as close as
+// possible to desiredLength.  For a closeness metric we use the ratio of the
+// longer of the desired or actual length to the shorter of the two.
+//
+// The total length of the link is:
+//   (numLinkElements + numLinkElementsFraction) * desiredLength
+// If we round down the actual link element length will be:
+//   (numLinkElements + numLinkElementsFraction) * desiredLength /
+//   numLinkElements
+// The actual will be longer and the ratio of actual to desired will be:
+//   ((numLinkElements + numLinkElementsFraction) * desiredLength /
+//    numLinkElements) / desiredLength
+// or:
+//   (numLinkElements + numLinkElementsFraction) / numLinkElements
+// If we round up the actual link element length will be:
+//   (numLinkElements + numLinkElementsFraction) * desiredLength /
+//   (numLinkElements + 1)
+// The desired will be longer and the ratio of desired to actual will be:
+//   desiredLength / ((numLinkElements + numLinkElementsFraction) *
+//                    desiredLength / (numLinkElements + 1))
+// or:
+//   (numLinkElements + 1) / (numLinkElements + numLinkElementsFraction)
+// To find the regions where one or the other is less, find the condition where
+// they are equal.
+//   (numLinkElements + numLinkElementsFraction) / numLinkElements ==
+//   (numLinkElements + 1) / (numLinkElements + numLinkElementsFraction)
+// Simplifying the equation results in the following:
+//   0 == numLinkElements - 2 * numLinkElements * numLinkElementsFraction -
+//        numLinkElementsFraction^2
+// If this expression is positive use numLinkElements.  If it is negative use
+// numLinkElements + 1.  If it is zero it doesn't matter.  If the total link
+// length is less than desiredLength then numLinkElements will be zero and you
+// must use numLinkElements + 1.
+//
+// Returns: The number of channel elements in a given channel link.
+//
+// Parameters:
+//
+// channels      - The channel network as a 1D array of ChannelLinkStruct.
+// size          - The number of elements in channels.
+// linkNo        - The link to determine the number of elements for.
+// desiredLength - The desired length of each element in meters.
+int numberOfLinkElements(ChannelLinkStruct* channels, int size, int linkNo, double desiredLength)
+{
+  double numLinkElementsFraction = channels[linkNo].length / desiredLength;
+  int    numLinkElements         = (int)numLinkElementsFraction;
+  
+  numLinkElementsFraction -= numLinkElements;
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= linkNo && linkNo < size && 0.0 < desiredLength);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  assert(0 <= numLinkElements && 0.0 <= numLinkElementsFraction && 1.0 > numLinkElementsFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  if (0 == numLinkElements || 0 > numLinkElements - 2.0 * numLinkElements * numLinkElementsFraction - numLinkElementsFraction * numLinkElementsFraction)
+    {
+      numLinkElements++;
+    }
+  
+  return numLinkElements;
+}
+
+// FIXME comment
+bool createNode(double x, double y, int* nodesSize, int* numberOfNodes, double* nodeX, double* nodeY, int* nodeNumber)
+{
+  bool error = false; // Error flag.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != nodesSize && 0 < *nodesSize && NULL != numberOfNodes && 0 <= *numberOfNodes && NULL != nodeX && NULL != nodeY && NULL != nodeNumber);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (*numberOfNodes >= *nodesSize)
+    {
+      // FIXLATER realloc to make more space.
+      fprintf(stderr, "ERROR in createNode: number of nodes exceeds maximum number %d.\n", *nodesSize);
+      error = true;
+    }
+  
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      assert(*numberOfNodes < *nodesSize);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      nodeX[*numberOfNodes] = x;
+      nodeY[*numberOfNodes] = y;
+      *nodeNumber           = *numberOfNodes++;
+    }
+  
+  return error;
+}
+
+// FIXME comment
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
 {
-  bool  error         = false; // Error flag.
-  int   ii, jj, kk;            // Loop counters.
-  FILE* nodeFile;              // Output file for channel nodes.
-  FILE* elementFile;           // Output file for channel elements.
-  int   nodeNumber    = 0;     // Global numbering of nodes.
-  int   elementNumber = 0;     // Global numbering of elements.
+  bool         error            = false; // Error flag.
+  int          ii, jj, kk, ll;           // Loop counters.
+  int          numberOfElements = 0;     // Number of channel elements.
+  int*         elementCenter;            // Node numbers of the element centers.
+  intarraycvn* vertices;                 // Node numbers of the element vertices.
+  int          nodesSize;                // Size of nodeX and nodeY arrays.
+  int          numberOfNodes    = 0;     // Number of channel nodes.
+  double*      nodeX;                    // X coordinates of nodes.
+  double*      nodeY;                    // Y coordinates of nodes.
+  FILE*        elementFile;              // Output file for channel elements.
+  FILE*        nodeFile;                 // Output file for channel nodes.
+  SHPObject*   shape;                    // Shape object of a link.
+  double       xMin;                     // For computing bounding box of waterbody.
+  double       xMax;                     // For computing bounding box of waterbody.
+  double       yMin;                     // For computing bounding box of waterbody.
+  double       yMax;                     // For computing bounding box of waterbody.
   
+  for (ii = 0; ii < size; ii++)
+    {
+      channels[ii].elementStart = numberOfElements;
+      
+      if (STREAM == channels[ii].type)
+        {
+          // FIXME calculate desired length based on channel size.  For now use fixed 100 meters.
+          channels[ii].numberOfElements = numberOfLinkElements(channels, size, ii, 100.0);
+        }
+      else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+        {
+          channels[ii].numberOfElements = 1;
+        }
+      else
+        {
+          channels[ii].numberOfElements = 0;
+        }
+      
+      numberOfElements += channels[ii].numberOfElements;
+    }
+  
+  elementCenter = new int[numberOfElements];
+  vertices      = new intarraycvn[numberOfElements];
+  
+  // vertices must be initialized because they may be written ahead.
+  for (ii = 0; ii < numberOfElements; ii++)
+    {
+      for (jj = 0; jj < ChannelElement::channelVerticesSize; jj++)
+        {
+          vertices[ii][jj] = -1;
+        }
+    }
+  
+  // Start out assuming twice as many nodes as vertices.  Realloc if this proves too few.
+  nodeX = new double[2 * numberOfElements];
+  nodeY = new double[2 * numberOfElements];
+  
+  // Loop over all used links.
+  for (ii = 0; !error && ii < size; ii++)
+    {
+      if (STREAM == channels[ii].type)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          assert(0 <= channels[ii].permanent && channels[ii].permanent <= size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          shape = channels[channels[ii].permanent % size].shapes[0];
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(NULL != shape))
+            {
+              fprintf(stderr, "ERROR in writeChannelNetwork: Channel link %d does not have a shape.\n", ii);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          
+          if (!error)
+            {
+              // FIXME implement.
+            }
+        }
+      else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+        {
+          shape = channels[ii].shapes[0];
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(NULL != shape))
+            {
+              fprintf(stderr, "ERROR in writeChannelNetwork: Channel link %d does not have a shape.\n", ii);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          
+          if (!error)
+            {
+              // Set the center of the waterbody as the center of the bounding box of all of its shapes.
+              xMin = shape->dfXMin;
+              xMax = shape->dfXMax;
+              yMin = shape->dfYMin;
+              yMax = shape->dfYMax;
+
+              for (jj = 1; jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
+                {
+                  shape = channels[ii].shapes[jj];
+
+                  if (xMin > shape->dfXMin)
+                    {
+                      xMin = shape->dfXMin;
+                    }
+
+                  if (xMax < shape->dfXMax)
+                    {
+                      xMax = shape->dfXMax;
+                    }
+
+                  if (yMin > shape->dfYMin)
+                    {
+                      yMin = shape->dfYMin;
+                    }
+
+                  if (yMax < shape->dfYMax)
+                    {
+                      yMax = shape->dfYMax;
+                    }
+                }
+
+              error = createNode(0.5 * (xMin + xMax), 0.5 * (yMin + yMax), &nodesSize, &numberOfNodes, nodeX, nodeY, &elementCenter[ii]);
+            }
+
+          // Create the vertices.
+          ll = 0;
+          
+          for (jj = 0; !error && jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
+            {
+              shape = channels[ii].shapes[jj];
+
+              for (kk = shape->nVertices - 1; !error && kk >= 0; kk--)
+                {
+                  if (ll >= ChannelElement::channelVerticesSize)
+                    {
+                      fprintf(stderr, "ERROR in writeChannelNetwork: link %d: number of vertices exceeds maximum number %d.\n",
+                              ii, ChannelElement::channelVerticesSize);
+                      error = true;
+                    }
+                  
+                  if (!error)
+                    {
+                      // FIXME see if the point is a duplicate with any connected link.
+                      
+                      error = createNode(shape->padfX[kk], shape->padfY[kk], &nodesSize, &numberOfNodes, nodeX, nodeY, &vertices[ii][ll++]);
+                    }
+                }
+            }
+        } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+    } // End loop over all used links.
+
+  // FIXME loop over the links
+  // for each link
+  //   loop over shapes filling in elementCenter and vertices and creating nodes as you go.
+  
+  /* FIXME
+  // FIXME this is a kludge so far
   nodeFile     = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node", "w");
   elementFile  = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.ele",  "w");
   
@@ -2999,7 +3257,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
     {
       fclose(elementFile);
     }
-
+   */
+  
   return error;
 }
 
