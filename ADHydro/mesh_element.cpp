@@ -416,9 +416,9 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       evapoTranspirationState.fIceOld[2] = 0.0;
       evapoTranspirationState.albOld     = 1.0;
       evapoTranspirationState.snEqvO     = 0.0;
-      evapoTranspirationState.stc[0]     = 300.0;
-      evapoTranspirationState.stc[1]     = 300.0;
-      evapoTranspirationState.stc[2]     = 300.0;
+      evapoTranspirationState.stc[0]     = 0.0;
+      evapoTranspirationState.stc[1]     = 0.0;
+      evapoTranspirationState.stc[2]     = 0.0;
       evapoTranspirationState.stc[3]     = 300.0;
       evapoTranspirationState.stc[4]     = 300.0;
       evapoTranspirationState.stc[5]     = 300.0;

@@ -158,8 +158,13 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float wsLake,
                             float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+                            
+bool evapoTranspirationIce( float cosZ, float dt, float dx, float dz8w, float smcEq[4], float sfcTmp, float sfcPrs, 
+                            float uu, float vv, float q2, float solDn, float lwDn, float prcp, float tBot, float sh2o[4], 
+                            float smc[4], EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
-// FIXME add functions for evapoTranspirationWater and evapoTranspirationGlacier
+
+// FIXME add functions for evapoTranspirationWater
 
 // Check invariant conditions on an EvapoTranspirationStateStruct.
 //
