@@ -146,7 +146,7 @@ public:
   //
   // meshProxy    - The mesh elements to send the forcing data to.
   // channelProxy - The channel elements to send the forcing data to.
-  void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy);
+  void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize, const char* directory);
   
   // Create NetCDF files for output including creating dimensions and variables
   // within the files.  When done the file managers contribute to an empty

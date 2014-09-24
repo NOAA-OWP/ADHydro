@@ -3768,22 +3768,625 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
   thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
 }
 
-void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy)
+void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize, const char* directory)
 {
   int ii; // Loop counter.
+
+  bool   error      = false;                     // Error flag.
+  char*  nameString = NULL;                      // Temporary string for file names.
+  size_t nameStringSize;                         // Size of buffer allocated for nameString.
+  size_t numPrinted;                             // Used to check that snprintf printed the correct number of characters.
+  int    ncErrorCode;                            // Return value of NetCDF functions.
+  int    FileID;            // ID of NetCDF file.
+  bool   stateFileOpen = false;  // Whether stateFileID refers to an open file.
+  int    dimID;                  // ID of dimension in NetCDF file.
+  size_t stateTime;          // Time index for state file.
+  int    varID;                  // ID of variable in NetCDF file.
+  size_t start[NC_MAX_VAR_DIMS]; // For specifying subarrays when writing to NetCDF file.
+  size_t count[NC_MAX_VAR_DIMS]; // For specifying subarrays when writing to NetCDF file.
+  double* forcingT2 = NULL;
+  double* forcingVEGFRA = NULL;
+  double* forcingMAXVEGFRA = NULL;
+  double* forcingPSFC = NULL;
+  double* forcingU = NULL;
+  double* forcingV = NULL;
+  double* forcingQVAPOR = NULL;
+  double* forcingQCLOUD = NULL;
+  double* forcingSWDOWN = NULL;
+  double* forcingGLW = NULL;
+  double* forcingTPREC = NULL;
+  double* forcingTSLB = NULL;
+  double* forcingPBLH = NULL;
+
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != directory))
+    {
+      CkError("ERROR in FileManager::readForcingData: directory must not be null.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      // Allocate space for file name strings.
+      nameStringSize = strlen(directory) + strlen("/forcing.nc") + 1; // The longest file name is forcing.nc.  +1 for null terminating character.
+      nameString     = new char[nameStringSize];
+
+      // Create file name.
+      numPrinted = snprintf(nameString, nameStringSize, "%s/forcing.nc", directory);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(strlen(directory) + strlen("/forcing.nc") == numPrinted && numPrinted < nameStringSize))
+        {
+          CkError("ERROR in FileManager::readForcingData: incorrect return value of snprintf when generating state file name %s.  "
+                  "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/forcing.nc"), nameStringSize);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  // Open file.
+  if (!error)
+    {
+      ncErrorCode = nc_open_par(nameString, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &FileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to open NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+      else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+          stateFileOpen = true;
+        }
+    }
+ 
+  // Get the number of existing Times.
+  if (!error)
+    {
+      ncErrorCode = nc_inq_dimid(FileID, "Time", &dimID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get dimension Time in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
+  if (!error)
+    {
+      ncErrorCode = nc_inq_dimlen(FileID, dimID, &stateTime);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get length of dimension Time in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      if (0 < stateTime)
+        {
+          // We're not creating a new Time so use the last Time with index one less than the dimension length.
+          stateTime--;
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          // We're not creating a new Time so it's an error if there's not an existing one.
+          CkError("ERROR in FileManager::readForcingData: not creating a new Time and no existing Time in NetCDF state file %s.\n",
+                  nameString);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+
+  // Read variables.
+  // T2
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "T2", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable T2 in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingT2 = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingT2);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable T2 in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  // VEGFRA	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "VEGFRA", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable VEGFRA in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingVEGFRA = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingVEGFRA);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable VEGFRA in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // MAXVEGFRA	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "MAXVEGFRA", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable MAXVEGFRA in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingMAXVEGFRA = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingMAXVEGFRA);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable MAXVEGFRA in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // PSFC	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "PSFC", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable PSFC in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingPSFC = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingPSFC);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable PSFC in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // U	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "U", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable U in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingU = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingU);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable U in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // V	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "V", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable V in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingV = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingV);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable V in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // QVAPOR	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "QVAPOR", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable QVAPOR in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingQVAPOR = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingQVAPOR);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable QVAPOR in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // QCLOUD	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "QCLOUD", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable QCLOUD in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingQCLOUD = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingQCLOUD);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable QCLOUD in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // SWDOWN	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "SWDOWN", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable SWDOWN in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingSWDOWN = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingSWDOWN);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable SWDOWN in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // GLW	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "GLW", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable GLW in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingGLW = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingGLW);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable GLW in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+ // TPREC	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "TPREC", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable TPREC in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingTPREC = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingTPREC);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable TPREC in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+
+ // TSLB	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "TSLB", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable TSLB in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingTSLB = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingTSLB);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable TSLB in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+
+ // PBLH	
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(FileID, "PBLH", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to get variable PBLH in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error)
+    {
+      forcingPBLH = new double[localNumberOfMeshElements];
+
+      start[0]    = stateTime;
+      start[1]    = localMeshElementStart;
+      count[0]    = 1;
+      count[1]    = localNumberOfMeshElements;
+      ncErrorCode = nc_get_vara_double(FileID, varID, start, count, forcingPBLH);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to read variable PBLH in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+
   // FIXME implement
-  
+
+
   for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
     {
-      meshProxy[ii].forcingDataMessage(20.0, 0.8, 0.8, 0.0, 101300.0, 101175.0, 0.0, 0.0, 0.02, 0.0, 800.0, 200.0, 0.01, 0.0, 30000.0);
+	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], 101175.0, forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], forcingPBLH[ii - localMeshElementStart]);
     }
   
   for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
     {
       channelProxy[ii].forcingDataMessage();
     }
+
+  // Close file.
+  if (stateFileOpen)
+    {
+      ncErrorCode   = nc_close(FileID);
+      stateFileOpen = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to close NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (NULL != forcingT2)
+    {
+      delete[] forcingT2;
+    }
+
 }
+
 
 void FileManager::createFiles(size_t directorySize, const char* directory)
 {
