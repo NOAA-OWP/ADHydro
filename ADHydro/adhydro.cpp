@@ -96,9 +96,9 @@ void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 1000.0; // FIXME
+  endTime                 = currentTime + 12000; // FIXME
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 0.0; // FIXME
+  outputPeriod            = 3600; // FIXME
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry           = true;
@@ -146,7 +146,7 @@ void ADHydro::checkForcingData()
       channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelForcingDataDone), thisProxy));
 
       // Update forcing data.
-      fileManagerProxy.readForcingData(meshProxy, channelProxy);
+      fileManagerProxy.readForcingData(meshProxy, channelProxy, currentTime, strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
       thisProxy.waitForForcingDataToFinish();
       
       // Now that we have updated the forcing data we don't need to do it again unless they change.
@@ -261,6 +261,12 @@ void ADHydro::timestepDone(double dtNew)
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  // FIXME replace this with absolute time
+  if ((int)(currentTime / 3600.0) < (int)(currentTime + dt / 3600.0))
+  {
+    needToUpdateForcingData = true;
+  }
 
   // Update time and iteration number.
   currentTime += dt;
