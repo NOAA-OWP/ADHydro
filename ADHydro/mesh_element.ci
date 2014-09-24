@@ -301,8 +301,9 @@ module mesh_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
-                             "for iteration %d.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    // Any mesh element with no boundary edges will reach this point.  Disable message because it is too verbose.
+                    //CkPrintf("NOTE: mesh element %d, iteration %d: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                    //         "for iteration %d.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
                   }
                 }
                 

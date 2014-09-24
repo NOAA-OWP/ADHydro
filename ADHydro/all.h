@@ -73,7 +73,7 @@
 // interaction.  Setting this flag causes a workaround to be used.  See the
 // comment of FileManager::resizeUnlimitedDimensions in file_manager.h for more
 // details.
-#define NETCDF_COLLECTIVE_IO_WORKAROUND
+//#define NETCDF_COLLECTIVE_IO_WORKAROUND
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
@@ -110,18 +110,13 @@ enum FlowRateReadyEnum
 PUPbytes(FlowRateReadyEnum);
 
 // Used for the type of channel links.
-// FIXME scrub this when redoing channel preprocessing.
 enum ChannelTypeEnum
 {
   NOT_USED                           = 0, // Not all link numbers are used.
   STREAM                             = 1, // Stream link.
   WATERBODY                          = 2, // Waterbody link.
   ICEMASS                            = 3, // Equivalent to WATERBODY, but made of ice.
-  FAKE                               = 4, // Used to create 3-way branches in a binary tree.
-  INTERNAL_BOUNDARY_CONDITION        = 5, // For defining arbitrary flow constraints.
-  PRUNED_STREAM                      = 6, // A pruned link was once used but is no longer needed.  Type is set to one of the pruned types,
-  PRUNED_FAKE                        = 7, // and upstream links are broken, but other structure values are preserved.
-  PRUNED_INTERNAL_BOUNDARY_CONDITION = 8,
+  PRUNED_STREAM                      = 4, // A pruned link was once used but is no longer needed.
 };
 
 PUPbytes(ChannelTypeEnum);
@@ -187,7 +182,7 @@ inline bool epsilonEqual(double a, double b)
 // Returns: the epsilon value to use for near-equality testing with x.
 inline float epsilon(float x)
 {
-  float eps = 1.0e-6;
+  float eps = 1.0e-6f;
   
   // Don't use library fabs and max to avoid including headers in all.h.
   if (0.0 > x)

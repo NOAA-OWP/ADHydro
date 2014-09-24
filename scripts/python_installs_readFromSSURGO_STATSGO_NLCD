@@ -1,0 +1,36 @@
+download numpy 1.8 source
+https://pypi.python.org/pypi/numpy
+extract tarball
+cd to numpy folder and run
+$/usr/bin/python setup.py build
+$su
+root$/usr/bin/python setup.py install
+
+download pandas 0.14.1 source
+https://pypi.python.org/pypi/pandas#downloads
+extract tarball
+cd to pandas directory and run
+$/usr/bin/python setup.py build
+$su
+root$/usr/bin/python setup.py install
+
+
+
+
+
+To use qgis outside of qgis console
+$export PYTHONPATH=/usr/opt/share/qgis/python:$PYTHONPATH
+then in python script
+from qgis.core import *
+
+in __main__ or somewhere at the beginning of the script put
+    #Qgis setup
+    qgishome = '/opt'
+    app = QgsApplication([], True)
+    QgsApplication.setPrefixPath(qgishome, True)
+    QgsApplication.initQgis()
+
+This ^^^ sets up data providers and such correctly
+
+Then at the end of the script/main put
+    QgsApplication.exitQgis()

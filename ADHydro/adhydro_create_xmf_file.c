@@ -519,8 +519,8 @@ fprintf(ChannelOut,"</Xdmf>\n");
       	   printf("Problem closing ../parameter.nc\n");
            exit(0);
  	}
- free(meshOut);
- free(ChannelOut);
+ fclose(meshOut);
+ fclose(ChannelOut);
 
  return 0;
  }

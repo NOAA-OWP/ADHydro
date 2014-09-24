@@ -106,21 +106,44 @@ private:
   //
   // Parameters:
   //
-  // atmosphereLayerThicknessNew     - New value for forcing data.
-  // shadedFractionNew               - New value for forcing data.
-  // shadedFractionMaximumNew        - New value for forcing data.
-  // surfaceTemperatureNew           - New value for forcing data.
-  // surfacePressureNew              - New value for forcing data.
-  // atomsphereLayerPressureNew      - New value for forcing data.
-  // eastWindSpeedNew                - New value for forcing data.
-  // northWindSpeedNew               - New value for forcing data.
-  // atmosphereLayerMixingRatioNew   - New value for forcing data.
-  // cloudMixingRatioNew             - New value for forcing data.
-  // shortWaveRadiationDownNew       - New value for forcing data.
-  // longWaveRadiationDownNew        - New value for forcing data.
-  // precipitationRateNew            - New value for forcing data.
-  // soilBottomTemperatureNew        - New value for forcing data.
-  // planetaryBoundaryLayerHeightNew - New value for forcing data.
+  // atmosphereLayerThicknessNew     - New value for thickness in meters of
+  //                                   lowest atmosphere layer.
+  // shadedFractionNew               - New value for fraction of land area
+  //                                   shaded by vegetation, 0.0 to 1.0.
+  // shadedFractionMaximumNew        - New value for yearly maximum fraction of
+  //                                   land area shaded by vegetation, 0.0 to
+  //                                   1.0.
+  // surfaceTemperatureNew           - New value for air temperature in Celsius
+  //                                   at surface.
+  // surfacePressureNew              - New value for air pressure in Pascal at
+  //                                   surface.
+  // atomsphereLayerPressureNew      - New value for air pressure in Pascal at
+  //                                   middle of lowest atmosphere layer.
+  // eastWindSpeedNew                - New value for eastward wind speed in
+  //                                   meters per second at middle of lowest
+  //                                   atmosphere layer.
+  // northWindSpeedNew               - New value for northward wind speed in
+  //                                   meters per second at middle of lowest
+  //                                   atmosphere layer.
+  // atmosphereLayerMixingRatioNew   - New value for water vapor mixing ratio
+  //                                   at middle of lowest atmosphere layer,
+  //                                   unitless.
+  // cloudMixingRatioNew             - New value for liquid water mixing ratio
+  //                                   in clouds, unitless.
+  // shortWaveRadiationDownNew       - New value for downward short wave
+  //                                   radiation in Watts per square meter at
+  //                                   the top of the canopy.
+  // longWaveRadiationDownNew        - New value for downward long wave
+  //                                   radiation in Watts per square meter at
+  //                                   the top of the canopy.
+  // precipitationRateNew            - New value for precipitation rate in
+  //                                   meters of water per second at the top of
+  //                                   the canopy.
+  // soilBottomTemperatureNew        - New value for Boundary condition for
+  //                                   soil temperature in Celsius at the
+  //                                   bottom of the lowest soil layer.
+  // planetaryBoundaryLayerHeightNew - New value for Planetary boundary layer
+  //                                   height in meters.
   void handleForcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew,
                                 double surfaceTemperatureNew, double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew,
                                 double northWindSpeedNew, double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew,
@@ -508,7 +531,7 @@ private:
                                        // northWindSpeed, atmosphereLayerMixingRatio.
   double shadedFraction;               // Fraction of land area shaded by vegetation, 0.0 to 1.0.
   double shadedFractionMaximum;        // Yearly maximum fraction of land area shaded by vegetation, 0.0 to 1.0.
-  double surfaceTemperature;           // Air temperature in Celcius at surface.
+  double surfaceTemperature;           // Air temperature in Celsius at surface.
   double surfacePressure;              // Air pressure in Pascal at surface.
   double atomsphereLayerPressure;      // Air pressure in Pascal at middle of lowest atmosphere layer in forcing data.
   double eastWindSpeed;                // Eastward wind speed in meters per second at middle of lowest atmosphere layer in forcing data.
@@ -518,7 +541,7 @@ private:
   double shortWaveRadiationDown;       // Downward short wave radiation in Watts per square meter at the top of the canopy.
   double longWaveRadiationDown;        // Downward long wave radiation in Watts per square meter at the top of the canopy.
   double precipitationRate;            // Precipitation rate in meters of water per second at the top of the canopy.
-  double soilBottomTemperature;        // Boundary condition for soil temperature in Celcius at the bottom of the lowest soil layer.
+  double soilBottomTemperature;        // Boundary condition for soil temperature in Celsius at the bottom of the lowest soil layer.
   double planetaryBoundaryLayerHeight; // Planetary boundary layer height in meters.
   
   // Sequencing and timestep information.

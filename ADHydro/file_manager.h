@@ -71,9 +71,46 @@ public:
   // Destructor.  Dynamically allocated arrays need to be deleted.
   ~FileManager();
   
+  // FIXME move handle initialization functions to private
+  
+  // This function pulls out some duplicate code that is the same for reading
+  // the mesh and channels .node and .z files.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // directory    - The directory from which to read the files.
+  // fileBasename - The base name not including the directory path of the files
+  //                to read.  If readMesh is true readNodeAndZFiles will read
+  //                directory/fileBasename.node and directory/fileBasename.z.
+  //                If readMesh is false readNodeAndZFiles will read
+  //                directory/fileBasename.chan.node and
+  //                directory/fileBasename.chan.z.
+  // readMesh     - If true read the mesh node and z files.  If false read the
+  //                channel node and z files.
+  bool readNodeAndZFiles(const char* directory, const char* fileBasename, bool readMesh);
+  
   // Initializes the file manager to hold a hardcoded mesh.  When done the file
   // managers contribute to an empty reduction.
-  void initializeHardcodedMesh();
+  void handleInitializeHardcodedMesh();
+  
+  // Initializes the file manager from ASCII files.  When done the file
+  // managers contribute to an empty reduction.
+  //
+  // ASCII files contain geometry and parameters only so the water state is
+  // initialized to groundwater completely saturated and no surfacewater.
+  //
+  // Parameters:
+  //
+  // directorySize    - The size of the array passed in to directory.
+  // directory        - The directory from which to read the files.
+  // fileBasenameSize - The size of the array passed in to fileBasename.
+  // fileBasename     - The base name not including the directory path of the
+  //                    files to read.  initializeFromASCIIFiles will read the
+  //                    following files: directory/fileBasename.node,
+  //                    FIXME etc.
+  void handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename);
   
   // Initializes the file manager from NetCDF files.  When done the file
   // managers contribute to an empty reduction.
@@ -82,7 +119,7 @@ public:
   //
   // directorySize - The size of the array passed in to directory.
   // directory     - The directory from which to read the files.
-  void initializeFromNetCDFFiles(size_t directorySize, const char* directory);
+  void handleInitializeFromNetCDFFiles(size_t directorySize, const char* directory);
   
   // If a variable is not available the file managers attempt to derive it from
   // other variables, for example element center coordinates from element
