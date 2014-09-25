@@ -553,7 +553,7 @@ typedef enum
 {
   UPSTREAM,   // intersection is upstream   of streamLinkNo, location.
   DOWNSTREAM, // intersection is downstream of streamLinkNo, location.
-  UNRELATED,  // neither is upstream or downstream of the other.
+  UNRELATED,  // Neither is upstream or downstream of the other.
 } UpstreamDownstreamEnum;
 
 // Return the upstream/downstream relationship between intersection and
@@ -3030,6 +3030,35 @@ int numberOfLinkElements(ChannelLinkStruct* channels, int size, int linkNo, doub
 }
 
 // FIXME comment
+double locationOfMovedLink(ChannelLinkStruct* channels, int size, int linkNoToSearch, int linkNoToFind)
+{
+  double             location = NAN;
+  LinkElementStruct* tempElement;
+  
+  if (linkNoToSearch == linkNoToFind)
+    {
+      location = 0.0;
+    }
+  else
+    {
+      tempElement = channels[linkNoToSearch].firstElement;
+      
+      while (NULL != tempElement && isnan(location))
+        {
+          if (-1 != tempElement->movedTo)
+            {
+              // If linkNoToFind is not found location will be set to NAN.
+              location = beginLocation(tempElement) + locationOfMovedLink(channels, size, tempElement->movedTo, linkNoToFind);
+            }
+          
+          tempElement = tempElement->next;
+        }
+    }
+  
+  return location;
+}
+
+// FIXME comment
 bool createNode(double x, double y, int* nodesSize, int* numberOfNodes, double* nodeX, double* nodeY, int* nodeNumber)
 {
   bool error = false; // Error flag.
@@ -3053,31 +3082,46 @@ bool createNode(double x, double y, int* nodesSize, int* numberOfNodes, double* 
       
       nodeX[*numberOfNodes] = x;
       nodeY[*numberOfNodes] = y;
-      *nodeNumber           = *numberOfNodes++;
+      *nodeNumber           = (*numberOfNodes)++;
     }
   
   return error;
 }
 
+// Used for the types of salient points.  Salient points are used when doing a parallel walk along channel elements and shape vertices.  A salient point is the
+// next point on a channel element that we need to output whether or not it lies on a shape vertex.
+typedef enum
+{
+  LINK_BEGIN,     // The salient point is the beginning of the link.
+  ELEMENT_MIDDLE, // The salient point is the middle of an element.
+  ELEMENT_END,    // The salient point is the end of an element.
+  LINK_END,       // The salient point is the end of the link.
+} SalientPointEnum;
+
 // FIXME comment
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
 {
-  bool         error            = false; // Error flag.
-  int          ii, jj, kk, ll;           // Loop counters.
-  int          numberOfElements = 0;     // Number of channel elements.
-  int*         elementCenter;            // Node numbers of the element centers.
-  intarraycvn* vertices;                 // Node numbers of the element vertices.
-  int          nodesSize;                // Size of nodeX and nodeY arrays.
-  int          numberOfNodes    = 0;     // Number of channel nodes.
-  double*      nodeX;                    // X coordinates of nodes.
-  double*      nodeY;                    // Y coordinates of nodes.
-  FILE*        elementFile;              // Output file for channel elements.
-  FILE*        nodeFile;                 // Output file for channel nodes.
-  SHPObject*   shape;                    // Shape object of a link.
-  double       xMin;                     // For computing bounding box of waterbody.
-  double       xMax;                     // For computing bounding box of waterbody.
-  double       yMin;                     // For computing bounding box of waterbody.
-  double       yMax;                     // For computing bounding box of waterbody.
+  bool             error            = false; // Error flag.
+  int              ii, jj, kk, ll;           // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices, and ll is
+                                             // for shape vertices.
+  int              numberOfElements = 0;     // Number of channel elements.
+  int*             elementCenter;            // Node numbers of the element centers.
+  intarraycvn*     vertices;                 // Node numbers of the element vertices.
+  int              nodesSize;                // Size of nodeX and nodeY arrays.
+  int              numberOfNodes    = 0;     // Number of channel nodes.
+  double*          nodeX;                    // X coordinates of nodes.
+  double*          nodeY;                    // Y coordinates of nodes.
+  SHPObject*       shape;                    // Shape object of a link.
+  double           salientPointLocation;     // The 1D location in meters along a link of a salient point.
+  SalientPointEnum salientPointType;         // The type of a salient point.
+  double           shapeVertexLocation;      // The 1D location in meters along a link of a shape vertex.
+  bool             done;                     // Termination condition for complex loop.
+  double           xMin;                     // For computing bounding box of waterbody.
+  double           xMax;                     // For computing bounding box of waterbody.
+  double           yMin;                     // For computing bounding box of waterbody.
+  double           yMax;                     // For computing bounding box of waterbody.
+  FILE*            elementFile;              // Output file for channel elements.
+  FILE*            nodeFile;                 // Output file for channel nodes.
   
   for (ii = 0; ii < size; ii++)
     {
@@ -3104,19 +3148,20 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
   vertices      = new intarraycvn[numberOfElements];
   
   // vertices must be initialized because they may be written ahead.
-  for (ii = 0; ii < numberOfElements; ii++)
+  for (jj = 0; jj < numberOfElements; jj++)
     {
-      for (jj = 0; jj < ChannelElement::channelVerticesSize; jj++)
+      for (kk = 0; kk < ChannelElement::channelVerticesSize; kk++)
         {
-          vertices[ii][jj] = -1;
+          vertices[jj][kk] = -1;
         }
     }
   
   // Start out assuming twice as many nodes as vertices.  Realloc if this proves too few.
-  nodeX = new double[2 * numberOfElements];
-  nodeY = new double[2 * numberOfElements];
+  nodesSize = 2 * numberOfElements;
+  nodeX     = new double[nodesSize];
+  nodeY     = new double[nodesSize];
   
-  // Loop over all used links.
+  // Loop over all used links.  For each link loop over shapes filling in elementCenter and vertices and creating nodes as you go.
   for (ii = 0; !error && ii < size; ii++)
     {
       if (STREAM == channels[ii].type)
@@ -3125,6 +3170,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
           assert(0 <= channels[ii].permanent && channels[ii].permanent <= size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
+          // Get shape from the original link number in case this link was moved.
           shape = channels[channels[ii].permanent % size].shapes[0];
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -3137,9 +3183,87 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
           
           if (!error)
             {
-              // FIXME implement.
+              // Start processing the first element of the link.
+              jj = channels[ii].elementStart;
+              kk = 0; // Index into vertices[jj].
+              
+              // Get the location along shape of the beginning of the link in case this link was moved.  If the link was not moved this will return zero.
+              salientPointLocation = locationOfMovedLink(channels, size, channels[ii].permanent % size, ii);
+              salientPointType     = LINK_BEGIN;
+              
+              assert(!isnan(salientPointLocation));
+              
+              // Move to the first shape vertex that is at or beyond the beginning of the link.
+              ll                  = shape->nVertices - 1;
+              shapeVertexLocation = 0.0;
+              
+              while (0 < ll && epsilonLess(shapeVertexLocation, salientPointLocation))
+                {
+                  // Advance the shape vertex.
+                  ll--;
+                  shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                              (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                }
+              
+              done = false;
+              
+              while (!error && !done)
+                {
+                  if (0 < ll && epsilonLess(shapeVertexLocation, salientPointLocation))
+                    {
+                      // Save the shape vertex
+                      error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodeX, nodeY, &vertices[jj][kk++]);
+                      
+                      // Advance the shape vertex.
+                      ll--;
+                      shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                  (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                    }
+                  else if (LINK_BEGIN == salientPointType)
+                    {
+                      // FIXME implement
+                    }
+                  else if (ELEMENT_MIDDLE == salientPointType)
+                    {
+                      // FIXME implement
+                    }
+                  else if (ELEMENT_END == salientPointType)
+                    {
+                      // FIXME implement
+                    }
+                  else if (LINK_END == salientPointType)
+                    {
+                      // FIXME implement
+                    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  else
+                    {
+                      assert(false);
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  
+                  // FIXME remove
+                  done = true;
+                }
+              /* FIXME
+              // Handle the special case where the first vertex of the link has been created by an upstream neighbor.
+              if (-1 != vertices[channels[ii].elementStart][0])
+                {
+                  // FIXME advance the salient point.
+                  
+                  if (0 < jj && epsilonEqual(shapeVertexLocation, salientPointLocation))
+                    {
+                      // Advance the shape vertex.
+                      jj--;
+                      shapeVertexLocation += sqrt((shape->padfX[jj] * shape->padfX[jj]) + (shape->padfY[jj] * shape->padfY[jj]));
+                    }
+                }
+              
+              // FIXME Put the first vertex if it has not already been assigned.
+              // FIXME Loop over vertices and elements putting vertices and element center nodes.
+              */
             }
-        }
+        } // End if (STREAM == channels[ii].type).
       else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
           shape = channels[ii].shapes[0];
@@ -3185,40 +3309,37 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                     }
                 }
 
-              error = createNode(0.5 * (xMin + xMax), 0.5 * (yMin + yMax), &nodesSize, &numberOfNodes, nodeX, nodeY, &elementCenter[ii]);
+              error = createNode(0.5 * (xMin + xMax), 0.5 * (yMin + yMax), &nodesSize, &numberOfNodes, nodeX, nodeY,
+                                 &elementCenter[channels[ii].elementStart]);
             }
 
           // Create the vertices.
-          ll = 0;
+          kk = 0;
           
           for (jj = 0; !error && jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
             {
               shape = channels[ii].shapes[jj];
 
-              for (kk = shape->nVertices - 1; !error && kk >= 0; kk--)
+              for (ll = shape->nVertices - 1; !error && ll >= 0; ll--)
                 {
-                  if (ll >= ChannelElement::channelVerticesSize)
+                  if (kk < ChannelElement::channelVerticesSize)
+                    {
+                      // FIXME see if the point is a duplicate with any connected link.
+                      
+                      error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodeX, nodeY,
+                                         &vertices[channels[ii].elementStart][kk++]);
+                    }
+                  else
                     {
                       fprintf(stderr, "ERROR in writeChannelNetwork: link %d: number of vertices exceeds maximum number %d.\n",
                               ii, ChannelElement::channelVerticesSize);
                       error = true;
                     }
-                  
-                  if (!error)
-                    {
-                      // FIXME see if the point is a duplicate with any connected link.
-                      
-                      error = createNode(shape->padfX[kk], shape->padfY[kk], &nodesSize, &numberOfNodes, nodeX, nodeY, &vertices[ii][ll++]);
-                    }
                 }
             }
-        } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
-    } // End loop over all used links.
+        } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
+    } // End loop over all used links.  For each link loop over shapes filling in elementCenter and vertices and creating nodes as you go.
 
-  // FIXME loop over the links
-  // for each link
-  //   loop over shapes filling in elementCenter and vertices and creating nodes as you go.
-  
   /* FIXME
   // FIXME this is a kludge so far
   nodeFile     = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node", "w");
@@ -3298,6 +3419,10 @@ bool channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
           tempError = killLinkElement(*channels, *size, ii, (*channels)[ii].firstElement);
           error     = error || tempError;
         }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      assert(NULL == (*channels)[ii].lastElement);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
   delete[] *channels;
