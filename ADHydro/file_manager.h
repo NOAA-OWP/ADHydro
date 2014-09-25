@@ -73,12 +73,33 @@ public:
   
   // FIXME move handle initialization functions to private
   
+  // This function pulls out some duplicate code that is the same for reading
+  // the mesh and channels .node and .z files.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // directory    - The directory from which to read the files.
+  // fileBasename - The base name not including the directory path of the files
+  //                to read.  If readMesh is true readNodeAndZFiles will read
+  //                directory/fileBasename.node and directory/fileBasename.z.
+  //                If readMesh is false readNodeAndZFiles will read
+  //                directory/fileBasename.chan.node and
+  //                directory/fileBasename.chan.z.
+  // readMesh     - If true read the mesh node and z files.  If false read the
+  //                channel node and z files.
+  bool readNodeAndZFiles(const char* directory, const char* fileBasename, bool readMesh);
+  
   // Initializes the file manager to hold a hardcoded mesh.  When done the file
   // managers contribute to an empty reduction.
   void handleInitializeHardcodedMesh();
   
   // Initializes the file manager from ASCII files.  When done the file
   // managers contribute to an empty reduction.
+  //
+  // ASCII files contain geometry and parameters only so the water state is
+  // initialized to groundwater completely saturated and no surfacewater.
   //
   // Parameters:
   //
@@ -125,7 +146,7 @@ public:
   //
   // meshProxy    - The mesh elements to send the forcing data to.
   // channelProxy - The channel elements to send the forcing data to.
-  void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy);
+  void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize, const char* directory);
   
   // Create NetCDF files for output including creating dimensions and variables
   // within the files.  When done the file managers contribute to an empty
