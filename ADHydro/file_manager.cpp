@@ -4356,7 +4356,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 
   for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
     {
-	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], 101175.0, forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], forcingPBLH[ii - localMeshElementStart]);
+	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], forcingPBLH[ii - localMeshElementStart]);
     }
   
   for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)

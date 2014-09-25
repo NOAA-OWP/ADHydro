@@ -29,8 +29,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
   
   // Initialize the file manager.
-  fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
-  // FIXME fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  //fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
+  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
   // FIXME make ascii fileBasename a command line parameter.
   // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }

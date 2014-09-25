@@ -46,7 +46,7 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
-  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+  static const int channelVerticesSize  = 5; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
   static const int channelNeighborsSize = 2;  // Maximum number of channel neighbors.
   static const int meshNeighborsSize    = 4;  // Maximum number of mesh neighbors.
   
