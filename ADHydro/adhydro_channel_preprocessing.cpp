@@ -2600,7 +2600,7 @@ bool linkWaterbodyStreamIntersection(ChannelLinkStruct* channels, int size, int 
             {
               if (isBoundary(channels[streamLinkNo].upstream[ii]))
                 {
-                  // If it's a boundary condition code add it to the waterbody and remove it form the stream.
+                  // If it's a boundary condition code add it to the waterbody and remove it from the stream.
                   error = addUpstreamConnection(channels, size, channels[streamLinkNo].upstream[ii], waterbodyLinkNo);
                   
                   if (!error)
@@ -3035,6 +3035,8 @@ double locationOfMovedLink(ChannelLinkStruct* channels, int size, int linkNoToSe
   double             location = NAN;
   LinkElementStruct* tempElement;
   
+  // FIXME assertions
+  
   if (linkNoToSearch == linkNoToFind)
     {
       location = 0.0;
@@ -3102,18 +3104,21 @@ typedef enum
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
 {
   bool             error            = false; // Error flag.
-  int              ii, jj, kk, ll;           // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices, and ll is
-                                             // for shape vertices.
+  int              ii, jj, kk, ll, mm;       // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices, ll is for
+                                             // shape vertices, and mm is for neighbors.
   int              numberOfElements = 0;     // Number of channel elements.
-  int*             elementCenter;            // Node numbers of the element centers.
-  intarraycvn*     vertices;                 // Node numbers of the element vertices.
-  int              nodesSize;                // Size of nodeX and nodeY arrays.
+  int*             elementCenters   = NULL;  // Node numbers of the element centers.
+  intarraycvn*     vertices         = NULL;  // Node numbers of the element vertices.
+  int              nodesSize;                // Size of nodesX and nodesY arrays.
   int              numberOfNodes    = 0;     // Number of channel nodes.
-  double*          nodeX;                    // X coordinates of nodes.
-  double*          nodeY;                    // Y coordinates of nodes.
+  double*          nodesX           = NULL;  // X coordinates of nodes.
+  double*          nodesY           = NULL;  // Y coordinates of nodes.
   SHPObject*       shape;                    // Shape object of a link.
   double           salientPointLocation;     // The 1D location in meters along a link of a salient point.
   SalientPointEnum salientPointType;         // The type of a salient point.
+  double           salientPointX;            // X coordinate of salient point.
+  double           salientPointY;            // Y coordinate of salient point.
+  double           salientPointFraction;     // Fraction of distance between two shape vertices of salient point.
   double           shapeVertexLocation;      // The 1D location in meters along a link of a shape vertex.
   bool             done;                     // Termination condition for complex loop.
   double           xMin;                     // For computing bounding box of waterbody.
@@ -3122,6 +3127,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
   double           yMax;                     // For computing bounding box of waterbody.
   FILE*            elementFile;              // Output file for channel elements.
   FILE*            nodeFile;                 // Output file for channel nodes.
+  
+  // FIXME error checking
   
   for (ii = 0; ii < size; ii++)
     {
@@ -3144,8 +3151,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
       numberOfElements += channels[ii].numberOfElements;
     }
   
-  elementCenter = new int[numberOfElements];
-  vertices      = new intarraycvn[numberOfElements];
+  elementCenters = new int[numberOfElements];
+  vertices       = new intarraycvn[numberOfElements];
   
   // vertices must be initialized because they may be written ahead.
   for (jj = 0; jj < numberOfElements; jj++)
@@ -3156,12 +3163,12 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
         }
     }
   
-  // Start out assuming twice as many nodes as vertices.  Realloc if this proves too few.
-  nodesSize = 2 * numberOfElements;
-  nodeX     = new double[nodesSize];
-  nodeY     = new double[nodesSize];
+  // Start out assuming sixteen times as many nodes as vertices.  Realloc if this proves too few.
+  nodesSize = 16 * numberOfElements;
+  nodesX    = new double[nodesSize];
+  nodesY    = new double[nodesSize];
   
-  // Loop over all used links.  For each link loop over shapes filling in elementCenter and vertices and creating nodes as you go.
+  // Loop over all used links.  For each link loop over shapes filling in elementCenters and vertices and creating nodes as you go.
   for (ii = 0; !error && ii < size; ii++)
     {
       if (STREAM == channels[ii].type)
@@ -3211,58 +3218,326 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                 {
                   if (0 < ll && epsilonLess(shapeVertexLocation, salientPointLocation))
                     {
-                      // Save the shape vertex
-                      error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodeX, nodeY, &vertices[jj][kk++]);
-                      
-                      // Advance the shape vertex.
-                      ll--;
-                      shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
-                                                  (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                      if (kk < ChannelElement::channelVerticesSize)
+                        {
+                          // Save the shape vertex
+                          error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodesX, nodesY, &vertices[jj][kk++]);
+
+                          if (!error)
+                            {
+                              // Advance the shape vertex.
+                              ll--;
+                              shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                          (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                            }
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
+                                  jj, ChannelElement::channelVerticesSize);
+                          error = true;
+                        }
                     }
                   else if (LINK_BEGIN == salientPointType)
                     {
-                      // FIXME implement
-                    }
+                      // If the first vertex hasn't already been created by a neighbor, create it.
+                      if (-1 == vertices[jj][kk])
+                        {
+                          if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                            {
+                              // Use the shape vertex as the salient point.
+                              salientPointX = shape->padfX[ll];
+                              salientPointY = shape->padfY[ll];
+                            }
+                          else
+                            {
+                              // Find the salient point between the shape vertex and the previous shape vertex.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              assert(ll < shape->nVertices - 1);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              
+                              salientPointFraction = (shapeVertexLocation - salientPointLocation) /
+                                                     sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                          (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                              
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              assert(0.0 < salientPointFraction && 1.0 > salientPointFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              
+                              salientPointX        = (1 - salientPointFraction) * shape->padfX[ll] + salientPointFraction * shape->padfX[ll + 1];
+                              salientPointY        = (1 - salientPointFraction) * shape->padfY[ll] + salientPointFraction * shape->padfY[ll + 1];
+                            }
+                          
+                          error = createNode(salientPointX, salientPointY, &nodesSize, &numberOfNodes, nodesX, nodesY, &vertices[jj][kk]);
+                          
+                          if (!error)
+                            {
+                              // Set the vertex in all upstream STREAM neighbors.
+                              for (mm = 0; mm < UPSTREAM_SIZE && NOFLOW != channels[ii].upstream[mm]; mm++)
+                                {
+                                  if (!isBoundary(channels[ii].upstream[mm]) && STREAM == channels[channels[ii].upstream[mm]].type)
+                                    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                                      assert(-1 == vertices[channels[channels[ii].upstream[mm]].elementStart +
+                                                            channels[channels[ii].upstream[mm]].numberOfElements - 1]
+                                                           [ChannelElement::channelVerticesSize - 1]);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                                      vertices[channels[channels[ii].upstream[mm]].elementStart +
+                                               channels[channels[ii].upstream[mm]].numberOfElements - 1]
+                                              [ChannelElement::channelVerticesSize - 1] = vertices[jj][kk];
+                                    }
+                                }
+                            }
+                        }
+                      
+                      if (!error)
+                        {
+                          // Whether it was just created or already there the first vertex is done.
+                          kk++;
+
+                          // If the shape vertex was already used as the salient point advance past it.
+                          if (0 < ll && epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                            {
+                              ll--;
+                              shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                  (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                            }
+
+                          // Advance half an element length to the next salient point.
+                          salientPointLocation += channels[ii].length / (channels[ii].numberOfElements * 2.0);
+                          salientPointType      = ELEMENT_MIDDLE;
+                        }
+                    } // End else if (LINK_BEGIN == salientPointType).
                   else if (ELEMENT_MIDDLE == salientPointType)
                     {
-                      // FIXME implement
-                    }
+                      if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                        {
+                          // Use the shape vertex as the salient point.
+                          salientPointX = shape->padfX[ll];
+                          salientPointY = shape->padfY[ll];
+                        }
+                      else
+                        {
+                          // Find the salient point between the shape vertex and the previous shape vertex.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                          assert(ll < shape->nVertices - 1);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                          
+                          salientPointFraction = (shapeVertexLocation - salientPointLocation) /
+                                                 sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                      (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              assert(0.0 < salientPointFraction && 1.0 > salientPointFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              
+                          salientPointX        = (1 - salientPointFraction) * shape->padfX[ll] + salientPointFraction * shape->padfX[ll + 1];
+                          salientPointY        = (1 - salientPointFraction) * shape->padfY[ll] + salientPointFraction * shape->padfY[ll + 1];
+                        }
+                      
+                      error = createNode(salientPointX, salientPointY, &nodesSize, &numberOfNodes, nodesX, nodesY, &elementCenters[jj]);
+                      
+                      // If the shape vertex is at the same location use the just created node number.
+                      if (!error && 0 < ll && epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                        {
+                          if (kk < ChannelElement::channelVerticesSize)
+                            {
+                              // Save the shape vertex
+                              vertices[jj][kk++] = elementCenters[jj];
+
+                              // Advance the shape vertex.
+                              ll--;
+                              shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                          (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                            }
+                          else
+                            {
+                              fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
+                                      jj, ChannelElement::channelVerticesSize);
+                              error = true;
+                            }
+                        }
+                      
+                      if (!error)
+                        {
+                          // Advance half an element length to the next salient point.
+                          salientPointLocation += channels[ii].length / (channels[ii].numberOfElements * 2.0);
+
+                          if (jj == channels[ii].elementStart + channels[ii].numberOfElements - 1)
+                            {
+                              salientPointType = LINK_END;
+                            }
+                          else
+                            {
+                              salientPointType = ELEMENT_END;
+                            }
+                        }
+                    } // End else if (ELEMENT_MIDDLE == salientPointType).
                   else if (ELEMENT_END == salientPointType)
                     {
-                      // FIXME implement
-                    }
+                      if (kk < ChannelElement::channelVerticesSize)
+                        {
+                          // Create the vertex.
+                          if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                            {
+                              // Use the shape vertex as the salient point.
+                              salientPointX = shape->padfX[ll];
+                              salientPointY = shape->padfY[ll];
+                            }
+                          else
+                            {
+                              // Find the salient point between the shape vertex and the previous shape vertex.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              assert(ll < shape->nVertices - 1);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              
+                              salientPointFraction = (shapeVertexLocation - salientPointLocation) /
+                                                     sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                          (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                              
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              assert(0.0 < salientPointFraction && 1.0 > salientPointFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                              
+                              salientPointX        = (1 - salientPointFraction) * shape->padfX[ll] + salientPointFraction * shape->padfX[ll + 1];
+                              salientPointY        = (1 - salientPointFraction) * shape->padfY[ll] + salientPointFraction * shape->padfY[ll + 1];
+                            }
+                          
+                          error = createNode(salientPointX, salientPointY, &nodesSize, &numberOfNodes, nodesX, nodesY, &vertices[jj][kk]);
+                          
+                          if (!error)
+                            {
+                              // Fill in the rest of the vertices with duplicates of the last vertex.
+                              for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+                                {
+                                  vertices[jj][mm] = vertices[jj][kk];
+                                }
+                              
+                              // Set the first vertex in the next element.
+                              vertices[jj + 1][0] = vertices[jj][kk];
+                              
+                              // Advance to the next element.
+                              jj++;
+                              kk = 1;
+                            }
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
+                                  jj, ChannelElement::channelVerticesSize);
+                          error = true;
+                        }
+                      
+                      // If the shape vertex was already used as the salient point advance past it.
+                      if (0 < ll && epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                        {
+                          ll--;
+                          shapeVertexLocation += sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                      (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+                        }
+                      
+                      // Advance half an element length to the next salient point.
+                      salientPointLocation += channels[ii].length / (channels[ii].numberOfElements * 2.0);
+                      salientPointType      = ELEMENT_MIDDLE;
+                    } // End else if (ELEMENT_END == salientPointType).
                   else if (LINK_END == salientPointType)
                     {
-                      // FIXME implement
-                    }
+                      if (kk < ChannelElement::channelVerticesSize)
+                        {
+                          // If the last vertex hasn't already been created by a neighbor, create it.
+                          if (-1 == vertices[jj][ChannelElement::channelVerticesSize - 1])
+                            {
+                              if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
+                                {
+                                  // Use the shape vertex as the salient point.
+                                  salientPointX = shape->padfX[ll];
+                                  salientPointY = shape->padfY[ll];
+                                }
+                              else
+                                {
+                                  // Find the salient point between the shape vertex and the previous shape vertex.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                                  assert(ll < shape->nVertices - 1);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                                  salientPointFraction = (shapeVertexLocation - salientPointLocation) /
+                                                         sqrt((shape->padfX[ll] - shape->padfX[ll + 1]) * (shape->padfX[ll] - shape->padfX[ll + 1]) +
+                                                              (shape->padfY[ll] - shape->padfY[ll + 1]) * (shape->padfY[ll] - shape->padfY[ll + 1]));
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                                  assert(0.0 < salientPointFraction && 1.0 > salientPointFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                                  salientPointX        = (1 - salientPointFraction) * shape->padfX[ll] + salientPointFraction * shape->padfX[ll + 1];
+                                  salientPointY        = (1 - salientPointFraction) * shape->padfY[ll] + salientPointFraction * shape->padfY[ll + 1];
+                                }
+
+                              error = createNode(salientPointX, salientPointY, &nodesSize, &numberOfNodes, nodesX, nodesY, &vertices[jj][kk]);
+
+                              if (!error)
+                                {
+                                  // Set the vertex in the downstream STREAM neighbor and all upstream STREAM neighbors of that neighbor.
+                                  if (!isBoundary(channels[ii].downstream) && STREAM == channels[channels[ii].downstream].type)
+                                    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                                      assert(-1 == vertices[channels[channels[ii].downstream].elementStart][0]);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                                      vertices[channels[channels[ii].downstream].elementStart][0] = vertices[jj][kk];
+                                      
+                                      for (mm = 0; mm < UPSTREAM_SIZE && NOFLOW != channels[channels[ii].downstream].upstream[mm]; mm++)
+                                        {
+                                          if (ii != channels[channels[ii].downstream].upstream[mm] &&
+                                              !isBoundary(channels[channels[ii].downstream].upstream[mm]) &&
+                                              STREAM == channels[channels[channels[ii].downstream].upstream[mm]].type)
+                                            {
+        #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                                              assert(-1 == vertices[channels[channels[channels[ii].downstream].upstream[mm]].elementStart +
+                                                                    channels[channels[channels[ii].downstream].upstream[mm]].numberOfElements - 1]
+                                                                   [ChannelElement::channelVerticesSize - 1]);
+        #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                                              vertices[channels[channels[channels[ii].downstream].upstream[mm]].elementStart +
+                                                       channels[channels[channels[ii].downstream].upstream[mm]].numberOfElements - 1]
+                                                      [ChannelElement::channelVerticesSize - 1] = vertices[jj][kk];
+                                            }
+                                        }
+                                    }
+                                }
+                            } // End if the last vertex hasn't already been created by a neighbor, create it.
+                          else if (kk != ChannelElement::channelVerticesSize - 1)
+                            {
+                              // Move the vertex created by a neighbor into the right position.
+                              vertices[jj][kk] = vertices[jj][ChannelElement::channelVerticesSize - 1];
+                            }
+
+                          if (!error)
+                            {
+                              // Fill in the rest of the vertices with duplicates of the last vertex.
+                              for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+                                {
+                                  vertices[jj][mm] = vertices[jj][kk];
+                                }
+                              
+                              done = true;
+                            }
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
+                                  jj, ChannelElement::channelVerticesSize);
+                          error = true;
+                        }
+                    } // End else if (LINK_END == salientPointType).
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                   else
                     {
                       assert(false);
                     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-                  
-                  // FIXME remove
-                  done = true;
-                }
-              /* FIXME
-              // Handle the special case where the first vertex of the link has been created by an upstream neighbor.
-              if (-1 != vertices[channels[ii].elementStart][0])
-                {
-                  // FIXME advance the salient point.
-                  
-                  if (0 < jj && epsilonEqual(shapeVertexLocation, salientPointLocation))
-                    {
-                      // Advance the shape vertex.
-                      jj--;
-                      shapeVertexLocation += sqrt((shape->padfX[jj] * shape->padfX[jj]) + (shape->padfY[jj] * shape->padfY[jj]));
-                    }
-                }
-              
-              // FIXME Put the first vertex if it has not already been assigned.
-              // FIXME Loop over vertices and elements putting vertices and element center nodes.
-              */
-            }
+                } // End while (!error && !done).
+            } // End if (!error).
         } // End if (STREAM == channels[ii].type).
       else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
@@ -3309,8 +3584,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                     }
                 }
 
-              error = createNode(0.5 * (xMin + xMax), 0.5 * (yMin + yMax), &nodesSize, &numberOfNodes, nodeX, nodeY,
-                                 &elementCenter[channels[ii].elementStart]);
+              error = createNode(0.5 * (xMin + xMax), 0.5 * (yMin + yMax), &nodesSize, &numberOfNodes, nodesX, nodesY,
+                                 &elementCenters[channels[ii].elementStart]);
             }
 
           // Create the vertices.
@@ -3326,48 +3601,82 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                     {
                       // FIXME see if the point is a duplicate with any connected link.
                       
-                      error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodeX, nodeY,
+                      error = createNode(shape->padfX[ll], shape->padfY[ll], &nodesSize, &numberOfNodes, nodesX, nodesY,
                                          &vertices[channels[ii].elementStart][kk++]);
                     }
                   else
                     {
-                      fprintf(stderr, "ERROR in writeChannelNetwork: link %d: number of vertices exceeds maximum number %d.\n",
-                              ii, ChannelElement::channelVerticesSize);
+                      fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
+                              channels[ii].elementStart, ChannelElement::channelVerticesSize);
                       error = true;
                     }
                 }
             }
+          
+          // Fill in the rest of the vertices with duplicates of the last vertex.
+          kk--;
+          
+          for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+            {
+              vertices[channels[ii].elementStart][mm] = vertices[channels[ii].elementStart][kk];
+            }
         } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
-    } // End loop over all used links.  For each link loop over shapes filling in elementCenter and vertices and creating nodes as you go.
+    } // End loop over all used links.  For each link loop over shapes filling in elementCenters and vertices and creating nodes as you go.
 
-  /* FIXME
-  // FIXME this is a kludge so far
+  // FIXME error check these
   nodeFile     = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node", "w");
   elementFile  = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.ele",  "w");
   
+  fprintf(elementFile, "%d\n", numberOfElements);
+  
   for (ii = 0; ii < size; ii++)
     {
-      fprintf(elementFile, "%d", elementNumber++);
-      
-      if (STREAM == channels[ii].type || WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+      for (jj = channels[ii].elementStart; jj < channels[ii].elementStart + channels[ii].numberOfElements; jj++)
         {
-          for (jj = 0; jj < SHAPES_SIZE; jj++)
+          fprintf(elementFile, "%d %d %d %lf %d %d %d %d", jj, channels[ii].type, channels[ii].permanent, channels[ii].length / channels[ii].numberOfElements,
+                  elementCenters[jj], ChannelElement::channelVerticesSize, 0 /* FIXME ChannelElement::channelNeighborsSize */, 0 /* FIXME ChannelElement::meshNeighborsSize */);
+          
+          for (kk = 0; kk < ChannelElement::channelVerticesSize; kk++)
             {
-              if (NULL != channels[ii].shapes[jj])
-                {
-                  // In the TauDEM stream network shapefile the beginning of the polyline is the downstream end so start with the last vertex in the shape.
-                  for (kk = channels[ii].shapes[jj]->nVertices - 1; kk >= 0; kk--)
-                    {
-                      fprintf(nodeFile, "%d %lf %lf 0\n", nodeNumber, channels[ii].shapes[jj]->padfX[kk], channels[ii].shapes[jj]->padfY[kk]);
-                      fprintf(elementFile, " %d", nodeNumber++);
-                    }
-                }
+              fprintf(elementFile, " %d", vertices[jj][kk]);
             }
+          
+          // FIXME output channel neighbors
+          
+          // FIXME output mesh neighbors
+
+          fprintf(elementFile, "\n");
         }
-      
-      fprintf(elementFile, "\n");
+    }
+  
+  fprintf(nodeFile, "%d 2 0 1\n", numberOfNodes);
+  
+  for (ii = 0; ii < numberOfNodes; ii++)
+    {
+      fprintf(nodeFile, "%d %lf %lf 0\n", ii, nodesX[ii], nodesY[ii]);
     }
 
+  // Deallocate node arrays.
+  if (NULL != elementCenters)
+    {
+      delete[] elementCenters;
+    }
+  
+  if (NULL != vertices)
+    {
+      delete[] vertices;
+    }
+  
+  if (NULL != nodesX)
+    {
+      delete[] nodesX;
+    }
+  
+  if (NULL != nodesY)
+    {
+      delete[] nodesY;
+    }
+  
   // Close the files.
   if (NULL != nodeFile)
     {
@@ -3378,7 +3687,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
     {
       fclose(elementFile);
     }
-   */
   
   return error;
 }
