@@ -1,4 +1,3 @@
-// FIXME document communication pattern here?
 module mesh_element
 {
   array [1D] MeshElement
@@ -8,6 +7,7 @@ module mesh_element
     // Dummy function for structured dagger infinite loop.
     entry void runForever()
     {
+      // The element must receive an initialization message first.
       when initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit)
       {
         serial
@@ -16,6 +16,7 @@ module mesh_element
         }
       }
       
+      // Then the element must receive initialization messages from all neighbors.
       while(!allInitialized())
       {
         case
@@ -43,7 +44,7 @@ module mesh_element
         }
       }
       
-      // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+      // Then the element must receive one forcing data message as part of initialization.
       when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
                               double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
                               double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
@@ -63,7 +64,7 @@ module mesh_element
       {
         case
         {
-          // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+          // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
           when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
                                   double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
                                   double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
@@ -78,7 +79,9 @@ module mesh_element
                                        planetaryBoundaryLayerHeightNew);
             }
           }
-      
+          
+          // When the element receives a doTimestep message it starts the rounds of messages to calculate groundwater and surfacewater movement.
+          // FIXME document communication pattern here.
           when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
           {
             serial
@@ -507,6 +510,7 @@ module mesh_element
             } // End while (!surfacewaterDone).
           } // End when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep).
           
+          // When it is time to output to NetCDF files the element sends its updated state to the file managers.
           when updateState()
           {
             serial
@@ -516,6 +520,7 @@ module mesh_element
             }
           }
           
+          // Checking the invariant involves a round of messages between neighbors.
           when checkInvariant()
           {
             serial

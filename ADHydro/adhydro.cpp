@@ -32,7 +32,6 @@ ADHydro::ADHydro(CkArgMsg* msg)
   //fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
   fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
   // FIXME make ascii fileBasename a command line parameter.
-  // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -98,9 +97,9 @@ void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 12000; // FIXME
+  endTime                 = currentTime + 12000; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 3600; // FIXME
+  outputPeriod            = 3600; // FIXME make command line parameter
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry           = true;
@@ -309,7 +308,6 @@ void ADHydro::doTimestep()
       CkExit();
     }
 }
-
 
 void ADHydro::timestepDone(double dtNew)
 {
