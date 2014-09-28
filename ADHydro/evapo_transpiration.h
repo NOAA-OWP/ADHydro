@@ -20,7 +20,7 @@
 // followed by existing snow layers top to bottom followed by soil layers top
 // to bottom.
 
-// This struct holds the inout state variables that are simulated by the
+// This struct holds the input/output state variables that are simulated by the
 // evapo-transpiration module.  The calling code must initialize these values
 // before they are first used.  Then it should just pass the values produced by
 // one call back in to the next call.
@@ -142,7 +142,6 @@ bool evapoTranspirationInit(const char* directory);
 // wa                      - Water stored in aquifer in millimeters of water.
 // wt                      - Water stored in aquifer and saturated soil in
 //                           millimeters of water.
-// wsLake                  - Water stored in lakes in millimeters of water.
 // smcwtd                  - Water content between the bottom of the lowest
 //                           soil layer and water table, unitless.
 // evapoTranspirationState - State that is simulated by the evapo-transpiration
@@ -158,17 +157,108 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,  float smcwtd,
                             EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
-                            
-bool evapoTranspirationIce( float cosZ, float dt, float dx, float dz8w, float smcEq[4], float sfcTmp, float sfcPrs, 
-                            float uu, float vv, float q2, float solDn, float lwDn, float prcp, float tBot, float sh2o[4], 
-                            float smc[4], EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
-                            
-bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
-                            float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
-                            float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float wsLake, float smcwtd, 
-                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
-// FIXME add functions for evapoTranspirationWater
+// Calculate evapo-transpiration for a location with a water surface.  This
+// should be used for places permanently covered with surfacewater such as
+// waterbodies, not mesh elements that temporarily have surfacewater.
+//
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// lat                     - Latitude in radians.
+// yearLen                 - Number of days in the current year, 365 or 366.
+// julian                  - Julian day of year.  Time in days including
+//                           fractional day since midnight at the beginning of
+//                           January 1 of the current year.
+// cosZ                    - Cosine of the solar zenith angle, 0.0 to 1.0.
+//                           1.0 means the sun is directly overhead.
+//                           0.0 means the sun is at or below the horizon.
+// dt                      - Time step in seconds.
+// dx                      - Horizontal grid scale in meters.  Pass square root
+//                           of element area for non-square grid cells.
+// dz8w                    - Thickness in meters of lowest atmosphere layer in
+//                           forcing data.  The following other variables are
+//                           values from the middle of the lowest atmosphere
+//                           layer, i.e. half of this height: psfc, uu, vv, q2.
+// sfcTmp                  - Air temperature in Kelvin at surface.
+// sfcPrs                  - Air pressure in Pascal at surface.
+// psfc                    - Air pressure in Pascal at middle of lowest
+//                           atmosphere layer in forcing data.
+// uu                      - Eastward wind speed in meters per second at middle
+//                           of lowest atmosphere layer in forcing data.
+// vv                      - Northward wind speed in meters per second at
+//                           middle of lowest atmosphere layer in forcing data.
+// q2                      - Water vapor mixing ratio at middle of lowest
+//                           atmosphere layer in forcing data, unitless.
+// qc                      - Liquid water mixing ratio in clouds, unitless.
+// solDn                   - Downward short wave radiation in Watts per square
+//                           meter at the top of the canopy.
+// lwDn                    - Downward long wave radiation in Watts per square
+//                           meter at the top of the canopy.
+// prcp                    - Precipitation rate in millimeters of water per
+//                           second at the top of the canopy.
+// tBot                    - Boundary condition for soil temperature in Kelvin
+//                           at the bottom of the lowest soil layer.
+// plbh                    - Planetary boundary layer height in meters.
+// wsLake                  - Water stored in lakes in millimeters of water.
+// evapoTranspirationState - State that is simulated by the evapo-transpiration
+//                           module passed by reference.  Must be initialized
+//                           before first use.  Then will be filled in with new
+//                           values that should be passed back in to the next
+//                           call.
+// waterError              - Scalar passed by reference will be filled in with
+//                           the water error in Millimeters of water.  Positive
+//                           means water was created.  Negative means water was
+//                           destroyed.
+bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float sfcTmp, float sfcPrs, float psfc,
+                             float uu, float vv, float q2, float qc, float solDn, float lwDn, float prcp, float tBot, float pblh, float wsLake,
+                             EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+
+// Calculate evapo-transpiration for a location with a glacier surface.  This
+// should be used for places permanently covered with ice such as icemasses,
+// not mesh elements that temporarily have snow.
+//
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// cosZ                    - Cosine of the solar zenith angle, 0.0 to 1.0.
+//                           1.0 means the sun is directly overhead.
+//                           0.0 means the sun is at or below the horizon.
+// dt                      - Time step in seconds.
+// sfcTmp                  - Air temperature in Kelvin at surface.
+// sfcPrs                  - Air pressure in Pascal at surface.
+// uu                      - Eastward wind speed in meters per second at middle
+//                           of lowest atmosphere layer in forcing data.
+// vv                      - Northward wind speed in meters per second at
+//                           middle of lowest atmosphere layer in forcing data.
+// q2                      - Water vapor mixing ratio at middle of lowest
+//                           atmosphere layer in forcing data, unitless.
+// qc                      - Liquid water mixing ratio in clouds, unitless.
+// solDn                   - Downward short wave radiation in Watts per square
+//                           meter at the top of the canopy.
+// lwDn                    - Downward long wave radiation in Watts per square
+//                           meter at the top of the canopy.
+// prcp                    - Precipitation rate in millimeters of water per
+//                           second at the top of the canopy.
+// tBot                    - Boundary condition for soil temperature in Kelvin
+//                           at the bottom of the lowest soil layer.
+// zLvl                    - Thickness in meters of lowest atmosphere layer in
+//                           forcing data.  The following other variables are
+//                           values from the middle of the lowest atmosphere
+//                           layer, i.e. half of this height: uu, vv, q2.
+// evapoTranspirationState - State that is simulated by the evapo-transpiration
+//                           module passed by reference.  Must be initialized
+//                           before first use.  Then will be filled in with new
+//                           values that should be passed back in to the next
+//                           call.
+// waterError              - Scalar passed by reference will be filled in with
+//                           the water error in Millimeters of water.  Positive
+//                           means water was created.  Negative means water was
+//                           destroyed.
+bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs, float uu, float vv, float q2, float solDn, float lwDn, float prcp, float tBot,
+                               float zLvl, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
 
 // Check invariant conditions on an EvapoTranspirationStateStruct.
 //
