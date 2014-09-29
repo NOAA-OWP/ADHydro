@@ -787,6 +787,10 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
   float  sh2o[4];                 // input to evapoTranspirationSoil.
   float  smc[4];                  // input to evapoTranspirationSoil.
   float  waterError;              // output of evapoTranspirationSoil.
+  float  surfacewaterAdd;         // output of evapoTranspirationSoil.
+  float  groundEvaporation;       // output of evapoTranspirationSoil.
+  float  transpiration;           // output of evapoTranspirationSoil.
+  float  evaporationMm;           // output of evapoTranspirationSoil.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -833,18 +837,47 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
         }
       
       // FIXME calculate yearlen, julian, and cosZ from absolute time.
-      // FIXME use output values of this call.
+
       error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0, 1.0, dt, sqrt(elementArea),
                                      atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN,
                                      surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
                                      (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],
-                                     &evapoTranspirationState, &waterError);
+                                     &evapoTranspirationState, &waterError, &evaporationMm, &surfacewaterAdd, &groundEvaporation, &transpiration);
     }
   
   if (!error)
     {
+    // FIXME check the signs.
+    // Mass balance variables
+      precipitation            = precipitationRate*dt;
+      precipitationCumulative += precipitation;
+      evaporation              = evaporationMm/1000.0;
+      evaporationCumulative   += evaporation;
+      surfacewaterAdd          = surfacewaterAdd/1000.0;
+      groundEvaporation        = groundEvaporation/1000.0;
+      transpiration            = transpiration/1000.0;    
+       
+      surfacewaterDepth += surfacewaterAdd;
+      surfacewaterAdd    = 0;
+      
+      groundwaterHead  -=  transpiration*porosity;
+      transpiration     = 0;
+      
+      if (surfacewaterDepth > groundEvaporation)
+        {
+          surfacewaterDepth -= groundEvaporation;
+          groundEvaporation  = 0;
+        }
+      else if (surfacewaterDepth > 0)
+        {
+          groundEvaporation -= surfacewaterDepth;
+          surfacewaterDepth  = 0;
+          groundwaterHead   -= groundEvaporation*porosity;
+          groundEvaporation  = 0;
+        }     
+    
       // Initiate groundwater phase.
       for (edge = 0; edge < meshNeighborsSize; edge++)
         {

@@ -237,7 +237,8 @@ bool evapoTranspirationInit(const char* directory)
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt, float smcwtd,
-                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError)
+                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError, float* evaporationMm, float* surfacewaterAdd,
+                            float* groundEvaporation, float* transpiration)
 {
   bool  error = false; // Error flag.
   int   ii;            // Loop counter.
@@ -338,7 +339,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float changeInCanopyLiquid;                             // Change in canopy liquid during timestep in millimeters of water.
   int   iSnowOriginal  = evapoTranspirationState->iSnow;  // Actual number of snow layers before timestep.
   float evaporationFromCanopy;                            // Quantity of evaporation from canopy in millimeters of water equivalent.
-  float evaporationFromSurface;                           // Quantity of evaporation from surface in millimeters of water equivalent.
+  float evaporationFromSurface;                           // Quantity of evaporation from surface in millimeters of water equivalent. 
                                                           // Surface evaporation sometimes comes from snow and is taken out by Noah-MP, but if there is not
                                                           // enough snow we have to take the evaporation from the water in the ADHydro state variables.
   float evaporationFromSnow;                              // Quantity of evaporation that Noah-MP takes from the snow in millimeters of water equivalent.
@@ -678,6 +679,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // if 0 == iSnow && 0 == snowmeltOnGround and the temperature is above freezing do a simple snow melt calculation.
     } // End if (!error).
   
+  *transpiration     = eTran*dt;
+  *groundEvaporation = evaporationFromGround;
+  *evaporationMm     = evaporationFromGround + evaporationFromCanopy + evaporationFromSnow + *transpiration;
+  *surfacewaterAdd   = rainfallOnGround + snowmeltOnGround;
   return error;
 }
 

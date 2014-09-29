@@ -153,10 +153,22 @@ bool evapoTranspirationInit(const char* directory);
 //                           the water error in Millimeters of water.  Positive
 //                           means water was created.  Negative means water was
 //                           destroyed.
+// evaporationMm             - Total evaporation from the ammount precipitated in  
+//                           milimeters given by the Noah simulation. Includes: 
+//                           evaporation from canopy, evaporation from snow, 
+//                           transpiration from plants, and evaporation from ground.
+// surfacewaterAdd         - Total ammount of water on the ground in milimeters
+//                           given by Noah per simulation. This water is to be added 
+//                           to surfacewaterDepth mesh element. Always positive.
+// groundEvaporation       - Evaporation from the ground in milimeters per second
+//                           given by Noah. Positive value.
+// transpiration           - Transpiration from the plants in milimeters per second
+//                           given by Noah. Positive value.
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,  float smcwtd,
-                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError, float* evaporationMm, float* surfacewaterAdd,
+                            float* groundEvaporation, float* transpiration);
 
 // Calculate evapo-transpiration for a location with a water surface.  This
 // should be used for places permanently covered with surfacewater such as
