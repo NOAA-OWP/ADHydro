@@ -546,26 +546,26 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
   size_t nameStringSize;                         // Size of buffer allocated for nameString.
   size_t numPrinted;                             // Used to check that snprintf printed the correct number of characters.
   int    ncErrorCode;                            // Return value of NetCDF functions.
-  int    FileID;            // ID of NetCDF file.
-  bool   stateFileOpen = false;  // Whether stateFileID refers to an open file.
-  int    dimID;                  // ID of dimension in NetCDF file.
-  size_t stateTime;          // Time index for state file.
-  int    varID;                  // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS]; // For specifying subarrays when writing to NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS]; // For specifying subarrays when writing to NetCDF file.
-  double* forcingT2 = NULL; // FIXME talk to Hernan about code conventions
-  double* forcingVEGFRA = NULL;
-  double* forcingMAXVEGFRA = NULL;
-  double* forcingPSFC = NULL;
-  double* forcingU = NULL;
-  double* forcingV = NULL;
-  double* forcingQVAPOR = NULL;
-  double* forcingQCLOUD = NULL;
-  double* forcingSWDOWN = NULL;
-  double* forcingGLW = NULL;
-  double* forcingTPREC = NULL;
-  double* forcingTSLB = NULL;
-  double* forcingPBLH = NULL;
+  int    FileID;            					 // ID of NetCDF file.
+  bool   forcingFileOpen = false;  				 // Whether FileID refers to an open file.
+  int    dimID;                  				 // ID of dimension in NetCDF file.
+  size_t stateTime;          					 // Time index for state file.
+  int    varID;                  				 // ID of variable in NetCDF file.
+  size_t start[NC_MAX_VAR_DIMS]; 				 // For specifying subarrays when writing to NetCDF file.
+  size_t count[NC_MAX_VAR_DIMS]; 				 // For specifying subarrays when writing to NetCDF file.
+  double* forcingT2 = NULL; 					 // Used to read air temperature at 2m height forcing. 
+  double* forcingVEGFRA = NULL;					 // Used to read vegetation fraction forcing.
+  double* forcingMAXVEGFRA = NULL;				 // Used to read maximum vegetation fraction forcing.
+  double* forcingPSFC = NULL;					 // Used to read surface pressure forcing.
+  double* forcingU = NULL;						 // Used to read wind speed U component forcing.
+  double* forcingV = NULL;						 // Used to read wind speed V component forcing.
+  double* forcingQVAPOR = NULL;					 // Used to read water vapor mixing ratio forcing.
+  double* forcingQCLOUD = NULL;					 // Used to read cloud water mixing ratio forcing.
+  double* forcingSWDOWN = NULL;					 // Used to read downward shortwave flux forcing.
+  double* forcingGLW = NULL;					 // Used to read downward longwave flux forcing.
+  double* forcingTPREC = NULL;					 // Used to read total precipitation forcing.
+  double* forcingTSLB = NULL;					 // Used to read soil temperature at the deepest layer forcing.
+  double* forcingPBLH = NULL;					 // Used to read planetary boundary layer height forcing.
 
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -588,7 +588,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(strlen(directory) + strlen("/forcing.nc") == numPrinted && numPrinted < nameStringSize))
         {
-          CkError("ERROR in FileManager::readForcingData: incorrect return value of snprintf when generating state file name %s.  "
+          CkError("ERROR in FileManager::readForcingData: incorrect return value of snprintf when generating forcing file name %s.  "
                   "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/forcing.nc"), nameStringSize);
           error = true;
         }
@@ -603,14 +603,14 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to open NetCDF state file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::readForcingData: unable to open NetCDF forcing file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
       else
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
-          stateFileOpen = true;
+          forcingFileOpen = true;
         }
     }
  
@@ -622,7 +622,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get dimension Time in NetCDF state file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::readForcingData: unable to get dimension Time in NetCDF forcing file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -636,7 +636,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get length of dimension Time in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get length of dimension Time in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -654,7 +654,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
       else
         {
           // We're not creating a new Time so it's an error if there's not an existing one.
-          CkError("ERROR in FileManager::readForcingData: not creating a new Time and no existing Time in NetCDF state file %s.\n",
+          CkError("ERROR in FileManager::readForcingData: not creating a new Time and no existing Time in NetCDF forcing file %s.\n",
                   nameString);
           error = true;
         }
@@ -670,7 +670,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable T2 in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable T2 in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -690,7 +690,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable T2 in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable T2 in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -705,7 +705,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable VEGFRA in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable VEGFRA in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -725,7 +725,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable VEGFRA in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable VEGFRA in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -740,7 +740,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable MAXVEGFRA in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable MAXVEGFRA in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -760,7 +760,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable MAXVEGFRA in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable MAXVEGFRA in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -775,7 +775,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable PSFC in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable PSFC in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -795,7 +795,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable PSFC in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable PSFC in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -810,7 +810,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable U in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable U in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -830,7 +830,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable U in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable U in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -845,7 +845,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable V in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable V in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -865,7 +865,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable V in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable V in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -880,7 +880,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable QVAPOR in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable QVAPOR in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -900,7 +900,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable QVAPOR in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable QVAPOR in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -915,7 +915,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable QCLOUD in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable QCLOUD in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -935,7 +935,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable QCLOUD in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable QCLOUD in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -950,7 +950,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable SWDOWN in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable SWDOWN in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -970,7 +970,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable SWDOWN in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable SWDOWN in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -985,7 +985,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable GLW in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable GLW in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1005,7 +1005,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable GLW in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable GLW in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1020,7 +1020,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable TPREC in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable TPREC in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1040,7 +1040,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable TPREC in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable TPREC in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1056,7 +1056,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable TSLB in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable TSLB in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1076,7 +1076,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable TSLB in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable TSLB in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1092,7 +1092,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to get variable PBLH in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to get variable PBLH in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1112,7 +1112,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to read variable PBLH in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::readForcingData: unable to read variable PBLH in NetCDF forcing file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1125,7 +1125,13 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 
   for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
     {
-	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], 101175.0, forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], forcingPBLH[ii - localMeshElementStart]);
+	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], 
+			                         forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], 
+			                         forcingPSFC[ii - localMeshElementStart]-120, forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],
+			                         forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], 
+			                         forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], 
+			                         forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], 
+			                         forcingPBLH[ii - localMeshElementStart]);
     }
   
   for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
@@ -1134,15 +1140,15 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
     }
 
   // Close file.
-  if (stateFileOpen)
+  if (forcingFileOpen)
     {
       ncErrorCode   = nc_close(FileID);
-      stateFileOpen = false;
+      forcingFileOpen = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::readForcingData: unable to close NetCDF state file.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::readForcingData: unable to close NetCDF forcing file.  NetCDF error message: %s.\n",
                   nc_strerror(ncErrorCode));
           error = true;
         }
@@ -1152,6 +1158,54 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
   if (NULL != forcingT2)
     {
       delete[] forcingT2;
+    }
+  if (NULL != forcingVEGFRA)
+    {
+      delete[] forcingVEGFRA;
+    }
+  if (NULL != forcingMAXVEGFRA)
+    {
+      delete[] forcingMAXVEGFRA;
+    }
+  if (NULL != forcingPSFC)
+    {
+      delete[] forcingPSFC;
+    }
+  if (NULL != forcingU)
+    {
+      delete[] forcingU;
+    }
+  if (NULL != forcingV)
+    {
+      delete[] forcingV;
+    }
+  if (NULL != forcingQVAPOR)
+    {
+      delete[] forcingQVAPOR;
+    }
+  if (NULL != forcingQCLOUD)
+    {
+      delete[] forcingQCLOUD;
+    }
+  if (NULL != forcingSWDOWN)
+    {
+      delete[] forcingSWDOWN;
+    }
+  if (NULL != forcingGLW)
+    {
+      delete[] forcingGLW;
+    }
+  if (NULL != forcingTPREC)
+    {
+      delete[] forcingTPREC;
+    }
+  if (NULL != forcingTSLB)
+    {
+      delete[] forcingTSLB;
+    }
+  if (NULL != forcingPBLH)
+    {
+      delete[] forcingPBLH;
     }
 
 }
