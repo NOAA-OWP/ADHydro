@@ -513,6 +513,15 @@ private:
   double groundwaterError;  // Cubic meters of water.  Positive means water was created.  Negative means water was destroyed.
   
   // Water flow state variables.
+  double precipitation;            // Precipitation falling on the mesh element in meters of water.  Positive means water added to the element.  Must be
+                                   // non-negative.
+  double precipitationCumulative;  // Cumulative precipitation that has fallen on the mesh element in meters of water since last set to zero.  Gets set to zero
+                                   // at initialization and each I/O phase.  Positive means water added to the element.  Must be non-negative.
+  double evaporation;              // Evaporation or condensation on the mesh element in meters of water.  Positive means water added to the element.  Negative
+                                   // means water removed from the element.
+  double evaporationCumulative;    // Cumulative evaporation or condensation on the mesh element in meters of water since last set to zero.  Gets set to zero
+                                   // at initialization and each I/O phase.  Positive means water added to the element.  Negative means water removed from the
+                                   // element.
   double surfacewaterInfiltration; // Meters of water infiltrating from the surface.  Positive means flow from the surface to the vadose zone.  Must be
                                    // non-negative.  If water exfiltrates from groundwater to the surface that is handled in a different way in
                                    // moveGroundwater.  FIXME store cumulative infiltration?
@@ -520,10 +529,10 @@ private:
                                    // groundwater.  Negative means flow from the groundwater to the vadose zone.  During moveGroundwater this is used to store
                                    // the net meters of water added to or removed from the groundwater including infiltration and all groundwater flows.
                                    // Positive means water added to the groundwater.  Negative means water removed from the groundwater.
+                                   // FIXME store cumulative recharge?
   
   // Evapo-transpiration state variables.
   EvapoTranspirationStateStruct evapoTranspirationState; // state variables that are simulated by the evapo-transpiration module.
-                                                         // FIXME to do a hotstart we will eventually need to write these state variables out and read them back in.
   
   // Forcing data.
   double atmosphereLayerThickness;     // Thickness in meters of lowest atmosphere layer in forcing data.  The following other variables are values from the

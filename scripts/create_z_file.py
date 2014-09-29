@@ -13,6 +13,7 @@ with open(inputMeshFile, "r") as nodeFile:
     firstNode          = True
     numberOfNodes      = 0
     nodeNumber         = 0
+    firstNodeNumber    = 0
     previousNodeNumber = 0
     for line in nodeFile:
       if firstLine:
@@ -30,8 +31,15 @@ with open(inputMeshFile, "r") as nodeFile:
         match = re.match("\s*([-+]?\d+)\s*([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)\s*([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", line)
         if match:
           nodeNumber = int(match.group(1))
-          if (firstNode and 0 == nodeNumber) or nodeNumber == previousNodeNumber + 1:
+          if firstNode:
             firstNode = False
+            if 0 == nodeNumber or 1 == nodeNumber:
+              firstNodeNumber    = nodeNumber
+              previousNodeNumber = nodeNumber - 1
+            else:
+              print "ERROR: Nodes must be numbered starting at zero or one."
+              break
+          if nodeNumber == previousNodeNumber + 1:
             previousNodeNumber = nodeNumber
             x = float(match.group(2))
             y = float(match.group(6))
@@ -47,7 +55,7 @@ with open(inputMeshFile, "r") as nodeFile:
         else:
           print "WARNING: No match found on line:"
           print line
-    if nodeNumber != numberOfNodes:
+    if nodeNumber != numberOfNodes - 1 + firstNodeNumber:
       print "WARNING: Number of nodes in header does not match number of nodes in file."
 
 

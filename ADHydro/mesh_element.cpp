@@ -5,7 +5,7 @@
 
 // FIXME questions and to-do list items
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
-// Will it send out one MPI message per mesh edge rather than all of the ghost node information in a single message?
+// Will it send out one MPI message per mesh edge rather than all of the ghost node information in a single message?  Yes, I believe so.
 // As elements migrate to different nodes update interaction in a way that guarantees both sides agree on the interaction.
 // Scale channel dx w/ bankfull depth?
 // Think about implications of file manager files being open or closed when checkpointing.
@@ -44,6 +44,10 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterError;
   p | groundwaterHead;
   p | groundwaterError;
+  p | precipitation;
+  p | precipitationCumulative;
+  p | evaporation;
+  p | evaporationCumulative;
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | evapoTranspirationState;
@@ -465,6 +469,10 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   
   if (!error)
     {
+      precipitation            = 0.0;
+      precipitationCumulative  = 0.0;
+      evaporation              = 0.0;
+      evaporationCumulative    = 0.0;
       surfacewaterInfiltration = 0.0;
       groundwaterRecharge      = 0.0;
       groundwaterDone          = true;
@@ -770,12 +778,15 @@ void MeshElement::handleForcingDataMessage(double atmosphereLayerThicknessNew, d
 #pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
 {
-  bool  error = false; // Error flag.
-  int   edge;          // Loop counter.
-  float smceq[4];      // input to evapoTranspirationSoil.
-  float sh2o[4];       // input to evapoTranspirationSoil.
-  float smc[4];        // input to evapoTranspirationSoil.
-  float waterError;    // output of evapoTranspirationSoil.
+  bool   error = false;           // Error flag.
+  int    ii, edge;                // Loop counters.
+  double layerMiddleDepth;        // For calculating input to evapoTranspirationSoil.
+  double distanceAboveWaterTable; // For calculating input to evapoTranspirationSoil.
+  double relativeSaturation;      // For calculating input to evapoTranspirationSoil.
+  float  smcEq[4];                // input to evapoTranspirationSoil.
+  float  sh2o[4];                 // input to evapoTranspirationSoil.
+  float  smc[4];                  // input to evapoTranspirationSoil.
+  float  waterError;              // output of evapoTranspirationSoil.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -795,29 +806,41 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
       dtNew            = 2.0 * dt;
 
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
-      // FIXME get real values for parameters from infiltration state.
-      smceq[0] = 0.05;
-      smceq[1] = 0.1;
-      smceq[2] = 0.15;
-      smceq[3] = 0.2;
-      sh2o[0] = 0.05;
-      sh2o[1] = 0.1;
-      sh2o[2] = 0.15;
-      sh2o[3] = 0.2;
-      smc[0] = 0.05;
-      smc[1] = 0.1;
-      smc[2] = 0.15;
-      smc[3] = 0.2;
-
+      
+      // FIXME get real values for soil moisture from infiltration state.
+      for (ii = 0; ii < 4; ii++)
+        {
+          layerMiddleDepth        = 0.5 * (evapoTranspirationState.zSnso[ii + 3] + evapoTranspirationState.zSnso[ii + 3 - 1]); // Depth as a negative number.
+          distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
+          
+          if (0.1 > distanceAboveWaterTable)
+            {
+              relativeSaturation = 1.0;
+            }
+          else
+            {
+              relativeSaturation = 1.0 - (log10(distanceAboveWaterTable) + 1.0) * 0.3;
+              
+              if (0.0 > relativeSaturation)
+                {
+                  relativeSaturation = 0.0;
+                }
+            }
+          
+          smcEq[ii] = porosity * relativeSaturation;
+          sh2o[ii]  = porosity * relativeSaturation;
+          smc[ii]   = porosity * relativeSaturation;
+        }
+      
       // FIXME calculate yearlen, julian, and cosZ from absolute time.
       // FIXME use output values of this call.
       error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0, 1.0, dt, sqrt(elementArea),
-                                     atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smceq, surfaceTemperature + ZERO_C_IN_KELVIN,
+                                     atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN,
                                      surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
-                                     (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, 0.0,
-                                     smc[3], &evapoTranspirationState, &waterError);
+                                     (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],
+                                     &evapoTranspirationState, &waterError);
     }
   
   if (!error)
@@ -2100,6 +2123,20 @@ void MeshElement::handleCheckInvariant()
       error = true;
     }
   
+  if (!(1 <= vegetationType && 27 >= vegetationType))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: USGS vegetation type must be greater than or equal to 1 and less than or equal to "
+              "27.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(1 <= soilType && 19 >= soilType))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: STAS soil type must be greater than or equal to 1 and less than or equal to 19.\n",
+              thisIndex);
+      error = true;
+    }
+  
   if (!(0.0 < conductivity))
     {
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: conductivity must be greater than zero.\n", thisIndex);
@@ -2129,6 +2166,31 @@ void MeshElement::handleCheckInvariant()
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: groundwaterHead must be less than or equal to elementZSurface.\n", thisIndex);
       error = true;
     }
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: precipitation must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: precipitationCumulative must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 <= surfacewaterInfiltration))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacewaterInfiltration must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
+      error = true;
+    }
+  
+  // FIXME check invariant on forcing data
   
   if (!groundwaterDone)
     {
