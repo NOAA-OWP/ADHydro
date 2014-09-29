@@ -144,8 +144,11 @@ public:
   //
   // Parameters:
   //
-  // meshProxy    - The mesh elements to send the forcing data to.
-  // channelProxy - The channel elements to send the forcing data to.
+  // meshProxy     - The mesh elements to send the forcing data to.
+  // channelProxy  - The channel elements to send the forcing data to.
+  // currentTime   - The updated time step in seconds.
+  // directorySize - The size of the array passed in to directory.
+  // directory     - The directory from which to read the files.
   void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize, const char* directory);
   
   // Create NetCDF files for output including creating dimensions and variables
