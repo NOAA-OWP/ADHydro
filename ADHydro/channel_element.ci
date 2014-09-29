@@ -1,4 +1,3 @@
-// FIXME document communication pattern here?
 module channel_element
 {
   array [1D] ChannelElement
@@ -8,6 +7,7 @@ module channel_element
     // Dummy function for structured dagger infinite loop.
     entry void runForever()
     {
+      // The element must receive an initialization message first.
       when initialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit)
       {
         serial
@@ -16,6 +16,7 @@ module channel_element
         }
       }
       
+      // Then the element must receive initialization messages from all neighbors.
       while(!allInitialized())
       {
         case
@@ -43,7 +44,7 @@ module channel_element
         }
       }
       
-      // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+      // Then the element must receive one forcing data message as part of initialization.
       when forcingDataMessage()
       {
         serial
@@ -56,7 +57,7 @@ module channel_element
       {
         case
         {
-          // The element must receive one forcing data message as part of initialization.  Then new forcing data can optionally arrive between timesteps.
+          // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
           when forcingDataMessage()
           {
             serial
@@ -65,6 +66,8 @@ module channel_element
             }
           }
           
+          // When the element receives a doTimestep message it starts the rounds of messages to calculate groundwater and surfacewater movement.
+          // FIXME document communication pattern here.
           when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
           {
             serial
@@ -390,6 +393,7 @@ module channel_element
             } // End while (!surfacewaterDone).
           } // End when doTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep).
           
+          // When it is time to output to NetCDF files the element sends its updated state to the file managers.
           when updateState()
           {
             serial
@@ -401,6 +405,7 @@ module channel_element
             }
           }
           
+          // Checking the invariant involves a round of messages between neighbors.
           when checkInvariant()
           {
             serial

@@ -29,10 +29,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
   
   // Initialize the file manager.
-  fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
-  // FIXME fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  //fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
+  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
   // FIXME make ascii fileBasename a command line parameter.
-  // FIXME remove hardcoded mesh form source code? fileManagerProxy.initializeHardcodedMesh();
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -98,9 +97,9 @@ void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 100.0; // FIXME
+  endTime                 = currentTime + 12000; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 10.0; // FIXME
+  outputPeriod            = 3600; // FIXME make command line parameter
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry           = true;
@@ -177,7 +176,7 @@ void ADHydro::checkForcingData()
         }
 
       // Update forcing data.
-      fileManagerProxy.readForcingData(meshProxy, channelProxy);
+      fileManagerProxy.readForcingData(meshProxy, channelProxy, currentTime, strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
       thisProxy.waitForForcingDataToFinish();
       
       // Now that we have updated the forcing data we don't need to do it again unless they change.
@@ -310,7 +309,6 @@ void ADHydro::doTimestep()
     }
 }
 
-
 void ADHydro::timestepDone(double dtNew)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -320,6 +318,12 @@ void ADHydro::timestepDone(double dtNew)
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  // FIXME replace this with absolute time
+  if ((int)(currentTime / 3600.0) < (int)(currentTime + dt / 3600.0))
+  {
+    needToUpdateForcingData = true;
+  }
 
   // Update time and iteration number.
   currentTime += dt;

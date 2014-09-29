@@ -8,14 +8,6 @@ module file_manager
     {
       case
       {
-        when initializeHardcodedMesh()
-        {
-          serial
-          {
-            handleInitializeHardcodedMesh();
-          }
-        }
-        
         when initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
                                       size_t fileBasenameSize, const char fileBasename[fileBasenameSize])
         {
@@ -35,7 +27,6 @@ module file_manager
       }
     };
     
-    entry void initializeHardcodedMesh();
     entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
                                         size_t fileBasenameSize, const char fileBasename[fileBasenameSize]);
     entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
@@ -64,7 +55,8 @@ module file_manager
     };
     
     entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
-    entry void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy);
+    entry void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize,
+                               const char directory[directorySize]);
     entry void createFiles(size_t directorySize, const char directory[directorySize]);
     entry void resizeUnlimitedDimensions(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
     entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
