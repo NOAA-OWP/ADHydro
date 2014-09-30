@@ -17,7 +17,7 @@
 // FIXME refactor to have multiple downstream connections for each link.
 
 #define SHAPES_SIZE   (2)  // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE (64) // Size of array of upstream links in ChannelLinkStruct.
+#define UPSTREAM_SIZE (42) // Size of array of upstream links in ChannelLinkStruct.
 
 typedef int intarraycvn[ChannelElement::channelVerticesSize]; // Fixed size array of ints.  Size is channel vertices.
 
@@ -681,11 +681,12 @@ bool splitLink(ChannelLinkStruct* channels, int size, int linkNo, LinkElementStr
       // If you are at the end of an element, point to the next one, the first one that will be moved.
       if (epsilonEqual(location, element->endLocation))
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          assert(NULL != element->next); // There must be a next element or we would have been at the end of the link and we would not have split the link.
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-
           element = element->next;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // There must be a next element or we would have been at the end of the link and we would not have split the link.
+          assert(NULL != element);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
       else if (!epsilonEqual(location, beginLocation(element)))
         {
@@ -3103,30 +3104,41 @@ typedef enum
 // FIXME comment
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
 {
-  bool             error            = false; // Error flag.
-  int              ii, jj, kk, ll, mm;       // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices, ll is for
-                                             // shape vertices, and mm is for neighbors.
-  int              numberOfElements = 0;     // Number of channel elements.
-  int*             elementCenters   = NULL;  // Node numbers of the element centers.
-  intarraycvn*     vertices         = NULL;  // Node numbers of the element vertices.
-  int              nodesSize;                // Size of nodesX and nodesY arrays.
-  int              numberOfNodes    = 0;     // Number of channel nodes.
-  double*          nodesX           = NULL;  // X coordinates of nodes.
-  double*          nodesY           = NULL;  // Y coordinates of nodes.
-  SHPObject*       shape;                    // Shape object of a link.
-  double           salientPointLocation;     // The 1D location in meters along a link of a salient point.
-  SalientPointEnum salientPointType;         // The type of a salient point.
-  double           salientPointX;            // X coordinate of salient point.
-  double           salientPointY;            // Y coordinate of salient point.
-  double           salientPointFraction;     // Fraction of distance between two shape vertices of salient point.
-  double           shapeVertexLocation;      // The 1D location in meters along a link of a shape vertex.
-  bool             done;                     // Termination condition for complex loop.
-  double           xMin;                     // For computing bounding box of waterbody.
-  double           xMax;                     // For computing bounding box of waterbody.
-  double           yMin;                     // For computing bounding box of waterbody.
-  double           yMax;                     // For computing bounding box of waterbody.
-  FILE*            elementFile;              // Output file for channel elements.
-  FILE*            nodeFile;                 // Output file for channel nodes.
+  bool               error            = false;     // Error flag.
+  int                ii, jj, kk, ll, mm;           // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices, ll
+                                                   // is for shape vertices, and mm is for neighbors.
+  int                numberOfElements = 0;         // Number of channel elements.
+  int*               elementCenters   = NULL;      // Node numbers of the element centers.
+  intarraycvn*       vertices         = NULL;      // Node numbers of the element vertices.
+  int                nodesSize;                    // Size of nodesX and nodesY arrays.
+  int                numberOfNodes    = 0;         // Number of channel nodes.
+  double*            nodesX           = NULL;      // X coordinates of nodes.
+  double*            nodesY           = NULL;      // Y coordinates of nodes.
+  int                numberOfNeighbors;            // Number of neighbors of a channel element.  Used for both channel and mesh neighbors.
+  SHPObject*         shape;                        // Shape object of a link.
+  double             salientPointLocation;         // The 1D location in meters along a link of a salient point.
+  SalientPointEnum   salientPointType;             // The type of a salient point.
+  double             salientPointX;                // X coordinate of salient point.
+  double             salientPointY;                // Y coordinate of salient point.
+  double             salientPointFraction;         // Fraction of distance between two shape vertices of salient point.
+  double             shapeVertexLocation;          // The 1D location in meters along a link of a shape vertex.
+  bool               done;                         // Termination condition for complex loop.
+  double             xMin;                         // For computing bounding box of waterbody.
+  double             xMax;                         // For computing bounding box of waterbody.
+  double             yMin;                         // For computing bounding box of waterbody.
+  double             yMax;                         // For computing bounding box of waterbody.
+  double             desiredElementLength = 100.0; // Length in meters to try to get the length of channel elements as close to as possible.
+                                                   // FIXME calculate desired length based on channel size.  For now use fixed 100 meters.
+  double             actualElementLength;          // Length in meters of actual channel elements.
+  LinkElementStruct* tempElement;                  // For looping over mesh edge elements.
+  double             elementBeginLocation;         // The 1D location in meters along a link of the beginning of a channel element.
+  double             elementEndLocation;           // The 1D location in meters along a link of the end of a channel element.
+  double             overlapBeginLocation;         // The 1D location in meters along a link of the beginning of the overlap between a channel element and a
+                                                   // mesh neighbor.
+  double             overlapEndLocation;           // The 1D location in meters along a link of the end of the overlap between a channel element and a mesh
+                                                   // neighbor.
+  FILE*              elementFile;                  // Output file for channel elements.
+  FILE*              nodeFile;                     // Output file for channel nodes.
   
   // FIXME error checking
   
@@ -3136,8 +3148,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
       
       if (STREAM == channels[ii].type)
         {
-          // FIXME calculate desired length based on channel size.  For now use fixed 100 meters.
-          channels[ii].numberOfElements = numberOfLinkElements(channels, size, ii, 100.0);
+          channels[ii].numberOfElements = numberOfLinkElements(channels, size, ii, desiredElementLength);
         }
       else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
@@ -3614,38 +3625,261 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
             }
           
           // Fill in the rest of the vertices with duplicates of the last vertex.
-          kk--;
-          
-          for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+          for (mm = kk; mm < ChannelElement::channelVerticesSize; mm++)
             {
-              vertices[channels[ii].elementStart][mm] = vertices[channels[ii].elementStart][kk];
+              vertices[channels[ii].elementStart][mm] = vertices[channels[ii].elementStart][kk - 1];
             }
         } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
     } // End loop over all used links.  For each link loop over shapes filling in elementCenters and vertices and creating nodes as you go.
 
-  // FIXME error check these
+  // FIXME error check these and below
   nodeFile     = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node", "w");
   elementFile  = fopen("/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.ele",  "w");
   
   fprintf(elementFile, "%d\n", numberOfElements);
   
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
-      for (jj = channels[ii].elementStart; jj < channels[ii].elementStart + channels[ii].numberOfElements; jj++)
+      // Calculate the length of the elements of this link.
+      actualElementLength = channels[ii].length / channels[ii].numberOfElements;
+      
+      // If a stream has more than one element then the smallest that the actual element length can be is ~70% of the desired element length.  This occurs when
+      // the stream is just barely big enough to be split into two elements.  If a stream or waterbody has only one element it can be shorter than this.
+      // Arbitrarily increase the length of these short links.
+      if (actualElementLength < 0.7 * desiredElementLength)
         {
-          fprintf(elementFile, "%d %d %d %lf %d %d %d %d", jj, channels[ii].type, channels[ii].permanent, channels[ii].length / channels[ii].numberOfElements,
-                  elementCenters[jj], ChannelElement::channelVerticesSize, 0 /* FIXME ChannelElement::channelNeighborsSize */, 0 /* FIXME ChannelElement::meshNeighborsSize */);
+          fprintf(stderr, "WARNING in writeChannelNetwork: element %d: element length increased from %lf to %lf.\n", channels[ii].elementStart, actualElementLength, 0.7 * desiredElementLength);
           
+          actualElementLength = 0.7 * desiredElementLength;
+        }
+      
+      if (STREAM == channels[ii].type)
+        {
+          // Store first mesh neighbor element and first channel element begin location for simultaneous walk when outputting mesh neighbors.
+          tempElement        = channels[ii].firstElement;
+          elementEndLocation = 0.0;
+        }
+      
+      for (jj = channels[ii].elementStart; !error && jj < channels[ii].elementStart + channels[ii].numberOfElements; jj++)
+        {
+          // Output constant length per-channel-element information.
+          fprintf(elementFile, "%d %d %d %lf %d %d %d %d", jj, channels[ii].type, channels[ii].permanent, actualElementLength, elementCenters[jj],
+                  ChannelElement::channelVerticesSize, ChannelElement::channelNeighborsSize, ChannelElement::meshNeighborsSize);
+          
+          // Output vertices.
           for (kk = 0; kk < ChannelElement::channelVerticesSize; kk++)
             {
               fprintf(elementFile, " %d", vertices[jj][kk]);
             }
           
-          // FIXME output channel neighbors
+          // Output channel neighbors.
+          numberOfNeighbors = 0;
           
-          // FIXME output mesh neighbors
+          // Output upstream neighbors.
+          if (jj == channels[ii].elementStart)
+            {
+              for (mm = 0; !error && mm < UPSTREAM_SIZE && NOFLOW != channels[ii].upstream[mm]; mm++)
+                {
+                  if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                    {
+                      if (isBoundary(channels[ii].upstream[mm]))
+                        {
+                          fprintf(elementFile, " %d", channels[ii].upstream[mm]);
+                        }
+                      else
+                        {
+                          fprintf(elementFile, " %d", channels[channels[ii].upstream[mm]].elementStart + channels[channels[ii].upstream[mm]].numberOfElements - 1);
+                        }
 
-          fprintf(elementFile, "\n");
+                      numberOfNeighbors++;
+                    }
+                  else
+                    {
+                      fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
+                              jj, ChannelElement::channelNeighborsSize);
+                      error = true;
+                    }
+                }
+            }
+          else
+            {
+              if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                {
+                  fprintf(elementFile, " %d", jj - 1);
+                  numberOfNeighbors++;
+                }
+              else
+                {
+                  fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
+                          jj, ChannelElement::channelNeighborsSize);
+                  error = true;
+                }
+            }
+          
+          // Output downstream neighbors.
+          if (!error)
+            {
+              if (jj == channels[ii].elementStart + channels[ii].numberOfElements - 1)
+                {
+                  if (NOFLOW != channels[ii].downstream)
+                    {
+                      if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                        {
+                          if (isBoundary(channels[ii].downstream))
+                            {
+                              fprintf(elementFile, " %d", channels[ii].downstream);
+                            }
+                          else
+                            {
+                              fprintf(elementFile, " %d", channels[channels[ii].downstream].elementStart);
+                            }
+
+                          numberOfNeighbors++;
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
+                                  jj, ChannelElement::channelNeighborsSize);
+                          error = true;
+                        }
+                    }
+                }
+              else
+                {
+                  if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                    {
+                      fprintf(elementFile, " %d", jj + 1);
+                      numberOfNeighbors++;
+                    }
+                  else
+                    {
+                      fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
+                              jj, ChannelElement::channelNeighborsSize);
+                      error = true;
+                    }
+                }
+            }
+          
+          // Fill in unused neighbors with NOFLOW.
+          if (!error)
+            {
+              while (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                {
+                  fprintf(elementFile, " %d", NOFLOW);
+                  numberOfNeighbors++;
+                }
+            }
+          
+          // Output mesh neighbors.
+          numberOfNeighbors = 0;
+          
+          if (STREAM == channels[ii].type)
+            {
+              // Store new channel element location.
+              elementBeginLocation = elementEndLocation;
+              elementEndLocation  += channels[ii].length / channels[ii].numberOfElements;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              // We should not get past the last mesh neighbor element until we are done processing the last channel element for this link, and we have already
+              // walked forward to the first mesh neighbor element that overlaps this channel element.
+              assert(NULL != tempElement && epsilonGreater(tempElement->endLocation, elementBeginLocation));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+              // Output mesh neighbor elements that overlap this channel element and not the next channel element.
+              while (!error && NULL != tempElement && epsilonLessOrEqual(tempElement->endLocation, elementEndLocation))
+                {
+                  if (-1 != tempElement->edge)
+                    {
+                      if (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                        {
+                          if (beginLocation(tempElement) > elementBeginLocation)
+                            {
+                              overlapBeginLocation = beginLocation(tempElement);
+                            }
+                          else
+                            {
+                              overlapBeginLocation = elementBeginLocation;
+                            }
+
+                          if (tempElement->endLocation < elementEndLocation)
+                            {
+                              overlapEndLocation = tempElement->endLocation;
+                            }
+                          else
+                            {
+                              overlapEndLocation = elementEndLocation;
+                            }
+
+                          // Output the edge number and the fraction of that edge's length that overlaps this channel element.
+                          // NOTE: It is the fraction of the mesh edge's length, not the fraction of the channel element's length.
+                          fprintf(elementFile, " %d %lf", tempElement->edge, (overlapEndLocation - overlapBeginLocation) /
+                                                                             (tempElement->endLocation - beginLocation(tempElement)));
+                          numberOfNeighbors++;
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of mesh neighbors exceeds maximum number %d.\n",
+                                  jj, ChannelElement::meshNeighborsSize);
+                          error = true;
+                        }
+                    }
+
+                  tempElement = tempElement->next;
+                }
+
+              // Output a mesh neighbor element that overlaps this channel element and the next channel element.
+              if (!error && NULL != tempElement && epsilonLess(beginLocation(tempElement), elementEndLocation))
+                {
+                  if (-1 != tempElement->edge)
+                    {
+                      if (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                        {
+                          if (beginLocation(tempElement) > elementBeginLocation)
+                            {
+                              overlapBeginLocation = beginLocation(tempElement);
+                            }
+                          else
+                            {
+                              overlapBeginLocation = elementBeginLocation;
+                            }
+
+                          if (tempElement->endLocation < elementEndLocation)
+                            {
+                              overlapEndLocation = tempElement->endLocation;
+                            }
+                          else
+                            {
+                              overlapEndLocation = elementEndLocation;
+                            }
+
+                          // Output the edge number and the fraction of that edge's length that overlaps this channel element.
+                          // NOTE: It is the fraction of the mesh edge's length, not the fraction of the channel element's length.
+                          fprintf(elementFile, " %d %lf", tempElement->edge, (overlapEndLocation - overlapBeginLocation) /
+                                                                             (tempElement->endLocation - beginLocation(tempElement)));
+                          numberOfNeighbors++;
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of mesh neighbors exceeds maximum number %d.\n",
+                                  jj, ChannelElement::meshNeighborsSize);
+                          error = true;
+                        }
+                    }
+                }
+            }
+          
+          if (!error)
+            {
+              // Fill in unused neighbors with NOFLOW.
+              while (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                {
+                  fprintf(elementFile, " %d %lf", NOFLOW, 0.0);
+                  numberOfNeighbors++;
+                }
+
+              // End the line.
+              fprintf(elementFile, "\n");
+            }
         }
     }
   
