@@ -537,36 +537,35 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
   thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
 }
 
-void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize, const char* directory)
+void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize,
+                                  const char* directory)
 {
-  int ii; // Loop counter.
-
-  bool   error      = false;                     // Error flag.
-  char*  nameString = NULL;                      // Temporary string for file names.
-  size_t nameStringSize;                         // Size of buffer allocated for nameString.
-  size_t numPrinted;                             // Used to check that snprintf printed the correct number of characters.
-  int    ncErrorCode;                            // Return value of NetCDF functions.
-  int    FileID;            					 // ID of NetCDF file.
-  bool   forcingFileOpen = false;  				 // Whether FileID refers to an open file.
-  int    dimID;                  				 // ID of dimension in NetCDF file.
-  size_t stateTime;          					 // Time index for state file.
-  int    varID;                  				 // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS]; 				 // For specifying subarrays when writing to NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS]; 				 // For specifying subarrays when writing to NetCDF file.
-  double* forcingT2 = NULL; 					 // Used to read air temperature at 2m height forcing. 
-  double* forcingVEGFRA = NULL;					 // Used to read vegetation fraction forcing.
-  double* forcingMAXVEGFRA = NULL;				 // Used to read maximum vegetation fraction forcing.
-  double* forcingPSFC = NULL;					 // Used to read surface pressure forcing.
-  double* forcingU = NULL;						 // Used to read wind speed U component forcing.
-  double* forcingV = NULL;						 // Used to read wind speed V component forcing.
-  double* forcingQVAPOR = NULL;					 // Used to read water vapor mixing ratio forcing.
-  double* forcingQCLOUD = NULL;					 // Used to read cloud water mixing ratio forcing.
-  double* forcingSWDOWN = NULL;					 // Used to read downward shortwave flux forcing.
-  double* forcingGLW = NULL;					 // Used to read downward longwave flux forcing.
-  double* forcingTPREC = NULL;					 // Used to read total precipitation forcing.
-  double* forcingTSLB = NULL;					 // Used to read soil temperature at the deepest layer forcing.
-  double* forcingPBLH = NULL;					 // Used to read planetary boundary layer height forcing.
-
+  bool   error             = false; // Error flag.
+  int ii;                           // Loop counter.
+  char*  nameString        = NULL;  // Temporary string for file names.
+  size_t nameStringSize;            // Size of buffer allocated for nameString.
+  size_t numPrinted;                // Used to check that snprintf printed the correct number of characters.
+  int    ncErrorCode;               // Return value of NetCDF functions.
+  int    FileID;                    // ID of NetCDF file.
+  bool   forcingFileOpen   = false; // Whether FileID refers to an open file.
+  int    dimID;                     // ID of dimension in NetCDF file.
+  size_t stateTime;                 // Time index for state file.
+  int    varID;                     // ID of variable in NetCDF file.
+  size_t start[NC_MAX_VAR_DIMS];    // For specifying subarrays when writing to NetCDF file.
+  size_t count[NC_MAX_VAR_DIMS];    // For specifying subarrays when writing to NetCDF file.
+  double* forcingT2        = NULL;  // Used to read air temperature at 2m height forcing.
+  double* forcingVEGFRA    = NULL;  // Used to read vegetation fraction forcing.
+  double* forcingMAXVEGFRA = NULL;  // Used to read maximum vegetation fraction forcing.
+  double* forcingPSFC      = NULL;  // Used to read surface pressure forcing.
+  double* forcingU         = NULL;  // Used to read wind speed U component forcing.
+  double* forcingV         = NULL;  // Used to read wind speed V component forcing.
+  double* forcingQVAPOR    = NULL;  // Used to read water vapor mixing ratio forcing.
+  double* forcingQCLOUD    = NULL;  // Used to read cloud water mixing ratio forcing.
+  double* forcingSWDOWN    = NULL;  // Used to read downward shortwave flux forcing.
+  double* forcingGLW       = NULL;  // Used to read downward longwave flux forcing.
+  double* forcingTPREC     = NULL;  // Used to read total precipitation forcing.
+  double* forcingTSLB      = NULL;  // Used to read soil temperature at the deepest layer forcing.
+  double* forcingPBLH      = NULL;  // Used to read planetary boundary layer height forcing.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -697,7 +696,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
-  // VEGFRA	
+  // VEGFRA
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "VEGFRA", &varID);
@@ -732,7 +731,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // MAXVEGFRA	
+ // MAXVEGFRA
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "MAXVEGFRA", &varID);
@@ -767,7 +766,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // PSFC	
+ // PSFC
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "PSFC", &varID);
@@ -802,7 +801,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // U	
+ // U
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "U", &varID);
@@ -837,7 +836,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // V	
+ // V
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "V", &varID);
@@ -872,7 +871,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // QVAPOR	
+ // QVAPOR
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "QVAPOR", &varID);
@@ -907,7 +906,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // QCLOUD	
+ // QCLOUD
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "QCLOUD", &varID);
@@ -942,7 +941,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // SWDOWN	
+ // SWDOWN
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "SWDOWN", &varID);
@@ -977,7 +976,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // GLW	
+ // GLW
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "GLW", &varID);
@@ -1012,7 +1011,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
- // TPREC	
+ // TPREC
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "TPREC", &varID);
@@ -1048,7 +1047,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
     }
 
 
- // TSLB	
+ // TSLB
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "TSLB", &varID);
@@ -1084,7 +1083,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
     }
 
 
- // PBLH	
+ // PBLH
   if (!error)
     {
       ncErrorCode = nc_inq_varid(FileID, "PBLH", &varID);
@@ -1119,19 +1118,15 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
 
-
-  // FIXME implement
-
-
   for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
     {
-	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart], 
-			                         forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart], 
-			                         forcingPSFC[ii - localMeshElementStart]-120, forcingU[ii - localMeshElementStart], forcingV[ii - localMeshElementStart],
-			                         forcingQVAPOR[ii - localMeshElementStart], forcingQCLOUD[ii - localMeshElementStart], 
-			                         forcingSWDOWN[ii - localMeshElementStart], forcingGLW[ii - localMeshElementStart], 
-			                         forcingTPREC[ii - localMeshElementStart], forcingTSLB[ii - localMeshElementStart], 
-			                         forcingPBLH[ii - localMeshElementStart]);
+	meshProxy[ii].forcingDataMessage(20.0, forcingVEGFRA[ii - localMeshElementStart], forcingMAXVEGFRA[ii - localMeshElementStart],
+	                                 forcingT2[ii - localMeshElementStart], forcingPSFC[ii - localMeshElementStart],
+	                                 forcingPSFC[ii - localMeshElementStart] - 120.0, forcingU[ii - localMeshElementStart],
+	                                 forcingV[ii - localMeshElementStart], forcingQVAPOR[ii - localMeshElementStart],
+	                                 forcingQCLOUD[ii - localMeshElementStart],  forcingSWDOWN[ii - localMeshElementStart],
+	                                 forcingGLW[ii - localMeshElementStart],  forcingTPREC[ii - localMeshElementStart],
+	                                 forcingTSLB[ii - localMeshElementStart],  forcingPBLH[ii - localMeshElementStart]);
     }
   
   for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
@@ -1142,7 +1137,7 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
   // Close file.
   if (forcingFileOpen)
     {
-      ncErrorCode   = nc_close(FileID);
+      ncErrorCode     = nc_close(FileID);
       forcingFileOpen = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1159,57 +1154,67 @@ void FileManager::readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelEl
     {
       delete[] forcingT2;
     }
+  
   if (NULL != forcingVEGFRA)
     {
       delete[] forcingVEGFRA;
     }
+  
   if (NULL != forcingMAXVEGFRA)
     {
       delete[] forcingMAXVEGFRA;
     }
+  
   if (NULL != forcingPSFC)
     {
       delete[] forcingPSFC;
     }
+  
   if (NULL != forcingU)
     {
       delete[] forcingU;
     }
+  
   if (NULL != forcingV)
     {
       delete[] forcingV;
     }
+  
   if (NULL != forcingQVAPOR)
     {
       delete[] forcingQVAPOR;
     }
+  
   if (NULL != forcingQCLOUD)
     {
       delete[] forcingQCLOUD;
     }
+  
   if (NULL != forcingSWDOWN)
     {
       delete[] forcingSWDOWN;
     }
+  
   if (NULL != forcingGLW)
     {
       delete[] forcingGLW;
     }
+  
   if (NULL != forcingTPREC)
     {
       delete[] forcingTPREC;
     }
+  
   if (NULL != forcingTSLB)
     {
       delete[] forcingTSLB;
     }
+  
   if (NULL != forcingPBLH)
     {
       delete[] forcingPBLH;
     }
-
 }
-
 
 void FileManager::createFiles(size_t directorySize, const char* directory)
 {
@@ -9996,7 +10001,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
     {
-      CkError("ERROR in FileManager::initializeFromNetCDFFiles: directory must not be null.\n");
+      CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: directory must not be null.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -10013,7 +10018,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(strlen(directory) + strlen("/state.nc") == numPrinted && numPrinted < nameStringSize))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: incorrect return value of snprintf when generating state file name %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: incorrect return value of snprintf when generating state file name %s.  "
                   "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/state.nc"), nameStringSize);
           error = true;
         }
@@ -10028,7 +10033,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to open NetCDF state file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to open NetCDF state file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10047,8 +10052,8 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get dimension instances in NetCDF state file %s.  NetCDF error message: %s.\n",
-                  nameString, nc_strerror(ncErrorCode));
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get dimension instances in NetCDF state file %s.  NetCDF error message: "
+                  "%s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -10061,7 +10066,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get length of dimension instances in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get length of dimension instances in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10079,7 +10084,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
       else
         {
           // We're not creating a new instance so it's an error if there's not an existing one.
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: not creating a new instance and no existing instance in NetCDF state file %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: not creating a new instance and no existing instance in NetCDF state file %s.\n",
                   nameString);
           error = true;
         }
@@ -10094,7 +10099,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable iteration in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable iteration in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10110,7 +10115,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable iteration in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable iteration in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10124,7 +10129,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable currentTime in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable currentTime in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10140,7 +10145,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable currentTime in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable currentTime in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10154,7 +10159,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable dt in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable dt in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10170,7 +10175,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable dt in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable dt in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10184,7 +10189,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable geometryInstance in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable geometryInstance in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10203,7 +10208,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable geometryInstance in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable geometryInstance in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10217,7 +10222,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable parameterInstance in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable parameterInstance in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10236,7 +10241,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable parameterInstance in NetCDF state file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable parameterInstance in NetCDF state file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10251,7 +10256,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(strlen(directory) + strlen("/geometry.nc") == numPrinted && numPrinted < nameStringSize))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: incorrect return value of snprintf when generating geometry file name %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: incorrect return value of snprintf when generating geometry file name %s.  "
                   "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/geometry.nc"), nameStringSize);
           error = true;
         }
@@ -10266,7 +10271,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to open NetCDF geometry file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to open NetCDF geometry file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10285,7 +10290,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable numberOfMeshNodes in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10301,7 +10306,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable numberOfMeshNodes in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable numberOfMeshNodes in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10315,7 +10320,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable numberOfMeshElements in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10331,7 +10336,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable numberOfMeshElements in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable numberOfMeshElements in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10345,7 +10350,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable numberOfChannelNodes in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10361,7 +10366,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable numberOfChannelNodes in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable numberOfChannelNodes in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10375,7 +10380,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to get variable numberOfChannelElements in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to get variable numberOfChannelElements in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10391,7 +10396,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable numberOfChannelElements in NetCDF geometry file %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable numberOfChannelElements in NetCDF geometry file %s.  "
                   "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -10419,7 +10424,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshNodeX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshNodeX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10443,7 +10448,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshNodeY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshNodeY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10467,7 +10472,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshNodeZSurface in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshNodeZSurface in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10491,7 +10496,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshNodeZBedrock in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshNodeZBedrock in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10517,7 +10522,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementVertices in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementVertices in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10543,7 +10548,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshVertexX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshVertexX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10569,7 +10574,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshVertexY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshVertexY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10595,7 +10600,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshVertexZSurface in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshVertexZSurface in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10621,7 +10626,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshVertexZBedrock in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshVertexZBedrock in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10645,7 +10650,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10669,7 +10674,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10693,7 +10698,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementZSurface in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementZSurface in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10717,7 +10722,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementZBedrock in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementZBedrock in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10741,7 +10746,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementArea in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementArea in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10765,7 +10770,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementSlopeX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementSlopeX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10789,7 +10794,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshElementSlopeY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshElementSlopeY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10815,7 +10820,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshMeshNeighbors in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshMeshNeighbors in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10844,7 +10849,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshMeshNeighborsChannelEdge in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshMeshNeighborsChannelEdge in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10870,8 +10875,8 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeLength in NetCDF geometry file %s.  "
-                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeLength in NetCDF geometry file %s."
+                      "  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -10896,8 +10901,8 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeNormalX in NetCDF geometry file %s.  "
-                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeNormalX in NetCDF geometry file %s."
+                      "  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -10922,8 +10927,8 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeNormalY in NetCDF geometry file %s.  "
-                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshMeshNeighborsEdgeNormalY in NetCDF geometry file %s."
+                      "  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -10948,7 +10953,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshChannelNeighbors in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshChannelNeighbors in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -10974,8 +10979,8 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshChannelNeighborsEdgeLength in NetCDF geometry file %s.  "
-                      "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshChannelNeighborsEdgeLength in NetCDF geometry file "
+                      "%s.  NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -10998,7 +11003,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelNodeX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelNodeX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11022,7 +11027,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelNodeY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelNodeY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11046,7 +11051,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelNodeZBank in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelNodeZBank in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11070,7 +11075,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelNodeZBed in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelNodeZBed in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11096,7 +11101,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementVertices in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementVertices in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11122,7 +11127,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelVertexX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelVertexX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11148,7 +11153,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelVertexY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelVertexY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11174,7 +11179,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelVertexZBank in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelVertexZBank in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11200,7 +11205,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelVertexZBed in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelVertexZBed in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11224,7 +11229,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementX in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementX in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11248,7 +11253,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementY in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementY in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11272,7 +11277,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementZBank in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementZBank in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11296,7 +11301,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementZBed in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementZBed in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11320,7 +11325,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelElementLength in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelElementLength in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11346,7 +11351,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelChannelNeighbors in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelChannelNeighbors in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11372,7 +11377,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelMeshNeighbors in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelMeshNeighbors in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11398,7 +11403,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelMeshNeighborsEdgeLength in NetCDF geometry file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelMeshNeighborsEdgeLength in NetCDF geometry file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11415,7 +11420,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to close NetCDF geometry file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to close NetCDF geometry file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -11430,7 +11435,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(strlen(directory) + strlen("/parameter.nc") == numPrinted && numPrinted < nameStringSize))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: incorrect return value of snprintf when generating parameter file name %s.  "
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: incorrect return value of snprintf when generating parameter file name %s.  "
                   "%d should be equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/parameter.nc"), nameStringSize);
           error = true;
         }
@@ -11445,7 +11450,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to open NetCDF parameter file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to open NetCDF parameter file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -11473,7 +11478,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshCatchment in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshCatchment in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11497,7 +11502,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshConductivity in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshConductivity in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11521,7 +11526,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshPorosity in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshPorosity in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11545,7 +11550,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshManningsN in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshManningsN in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11572,7 +11577,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelChannelType in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelChannelType in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11596,7 +11601,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelPermanentCode in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelPermanentCode in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11620,7 +11625,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelBaseWidth in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelBaseWidth in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11644,7 +11649,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelSideSlope in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelSideSlope in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11668,7 +11673,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelBedConductivity in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelBedConductivity in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11692,7 +11697,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelBedThickness in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelBedThickness in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11716,7 +11721,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelManningsN in NetCDF parameter file %s.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelManningsN in NetCDF parameter file %s.  "
                       "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11733,7 +11738,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to close NetCDF parameter file %s.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to close NetCDF parameter file %s.  NetCDF error message: %s.\n",
                   nameString, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -11757,7 +11762,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshSurfacewaterDepth in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshSurfacewaterDepth in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11781,7 +11786,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshSurfacewaterError in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshSurfacewaterError in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11805,7 +11810,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshGroundwaterHead in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshGroundwaterHead in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11829,7 +11834,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable meshGroundwaterError in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable meshGroundwaterError in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11853,7 +11858,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelSurfacewaterDepth in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelSurfacewaterDepth in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11877,7 +11882,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
             {
-              CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to read variable channelSurfacewaterError in NetCDF state file.  "
+              CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to read variable channelSurfacewaterError in NetCDF state file.  "
                       "NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
               error = true;
             }
@@ -11894,7 +11899,7 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::initializeFromNetCDFFiles: unable to close NetCDF state file.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::handleInitializeFromNetCDFFiles: unable to close NetCDF state file.  NetCDF error message: %s.\n",
                   nc_strerror(ncErrorCode));
           error = true;
         }
