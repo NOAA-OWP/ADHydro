@@ -3688,7 +3688,16 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                         }
                       else
                         {
-                          fprintf(elementFile, " %d", channels[channels[ii].upstream[mm]].elementStart + channels[channels[ii].upstream[mm]].numberOfElements - 1);
+                          // This is a kludge to get around the fact that we sometimes connect streams to waterbodies upstream to upstream.
+                          if (ii == channels[channels[ii].upstream[mm]].downstream)
+                            {
+                              fprintf(elementFile, " %d", channels[channels[ii].upstream[mm]].elementStart +
+                                                          channels[channels[ii].upstream[mm]].numberOfElements - 1);
+                            }
+                          else
+                            {
+                              numberOfNeighbors--;
+                            }
                         }
 
                       numberOfNeighbors++;
@@ -3735,6 +3744,30 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size)
                             }
 
                           numberOfNeighbors++;
+                        }
+                      else
+                        {
+                          fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
+                                  jj, ChannelElement::channelNeighborsSize);
+                          error = true;
+                        }
+                    }
+                  
+                  for (mm = 0; !error && mm < UPSTREAM_SIZE && NOFLOW != channels[ii].upstream[mm]; mm++)
+                    {
+                      if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                        {
+                          if (!isBoundary(channels[ii].upstream[mm]))
+                            {
+                              // This is a kludge to get around the fact that we sometimes connect streams to waterbodies upstream to upstream.
+                              if (ii != channels[channels[ii].upstream[mm]].downstream)
+                                {
+                                  fprintf(elementFile, " %d", channels[channels[ii].upstream[mm]].elementStart +
+                                                              channels[channels[ii].upstream[mm]].numberOfElements - 1);
+
+                                  numberOfNeighbors++;
+                                }
+                            }
                         }
                       else
                         {
