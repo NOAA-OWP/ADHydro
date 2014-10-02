@@ -149,26 +149,52 @@ bool evapoTranspirationInit(const char* directory);
 //                           before first use.  Then will be filled in with new
 //                           values that should be passed back in to the next
 //                           call.
+// surfacewaterAdd         - Scalar passed by reference will be filled in with
+//                           the total amount of water in millimeters of water
+//                           to add to the surfacewater of the element being
+//                           processed.  This includes rain and snowmelt that
+//                           reaches the ground surface.  This water should be
+//                           added in lieu of prcp * dt because some of that
+//                           precipitation might be intercepted by the canopy
+//                           or snow layer.  Must be non-negative.
+// evaporationFromCanopy   - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the canopy in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the canopy.  Negative means
+//                           water condensed on to the canopy.  This water has
+//                           already been added to or removed from canLiq and
+//                           canIce in evapoTranspirationState.  The quantity
+//                           is merely provided for mass balance calculations.
+// evaporationFromSnow     - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the snow layer in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the snow.  Negative means
+//                           water condensed on to the snow.  This water has
+//                           already been added to or removed from snEqv in
+//                           evapoTranspirationState.  The quantity is merely
+//                           provided for mass balance calculations.
+// evaporationFromGround   - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the ground in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the ground.  Negative means
+//                           water condensed on to the ground.  This water
+//                           needs to be added to or removed from the
+//                           surfacewater or groundwater of the element being
+//                           processed.
+// transpiration           - Scalar passed by reference will be filled in with
+//                           The amount of transpiration through plants in
+//                           millimeters of water.  Must be non-negative.  This
+//                           water needs to be removed from the groundwater or
+//                           surfacewater of the element being processed.
 // waterError              - Scalar passed by reference will be filled in with
 //                           the water error in Millimeters of water.  Positive
 //                           means water was created.  Negative means water was
 //                           destroyed.
-// evaporationMm             - Total evaporation from the ammount precipitated in  
-//                           milimeters given by the Noah simulation. Includes: 
-//                           evaporation from canopy, evaporation from snow, 
-//                           transpiration from plants, and evaporation from ground.
-// surfacewaterAdd         - Total ammount of water on the ground in milimeters
-//                           given by Noah per simulation. This water is to be added 
-//                           to surfacewaterDepth mesh element. Always positive.
-// groundEvaporation       - Evaporation from the ground in milimeters per second
-//                           given by Noah. Positive value.
-// transpiration           - Transpiration from the plants in milimeters per second
-//                           given by Noah. Positive value.
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
                             float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
                             float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,  float smcwtd,
-                            EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError, float* evaporationMm, float* surfacewaterAdd,
-                            float* groundEvaporation, float* transpiration);
+                            EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromCanopy,
+                            float* evaporationFromSnow, float* evaporationFromGround, float* transpiration, float* waterError);
 
 // Calculate evapo-transpiration for a location with a water surface.  This
 // should be used for places permanently covered with surfacewater such as
@@ -219,13 +245,38 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 //                           before first use.  Then will be filled in with new
 //                           values that should be passed back in to the next
 //                           call.
+// surfacewaterAdd         - Scalar passed by reference will be filled in with
+//                           the total amount of water in millimeters of water
+//                           to add to the surfacewater of the element being
+//                           processed.  This includes rain and snowmelt that
+//                           reaches the ground surface.  This water should be
+//                           added in lieu of prcp * dt because some of that
+//                           precipitation might be intercepted by the canopy
+//                           or snow layer.  Must be non-negative.
+// evaporationFromSnow     - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the snow layer in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the snow.  Negative means
+//                           water condensed on to the snow.  This water has
+//                           already been added to or removed from snEqv in
+//                           evapoTranspirationState.  The quantity is merely
+//                           provided for mass balance calculations.
+// evaporationFromGround   - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the ground in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the ground.  Negative means
+//                           water condensed on to the ground.  This water
+//                           needs to be added to or removed from the
+//                           surfacewater or groundwater of the element being
+//                           processed.
 // waterError              - Scalar passed by reference will be filled in with
 //                           the water error in Millimeters of water.  Positive
 //                           means water was created.  Negative means water was
 //                           destroyed.
 bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float sfcTmp, float sfcPrs, float psfc,
                              float uu, float vv, float q2, float qc, float solDn, float lwDn, float prcp, float tBot, float pblh, float wsLake,
-                             EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+                             EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromSnow,
+                             float* evaporationFromGround, float* waterError);
 
 // Calculate evapo-transpiration for a location with a glacier surface.  This
 // should be used for places permanently covered with ice such as icemasses,
@@ -265,12 +316,37 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 //                           before first use.  Then will be filled in with new
 //                           values that should be passed back in to the next
 //                           call.
+// surfacewaterAdd         - Scalar passed by reference will be filled in with
+//                           the total amount of water in millimeters of water
+//                           to add to the surfacewater of the element being
+//                           processed.  This includes rain and snowmelt that
+//                           reaches the ground surface.  This water should be
+//                           added in lieu of prcp * dt because some of that
+//                           precipitation might be intercepted by the canopy
+//                           or snow layer.  Must be non-negative.
+// evaporationFromSnow     - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the snow layer in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the snow.  Negative means
+//                           water condensed on to the snow.  This water has
+//                           already been added to or removed from snEqv in
+//                           evapoTranspirationState.  The quantity is merely
+//                           provided for mass balance calculations.
+// evaporationFromGround   - Scalar passed by reference will be filled in with
+//                           The amount of evaporation from the ground in
+//                           millimeters of water.  Positive means water
+//                           evaporated off of the ground.  Negative means
+//                           water condensed on to the ground.  This water
+//                           needs to be added to or removed from the
+//                           surfacewater or groundwater of the element being
+//                           processed.
 // waterError              - Scalar passed by reference will be filled in with
 //                           the water error in Millimeters of water.  Positive
 //                           means water was created.  Negative means water was
 //                           destroyed.
 bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs, float uu, float vv, float q2, float solDn, float lwDn, float prcp, float tBot,
-                               float zLvl, EvapoTranspirationStateStruct* evapoTranspirationState, float* waterError);
+                               float zLvl, EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromSnow,
+                               float* evaporationFromGround, float* waterError);
 
 // Check invariant conditions on an EvapoTranspirationStateStruct.
 //

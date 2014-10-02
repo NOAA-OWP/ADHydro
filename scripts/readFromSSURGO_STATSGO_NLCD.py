@@ -98,8 +98,8 @@ def getSoilTypDRV():
    NODEfilepath          = os.path.join(sufixPath, 'mesh.1.node')
    output_SoilTyp_file   = os.path.join(sufixPath, 'mesh.1.soilType')
    output_VegTyp_file    = os.path.join(sufixPath, 'mesh.1.LandCover')
-   
-   elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'V4'], index_col=0, engine='c').dropna()
+   output_element_data_file = os.path.join(sufixPath, 'element_data.csv')
+   elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
    
    elements['V1'] = elements['V1'].astype(int)
 
@@ -182,7 +182,7 @@ def getSoilTypDRV():
    #VegParm
    elements = elements.apply(getVegParm, axis=1)
    
-   elements.to_csv('element_data.csv', na_rep='NaN')
+   elements.to_csv(output_element_data_file, na_rep='NaN')
    
    SoilFile = open(output_SoilTyp_file, 'wb')
    #Write soil file header information

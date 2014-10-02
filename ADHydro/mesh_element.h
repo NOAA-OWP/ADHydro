@@ -46,8 +46,8 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
-  static const int meshNeighborsSize    = 3; // Maximum number of mesh neighbors.
-  static const int channelNeighborsSize = 2; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 3;  // Maximum number of mesh neighbors.
+  static const int channelNeighborsSize = 16; // Maximum number of channel neighbors.
   
 private:
   

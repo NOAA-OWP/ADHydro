@@ -29,9 +29,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
   
   // Initialize the file manager.
+  // FIXME make choice of initialization and ascii fileBasename command line parameters.
   //fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
   fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
-  // FIXME make ascii fileBasename a command line parameter.
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -97,9 +97,9 @@ void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 12000; // FIXME make command line parameter
+  endTime                 = currentTime + 12000.0; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 3600; // FIXME make command line parameter
+  outputPeriod            = 3600.0; // FIXME make command line parameter
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
   writeGeometry           = true;

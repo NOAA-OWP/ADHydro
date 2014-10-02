@@ -783,14 +783,17 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
   double layerMiddleDepth;        // For calculating input to evapoTranspirationSoil.
   double distanceAboveWaterTable; // For calculating input to evapoTranspirationSoil.
   double relativeSaturation;      // For calculating input to evapoTranspirationSoil.
-  float  smcEq[4];                // input to evapoTranspirationSoil.
-  float  sh2o[4];                 // input to evapoTranspirationSoil.
-  float  smc[4];                  // input to evapoTranspirationSoil.
-  float  waterError;              // output of evapoTranspirationSoil.
-  float  surfacewaterAdd;         // output of evapoTranspirationSoil.
-  float  groundEvaporation;       // output of evapoTranspirationSoil.
-  float  transpiration;           // output of evapoTranspirationSoil.
-  float  evaporationMm;           // output of evapoTranspirationSoil.
+  float  smcEq[4];                // Input to evapoTranspirationSoil.
+  float  sh2o[4];                 // Input to evapoTranspirationSoil.
+  float  smc[4];                  // Input to evapoTranspirationSoil.
+  float  surfacewaterAdd;         // Output of evapoTranspirationSoil.
+  float  evaporationFromCanopy;   // Output of evapoTranspirationSoil.
+  float  evaporationFromSnow;     // Output of evapoTranspirationSoil.
+  float  evaporationFromGround;   // Output of evapoTranspirationSoil.
+  float  transpiration;           // Output of evapoTranspirationSoil.
+  float  waterError;              // Output of evapoTranspirationSoil.
+  double unsatisfiedEvaporation;  // Unsatisfied evaporation in meters of water.  Positive means water evaporated off of the ground.  Negative means water
+                                  // condensed on to the ground.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -810,13 +813,13 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
       dtNew            = 2.0 * dt;
 
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
-      
+
       // FIXME get real values for soil moisture from infiltration state.
       for (ii = 0; ii < 4; ii++)
         {
           layerMiddleDepth        = 0.5 * (evapoTranspirationState.zSnso[ii + 3] + evapoTranspirationState.zSnso[ii + 3 - 1]); // Depth as a negative number.
           distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
-          
+
           if (0.1 > distanceAboveWaterTable)
             {
               relativeSaturation = 1.0;
@@ -824,60 +827,102 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
           else
             {
               relativeSaturation = 1.0 - (log10(distanceAboveWaterTable) + 1.0) * 0.3;
-              
+
               if (0.0 > relativeSaturation)
                 {
                   relativeSaturation = 0.0;
                 }
             }
-          
+
           smcEq[ii] = porosity * relativeSaturation;
           sh2o[ii]  = porosity * relativeSaturation;
           smc[ii]   = porosity * relativeSaturation;
         }
-      
-      // FIXME calculate yearlen, julian, and cosZ from absolute time.
 
+      // FIXME calculate yearlen, julian, and cosZ from absolute time.
       error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0, 1.0, dt, sqrt(elementArea),
                                      atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN,
                                      surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
                                      (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],
-                                     &evapoTranspirationState, &waterError, &evaporationMm, &surfacewaterAdd, &groundEvaporation, &transpiration);
+                                     &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround,
+                                     &transpiration, &waterError);
     }
   
   if (!error)
     {
-    // FIXME check the signs.
-    // Mass balance variables
-      precipitation            = precipitationRate*dt;
-      precipitationCumulative += precipitation;
-      evaporation              = evaporationMm/1000.0;
-      evaporationCumulative   += evaporation;
-      surfacewaterAdd          = surfacewaterAdd/1000.0;
-      groundEvaporation        = groundEvaporation/1000.0;
-      transpiration            = transpiration/1000.0;    
-       
-      surfacewaterDepth += surfacewaterAdd;
-      surfacewaterAdd    = 0;
+      // Move water and record flows for precipitation and evaporation.
+      surfacewaterDepth += surfacewaterAdd / 1000.0;
+      precipitation      = precipitationRate * dt;
+      evaporation        = -((double)evaporationFromCanopy + evaporationFromSnow) / 1000.0;
       
-      groundwaterHead  -=  transpiration*porosity;
-      transpiration     = 0;
+      // Take evaporationFromGround first from surfacewater, and then if there isn't enough surfacewater from groundwater.  If there isn't enough groundwater
+      // print a warning and reduce the quantity of evaporation.
+      unsatisfiedEvaporation = evaporationFromGround / 1000.0;
       
-      if (surfacewaterDepth > groundEvaporation)
+      if (surfacewaterDepth >= unsatisfiedEvaporation)
         {
-          surfacewaterDepth -= groundEvaporation;
-          groundEvaporation  = 0;
+          surfacewaterDepth -= unsatisfiedEvaporation;
+          evaporation       -= unsatisfiedEvaporation;
         }
-      else if (surfacewaterDepth > 0)
+      else
         {
-          groundEvaporation -= surfacewaterDepth;
-          surfacewaterDepth  = 0;
-          groundwaterHead   -= groundEvaporation*porosity;
-          groundEvaporation  = 0;
-        }     
-    
+          unsatisfiedEvaporation -= surfacewaterDepth;
+          evaporation            -= surfacewaterDepth;
+          surfacewaterDepth       = 0.0;
+          
+          if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
+            {
+              groundwaterHead -= unsatisfiedEvaporation / porosity;
+              evaporation     -= unsatisfiedEvaporation;
+            }
+          else
+            {
+              unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
+              evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
+              groundwaterHead        = elementZBedrock;
+              
+              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %lf meters.\n",
+                      thisIndex, unsatisfiedEvaporation);
+            }
+        }
+      
+      // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater
+      // print a warning and reduce the quantity of transpiration.
+      unsatisfiedEvaporation = transpiration / 1000.0;
+      
+      if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
+        {
+          groundwaterHead -= unsatisfiedEvaporation / porosity;
+          evaporation     -= unsatisfiedEvaporation;
+        }
+      else
+        {
+          unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
+          evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
+          groundwaterHead        = elementZBedrock;
+          
+          if (surfacewaterDepth >= unsatisfiedEvaporation)
+            {
+              surfacewaterDepth -= unsatisfiedEvaporation;
+              evaporation       -= unsatisfiedEvaporation;
+            }
+          else
+            {
+              unsatisfiedEvaporation -= surfacewaterDepth;
+              evaporation            -= surfacewaterDepth;
+              surfacewaterDepth       = 0.0;
+              
+              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %lf meters.\n", thisIndex, unsatisfiedEvaporation);
+            }
+        }
+      
+      // Record cumulative flows and water error.
+      precipitationCumulative += precipitation;
+      evaporationCumulative   += evaporation;
+      surfacewaterError       += waterError / 1000.0 * elementArea;
+      
       // Initiate groundwater phase.
       for (edge = 0; edge < meshNeighborsSize; edge++)
         {
