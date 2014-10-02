@@ -18,7 +18,7 @@ library(timeDate)
 
 WRF_Folder<<-"/share/CI-WATER Simulation Data/WRF/Utah_WRF_output/2005/"  # path to the WRF files
 WRF_Files<<-c("wrfout_d03_2005-01-01_00:00:00","wrfout_d03_2005-01-31_12:00:00","wrfout_d03_2005-03-03_00:00:00") # ordered names of the WRF files to read 
-TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.node"  # txt file with the AD-Hydro nodes for which the WRF data will be extracted
+TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/geometry.nc"  # netcdf file with the AD-Hydro mesh elements for which the WRF data will be extracted
 RE=6378137  # in meters; Earth's radius at the equator GRS80 ellipsoid
 Lambda00<<--109  # reference meridian in degrees. Sign indicates if it's west or east of Greenwich
 FalseEast<<-20000000 
@@ -28,20 +28,26 @@ soillayers<<-4  # number of total staggered soil layers. It can be extracted fro
 JulOrigin<<-"2005-01-01 00:00:00" # origin for the Julian date column
 Outnames<<-c("WRFHOUR","JULTIME","T2","Q2","QVAPOR","QCLOUD","PSFC","U10","V10","U","V","VEGFRA","MAXVEGFRA","TPREC","FRAC_FROZ_PREC","SWDOWN","GLW","PBLH","SOILTB","TSLB")
 Outfolder<<-"/share/CI-WATER Simulation Data/WRF_to_ADHydro/"
-Outncfile<<-"WRF_ADHydro_Green_River" # Base name for output file
+Outncfile<<-"WRF_ADHydro_Small_Green_River" # Base name for output file
 
 
 ############### MODULE METADATA AND HEADERS #############################################################################################################
 
 cat("Time started processing ",date(),fill=TRUE)
-## This module is optional.. It takes an example file and prints the file and variable information
 ex.nc = nc_open(paste(WRF_Folder, WRF_Files[1], sep="")) # it opens the first file
 Rdump=capture.output(print(ex.nc), file = NULL, append = FALSE)
 write.table(Rdump,paste(Outfolder,"Rncdump.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
-cat("A dump file has been created in Outfolder called Rncdump",fill=TRUE)
+cat("A dump file has been created in ", Outfolder," called Rncdump",fill=TRUE)
 ############## MODULE COORDINATES CONVERSION AND BOUNDING BOX SELECTION #################################################################################
 
-TIN<<-read.table(TINF,skip=1) 
+#TIN<<-read.table(TINF,skip=1) 
+mesh.nc = nc_open(TINF) # it opens the geometry file
+#Rdump_mesh=capture.output(print(mesh.nc), file = NULL, append = FALSE)
+#write.table(Rdump_mesh,paste(Outfolder,"Rncdump_mesh.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers of geometry to a file in outfolder  
+TINX = ncvar_get(mesh.nc, "meshElementX") 
+TINY = ncvar_get(mesh.nc, "meshElementY")
+TIN= cbind(seq(0,(length(TINX)-1)),TINX,TINY)
+
 x11()
 par(mfcol=c(1,2))
 plot(TIN[,2],TIN[,3],pch=19,cex=0.2,main="Basin domain")
