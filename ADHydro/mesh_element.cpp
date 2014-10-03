@@ -483,7 +483,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       
       if (NULL != fileManagerLocalBranch->meshMeshNeighbors && NULL != fileManagerLocalBranch->meshMeshNeighborsChannelEdge)
         {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
+          for (edge = 0; !error && edge < meshNeighborsSize; edge++)
             {
               meshNeighbors[edge]                           = fileManagerLocalBranch->meshMeshNeighbors[fileManagerLocalIndex][edge];
               meshNeighborsChannelEdge[edge]                = fileManagerLocalBranch->meshMeshNeighborsChannelEdge[fileManagerLocalIndex][edge];
@@ -510,12 +510,19 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                   meshNeighborsConductivity[edge]   = 1.0;
                   meshNeighborsManningsN[edge]      = 1.0;
                 }
-              else
+              else if (0 <= meshNeighbors[edge] && meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
                 {
                   meshNeighborsInitialized[edge] = false;
                   
                   thisProxy[meshNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock, elementArea,
                                                                         conductivity, manningsN);
+                }
+              else
+                {
+                  // We have to finish initialization before checking the invariant so the invariant hasn't been checked yet so we have to check this here.
+                  CkError("ERROR in MeshElement::handleInitialize, element %d, edge %d: meshNeighbors must be a boundary condition code or a valid "
+                          "array index.\n", thisIndex, edge);
+                  error = true;
                 }
             }
         }
@@ -590,7 +597,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
     {
       if (NULL != fileManagerLocalBranch->meshChannelNeighbors)
         {
-          for (edge = 0; edge < channelNeighborsSize; edge++)
+          for (edge = 0; !error && edge < channelNeighborsSize; edge++)
             {
               channelNeighbors[edge]                           = fileManagerLocalBranch->meshChannelNeighbors[fileManagerLocalIndex][edge];
               channelNeighborsInvariantChecked[edge]           = true;
@@ -616,12 +623,19 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                   channelNeighborsBedConductivity[edge] = 1.0;
                   channelNeighborsBedThickness[edge]    = 1.0;
                 }
-              else
+              else if (0 <= channelNeighbors[edge] && channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
                 {
                   channelNeighborsInitialized[edge] = false;
                   
                   channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock,
                                                                               elementSlopeX, elementSlopeY);
+                }
+              else
+                {
+                  // We have to finish initialization before checking the invariant so the invariant hasn't been checked yet so we have to check this here.
+                  CkError("ERROR in MeshElement::handleInitialize, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid "
+                          "array index.\n", thisIndex, edge);
+                  error = true;
                 }
             }
         }
@@ -2302,7 +2316,8 @@ void MeshElement::handleCheckInvariant()
   
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      if (!(isBoundary(meshNeighbors[edge]) || (0 <= meshNeighbors[edge] /* && check against maximum index*/)))
+      if (!(isBoundary(meshNeighbors[edge]) || (0 <= meshNeighbors[edge] &&
+                                                meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must be a boundary condition code or a valid array index.\n",
                   thisIndex, edge);
@@ -2363,7 +2378,8 @@ void MeshElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] /* && check against maximum index*/)))
+      if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] &&
+                                                 channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
