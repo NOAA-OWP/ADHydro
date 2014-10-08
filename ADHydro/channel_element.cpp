@@ -625,6 +625,9 @@ void ChannelElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, dou
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
         }
     }
+
+  // A channel element may have no mesh neighbors so its flow rates are already calculated because they are all NOFLOW.
+  checkGroundwaterFlowRates(iterationThisTimestep);
 }
 
 void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,

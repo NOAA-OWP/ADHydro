@@ -935,7 +935,7 @@ void MeshElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double
       // Record cumulative flows and water error.
       precipitationCumulative += precipitation;
       evaporationCumulative   += evaporation;
-      surfacewaterError       += waterError / 1000.0 * elementArea;
+      surfacewaterError       += (waterError / 1000.0) * elementArea;
       
       // Initiate groundwater phase.
       for (edge = 0; edge < meshNeighborsSize; edge++)

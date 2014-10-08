@@ -169,7 +169,7 @@ module channel_element
                 // Flow rate limited messages can never be unneeded so no need to discard stale messages.
               } // End case within while (!groundwaterDone).
             } // End while (!groundwaterDone).
-                
+            
             while (!surfacewaterDone)
             {
               case

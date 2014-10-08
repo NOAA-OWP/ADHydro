@@ -9846,12 +9846,12 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
               channelSurfacewaterError[index - localChannelElementStart] = 0.0;
               
               // Fill in unused neighbors with NOFLOW.
-              for (jj = numberOfChannelNeighbors; jj < ChannelElement::channelNeighborsSize; jj++)
+              for (jj = 0; jj < ChannelElement::channelNeighborsSize; jj++)
                 {
                   channelChannelNeighbors[index - localChannelElementStart][jj] = NOFLOW;
                 }
               
-              for (jj = numberOfMeshNeighbors; jj < ChannelElement::meshNeighborsSize; jj++)
+              for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
                 {
                   channelMeshNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
                   channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 1.0;
@@ -9927,8 +9927,6 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
         }
       
       // Read mesh neighbors.
-      mm = 0;
-      
       for (jj = 0; !error && jj < numberOfMeshNeighbors; jj++)
         {
           fscanf(chanEleFile, "%d %lf", &neighbor0, &length);
@@ -9966,23 +9964,50 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
                           (vertex0 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize] &&
                            vertex1 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize]))
                         {
+                          meshMeshNeighborsChannelEdge[kk][ll] = true;
+                          
+                          mm = 0;
+                          
+                          while (mm < ChannelElement::meshNeighborsSize && kk != channelMeshNeighbors[index - localChannelElementStart][mm] &&
+                                 NOFLOW != channelMeshNeighbors[index - localChannelElementStart][mm])
+                            {
+                              mm++;
+                            }
+                          
                           if (mm < ChannelElement::meshNeighborsSize)
                             {
+                              if (kk == channelMeshNeighbors[index - localChannelElementStart][mm])
+                                {
+                                  // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                  // length.
+                                  channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] += length;
+                                }
+                              else
+                                {
+                                  channelMeshNeighbors[          index - localChannelElementStart][mm] = kk;
+                                  channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] = length;
+                                }
+                              
                               nn = 0;
                               
-                              while (nn < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[kk][nn])
+                              while (nn < MeshElement::channelNeighborsSize && index != meshChannelNeighbors[kk][nn] && NOFLOW != meshChannelNeighbors[kk][nn])
                                 {
                                   nn++;
                                 }
                               
                               if (nn < MeshElement::channelNeighborsSize)
                                 {
-                                  meshMeshNeighborsChannelEdge[kk][ll]                                 = true;
-                                  meshChannelNeighbors[kk][nn]                                         = index;
-                                  meshChannelNeighborsEdgeLength[kk][nn]                               = length;
-                                  channelMeshNeighbors[          index - localChannelElementStart][mm] = kk;
-                                  channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] = length;
-                                  mm++;
+                                  if (index == meshChannelNeighbors[kk][nn])
+                                    {
+                                      // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                      // length.
+                                      meshChannelNeighborsEdgeLength[kk][nn] += length;
+                                    }
+                                  else
+                                    {
+                                      meshChannelNeighbors[kk][nn]           = index;
+                                      meshChannelNeighborsEdgeLength[kk][nn] = length;
+                                    }
                                 }
                               else
                                 {
@@ -10001,14 +10026,6 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
                     }
                 }
             }
-        }
-      
-      // Fill in unused neighbors with NOFLOW.
-      while (mm < ChannelElement::meshNeighborsSize)
-        {
-          channelMeshNeighbors[          index - localChannelElementStart][mm] = NOFLOW;
-          channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] = 1.0;
-          mm++;
         }
     } // End read channel elements.
   
@@ -10066,30 +10083,49 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
                               (vertex0 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize] &&
                                vertex1 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize]))
                             {
+                              meshMeshNeighborsChannelEdge[kk][ll] = true;
+                              
                               mm = 0;
                               
-                              while (mm < ChannelElement::meshNeighborsSize && NOFLOW != channelMeshNeighbors[ii][mm])
+                              while (mm < ChannelElement::meshNeighborsSize && kk != channelMeshNeighbors[ii][mm] && NOFLOW != channelMeshNeighbors[ii][mm])
                                 {
                                   mm++;
                                 }
                               
                               if (mm < ChannelElement::meshNeighborsSize)
                                 {
+                                  if (kk == channelMeshNeighbors[ii][mm])
+                                    {
+                                      // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add
+                                      // the length.
+                                      channelMeshNeighborsEdgeLength[ii][mm] += length;
+                                    }
+                                  else
+                                    {
+                                      channelMeshNeighbors[          ii][mm] = kk;
+                                      channelMeshNeighborsEdgeLength[ii][mm] = length;
+                                    }
+                                  
                                   nn = 0;
                                   
-                                  while (nn < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[kk][nn])
+                                  while (nn < MeshElement::channelNeighborsSize && ii != meshChannelNeighbors[kk][nn] && NOFLOW != meshChannelNeighbors[kk][nn])
                                     {
                                       nn++;
                                     }
                                   
                                   if (nn < MeshElement::channelNeighborsSize)
                                     {
-                                      meshMeshNeighborsChannelEdge[kk][ll]   = true;
-                                      meshChannelNeighbors[kk][nn]           = ii;
-                                      meshChannelNeighborsEdgeLength[kk][nn] = length;
-                                      channelMeshNeighbors[ii][mm]           = kk;
-                                      channelMeshNeighborsEdgeLength[ii][mm] = length;
-                                      mm++;
+                                      if (ii == meshChannelNeighbors[kk][nn])
+                                        {
+                                          // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                          // length.
+                                          meshChannelNeighborsEdgeLength[kk][nn] += length;
+                                        }
+                                      else
+                                        {
+                                          meshChannelNeighbors[kk][nn]           = ii;
+                                          meshChannelNeighborsEdgeLength[kk][nn] = length;
+                                        }
                                     }
                                   else
                                     {
