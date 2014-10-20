@@ -277,9 +277,9 @@ public:
   doublearraycmn*  channelMeshNeighborsEdgeLength;
   
   // Time information.  This is only kept up to date when inputting or outputting.
-  double          currentTime; // Seconds.
-  double          dt;          // Next timestep duration in seconds.
-  CMK_REFNUM_TYPE iteration;   // Iteration number to put on all messages this timestep.
+  double currentTime; // Seconds.
+  double dt;          // Next timestep duration in seconds.
+  size_t iteration;   // Iteration number to put on all messages this timestep.
   
 private:
   
