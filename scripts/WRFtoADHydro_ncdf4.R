@@ -18,7 +18,7 @@ library(timeDate)
 
 WRF_Folder<<-"/share/CI-WATER Simulation Data/WRF/Utah_WRF_output/2005/"  # path to the WRF files
 WRF_Files<<-c("wrfout_d03_2005-01-01_00:00:00","wrfout_d03_2005-01-31_12:00:00","wrfout_d03_2005-03-03_00:00:00") # ordered names of the WRF files to read 
-TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.node"  # txt file with the AD-Hydro nodes for which the WRF data will be extracted
+TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/geometry.nc"  # netcdf file with the AD-Hydro mesh elements for which the WRF data will be extracted
 RE=6378137  # in meters; Earth's radius at the equator GRS80 ellipsoid
 Lambda00<<--109  # reference meridian in degrees. Sign indicates if it's west or east of Greenwich
 FalseEast<<-20000000 
@@ -26,22 +26,27 @@ FalseNorth<<-10000000
 cell_Buffer<<-4 # number of cells to be added to the selected rectangular from the minimum and maximum TIN points to efficiently read the WRF data. Use a number >2
 soillayers<<-4  # number of total staggered soil layers. It can be extracted from the Rncdump.txt file from line 39
 JulOrigin<<-"2005-01-01 00:00:00" # origin for the Julian date column
-Outnames<<-c("WRFHOUR","JULTIME","T2","Q2","QVAPOR","QCLOUD","PSFC","U10","V10","U","V","VEGFRA","MAXVEGFRA","TPREC","FRAC_FROZ_PREC","SWDOWN","GLW","PBLH","SOILTB","TSLB")
+Outnames<<-c("WRFHOUR","JULTIME","T2","QVAPOR","QCLOUD","PSFC","U","V","VEGFRA","MAXVEGFRA","TPREC","SWDOWN","GLW","PBLH","TSLB")
 Outfolder<<-"/share/CI-WATER Simulation Data/WRF_to_ADHydro/"
-Outncfile<<-"WRF_ADHydro_Green_River" # Base name for output file
+Outncfile<<-"WRF_ADHydro_Small_Green_River" # Base name for output file
 
 
 ############### MODULE METADATA AND HEADERS #############################################################################################################
 
 cat("Time started processing ",date(),fill=TRUE)
-## This module is optional.. It takes an example file and prints the file and variable information
 ex.nc = nc_open(paste(WRF_Folder, WRF_Files[1], sep="")) # it opens the first file
 Rdump=capture.output(print(ex.nc), file = NULL, append = FALSE)
 write.table(Rdump,paste(Outfolder,"Rncdump.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
-cat("A dump file has been created in Outfolder called Rncdump",fill=TRUE)
+cat("A dump file has been created in ", Outfolder," called Rncdump",fill=TRUE)
 ############## MODULE COORDINATES CONVERSION AND BOUNDING BOX SELECTION #################################################################################
 
-TIN<<-read.table(TINF,skip=1) 
+mesh.nc = nc_open(TINF) # it opens the geometry file
+#Rdump_mesh=capture.output(print(mesh.nc), file = NULL, append = FALSE)
+#write.table(Rdump_mesh,paste(Outfolder,"Rncdump_mesh.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers of geometry to a file in outfolder  
+TINX = ncvar_get(mesh.nc, "meshElementX") 
+TINY = ncvar_get(mesh.nc, "meshElementY")
+TIN= cbind(seq(0,(length(TINX)-1)),TINX,TINY)
+
 x11()
 par(mfcol=c(1,2))
 plot(TIN[,2],TIN[,3],pch=19,cex=0.2,main="Basin domain")
@@ -298,50 +303,40 @@ dim2= ncdim_def( "Time",paste("Hours since ",final[1,2,1]),seq(0,(dim(final)[3]-
 varNODES=ncvar_def("NODES","", list(dim1), -99999, longname="NODES")
 varJULTIME=ncvar_def("JULTIME","secs", list(dim2), -99999, longname="JULTIME")
 varT2 = ncvar_def("T2","Celsius", list(dim1,dim2), -99999, longname="T2")
-varQ2 = ncvar_def("Q2","kg kg-1", list(dim1,dim2), -99999, longname="Q2")
 varQVAPOR = ncvar_def("QVAPOR","kg kg-1", list(dim1,dim2), -99999, longname="QVAPOR")
 varQCLOUD = ncvar_def("QCLOUD","kg kg-1", list(dim1,dim2), -99999, longname="QCLOUD")
 varPSFC = ncvar_def("PSFC","Pa", list(dim1,dim2), -99999, longname="PSFC")
-varU10 = ncvar_def("U10","ms-1", list(dim1,dim2), -99999, longname="U10")
-varV10 = ncvar_def("V10","ms-1", list(dim1,dim2), -99999, longname="V10")
 varU = ncvar_def("U","ms-1", list(dim1,dim2), -99999, longname="U")
 varV = ncvar_def("V","ms-1", list(dim1,dim2), -99999, longname="V")
 varVEGFRA = ncvar_def("VEGFRA","", list(dim1,dim2), -99999, longname="VEGFRA")
 varMAXVEGFRA = ncvar_def("MAXVEGFRA","", list(dim1,dim2), -99999, longname="MAXVEGFRA")
 varTPREC = ncvar_def("TPREC","ms-1", list(dim1,dim2), -99999, longname="TPREC")
-varFRAC_FROZ_PREC = ncvar_def("FRAC_FROZ_PREC","ms-1", list(dim1,dim2), -99999, longname="FRAC_FROZ_PREC")
 varSWDOWN = ncvar_def("SWDOWN","W m-2", list(dim1,dim2), -99999, longname="SWDOWN")
 varGLW = ncvar_def("GLW","W m-2", list(dim1,dim2), -99999, longname="GLW")
 varPBLH = ncvar_def("PBLH","m", list(dim1,dim2), -99999, longname="PBLH")
-varSOILTB = ncvar_def("SOILTB","Celsius", list(dim1,dim2), -99999, longname="SOILTB")
 varTSLB = ncvar_def("TSLB","Celsius", list(dim1,dim2), -99999, longname="TSLB")
 # associate the netcdf variable with a netcdf file   
 # put the variable into the file, and
 # close
 
-nc.ex = nc_create(paste(Outfolder,Outncfile,"_",final[1,2,1],".nc",sep=""),list(varNODES, varJULTIME, varT2, varQ2, varQVAPOR, varQCLOUD,
-        varPSFC, varU10, varV10, varU, varV, varVEGFRA, varMAXVEGFRA, varTPREC, varFRAC_FROZ_PREC, varSWDOWN, varGLW, varPBLH, varSOILTB, varTSLB),force_v4=TRUE)
+nc.ex = nc_create(paste(Outfolder,Outncfile,"_",final[1,2,1],".nc",sep=""),list(varNODES, varJULTIME, varT2, varQVAPOR, varQCLOUD,
+        varPSFC, varU, varV, varVEGFRA, varMAXVEGFRA, varTPREC, varSWDOWN, varGLW, varPBLH, varTSLB),force_v4=TRUE)
 
 ncvar_put(nc.ex, varNODES, final[,1,1])
 ncvar_put(nc.ex, varJULTIME, final[1,3,])
 ncvar_put(nc.ex, varT2, final[,4,])
-ncvar_put(nc.ex, varQ2, final[,5,])
-ncvar_put(nc.ex, varQVAPOR, final[,6,])
-ncvar_put(nc.ex, varQCLOUD, as.double(final[,7,]))
-ncvar_put(nc.ex, varPSFC, final[,8,])
-ncvar_put(nc.ex, varU10, final[,9,])
-ncvar_put(nc.ex, varV10, final[,10,])
-ncvar_put(nc.ex, varU, final[,11,])
-ncvar_put(nc.ex, varV, final[,12,])
-ncvar_put(nc.ex, varVEGFRA, final[,13,])
-ncvar_put(nc.ex, varMAXVEGFRA, final[,14,])
-ncvar_put(nc.ex, varTPREC, final[,15,])
-ncvar_put(nc.ex, varFRAC_FROZ_PREC, final[,16,])
-ncvar_put(nc.ex, varSWDOWN, final[,17,])
-ncvar_put(nc.ex, varGLW, final[,18,])
-ncvar_put(nc.ex, varPBLH, final[,19,])
-ncvar_put(nc.ex, varSOILTB, final[,20,])
-ncvar_put(nc.ex, varTSLB, final[,21,])
+ncvar_put(nc.ex, varQVAPOR, final[,5,])
+ncvar_put(nc.ex, varQCLOUD, as.double(final[,6,]))
+ncvar_put(nc.ex, varPSFC, final[,7,])
+ncvar_put(nc.ex, varU, final[,8,])
+ncvar_put(nc.ex, varV, final[,9,])
+ncvar_put(nc.ex, varVEGFRA, final[,10,])
+ncvar_put(nc.ex, varMAXVEGFRA, final[,11,])
+ncvar_put(nc.ex, varTPREC, final[,12,])
+ncvar_put(nc.ex, varSWDOWN, final[,13,])
+ncvar_put(nc.ex, varGLW, final[,14,])
+ncvar_put(nc.ex, varPBLH, final[,15,])
+ncvar_put(nc.ex, varTSLB, final[,16,])
 nc_close(nc.ex)
 
 
@@ -351,7 +346,8 @@ cat("**********Averaging basin values for verification",fill=TRUE)
 Avefinal=matrix(NA,dim(final)[3],(dim(final)[2]-3)) ## matrix containing the variables in thes column (not includign  node or time) and times in the rows
 colnames(Avefinal)=Outnames[3:length(Outnames)]
 for (vi in 1:(dim(final)[2]-3)){  # by columns
-	for (ti in 1:dim(final)[3]){	
+	cat("Averaging column ",vi, " of ",dim(final)[2]-3, fill=TRUE)
+  for (ti in 1:dim(final)[3]){	
 	Avefinal[ti,vi]=mean(as.numeric(final[,(vi+3),ti])) 	
         }
 }

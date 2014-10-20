@@ -9319,7 +9319,7 @@ bool FileManager::readNodeAndZFiles(const char* directory, const char* fileBasen
 void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const char* directory, size_t fileBasenameSize, const char* fileBasename)
 {
   bool   error       = false;      // Error flag.
-  int    ii, jj;                   // Loop counters.
+  int    ii, jj, kk, ll, mm, nn;   // Loop counters.
   char*  nameString  = NULL;       // Temporary string for file names.
   size_t nameStringSize;           // Size of buffer allocated for nameString.
   size_t numPrinted;               // Used to check that snprintf printed the correct number of characters.
@@ -9370,7 +9370,8 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
   if (!error)
     {
       // Allocate space for file name strings.
-      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.ele") + 1; // The longest file extension is .chan.ele.
+      //nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.ele") + 1; // The longest file extension is .chan.ele.
+      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.node") + 1; // FIXME A kludge below uses .chan.node.
       nameString     = new char[nameStringSize];                                                         // +1 for null terminating character.
 
       // Create file name.
@@ -9802,29 +9803,55 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
               channelElementVertices[index - localChannelElementStart][0] = (STREAM == type) ? 2 : 3;
               channelElementVertices[index - localChannelElementStart][1] = ChannelElement::channelVerticesSize;
 
-              // FIXME fill in real values.
-              channelElementX[         index - localChannelElementStart] = 0.0;
-              channelElementY[         index - localChannelElementStart] = 0.0;
-              channelElementZBank[     index - localChannelElementStart] = 0.0;
-              channelElementZBed[      index - localChannelElementStart] = 0.0;
+              // FIXME this is a total kludge to get the element center node if it is not owned by me by re-reading the entire node file.
+              if (localChannelNodeStart <= vertex0 && vertex0 < localChannelNodeStart + localNumberOfChannelNodes)
+                {
+                  channelElementX[    index - localChannelElementStart] = channelNodeX[    vertex0 - localChannelNodeStart];
+                  channelElementY[    index - localChannelElementStart] = channelNodeY[    vertex0 - localChannelNodeStart];
+                  channelElementZBank[index - localChannelElementStart] = channelNodeZBank[vertex0 - localChannelNodeStart];
+                  channelElementZBed[ index - localChannelElementStart] = channelNodeZBed[ vertex0 - localChannelNodeStart];
+                }
+              else
+                {
+                  snprintf(nameString, nameStringSize, "%s/%s.chan.node", directory, fileBasename);
+                  FILE* nodeFile = fopen(nameString, "r");
+                  fscanf(nodeFile, "%*d %*d %*d %*d");
+                  snprintf(nameString, nameStringSize, "%s/%s.chan.z", directory, fileBasename);
+                  FILE* zFile = fopen(nameString, "r");
+                  fscanf(zFile, "%*d %*d");
+                  for (jj = 0; jj < vertex0; jj++)
+                    {
+                      fscanf(nodeFile, "%*d %*f %*f %*d");
+                      fscanf(zFile, "%*d %*f");
+                    }
+                  fscanf(nodeFile, "%*d %lf %lf %*d", &channelElementX[index - localChannelElementStart], &channelElementY[index - localChannelElementStart]);
+                  fscanf(zFile, "%*d %lf", &channelElementZBank[index - localChannelElementStart]);
+                  channelElementZBed[index - localChannelElementStart] = channelElementZBank[index - localChannelElementStart] - 5.0; // FIXME figure out real bank full depth.
+                  fclose(nodeFile);
+                  fclose(zFile);
+                }
+              
               channelElementLength[    index - localChannelElementStart] = length;
               channelChannelType[      index - localChannelElementStart] = (ChannelTypeEnum)type;
               channelPermanentCode[    index - localChannelElementStart] = permanent;
+              
+              // FIXME fill in real values.
               channelBaseWidth[        index - localChannelElementStart] = 1.0;
               channelSideSlope[        index - localChannelElementStart] = 1.0;
               channelBedConductivity[  index - localChannelElementStart] = 5.55e-4;
               channelBedThickness[     index - localChannelElementStart] = 1.0;
               channelManningsN[        index - localChannelElementStart] = 0.038;
+              
               channelSurfacewaterDepth[index - localChannelElementStart] = 0.0;
               channelSurfacewaterError[index - localChannelElementStart] = 0.0;
               
               // Fill in unused neighbors with NOFLOW.
-              for (jj = numberOfChannelNeighbors; jj < ChannelElement::channelNeighborsSize; jj++)
+              for (jj = 0; jj < ChannelElement::channelNeighborsSize; jj++)
                 {
                   channelChannelNeighbors[index - localChannelElementStart][jj] = NOFLOW;
                 }
               
-              for (jj = numberOfMeshNeighbors; jj < ChannelElement::meshNeighborsSize; jj++)
+              for (jj = 0; jj < ChannelElement::meshNeighborsSize; jj++)
                 {
                   channelMeshNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
                   channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 1.0;
@@ -9888,7 +9915,7 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
           if (!(isBoundary(neighbor0) || (firstIndex <= neighbor0 && neighbor0 <= globalNumberOfChannelElements + firstIndex)))
             {
               CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: channel %d: invalid neighbor number %d in chan.ele file.\n",
-                  ii + firstIndex, neighbor0);
+                      ii + firstIndex, neighbor0);
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -9902,38 +9929,229 @@ void FileManager::handleInitializeFromASCIIFiles(size_t directorySize, const cha
       // Read mesh neighbors.
       for (jj = 0; !error && jj < numberOfMeshNeighbors; jj++)
         {
-          /* FIXME read in mesh neighbors
-          numScanned = fscanf(chanEleFile, "%d", &neighbor0);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(1 == numScanned))
+          fscanf(chanEleFile, "%d %lf", &neighbor0, &length);
+          
+          if (-1 != neighbor0)
             {
-              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d from chan.ele file.\n", ii + firstIndex);
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          if (!(isBoundary(neighbor0) || (firstIndex <= neighbor0 && neighbor0 <= globalNumberOfChannelElements + firstIndex)))
-            {
-              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: channel %d: invalid neighbor number %d in chan.ele file.\n",
-                  ii + firstIndex, neighbor0);
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          */
-
-          if (!error && localChannelElementStart <= index && index < localChannelElementStart + localNumberOfChannelElements)
-            {
-              // FIXME
-              //channelMeshNeighbors[index - localChannelElementStart][jj] = neighbor0 % globalNumberOfChannelElements;
-              channelMeshNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
-              channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 1.0;
+              // FIXME this is a total kludge to get the vertices of the mesh edge.
+              snprintf(nameString, nameStringSize, "%s/%s.edge", directory, fileBasename);
+              FILE* edgeFile = fopen(nameString, "r");
+              fscanf(edgeFile, "%*d %*d");
+              for (kk = 0; kk < neighbor0 - 1; kk++) // FIXME Assumes one based file.
+                {
+                  fscanf(edgeFile, "%*d %*d %*d %*d");
+                }
+              fscanf(edgeFile, "%*d %d %d %*d", &vertex0, &vertex1);
+              fclose(edgeFile);
+              
+              vertex0 %= globalNumberOfMeshNodes;
+              vertex1 %= globalNumberOfMeshNodes;
+              
+              // Search for those vertices in the mesh.
+              // FIXME this is a kludge that won't work on more than one processor.
+              CkAssert(localNumberOfMeshNodes == globalNumberOfMeshNodes && localNumberOfMeshElements == globalNumberOfMeshElements);
+              
+              // Convert length from the fraction of the mesh edge to meters.
+              length *= sqrt((meshNodeX[vertex0] - meshNodeX[vertex1]) * (meshNodeX[vertex0] - meshNodeX[vertex1]) +
+                             (meshNodeY[vertex0] - meshNodeY[vertex1]) * (meshNodeY[vertex0] - meshNodeY[vertex1]));
+              
+              for (kk = 0; kk < globalNumberOfMeshElements; kk++)
+                {
+                  for (ll = 0; ll < MeshElement::meshNeighborsSize; ll++)
+                    {
+                      if ((vertex0 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize] &&
+                           vertex1 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize]) ||
+                          (vertex0 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize] &&
+                           vertex1 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize]))
+                        {
+                          meshMeshNeighborsChannelEdge[kk][ll] = true;
+                          
+                          mm = 0;
+                          
+                          while (mm < ChannelElement::meshNeighborsSize && kk != channelMeshNeighbors[index - localChannelElementStart][mm] &&
+                                 NOFLOW != channelMeshNeighbors[index - localChannelElementStart][mm])
+                            {
+                              mm++;
+                            }
+                          
+                          if (mm < ChannelElement::meshNeighborsSize)
+                            {
+                              if (kk == channelMeshNeighbors[index - localChannelElementStart][mm])
+                                {
+                                  // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                  // length.
+                                  channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] += length;
+                                }
+                              else
+                                {
+                                  channelMeshNeighbors[          index - localChannelElementStart][mm] = kk;
+                                  channelMeshNeighborsEdgeLength[index - localChannelElementStart][mm] = length;
+                                }
+                              
+                              nn = 0;
+                              
+                              while (nn < MeshElement::channelNeighborsSize && index != meshChannelNeighbors[kk][nn] && NOFLOW != meshChannelNeighbors[kk][nn])
+                                {
+                                  nn++;
+                                }
+                              
+                              if (nn < MeshElement::channelNeighborsSize)
+                                {
+                                  if (index == meshChannelNeighbors[kk][nn])
+                                    {
+                                      // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                      // length.
+                                      meshChannelNeighborsEdgeLength[kk][nn] += length;
+                                    }
+                                  else
+                                    {
+                                      meshChannelNeighbors[kk][nn]           = index;
+                                      meshChannelNeighborsEdgeLength[kk][nn] = length;
+                                    }
+                                }
+                              else
+                                {
+                                  CkError("ERROR in FileManager::handleInitializeFromASCIIFiles mesh element %d: element has more than maximum %d channel "
+                                          "neighbors.\n", kk, MeshElement::channelNeighborsSize);
+                                  CkExit();
+                                }
+                            }
+                          else
+                            {
+                              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles channel element %d: element has more than maximum %d mesh "
+                                      "neighbors.\n", index, ChannelElement::meshNeighborsSize);
+                              CkExit();
+                            }
+                        }
+                    }
+                }
             }
         }
     } // End read channel elements.
   
-  // FIXME Read the edge file and fill in: meshMeshNeighborsChannelEdge, meshChannelNeighbors, meshChannelNeighborsEdgeLength, channelMeshNeighbors, channelMeshNeighborsEdgeLength
+  // This is a kludge to link the waterbody channel neighbors that aren't in the .chan.ele file yet.
+  // FIXME this is a kludge that won't work on more than one processor.
+  CkAssert(localNumberOfMeshNodes == globalNumberOfMeshNodes && localNumberOfMeshElements == globalNumberOfMeshElements);
+  
+  snprintf(nameString, nameStringSize, "%s/%s.edge", directory, fileBasename);
+  FILE* edgeFile = fopen(nameString, "r");
+  int numberOfEdges;
+  int boundary;
+  fscanf(edgeFile, "%d %*d", &numberOfEdges);
+  for (jj = 0; jj < numberOfEdges; jj++)
+    {
+      fscanf(edgeFile, "%*d %d %d %d", &vertex0, &vertex1, &boundary);
+      
+      if (0 > boundary)
+        {
+          // This is a channel edge.  Find its channel from its permanent code.
+          snprintf(nameString, nameStringSize, "%s/%s.link", directory, fileBasename);
+          FILE* linkFile = fopen(nameString, "r");
+          fscanf(linkFile, "%*d %*d");
+          for (kk = 0; kk < -boundary - 1; kk++) // FIXME Assumes one based file.
+            {
+              fscanf(linkFile, "%*d %*d");
+            }
+          fscanf(linkFile, "%*d %d", &boundary);
+          fclose(linkFile);
+          
+          ii = 0;
+          
+          while (ii < globalNumberOfChannelElements && boundary != channelPermanentCode[ii])
+            {
+              ii++;
+            }
+          
+          if (ii < globalNumberOfChannelElements)
+            {
+              if (WATERBODY == channelChannelType[ii] || ICEMASS == channelChannelType[ii])
+                {
+                  // Search for those vertices in the mesh.
+                  // FIXME this is a kludge that won't work on more than one processor.
+                  CkAssert(localNumberOfMeshNodes == globalNumberOfMeshNodes && localNumberOfMeshElements == globalNumberOfMeshElements);
+                  
+                  // Convert length from the fraction of the mesh edge to meters.
+                  length = sqrt((meshNodeX[vertex0] - meshNodeX[vertex1]) * (meshNodeX[vertex0] - meshNodeX[vertex1]) +
+                                (meshNodeY[vertex0] - meshNodeY[vertex1]) * (meshNodeY[vertex0] - meshNodeY[vertex1]));
+                  
+                  for (kk = 0; kk < globalNumberOfMeshElements; kk++)
+                    {
+                      for (ll = 0; ll < MeshElement::meshNeighborsSize; ll++)
+                        {
+                          if ((vertex0 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize] &&
+                               vertex1 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize]) ||
+                              (vertex0 == meshElementVertices[kk][(ll + 2) % MeshElement::meshNeighborsSize] &&
+                               vertex1 == meshElementVertices[kk][(ll + 1) % MeshElement::meshNeighborsSize]))
+                            {
+                              meshMeshNeighborsChannelEdge[kk][ll] = true;
+                              
+                              mm = 0;
+                              
+                              while (mm < ChannelElement::meshNeighborsSize && kk != channelMeshNeighbors[ii][mm] && NOFLOW != channelMeshNeighbors[ii][mm])
+                                {
+                                  mm++;
+                                }
+                              
+                              if (mm < ChannelElement::meshNeighborsSize)
+                                {
+                                  if (kk == channelMeshNeighbors[ii][mm])
+                                    {
+                                      // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add
+                                      // the length.
+                                      channelMeshNeighborsEdgeLength[ii][mm] += length;
+                                    }
+                                  else
+                                    {
+                                      channelMeshNeighbors[          ii][mm] = kk;
+                                      channelMeshNeighborsEdgeLength[ii][mm] = length;
+                                    }
+                                  
+                                  nn = 0;
+                                  
+                                  while (nn < MeshElement::channelNeighborsSize && ii != meshChannelNeighbors[kk][nn] && NOFLOW != meshChannelNeighbors[kk][nn])
+                                    {
+                                      nn++;
+                                    }
+                                  
+                                  if (nn < MeshElement::channelNeighborsSize)
+                                    {
+                                      if (ii == meshChannelNeighbors[kk][nn])
+                                        {
+                                          // A channel element can touch a mesh element on more than one edge.  Do not create duplicate neighbor entries.  Just add the
+                                          // length.
+                                          meshChannelNeighborsEdgeLength[kk][nn] += length;
+                                        }
+                                      else
+                                        {
+                                          meshChannelNeighbors[kk][nn]           = ii;
+                                          meshChannelNeighborsEdgeLength[kk][nn] = length;
+                                        }
+                                    }
+                                  else
+                                    {
+                                      CkError("ERROR in FileManager::handleInitializeFromASCIIFiles mesh element %d: element has more than maximum %d channel "
+                                              "neighbors.\n", kk, MeshElement::channelNeighborsSize);
+                                      CkExit();
+                                    }
+                                }
+                              else
+                                {
+                                  CkError("ERROR in FileManager::handleInitializeFromASCIIFiles channel element %d: element has more than maximum %d mesh "
+                                          "neighbors.\n", ii, ChannelElement::meshNeighborsSize);
+                                  CkExit();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+          else
+            {
+              CkError("WARNING in FileManager::handleInitializeFromASCIIFiles channel edge %d: permanent code %d does not exist in channel network.\n", jj, boundary);
+            }
+        }
+    }
+  fclose(edgeFile);
   
   // Close the files.
   if (NULL != eleFile)

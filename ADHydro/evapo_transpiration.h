@@ -95,9 +95,10 @@ bool evapoTranspirationInit(const char* directory);
 // soilType                - Soil type form SOILPARM.TBL file.
 // lat                     - Latitude in radians.
 // yearLen                 - Number of days in the current year, 365 or 366.
-// julian                  - Julian day of year.  Time in days including
+// julian                  - Ordinal day of year.  Time in days including
 //                           fractional day since midnight at the beginning of
-//                           January 1 of the current year.
+//                           January 1 of the current year.  E.g. noon on Jan 1
+//                           is 0.5.  6:00 AM on Jan 2 is 1.25.
 // cosZ                    - Cosine of the solar zenith angle, 0.0 to 1.0.
 //                           1.0 means the sun is directly overhead.
 //                           0.0 means the sun is at or below the horizon.
@@ -206,9 +207,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 //
 // lat                     - Latitude in radians.
 // yearLen                 - Number of days in the current year, 365 or 366.
-// julian                  - Julian day of year.  Time in days including
+// julian                  - Ordinal day of year.  Time in days including
 //                           fractional day since midnight at the beginning of
-//                           January 1 of the current year.
+//                           January 1 of the current year.  E.g. noon on Jan 1
+//                           is 0.5.  6:00 AM on Jan 2 is 1.25.
 // cosZ                    - Cosine of the solar zenith angle, 0.0 to 1.0.
 //                           1.0 means the sun is directly overhead.
 //                           0.0 means the sun is at or below the horizon.

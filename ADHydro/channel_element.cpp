@@ -357,7 +357,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
       
       if (NULL != fileManagerLocalBranch->channelChannelNeighbors)
         {
-          for (edge = 0; edge < channelNeighborsSize; edge++)
+          for (edge = 0; !error && edge < channelNeighborsSize; edge++)
             {
               channelNeighbors[edge]                           = fileManagerLocalBranch->channelChannelNeighbors[fileManagerLocalIndex][edge];
               channelNeighborsInvariantChecked[edge]           = true;
@@ -380,12 +380,19 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                   channelNeighborsSideSlope[edge]      = 1.0;
                   channelNeighborsManningsN[edge]      = 1.0;
                 }
-              else
+              else if (0 <= channelNeighbors[edge] && channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
                 {
                   channelNeighborsInitialized[edge] = false;
                   
                   thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
                                                                               baseWidth, sideSlope, manningsN);
+                }
+              else
+                {
+                  // We have to finish initialization before checking the invariant so the invariant hasn't been checked yet so we have to check this here.
+                  CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid "
+                          "array index.\n", thisIndex, edge);
+                  error = true;
                 }
             }
         }
@@ -403,7 +410,7 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
     {
       if (NULL != fileManagerLocalBranch->channelMeshNeighbors)
         {
-          for (edge = 0; edge < meshNeighborsSize; edge++)
+          for (edge = 0; !error && edge < meshNeighborsSize; edge++)
             {
               meshNeighbors[edge]                           = fileManagerLocalBranch->channelMeshNeighbors[fileManagerLocalIndex][edge];
               meshNeighborsInvariantChecked[edge]           = true;
@@ -425,12 +432,19 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                   meshNeighborsZBedrock[edge]       = 0.0;
                   meshNeighborsZOffset[edge]        = 0.0;
                 }
-              else
+              else if (0 <= meshNeighbors[edge] && meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
                 {
                   meshNeighborsInitialized[edge] = false;
                   
                   meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, baseWidth,
                                                                            sideSlope, bedConductivity, bedThickness);
+                }
+              else
+                {
+                  // We have to finish initialization before checking the invariant so the invariant hasn't been checked yet so we have to check this here.
+                  CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: meshNeighbors must be a boundary condition code or a valid "
+                          "array index.\n", thisIndex, edge);
+                  error = true;
                 }
             }
         }
@@ -611,6 +625,9 @@ void ChannelElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, dou
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_LIMITING_CHECK_DONE;
         }
     }
+
+  // A channel element may have no mesh neighbors so its flow rates are already calculated because they are all NOFLOW.
+  checkGroundwaterFlowRates(iterationThisTimestep);
 }
 
 void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
@@ -1604,7 +1621,8 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      if (!(isBoundary(channelNeighbors[edge]) || (0 <= channelNeighbors[edge] /* && check against maximum index*/)))
+      if (!(isBoundary(channelNeighbors[edge]) || (0 <= channelNeighbors[edge] &&
+                                                   channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid array "
                   "index.\n", thisIndex, edge);
@@ -1643,7 +1661,8 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      if (!(NOFLOW == meshNeighbors[edge] || (0 <= meshNeighbors[edge] /* && check against maximum index*/)))
+      if (!(NOFLOW == meshNeighbors[edge] || (0 <= meshNeighbors[edge] &&
+                                              meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
