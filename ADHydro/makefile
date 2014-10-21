@@ -26,7 +26,8 @@ VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_rout
 
 EXES := adhydro                       \
         adhydro_channel_preprocessing \
-        adhydro_create_xmf_file
+        adhydro_create_xmf_file       \
+        test_date_functions
 
 ADHYDRO_OBJS := adhydro.o         \
                 mesh_element.o    \
@@ -51,6 +52,8 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
 ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
+
+TEST_DATE_FUNCTIONS_OBJS := test_date_functions.o
 
 all: $(EXES)
 
@@ -95,6 +98,13 @@ adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+
+test_date_functions: $(TEST_DATE_FUNCTIONS_OBJS)
+	$(CXX) $^ -o $@ -g -Wall
+
+test_date_functions.o: test_date_functions.cpp \
+                       all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \
