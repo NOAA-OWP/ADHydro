@@ -173,6 +173,6 @@ evapo_transpiration.o: evapo_transpiration.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
 
 .PHONY: clean

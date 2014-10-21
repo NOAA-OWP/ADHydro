@@ -72,6 +72,7 @@ void ADHydro::pup(PUP::er &p)
       commandLineArguments = NULL;
     }
   
+  p | referenceDate;
   p | currentTime;
   p | endTime;
   p | dt;
@@ -97,6 +98,7 @@ void ADHydro::fileManagerBarrier()
 void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
+  referenceDate           = gregorianToJulian(2010, 1, 1, 0, 0, 0.0); // FIXME initilaize from FileManager.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
   endTime                 = currentTime + 12000.0; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;

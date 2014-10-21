@@ -135,11 +135,14 @@ private:
   CkArgMsg* commandLineArguments; // Contains the input and output directory paths.
   
   // Time information.
-  double currentTime;       // Seconds.
-  double endTime;           // Seconds.
-  double dt;                // Next timestep duration in seconds.
-  double outputPeriod;      // Simulation time in seconds between outputting to file.  Zero for output every timestep.
-  double nextOutputTime;    // Next time in seconds to output to file.
+  double referenceDate;     // The julian date when currentTime is zero.  The current date and time of the simulation is the julian date equal to
+                            // referenceDate + currentTime / (24.0 * 3600.0).
+  double currentTime;       // Current simulation time in seconds since referenceDate.
+  double endTime;           // The time to simulate to in seconds since referenceDate.
+  double dt;                // Next simulation timestep duration in seconds.
+  double outputPeriod;      // Simulation time in seconds between outputs to file.  Zero means output every timestep.
+  double nextOutputTime;    // Simulation time in seconds since referenceDate of the next output to file.  The next output to file will occur as soon as
+                            // currentTime equals or exceeds this value.
   size_t iteration;         // Iteration number to put on all messages this timestep.
   size_t startingIteration; // Iteration number of the first timestep in this run.  Used to decide when to load balance.
   
