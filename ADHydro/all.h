@@ -230,4 +230,156 @@ inline bool epsilonEqual(float a, float b)
   return !epsilonLess(a, b) && !epsilonGreater(a, b);
 }
 
+// Utility functions for converting dates.
+
+// Convert Gregorian date to Julian date.
+//
+// Gregorian dates are specified as year, month, day, hour, minute, second.
+// A Gregorian day runs from midnight to the following midnight.
+// Julian dates are specified as time in days, including fractional day, since
+// noon, January 1, 4713 BCE.
+// A Julian day runs from noon to the following noon.
+//
+// This function does not work for years before 1 CE.
+//
+// Copied from algorithm 199 in Collected algorithms of the CACM.
+// Author: Robert G. Tantzen, Translator: Nat Howard
+// Modified by RCS 10/14 for coding standards.
+//
+// Returns: the Julian date equal to the input Gregorian date.
+//
+// Parameters:
+//
+// year   - Gregorian year.  You must include the full year number.
+//          E.g. 14 is 14 CE, not 2014 CE.  Must be positive.
+// month  - Gregorian month, 1 to 12.
+// day    - Gregorian day, 1 to 31.
+// hour   - Gregorian hour, 0 to 23.
+// minute - Gregorian minute, 0 to 59.
+// second - Gregorian second including fractional second, 0 to 59.999999...
+inline double gregorianToJulian(long year, long month, long day, long hour, long minute, double second)
+{
+  long   century;              // Number of centuries.
+  long   yearInCentury;        // Tens and ones digit of the year, 0 to 99.
+  long   julianDay;            // Julian day not including fractional day.
+  double secondsSinceMidnight; // Number of seconds since midnight, 0.0 to 24.0 * 3600.0.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  // FIXME can't link non-charm programs with CkAssert
+  //CkAssert(1 <= year && 1 <= month && 12 >= month && 1 <= day && 31 >= day && 0 <= hour && 59 >= hour && 0 <= minute && 59 >= minute && 0.0 <= second &&
+  //         60.0 > second);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (month > 2)
+    {
+      month -= 3L;
+    }
+  else
+    {
+      month += 9L;
+      year--;
+    }
+
+  century              = year / 100L;
+  yearInCentury        = year - (century * 100L);
+  julianDay            = (146097L * century) / 4L + (1461L * yearInCentury) / 4L + (153L * month + 2L) / 5L + day + 1721119L;
+  secondsSinceMidnight = hour * 3600.0 + minute * 60.0 + second;
+
+  if (secondsSinceMidnight < 12.0 * 3600.0)
+    {
+      secondsSinceMidnight += 12.0 * 3600.0;
+      julianDay--;
+    }
+  else
+    {
+      secondsSinceMidnight -= 12.0 * 3600.0;
+    }
+
+  return (julianDay + secondsSinceMidnight / (24.0 * 3600.0));
+}
+
+// Convert Julian date to Gregorian date.
+//
+// Julian dates are specified as time in days, including fractional day, since
+// noon, January 1, 4713 BCE.
+// A Julian day runs from noon to the following noon.
+// Gregorian dates are specified as year, month, day, hour, minute, second.
+// A Gregorian day runs from midnight to the following midnight.
+//
+// This function does not work for years before 1 CE.
+//
+// Copied from algorithm 199 in Collected algorithms of the CACM.
+// Author: Robert G. Tantzen, Translator: Nat Howard
+// Modified by FLO 4/99 to account for nagging round off error.
+// Modified by RCS 10/14 for coding standards.
+//
+// Parameters:
+//
+// julian - Julian date.
+// year   - Scalar passed by reference will be filled in with Gregorian year.
+// month  - Scalar passed by reference will be filled in with Gregorian month,
+//          1 to 12.
+// day    - Scalar passed by reference will be filled in with Gregorian day,
+//          1 to 31.
+// hour   - Scalar passed by reference will be filled in with Gregorian hour,
+//          0 to 23.
+// minute - Scalar passed by reference will be filled in with Gregorian minute,
+//          0 to 59.
+// second - Scalar passed by reference will be filled in with Gregorian second
+//          including fractional second, 0 to 59.999999...
+inline void julianToGregorian(double julian, long* year, long* month, long* day, long* hour, long* minute, double* second)
+{
+  long   julianDay     = (long)julian;       // Julian day not including fractional day.
+  double fractionalDay = julian - julianDay; // Fractional day since noon.
+
+  if (fractionalDay >= 0.5)
+    {
+      fractionalDay -= 0.5;
+      julianDay++;
+    }
+  else
+    {
+      fractionalDay += 0.5;
+    }
+
+  julianDay -= 1721119L;
+  *year      = (4L * julianDay - 1L) / 146097L;
+  julianDay  = 4L * julianDay - 1L - 146097L * *year;
+  *day       = julianDay / 4L;
+  julianDay  = (4L * *day + 3L) / 1461L;
+  *day       = 4L * *day + 3L - 1461L * julianDay;
+  *day       = (*day + 4L) / 4L;
+  *month     = (5L * *day - 3L) / 153L;
+  *day       = 5L * *day - 3 - 153L * *month;
+  *day       = (*day + 5L) / 5L;
+  *year      = 100L * *year + julianDay;
+
+  if (*month < 10)
+    {
+      *month += 3;
+    }
+  else
+    {
+      *month -= 9;
+      (*year)++;
+    }
+
+  *second  = fractionalDay * 24.0 * 3600.0;
+  *hour    = (long) (*second / 3600.0);
+  *second -= *hour * 3600.0;
+  *minute  = (long) (*second / 60.0);
+  *second -= *minute * 60.0;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  // FIXME can't link non-charm programs with CkError and CkAssert
+  //if (1 > year)
+  //  {
+  //    CkError("WARNING in julianToGregorian: date conversion does not work properly for years before 1 CE.\n");
+  //  }
+  //
+  //CkAssert(1 <= *month && 12 >= *month && 1 <= *day && 31 >= *day && 0 <= *hour && 59 >= *hour && 0 <= *minute && 59 >= *minute && 0.0 <= *second &&
+  //         60.0 > *second);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+}
+
 #endif // __ALL_H__

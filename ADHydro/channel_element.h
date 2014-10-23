@@ -113,7 +113,7 @@ private:
   // iterationThisTimestep - Iteration number to put on all messages this
   //                         timestep.
   // dtThisTimestep        - Duration for this timestep in seconds.
-  void handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep);
+  void handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep);
   
   // Receive a groundwater state message from a mesh neighbor, calculate
   // groundwater flow rate across the edge shared with the neighbor, and
@@ -128,7 +128,7 @@ private:
   //                             the neighbor.
   // neighborSurfacewaterDepth - Surfacewater depth of the neighbor in meters.
   // neighborGroundwaterHead   - Groundwater head of the neighbor in meters.
-  void handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterhead);
+  void handleMeshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterhead);
   
   // Receive a groundwater flow rate message from a mesh neighbor.  This
   // message indicates that the neighbor has calculated the groundwater flow
@@ -143,7 +143,7 @@ private:
   //                           neighbor.
   // edgeGroundwaterFlowRate - Groundwater flow rate in cubic meters across
   //                           the edge shared with the neighbor.
-  void handleMeshGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+  void handleMeshGroundwaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
   
   // Receive a groundwater flow rate limited message from a mesh neighbor.
   // This message indicates that the neighbor has calculated whether or not the
@@ -160,7 +160,7 @@ private:
   //                           neighbor.
   // edgeGroundwaterFlowRate - Groundwater flow rate in cubic meters across
   //                           the edge shared with the neighbor.
-  void handleMeshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
+  void handleMeshGroundwaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeGroundwaterFlowRate);
   
   // Check the ready state of all groundwater flow rates.  If all groundwater
   // flow rates are calculated do the flow rate limiting check for groundwater
@@ -171,7 +171,7 @@ private:
   //
   // iterationThisMessage - Iteration number to put on all messages this
   //                        timestep.
-  void checkGroundwaterFlowRates(CMK_REFNUM_TYPE iterationThisMessage);
+  void checkGroundwaterFlowRates(size_t iterationThisMessage);
   
   // Update the values of water state variables to reflect the result of
   // all groundwater flows then start the surfacewater phase.
@@ -180,7 +180,7 @@ private:
   //
   // iterationThisMessage - Iteration number to put on all messages this
   //                        timestep.
-  void moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage);
+  void moveGroundwater(size_t iterationThisMessage);
   
   // Calculate surfacewater flow rate for all boundary condition edges.
   // Exit on error.
@@ -189,7 +189,7 @@ private:
   //
   // iterationThisMessage - Iteration number to put on all messages this
   //                        timestep.
-  void handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage);
+  void handleCalculateSurfacewaterBoundaryConditionsMessage(size_t iterationThisMessage);
   
   // Receive a surfacewater state message from a channel neighbor, calculate
   // surfacewater flow rate across the edge shared with the neighbor, and
@@ -203,7 +203,7 @@ private:
   // edge                      - My channel edge number for the edge shared
   //                             with the neighbor.
   // neighborSurfacewaterDepth - Surfacewater depth of the neighbor in meters.
-  void handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth);
+  void handleChannelSurfacewaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth);
   
   // Receive a surfacewater state message from a mesh neighbor, calculate
   // surfacewater flow rate across the edge shared with the neighbor, and
@@ -217,7 +217,7 @@ private:
   // edge                      - My mesh edge number for the edge shared with
   //                             the neighbor.
   // neighborSurfacewaterDepth - Surfacewater depth of the neighbor in meters.
-  void handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth);
+  void handleMeshSurfacewaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth);
   
   // Receive a surfacewater flow rate message from a channel neighbor.  This
   // message indicates that the neighbor has calculated the surfacewater flow
@@ -232,7 +232,7 @@ private:
   //                            neighbor.
   // edgeSurfacewaterFlowRate - Surfacewater flow rate in cubic meters across
   //                            the edge shared with the neighbor.
-  void handleChannelSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+  void handleChannelSurfacewaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
   
   // Receive a surfacewater flow rate message from a mesh neighbor.  This
   // message indicates that the neighbor has calculated the surfacewater flow
@@ -247,7 +247,7 @@ private:
   //                            neighbor.
   // edgeSurfacewaterFlowRate - Surfacewater flow rate in cubic meters across
   //                            the edge shared with the neighbor.
-  void handleMeshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+  void handleMeshSurfacewaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
   
   // Receive a surfacewater flow rate limited message from a channel neighbor.
   // This message indicates that the neighbor has calculated whether or not the
@@ -264,7 +264,7 @@ private:
   //                            neighbor.
   // edgeSurfacewaterFlowRate - Surfacewater flow rate in cubic meters across
   //                            the edge shared with the neighbor.
-  void handleChannelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+  void handleChannelSurfacewaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
   
   // Receive a surfacewater flow rate limited message from a mesh neighbor.
   // This message indicates that the neighbor has calculated whether or not the
@@ -281,7 +281,7 @@ private:
   //                            neighbor.
   // edgeSurfacewaterFlowRate - Surfacewater flow rate in cubic meters across
   //                            the edge shared with the neighbor.
-  void handleMeshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
+  void handleMeshSurfacewaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate);
   
   // Check the ready state of all surfacewater flow rates.  If all surfacewater
   // flow rates are calculated do the flow rate limiting check for surfacewater
@@ -292,7 +292,7 @@ private:
   //
   // iterationThisMessage - Iteration number to put on all messages this
   //                        timestep.
-  void checkSurfacewaterFlowRates(CMK_REFNUM_TYPE iterationThisMessage);
+  void checkSurfacewaterFlowRates(size_t iterationThisMessage);
   
   // Update the values of water state variables to reflect the result of
   // all surfacewater flows then contribute to the dtNew reduction.
