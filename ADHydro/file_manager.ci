@@ -94,7 +94,9 @@ module file_manager
       {
         case
         {
-          when meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError)
+          when meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError, double precipitationCumulative, double evaporationCumulative, 
+                                float canLiq, float canIce, float snEqv, double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize], 
+                                double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize] )
           {
             serial
             {
@@ -112,15 +114,27 @@ module file_manager
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-              meshSurfacewaterDepth[element - localMeshElementStart] = surfacewaterDepth;
-              meshSurfacewaterError[element - localMeshElementStart] = surfacewaterError;
-              meshGroundwaterHead[element - localMeshElementStart]   = groundwaterHead;
-              meshGroundwaterError[element - localMeshElementStart]  = groundwaterError;
-              meshElementUpdated[element - localMeshElementStart]    = true;
+              meshSurfacewaterDepth[element - localMeshElementStart]        = surfacewaterDepth;
+              meshSurfacewaterError[element - localMeshElementStart]        = surfacewaterError;
+              meshGroundwaterHead[element - localMeshElementStart]          = groundwaterHead;
+              meshGroundwaterError[element - localMeshElementStart]         = groundwaterError;
+              meshPrecipitationCumulative[element - localMeshElementStart]  = precipitationCumulative;
+              meshEvaporationCumulative[element - localMeshElementStart]    = evaporationCumulative;
+              meshCanopyLiquid[element - localMeshElementStart]             = canLiq;
+              meshCanopyIce[element - localMeshElementStart]                = canIce;
+              meshSnowWaterEquivalent[element - localMeshElementStart]      = snEqv;
+              
+              for (int nn = 0; nn < MeshElement::meshNeighborsSize; nn++)
+                 {
+                   meshElementNeighborsSurfacewaterCumulativeFlow[element - localMeshElementStart][nn] = meshNeighborsSurfacewaterCumulativeFlow[nn];
+                   meshElementNeighborsGroundwaterCumulativeFlow[element - localMeshElementStart][nn]  = meshNeighborsGroundwaterCumulativeFlow[nn];
+                 }
+                        
+              meshElementUpdated[element - localMeshElementStart]           = true;
             }
           }
           
-          when channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError)
+          when channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double evaporationCumulative, double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize] )
           {
             serial
             {
@@ -138,9 +152,16 @@ module file_manager
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-              channelSurfacewaterDepth[element - localChannelElementStart] = surfacewaterDepth;
-              channelSurfacewaterError[element - localChannelElementStart] = surfacewaterError;
-              channelElementUpdated[element - localChannelElementStart]    = true;
+              channelSurfacewaterDepth[element - localChannelElementStart]      = surfacewaterDepth;
+              channelSurfacewaterError[element - localChannelElementStart]      = surfacewaterError;
+              channelEvaporationCumulative [element - localChannelElementStart] = evaporationCumulative;
+              
+              for (int nn = 0; nn < ChannelElement::channelNeighborsSize; nn++)
+                 {
+                   //channelNeighborsSurfacewaterCumulativeFlow[element - localMeshElementStart][nn] = channelNeighborsSurfacewaterCumulativeFlow[nn];
+                 }
+                 
+              channelElementUpdated[element - localChannelElementStart]         = true;
             }
           }
         } // End case within while (!allElementsUpdated()).
@@ -152,7 +173,9 @@ module file_manager
       }
     }; // End updateState.
     
-    entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError);
-    entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError);
+    entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError, double precipitationCumulative, double evaporationCumulative, 
+                                float canLiq, float canIce, float snEqv, double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize], 
+                                double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize]);
+    entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double evaporationCumulative, double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize]);
   }; // End group FileManager.
 }; // End module file_manager.

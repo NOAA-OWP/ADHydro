@@ -24,6 +24,7 @@ typedef double doublearraymcn[MeshElement::channelNeighborsSize];     // Fixed s
 typedef int    intarrayxdmf[ChannelElement::channelVerticesSize + 2]; // Fixed size array of ints.     Size is channel vertices + 2.  This is used only for
                                                                       // channelElementVertices.  See the comment of that variable for explanation.
 typedef double doublearraycvn[ChannelElement::channelVerticesSize];   // Fixed size array of doubles.  Size is channel vertices.
+typedef double doublearrayccn[ChannelElement::channelNeighborsSize];  // Fixed size array of doubles.  Size is channel channel neighbors.
 typedef int    intarrayccn[ChannelElement::channelNeighborsSize];     // Fixed size array of ints.     Size is channel channel neighbors.
 typedef int    intarraycmn[ChannelElement::meshNeighborsSize];        // Fixed size array of ints.     Size is channel mesh neighbors.
 typedef double doublearraycmn[ChannelElement::meshNeighborsSize];     // Fixed size array of doubles.  Size is channel mesh neighbors.
@@ -211,6 +212,13 @@ public:
   double*         meshSurfacewaterError;
   double*         meshGroundwaterHead;
   double*         meshGroundwaterError;
+  double*         meshPrecipitationCumulative;
+  double*         meshEvaporationCumulative;
+  double*         meshCanopyLiquid;
+  double*         meshCanopyIce;
+  double*         meshSnowWaterEquivalent;
+  doublearraymmn* meshElementNeighborsSurfacewaterCumulativeFlow;
+  doublearraymmn* meshElementNeighborsGroundwaterCumulativeFlow;
   intarraymmn*    meshMeshNeighbors;
   boolarraymmn*   meshMeshNeighborsChannelEdge;
   doublearraymmn* meshMeshNeighborsEdgeLength;
@@ -272,6 +280,8 @@ public:
   double*          channelManningsN;
   double*          channelSurfacewaterDepth;
   double*          channelSurfacewaterError;
+  double*          channelEvaporationCumulative;
+  doublearrayccn*  channelElementNeighborsSurfacewaterCumulativeFlow;
   intarrayccn*     channelChannelNeighbors;
   intarraycmn*     channelMeshNeighbors;
   doublearraycmn*  channelMeshNeighborsEdgeLength;
