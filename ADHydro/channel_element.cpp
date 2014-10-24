@@ -575,7 +575,7 @@ void ChannelElement::handleForcingDataMessage()
 
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
-void ChannelElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, double dtThisTimestep)
+void ChannelElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep)
 {
   int edge; // Loop counter.
   
@@ -630,7 +630,7 @@ void ChannelElement::handleDoTimestep(CMK_REFNUM_TYPE iterationThisTimestep, dou
   checkGroundwaterFlowRates(iterationThisTimestep);
 }
 
-void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth,
+void ChannelElement::handleMeshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth,
                                                        double neighborGroundwaterHead)
 {
   bool error = false; // Error flag.
@@ -724,7 +724,7 @@ void ChannelElement::handleMeshGroundwaterStateMessage(CMK_REFNUM_TYPE iteration
 }
 #pragma GCC diagnostic warning "-Wswitch"
 
-void ChannelElement::handleMeshGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+void ChannelElement::handleMeshGroundwaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && meshNeighborsSize > edge))
@@ -767,7 +767,7 @@ void ChannelElement::handleMeshGroundwaterFlowRateMessage(CMK_REFNUM_TYPE iterat
   checkGroundwaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::handleMeshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
+void ChannelElement::handleMeshGroundwaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeGroundwaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && meshNeighborsSize > edge))
@@ -799,7 +799,7 @@ void ChannelElement::handleMeshGroundwaterFlowRateLimitedMessage(CMK_REFNUM_TYPE
   checkGroundwaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::checkGroundwaterFlowRates(CMK_REFNUM_TYPE iterationThisMessage)
+void ChannelElement::checkGroundwaterFlowRates(size_t iterationThisMessage)
 {
   int    edge;                            // Loop counter.
   bool   allCalculated           = true;  // Whether all flows have been calculated.
@@ -873,7 +873,7 @@ void ChannelElement::checkGroundwaterFlowRates(CMK_REFNUM_TYPE iterationThisMess
 
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
-void ChannelElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
+void ChannelElement::moveGroundwater(size_t iterationThisMessage)
 {
   int    edge; // Loop counter.
   double area; // Cross sectional area of water in trapezoidal channel in square meters.
@@ -968,7 +968,7 @@ void ChannelElement::moveGroundwater(CMK_REFNUM_TYPE iterationThisMessage)
 }
 #pragma GCC diagnostic warning "-Wswitch"
 
-void ChannelElement::handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_REFNUM_TYPE iterationThisMessage)
+void ChannelElement::handleCalculateSurfacewaterBoundaryConditionsMessage(size_t iterationThisMessage)
 {
   bool error = false; // Error flag.
   int  edge;          // Loop counter.
@@ -1013,7 +1013,7 @@ void ChannelElement::handleCalculateSurfacewaterBoundaryConditionsMessage(CMK_RE
 
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
-void ChannelElement::handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+void ChannelElement::handleChannelSurfacewaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth)
 {
   bool   error = false; // Error flag.
   
@@ -1095,7 +1095,7 @@ void ChannelElement::handleChannelSurfacewaterStateMessage(CMK_REFNUM_TYPE itera
     }
 }
 
-void ChannelElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double neighborSurfacewaterDepth)
+void ChannelElement::handleMeshSurfacewaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth)
 {
   bool error = false; // Error flag.
   
@@ -1179,7 +1179,7 @@ void ChannelElement::handleMeshSurfacewaterStateMessage(CMK_REFNUM_TYPE iteratio
 }
 #pragma GCC diagnostic warning "-Wswitch"
 
-void ChannelElement::handleChannelSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+void ChannelElement::handleChannelSurfacewaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && channelNeighborsSize > edge))
@@ -1222,7 +1222,7 @@ void ChannelElement::handleChannelSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE it
   checkSurfacewaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::handleMeshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+void ChannelElement::handleMeshSurfacewaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && meshNeighborsSize > edge))
@@ -1265,7 +1265,7 @@ void ChannelElement::handleMeshSurfacewaterFlowRateMessage(CMK_REFNUM_TYPE itera
   checkSurfacewaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::handleChannelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+void ChannelElement::handleChannelSurfacewaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && channelNeighborsSize > edge))
@@ -1298,7 +1298,7 @@ void ChannelElement::handleChannelSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_
   checkSurfacewaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYPE iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
+void ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage(size_t iterationThisMessage, int edge, double edgeSurfacewaterFlowRate)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= edge && meshNeighborsSize > edge))
@@ -1330,7 +1330,7 @@ void ChannelElement::handleMeshSurfacewaterFlowRateLimitedMessage(CMK_REFNUM_TYP
   checkSurfacewaterFlowRates(iterationThisMessage);
 }
 
-void ChannelElement::checkSurfacewaterFlowRates(CMK_REFNUM_TYPE iterationThisMessage)
+void ChannelElement::checkSurfacewaterFlowRates(size_t iterationThisMessage)
 {
   int    edge;                            // Loop counter.
   bool   allCalculated           = true;  // Whether all flows have been calculated.

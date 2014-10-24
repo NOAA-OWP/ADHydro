@@ -2545,7 +2545,7 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
   if (!error)
     {
       dimIDs[0]   = instancesDimID;
-      ncErrorCode = nc_def_var(fileID, "iteration", NC_USHORT, 1, dimIDs, &varID);
+      ncErrorCode = nc_def_var(fileID, "iteration", NC_UINT64, 1, dimIDs, &varID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -2907,7 +2907,6 @@ void FileManager::resizeUnlimitedDimensions(size_t directorySize, const char* di
   int                intZero = 0;              // For writing dummy value to resize dimension.
   double             doubleZero = 0.0;         // For writing dummy value to resize dimension.
   signed char        signedCharZero = 0;       // For writing dummy value to resize dimension.
-  unsigned short     unsignedShortZero = 0;    // For writing dummy value to resize dimension.
   unsigned long long unsignedLongLongZero = 0; // For writing dummy value to resize dimension.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -5031,7 +5030,7 @@ void FileManager::resizeUnlimitedDimensions(size_t directorySize, const char* di
           if (!error)
             {
               start[0]    = stateInstance;
-              ncErrorCode = nc_put_var1_ushort(fileID, varID, start, &unsignedShortZero);
+              ncErrorCode = nc_put_var1_ulonglong(fileID, varID, start, &unsignedLongLongZero);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(NC_NOERR == ncErrorCode))
@@ -8628,9 +8627,12 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 
       if (!error)
         {
+          // Assumes size_t is eight bytes when casting to unsigned long long.
+          CkAssert(sizeof(size_t) == sizeof(unsigned long long));
+
           start[0]    = stateInstance;
           count[0]    = 1;
-          ncErrorCode = nc_put_vara_ushort(fileID, varID, start, count, &iteration);
+          ncErrorCode = nc_put_vara_ulonglong(fileID, varID, start, count, (unsigned long long *)&iteration);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
@@ -10930,9 +10932,12 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 
   if (!error)
     {
+      // Assumes size_t is eight bytes when casting to unsigned long long.
+      CkAssert(sizeof(size_t) == sizeof(unsigned long long));
+      
       start[0]    = stateInstance;
       count[0]    = 1;
-      ncErrorCode = nc_get_vara_ushort(stateFileID, varID, start, count, &iteration);
+      ncErrorCode = nc_get_vara_ulonglong(stateFileID, varID, start, count, (unsigned long long *)&iteration);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))

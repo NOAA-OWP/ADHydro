@@ -1,32 +1,35 @@
 # Use these values for Mt Moran.
 
-#CHARMDIR          := /project/CI-WATER/rsteinke/charm
-#HDF5DIR           := /apps/HDF5-mpi/intel/14.0.0/1.8.12
-#NETCDFDIR         := /apps/netcdf-mpi/intel/14.0.0/4.3.2
-#LIBDIRNAME        := lib
-#METISDIR          := /project/CI-WATER/rsteinke/metis-5.1.0
-#EXTRAMETISLDFLAGS := -L$(METISDIR)/build/Linux-x86_64/libmetis
+#CHARMDIR   := /project/CI-WATER/tools/build/charm-6.6.0
+#HDF5DIR    := /apps/HDF5-mpi/intel/15.0.0/1.8.13
+#NETCDFDIR  := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
+#METISDIR   := /project/CI-WATER/tools
+#LIBDIRNAME := lib
+#EXTRAFLAGS := -DINTEL_COMPILER
 
 # Use these values for EN3038 lab.
 
 HDF5DIR    := /opt
 NETCDFDIR  := /opt
+METISDIR   := /opt
 LIBDIRNAME := lib64
+EXTRAFLAGS := -fdiagnostics-show-option
 
 # Use these values for all.
 
 CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-METISLDFLAGS   := $(EXTRAMETISLDFLAGS) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS)  -I/usr/include/libshp -g -Wall -fdiagnostics-show-option
-LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) -lgfortran -g -Wall -language charm++
+METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS)  -I/usr/include/libshp -g -Wall
+LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
 
 VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines
 
 EXES := adhydro                       \
         adhydro_channel_preprocessing \
-        adhydro_create_xmf_file
+        adhydro_create_xmf_file       \
+        test_date_functions
 
 ADHYDRO_OBJS := adhydro.o         \
                 mesh_element.o    \
@@ -51,6 +54,8 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
 ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
+
+TEST_DATE_FUNCTIONS_OBJS := test_date_functions.o
 
 all: $(EXES)
 
@@ -95,6 +100,13 @@ adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+
+test_date_functions: $(TEST_DATE_FUNCTIONS_OBJS)
+	$(CXX) $^ -o $@ -g -Wall
+
+test_date_functions.o: test_date_functions.cpp \
+                       all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \
@@ -163,6 +175,6 @@ evapo_transpiration.o: evapo_transpiration.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
 
 .PHONY: clean

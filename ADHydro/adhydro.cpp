@@ -72,12 +72,14 @@ void ADHydro::pup(PUP::er &p)
       commandLineArguments = NULL;
     }
   
+  p | referenceDate;
   p | currentTime;
   p | endTime;
   p | dt;
   p | outputPeriod;
   p | nextOutputTime;
   p | iteration;
+  p | startingIteration;
   p | writeGeometry;
   p | writeParameter;
   p | needToUpdateForcingData;
@@ -96,12 +98,14 @@ void ADHydro::fileManagerBarrier()
 void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
+  referenceDate           = gregorianToJulian(2010, 1, 1, 0, 0, 0.0); // FIXME initilaize from FileManager.
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
   endTime                 = currentTime + 12000.0; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
   outputPeriod            = 3600.0; // FIXME make command line parameter
   nextOutputTime          = currentTime + outputPeriod;
   iteration               = fileManagerProxy.ckLocalBranch()->iteration;
+  startingIteration       = iteration;
   writeGeometry           = true;
   writeParameter          = true;
   needToUpdateForcingData = true;
@@ -277,7 +281,7 @@ void ADHydro::doTimestep()
         }
 
       // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %u\n", currentTime, dt, iteration);
+      CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu\n", currentTime, dt, iteration);
 
       // Set callbacks and start timestep.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -331,7 +335,7 @@ void ADHydro::timestepDone(double dtNew)
   iteration++;
 
   // Load balance once after waiting a few iterations to generate load statistics.
-  if (5 == iteration && 1 < CkNumPes())
+  if (startingIteration + 5 == iteration && 1 < CkNumPes())
     {
       CkStartLB();
     }

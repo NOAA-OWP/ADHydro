@@ -61,7 +61,7 @@ module file_manager
     entry void resizeUnlimitedDimensions(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
     entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
     
-    entry void updateState(double currentTimeNew, double dtNew, CMK_REFNUM_TYPE iterationNew)
+    entry void updateState(double currentTimeNew, double dtNew, size_t iterationNew)
     {
       serial
       {
