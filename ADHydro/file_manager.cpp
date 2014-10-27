@@ -9534,7 +9534,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
               start[0]    = stateInstance;
               start[1]    = localMeshElementStart;
               count[0]    = 1;
-              count[1]    = localNumberOfMeshElements;
+              count[1]    = localNumberOfChannelElements;
               ncErrorCode = nc_put_vara_double(fileID, varID, start, count, channelEvaporationCumulative);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -9585,7 +9585,7 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
               start[0]    = stateInstance;
               start[1]    = localMeshElementStart;
               count[0]    = 1;
-              count[1]    = localNumberOfMeshElements;
+              count[1]    = localNumberOfChannelElements;
               ncErrorCode = nc_put_vara_double(fileID, varID, start, count, (double*)channelElementNeighborsSurfacewaterCumulativeFlow);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
