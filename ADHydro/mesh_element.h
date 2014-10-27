@@ -14,6 +14,7 @@ class CProxy_ChannelElement;
 #pragma GCC diagnostic warning "-Wsign-compare"
 
 #include "all.h"
+#include "gar.h"
 #include "mesh_element.decl.h"
 #include "channel_element.decl.h"
 #include "evapo_transpiration.h"
@@ -46,8 +47,8 @@ public:
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
   
-  static const int meshNeighborsSize    = 3;  // Maximum number of mesh neighbors.
-  static const int channelNeighborsSize = 16; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 3;   // Maximum number of mesh neighbors.
+  static const int channelNeighborsSize = 16;  // Maximum number of channel neighbors.
   
 private:
   
@@ -534,6 +535,11 @@ private:
   // Evapo-transpiration state variables.
   EvapoTranspirationStateStruct evapoTranspirationState; // state variables that are simulated by the evapo-transpiration module.
   
+  // Infiltratin state variables. FIXME,need a destructor to deallocate gar_parameters and gar_domain.
+  // See gar.h.
+  gar_parameters* garParameters;      // A gar_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GAR) domain.
+  gar_domain*     garDomain;          // A gar_domain struct stores all of the state of a single GAR domain.
+ 
   // Forcing data.
   double atmosphereLayerThickness;     // Thickness in meters of lowest atmosphere layer in forcing data.  The following other variables are values from the
                                        // middle of the lowest atmosphere layer, i.e. half of this height: atomsphereLayerPressure, eastWindSpeed,
