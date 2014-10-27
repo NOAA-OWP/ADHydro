@@ -2,7 +2,6 @@
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
-#include "soil_temperature.h"
 
 // FIXME questions and to-do list items
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
