@@ -2,41 +2,53 @@
 #include "all.h"
 #include <math.h>
 
-extern "C" void __noahmp_veg_parameters_MOD_read_mp_veg_parameters(const char* landUse, const char* mpTableFile, size_t landUseSize, size_t mpTableFileSize);
-extern "C" void __module_sf_noahmpdrv_MOD_soil_veg_gen_parm(const char* landUse, const char* soil, const char* vegParmFile, const char* soilParmFile,
-                                                            const char* genParmFile, size_t landUseSize, size_t soilSize, size_t vegParmFileSize,
-                                                            size_t soilParmFileSize, size_t genParmFileSize);
-extern "C" void __noahmp_routines_MOD_noahmp_options(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf, int* optRad,
-                                                     int* optAlb, int* optSnf, int* optTbot, int* optStc);
-extern "C" void __noahmp_glacier_routines_MOD_noahmp_options_glacier(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf,
-                                                                     int* optRad, int* optAlb, int* optSnf, int* optTbot, int* optStc);
-extern "C" void __noahmp_routines_MOD_redprm(int* vegType, int* soilType, int* slopeType, float* zSoil, int* nSoil, int* isUrban);
-extern "C" void __noahmp_routines_MOD_noahmp_sflx(int* iLoc, int* jLoc, float* lat, int* yearLen, float* julian, float* cosZ, float* dt, float* dx,
-                                                  float* dz8w, int* nSoil, float* zSoil, int* nSnow, float* shdFac, float* shdMax, int* vegType, int* isUrban,
-                                                  int* ice, int* ist, int* isc, float* smcEq, int* iz0tlnd, float* sfcTmp, float* sfcPrs, float* psfc,
-                                                  float* uu, float* vv, float* q2, float* qc, float* solDn, float* lwDn, float* prcp, float* tBot,
-                                                  float* co2Air, float* o2Air, float* folN, float* fIceOld, float* pblh, float* zLvl, float* albOld,
-                                                  float* snEqvO, float* stc, float* sh2o, float* smc, float* tah, float* eah, float* fWet, float* canLiq,
-                                                  float* canIce, float* tv, float* tg, float* qsfc, float* qSnow, int* iSnow, float* zSnso, float* snowH,
-                                                  float* snEqv, float* snIce, float* snLiq, float* zwt, float* wa, float* wt, float* wsLake, float* lfMass,
-                                                  float* rtMass, float* stMass, float* wood, float* stblCp, float* fastCp, float* lai, float* sai, float* cm,
-                                                  float* ch, float* tauss, float* smcwtd, float* deepRech, float* rech, float* fsa, float* fsr, float* fira,
-                                                  float* fsh, float* sSoil, float* fcev, float* fgev, float* fctr, float* ecan, float* etran, float* eDir,
-                                                  float* trad, float* tgb, float* tgv, float* t2mv, float* t2mb, float* q2v, float* q2b, float* runSrf,
-                                                  float* runSub, float* apar, float* psn, float* sav, float* sag, float* fSno, float* nee, float* gpp,
-                                                  float* npp, float* fVeg, float* albedo, float* qsnBot, float* ponding, float* ponding1, float* ponding2,
-                                                  float* rsSun, float* rsSha, float* bGap, float* wGap, float* chv, float* chb, float* emissi, float* shg,
-                                                  float* shc, float* shb, float* evg, float* evb, float* ghv, float* ghb, float* irg, float* irc, float* irb,
-                                                  float* tr, float* evc, float* chLeaf, float* chuc, float* chv2, float* chb2, float* fpIce);
-extern "C" void __noahmp_glacier_routines_MOD_noahmp_glacier(int* iLoc, int* jLoc, float* cosZ, int* nSnow, int* nSoil, float* dt, float* sfcTmp,
-                                                             float* sfcPrs, float* uu, float* vv, float* q2, float* solDn, float* prcp, float* lwDn,
-                                                             float* tBot, float* zLvl, float* fIceOld, float* zSoil, float* qSnow, float* snEqvO,
-                                                             float* albOld, float* cm, float* ch, int* iSnow, float* snEqv, float* smc, float* zSnso,
-                                                             float* snowH, float* snIce, float* snLiq, float* tg, float* stc, float* sh2o, float* tauss,
-                                                             float* qsfc, float* fsa, float* fsr, float* fira, float* fsh, float* fgev, float* sSoil,
-                                                             float* trad, float* eDir, float* runSrf, float* runSub, float* sag, float* albedo, float* qsnBot,
-                                                             float* ponding, float* ponding1, float* ponding2, float* t2m, float* q2e, float* emissi,
-                                                             float* fpIce, float* ch2b);
+#ifdef INTEL_COMPILER
+#define READ_MP_VEG_PARAMETERS noahmp_veg_parameters_mp_read_mp_veg_parameters_
+#define SOIL_VEG_GEN_PARM      module_sf_noahmpdrv_mp_soil_veg_gen_parm_
+#define NOAHMP_OPTIONS         noahmp_routines_mp_noahmp_options_
+#define NOAHMP_OPTIONS_GLACIER noahmp_glacier_routines_mp_noahmp_options_glacier_
+#define REDPRM                 noahmp_routines_mp_redprm_
+#define NOAHMP_SFLX            noahmp_routines_mp_noahmp_sflx_
+#define NOAHMP_GLACIER         noahmp_glacier_routines_mp_noahmp_glacier_
+#else // INTEL_COMPILER
+#define READ_MP_VEG_PARAMETERS __noahmp_veg_parameters_MOD_read_mp_veg_parameters
+#define SOIL_VEG_GEN_PARM      __module_sf_noahmpdrv_MOD_soil_veg_gen_parm
+#define NOAHMP_OPTIONS         __noahmp_routines_MOD_noahmp_options
+#define NOAHMP_OPTIONS_GLACIER __noahmp_glacier_routines_MOD_noahmp_options_glacier
+#define REDPRM                 __noahmp_routines_MOD_redprm
+#define NOAHMP_SFLX            __noahmp_routines_MOD_noahmp_sflx
+#define NOAHMP_GLACIER         __noahmp_glacier_routines_MOD_noahmp_glacier
+#endif // INTEL_COMPILER
+
+extern "C" void READ_MP_VEG_PARAMETERS(const char* landUse, const char* mpTableFile, size_t landUseSize, size_t mpTableFileSize);
+extern "C" void SOIL_VEG_GEN_PARM(const char* landUse, const char* soil, const char* vegParmFile, const char* soilParmFile, const char* genParmFile,
+                                  size_t landUseSize, size_t soilSize, size_t vegParmFileSize, size_t soilParmFileSize, size_t genParmFileSize);
+extern "C" void NOAHMP_OPTIONS(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf, int* optRad, int* optAlb, int* optSnf,
+                               int* optTbot, int* optStc);
+extern "C" void NOAHMP_OPTIONS_GLACIER(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf, int* optRad, int* optAlb,
+                                       int* optSnf, int* optTbot, int* optStc);
+extern "C" void REDPRM(int* vegType, int* soilType, int* slopeType, float* zSoil, int* nSoil, int* isUrban);
+extern "C" void NOAHMP_SFLX(int* iLoc, int* jLoc, float* lat, int* yearLen, float* julian, float* cosZ, float* dt, float* dx, float* dz8w, int* nSoil,
+                            float* zSoil, int* nSnow, float* shdFac, float* shdMax, int* vegType, int* isUrban, int* ice, int* ist, int* isc, float* smcEq,
+                            int* iz0tlnd, float* sfcTmp, float* sfcPrs, float* psfc, float* uu, float* vv, float* q2, float* qc, float* solDn, float* lwDn,
+                            float* prcp, float* tBot, float* co2Air, float* o2Air, float* folN, float* fIceOld, float* pblh, float* zLvl, float* albOld,
+                            float* snEqvO, float* stc, float* sh2o, float* smc, float* tah, float* eah, float* fWet, float* canLiq, float* canIce, float* tv,
+                            float* tg, float* qsfc, float* qSnow, int* iSnow, float* zSnso, float* snowH, float* snEqv, float* snIce, float* snLiq, float* zwt,
+                            float* wa, float* wt, float* wsLake, float* lfMass, float* rtMass, float* stMass, float* wood, float* stblCp, float* fastCp,
+                            float* lai, float* sai, float* cm, float* ch, float* tauss, float* smcwtd, float* deepRech, float* rech, float* fsa, float* fsr,
+                            float* fira, float* fsh, float* sSoil, float* fcev, float* fgev, float* fctr, float* ecan, float* etran, float* eDir, float* trad,
+                            float* tgb, float* tgv, float* t2mv, float* t2mb, float* q2v, float* q2b, float* runSrf, float* runSub, float* apar, float* psn,
+                            float* sav, float* sag, float* fSno, float* nee, float* gpp, float* npp, float* fVeg, float* albedo, float* qsnBot, float* ponding,
+                            float* ponding1, float* ponding2, float* rsSun, float* rsSha, float* bGap, float* wGap, float* chv, float* chb, float* emissi,
+                            float* shg, float* shc, float* shb, float* evg, float* evb, float* ghv, float* ghb, float* irg, float* irc, float* irb, float* tr,
+                            float* evc, float* chLeaf, float* chuc, float* chv2, float* chb2, float* fpIce);
+extern "C" void NOAHMP_GLACIER(int* iLoc, int* jLoc, float* cosZ, int* nSnow, int* nSoil, float* dt, float* sfcTmp, float* sfcPrs, float* uu, float* vv,
+                               float* q2, float* solDn, float* prcp, float* lwDn, float* tBot, float* zLvl, float* fIceOld, float* zSoil, float* qSnow,
+                               float* snEqvO, float* albOld, float* cm, float* ch, int* iSnow, float* snEqv, float* smc, float* zSnso, float* snowH,
+                               float* snIce, float* snLiq, float* tg, float* stc, float* sh2o, float* tauss, float* qsfc, float* fsa, float* fsr, float* fira,
+                               float* fsh, float* fgev, float* sSoil, float* trad, float* eDir, float* runSrf, float* runSub, float* sag, float* albedo,
+                               float* qsnBot, float* ponding, float* ponding1, float* ponding2, float* t2m, float* q2e, float* emissi, float* fpIce,
+                               float* ch2b);
 
 bool evapoTranspirationInit(const char* directory)
 {
@@ -203,12 +215,11 @@ bool evapoTranspirationInit(const char* directory)
   
   if (!error)
     {
-      __noahmp_veg_parameters_MOD_read_mp_veg_parameters(landUse, mpTableFile, strlen(landUse), strlen(mpTableFile));
-      __module_sf_noahmpdrv_MOD_soil_veg_gen_parm(landUse, soil, vegParmFile, soilParmFile, genParmFile, strlen(landUse), strlen(soil), strlen(vegParmFile),
-                                                  strlen(soilParmFile), strlen(genParmFile));
-      __noahmp_routines_MOD_noahmp_options(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot, &optStc);
-      __noahmp_glacier_routines_MOD_noahmp_options_glacier(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot,
-                                                           &optStc);
+      READ_MP_VEG_PARAMETERS(landUse, mpTableFile, strlen(landUse), strlen(mpTableFile));
+      SOIL_VEG_GEN_PARM(landUse, soil, vegParmFile, soilParmFile, genParmFile, strlen(landUse), strlen(soil), strlen(vegParmFile), strlen(soilParmFile),
+                        strlen(genParmFile));
+      NOAHMP_OPTIONS(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot, &optStc);
+      NOAHMP_OPTIONS_GLACIER(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot, &optStc);
     }
   
   if (NULL != mpTableFile)
@@ -468,23 +479,20 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           fIce[ii] = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
         }
       
-      __noahmp_routines_MOD_redprm(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
-      __noahmp_routines_MOD_noahmp_sflx(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
-                                        &isUrban, &ice, &ist, &isc, smcEq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot,
-                                        &co2Air, &o2Air, &folN, evapoTranspirationState->fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld,
-                                        &evapoTranspirationState->snEqvO, evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah,
-                                        &evapoTranspirationState->eah, &evapoTranspirationState->fWet, &evapoTranspirationState->canLiq,
-                                        &evapoTranspirationState->canIce, &evapoTranspirationState->tv, &evapoTranspirationState->tg, &qsfc, &qSnow,
-                                        &evapoTranspirationState->iSnow, evapoTranspirationState->zSnso, &evapoTranspirationState->snowH,
-                                        &evapoTranspirationState->snEqv, evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt,
-                                        &wsLake, &evapoTranspirationState->lfMass, &evapoTranspirationState->rtMass, &evapoTranspirationState->stMass,
-                                        &evapoTranspirationState->wood, &evapoTranspirationState->stblCp, &evapoTranspirationState->fastCp,
-                                        &evapoTranspirationState->lai, &evapoTranspirationState->sai, &evapoTranspirationState->cm,
-                                        &evapoTranspirationState->ch, &evapoTranspirationState->tauss, &smcwtd, &evapoTranspirationState->deepRech,
-                                        &evapoTranspirationState->rech, &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran, &eDir, &tRad,
-                                        &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub, &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg,
-                                        &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap, &chv, &chb, &emissi, &shg, &shc, &shb,
-                                        &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
+      REDPRM(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
+      NOAHMP_SFLX(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType, &isUrban, &ice, &ist, &isc,
+                  smcEq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot, &co2Air, &o2Air, &folN,
+                  evapoTranspirationState->fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld, &evapoTranspirationState->snEqvO,
+                  evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah, &evapoTranspirationState->eah, &evapoTranspirationState->fWet,
+                  &evapoTranspirationState->canLiq, &evapoTranspirationState->canIce, &evapoTranspirationState->tv, &evapoTranspirationState->tg, &qsfc,
+                  &qSnow, &evapoTranspirationState->iSnow, evapoTranspirationState->zSnso, &evapoTranspirationState->snowH, &evapoTranspirationState->snEqv,
+                  evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt, &wsLake, &evapoTranspirationState->lfMass,
+                  &evapoTranspirationState->rtMass, &evapoTranspirationState->stMass, &evapoTranspirationState->wood, &evapoTranspirationState->stblCp,
+                  &evapoTranspirationState->fastCp, &evapoTranspirationState->lai, &evapoTranspirationState->sai, &evapoTranspirationState->cm,
+                  &evapoTranspirationState->ch, &evapoTranspirationState->tauss, &smcwtd, &evapoTranspirationState->deepRech, &evapoTranspirationState->rech,
+                  &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran, &eDir, &tRad, &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub,
+                  &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg, &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap,
+                  &chv, &chb, &emissi, &shg, &shc, &shb, &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.
@@ -918,23 +926,20 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           fIce[ii] = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
         }
 
-      __noahmp_routines_MOD_redprm(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
-      __noahmp_routines_MOD_noahmp_sflx(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
-                                        &isUrban, &ice, &ist, &isc, smcEq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot,
-                                        &co2Air, &o2Air, &folN, evapoTranspirationState->fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld,
-                                        &evapoTranspirationState->snEqvO, evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah,
-                                        &evapoTranspirationState->eah, &evapoTranspirationState->fWet, &evapoTranspirationState->canLiq,
-                                        &evapoTranspirationState->canIce, &evapoTranspirationState->tv, &evapoTranspirationState->tg, &qsfc, &qSnow,
-                                        &evapoTranspirationState->iSnow, evapoTranspirationState->zSnso, &evapoTranspirationState->snowH,
-                                        &evapoTranspirationState->snEqv, evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt,
-                                        &wsLake, &evapoTranspirationState->lfMass, &evapoTranspirationState->rtMass, &evapoTranspirationState->stMass,
-                                        &evapoTranspirationState->wood, &evapoTranspirationState->stblCp, &evapoTranspirationState->fastCp,
-                                        &evapoTranspirationState->lai, &evapoTranspirationState->sai, &evapoTranspirationState->cm,
-                                        &evapoTranspirationState->ch, &evapoTranspirationState->tauss, &smcwtd, &evapoTranspirationState->deepRech,
-                                        &evapoTranspirationState->rech, &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran, &eDir, &tRad,
-                                        &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub, &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg,
-                                        &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap, &chv, &chb, &emissi, &shg, &shc, &shb,
-                                        &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
+      REDPRM(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
+      NOAHMP_SFLX(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType, &isUrban, &ice, &ist, &isc,
+                  smcEq, &iz0tlnd, &sfcTmp, &sfcPrs, &psfc, &uu, &vv, &q2, &qc, &solDn, &lwDn, &prcp, &tBot, &co2Air, &o2Air, &folN,
+                  evapoTranspirationState->fIceOld, &pblh, &zLvl, &evapoTranspirationState->albOld, &evapoTranspirationState->snEqvO,
+                  evapoTranspirationState->stc, sh2o, smc, &evapoTranspirationState->tah, &evapoTranspirationState->eah, &evapoTranspirationState->fWet,
+                  &evapoTranspirationState->canLiq, &evapoTranspirationState->canIce, &evapoTranspirationState->tv, &evapoTranspirationState->tg, &qsfc,
+                  &qSnow, &evapoTranspirationState->iSnow, evapoTranspirationState->zSnso, &evapoTranspirationState->snowH, &evapoTranspirationState->snEqv,
+                  evapoTranspirationState->snIce, evapoTranspirationState->snLiq, &zwt, &wa, &wt, &wsLake, &evapoTranspirationState->lfMass,
+                  &evapoTranspirationState->rtMass, &evapoTranspirationState->stMass, &evapoTranspirationState->wood, &evapoTranspirationState->stblCp,
+                  &evapoTranspirationState->fastCp, &evapoTranspirationState->lai, &evapoTranspirationState->sai, &evapoTranspirationState->cm,
+                  &evapoTranspirationState->ch, &evapoTranspirationState->tauss, &smcwtd, &evapoTranspirationState->deepRech, &evapoTranspirationState->rech,
+                  &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran, &eDir, &tRad, &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub,
+                  &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg, &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap,
+                  &chv, &chb, &emissi, &shg, &shc, &shb, &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.
@@ -1224,15 +1229,13 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
           fIce[ii] = evapoTranspirationState->snIce[ii] / (evapoTranspirationState->snIce[ii] + evapoTranspirationState->snLiq[ii]);
         }
 
-      __noahmp_routines_MOD_redprm(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
-      __noahmp_glacier_routines_MOD_noahmp_glacier(&iLoc, &jLoc, &cosZ, &nSnow, &nSoil, &dt, &sfcTmp, &sfcPrs, &uu, &vv, &q2, &solDn, &prcp, &lwDn, &tBot,
-                                                   &zLvl, evapoTranspirationState->fIceOld, zSoil, &qSnow, &evapoTranspirationState->snEqvO,
-                                                   &evapoTranspirationState->albOld, &evapoTranspirationState->cm, &evapoTranspirationState->ch,
-                                                   &evapoTranspirationState->iSnow, &evapoTranspirationState->snEqv, smc, evapoTranspirationState->zSnso,
-                                                   &evapoTranspirationState->snowH, evapoTranspirationState->snIce, evapoTranspirationState->snLiq,
-                                                   &evapoTranspirationState->tg, evapoTranspirationState->stc, sh2o, &evapoTranspirationState->tauss, &qsfc,
-                                                   &fsa, &fsr, &fira, &fsh, &fgev, &sSoil, &tRad, &eDir, &runSrf, &runSub, &sag, &albedo, &qSnBot, &ponding,
-                                                   &ponding1, &ponding2, &t2m, &q2e, &emissi, &fpIce, &ch2b);
+      REDPRM(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
+      NOAHMP_GLACIER(&iLoc, &jLoc, &cosZ, &nSnow, &nSoil, &dt, &sfcTmp, &sfcPrs, &uu, &vv, &q2, &solDn, &prcp, &lwDn, &tBot, &zLvl,
+                     evapoTranspirationState->fIceOld, zSoil, &qSnow, &evapoTranspirationState->snEqvO, &evapoTranspirationState->albOld,
+                     &evapoTranspirationState->cm, &evapoTranspirationState->ch, &evapoTranspirationState->iSnow, &evapoTranspirationState->snEqv, smc,
+                     evapoTranspirationState->zSnso, &evapoTranspirationState->snowH, evapoTranspirationState->snIce, evapoTranspirationState->snLiq,
+                     &evapoTranspirationState->tg, evapoTranspirationState->stc, sh2o, &evapoTranspirationState->tauss, &qsfc, &fsa, &fsr, &fira, &fsh, &fgev,
+                     &sSoil, &tRad, &eDir, &runSrf, &runSub, &sag, &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &t2m, &q2e, &emissi, &fpIce, &ch2b);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.

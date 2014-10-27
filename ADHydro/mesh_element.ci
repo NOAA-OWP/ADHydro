@@ -516,7 +516,8 @@ module mesh_element
             serial
             {
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)]
-                  .meshStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError);
+                  .meshStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError, precipitationCumulative, evaporationCumulative, evapoTranspirationState.canLiq,
+                                     evapoTranspirationState.canIce, evapoTranspirationState.snEqv, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsGroundwaterCumulativeFlow);
             }
           }
           
