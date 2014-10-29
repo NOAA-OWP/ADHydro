@@ -264,6 +264,9 @@ module module_NoahMP_hrldas_driver
 
     INTEGER, PARAMETER                  :: NSNOW = 3    ! number of snow layers fixed to 3
     REAL, PARAMETER                     :: undefined_value = -1.E36
+    ! The Intel compiler won't let you assign a constant real value to an integer if it will cause overflow.
+    ! Create this value to assign undefined_value to integers.
+    INTEGER, PARAMETER                  :: undefined_value_integer = -HUGE(I)
 
 !---------------------------------------------------------------------
 !  File naming, parallel
@@ -388,21 +391,21 @@ module module_NoahMP_hrldas_driver
 
 #endif
 
-  nsoil                   = undefined_value
+  nsoil                   = undefined_value_integer
   soil_thick_input        = undefined_value
   dtbl                    = undefined_value
-  start_year              = undefined_value
-  start_month             = undefined_value
-  start_day               = undefined_value
-  start_hour              = undefined_value
-  start_min               = undefined_value
-  khour                   = undefined_value
-  kday                    = undefined_value
+  start_year              = undefined_value_integer
+  start_month             = undefined_value_integer
+  start_day               = undefined_value_integer
+  start_hour              = undefined_value_integer
+  start_min               = undefined_value_integer
+  khour                   = undefined_value_integer
+  kday                    = undefined_value_integer
   zlvl                    = undefined_value
-  forcing_timestep        = undefined_value
-  noah_timestep           = undefined_value
-  output_timestep         = undefined_value
-  restart_frequency_hours = undefined_value
+  forcing_timestep        = undefined_value_integer
+  noah_timestep           = undefined_value_integer
+  output_timestep         = undefined_value_integer
+  restart_frequency_hours = undefined_value_integer
 
   open(30, file="namelist.hrldas", form="FORMATTED")
   read(30, NOAHLSM_OFFLINE, iostat=ierr)

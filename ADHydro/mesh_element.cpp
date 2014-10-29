@@ -465,6 +465,20 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       evapoTranspirationState.rech       = 0.0;
     }
   
+  // FIXME, wencong, initialize gar_domain here ?? Use some fake numbers for testing.
+  if (!error)
+    {
+      // gar_parameters_alloc(&parameters, num_bins, conductivity, porosity, residual_saturation, van_genutchen,  vg_alpha, vg_n, bc_lambda, bc_psib);
+      error = gar_parameters_alloc(&garParameters, 10, conductivity, porosity, 0.01, false,  0.01, 1.2, 0.5, 0.2);
+    }
+  
+  if (!error)
+    {
+      // gar_domain_alloc(&domain, parameters, layer_top_depth, layer_bottom_depth, yes_groundwater, initial_water_content, yes_groundwater, water_table);
+      error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, groundwaterHead - elementZSurface);
+    }
+  // End of gar_domain initialization.
+    
   // Forcing data will be initialized when the sdag code forces the object to receive a forcing data message before processing any timesteps.
   
   if (!error)
@@ -1039,8 +1053,9 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
   
   if (!error)
     {
+     /*
       // Calculate infiltration.  FIXME trivial infiltration, improve.
-
+     
       // Calculate the amount that infiltrates.
       surfacewaterInfiltration = conductivity * dt; // Meters of water.
 
@@ -1052,7 +1067,19 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
       // Infiltration goes instantly to groundwater.
       groundwaterRecharge = surfacewaterInfiltration;
       infiltrationDone    = true;
-
+      */
+      // FIXME, wencong, testing GARTO infiltration.
+      // gar_timestep(gar_domain* domain, double dt, double* surfacewater_depth, double water_table, double* groundwater_recharge)
+      groundwaterRecharge = 0.0;
+      error = gar_timestep(garDomain, dt, &surfacewaterDepth, groundwaterHead - elementZSurface, &groundwaterRecharge);
+      infiltrationDone    = true;
+  
+      // Testing 1D soil temperature.
+      // soil_temperature_timestep(double* soil_temperature, double* soil_depth_z, int num_elements, double input_heat_flux, double dt, 
+                              //gar_domain* domain_gar, int infiltration_type)
+      //error = soil_temperature_timestep(soil_temperature, soil_depth_z, num_elements_t, 0.5* (shortWaveRadiationDown + longWaveRadiationDown), dt, domain, 1);
+      //CkPrintf("soil_temperature[1] = %lf \n", soil_temperature[1]);
+      
       checkGroundwaterFlowRates(iterationThisMessage);
     }
   else

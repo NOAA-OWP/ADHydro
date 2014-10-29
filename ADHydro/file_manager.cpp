@@ -2681,6 +2681,118 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
+  if (!error && NULL != meshPrecipitationCumulative)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshPrecipitationCumulative", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshPrecipitationCumulative in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+    
+  if (!error && NULL != meshEvaporationCumulative)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshEvaporationCumulative", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshEvaporationCumulative in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error && NULL != meshCanopyLiquid)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshCanopyLiquid", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshCanopyLiquid in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  if (!error && NULL != meshCanopyIce)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshCanopyIce", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshCanopyIce in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error && NULL != meshSnowWaterEquivalent)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshSnowWaterEquivalent", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshSnowWaterEquivalent in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error && NULL != meshElementNeighborsSurfacewaterCumulativeFlow) 
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshElementNeighborsSurfacewaterCumulativeFlow", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+    
+  if (!error && NULL != meshElementNeighborsGroundwaterCumulativeFlow) 
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = meshElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "meshElementNeighborsGroundwaterCumulativeFlow", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable meshElementNeighborsGroundwaterCumulativeFlow in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+      
   if (!error && NULL != channelSurfacewaterDepth)
     {
       dimIDs[0]   = instancesDimID;
@@ -2712,6 +2824,38 @@ void FileManager::createFiles(size_t directorySize, const char* directory)
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
+  
+  if (!error && NULL != channelEvaporationCumulative)
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = channelElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "channelEvaporationCumulative", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable channelEvaporationCumulative in NetCDF state file %s.  NetCDF error message: %s.\n",
+                  nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error && NULL != channelElementNeighborsSurfacewaterCumulativeFlow) 
+    {
+      dimIDs[0]   = instancesDimID;
+      dimIDs[1]   = channelElementsDimID;
+      ncErrorCode = nc_def_var(fileID, "channelElementNeighborsSurfacewaterCumulativeFlow", NC_DOUBLE, 2, dimIDs, &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::createFiles: unable to create variable channelElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                  "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    } 
   
   // Close file.
   if (fileOpen)
@@ -8894,6 +9038,363 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
             }
         }
       
+     if (NULL != meshPrecipitationCumulative)
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshPrecipitationCumulative", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshPrecipitationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshPrecipitationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, meshPrecipitationCumulative);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable precipitation in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+        
+     if (NULL != meshEvaporationCumulative) 
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshEvaporationCumulative", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, meshEvaporationCumulative);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable meshEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+        
+      if (NULL != meshCanopyLiquid)  
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshCanopyLiquid", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshCanopyLiquid in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshCanopyLiquid in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, meshCanopyLiquid);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable meshCanopyLiquid in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+     
+     if (NULL != meshCanopyIce) 
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshCanopyIce", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshCanopyIce in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshCanopyIce in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, meshCanopyIce);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable canopyIce in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+     
+     if (NULL != meshSnowWaterEquivalent)  
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshSnowWaterEquivalent", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshSnowWaterEquivalent in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshSnowWaterEquivalent in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, meshSnowWaterEquivalent);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable meshSnowWaterEquivalent in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+        
+     if (NULL != meshElementNeighborsSurfacewaterCumulativeFlow) 
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshElementNeighborsSurfacewaterCumulativeFlow", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, (double*)meshElementNeighborsSurfacewaterCumulativeFlow);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable meshElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+         
+     if (NULL != meshElementNeighborsGroundwaterCumulativeFlow)
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "meshElementNeighborsGroundwaterCumulativeFlow", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable meshElementNeighborsGroundwaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable meshElementNeighborsGroundwaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfMeshElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, (double*)meshElementNeighborsGroundwaterCumulativeFlow);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable meshElementNeighborsGroundwaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+         
       if (NULL != channelSurfacewaterDepth)
         {
           if (!error)
@@ -8995,6 +9496,109 @@ void FileManager::writeFiles(size_t directorySize, const char* directory, bool w
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
         }
+     
+     if (NULL != channelEvaporationCumulative) 
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "channelEvaporationCumulative", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable channelEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfChannelElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, channelEvaporationCumulative);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable channelEvaporationCumulative in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+        
+     if (NULL != channelElementNeighborsSurfacewaterCumulativeFlow)
+        {
+          if (!error)
+            {
+              ncErrorCode = nc_inq_varid(fileID, "channelElementNeighborsSurfacewaterCumulativeFlow", &varID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to get variable channelElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+#ifndef NETCDF_COLLECTIVE_IO_WORKAROUND
+          if (!error)
+            {
+              ncErrorCode = nc_var_par_access(fileID, varID, NC_COLLECTIVE);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to set collective access for variable channelElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
+          
+          if (!error)
+            {
+              start[0]    = stateInstance;
+              start[1]    = localMeshElementStart;
+              count[0]    = 1;
+              count[1]    = localNumberOfChannelElements;
+              ncErrorCode = nc_put_vara_double(fileID, varID, start, count, (double*)channelElementNeighborsSurfacewaterCumulativeFlow);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeFiles: unable to write variable channelElementNeighborsSurfacewaterCumulativeFlow in NetCDF state file %s.  "
+                          "NetCDF error message: %s.\n", nameString, nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+        }
+       
     } // End if (writeState).
   
   // Close file.
@@ -12065,6 +12669,17 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
         }
     }
 
+   if (!error)
+    {
+       meshPrecipitationCumulative             = new double[localNumberOfMeshElements]; 
+       meshEvaporationCumulative               = new double[localNumberOfMeshElements];
+       meshCanopyLiquid                        = new double[localNumberOfMeshElements];
+       meshCanopyIce                           = new double[localNumberOfMeshElements];
+       meshSnowWaterEquivalent                 = new double[localNumberOfMeshElements];
+       meshElementNeighborsSurfacewaterCumulativeFlow = new doublearraymmn[localNumberOfMeshElements];
+       meshElementNeighborsGroundwaterCumulativeFlow  = new doublearraymmn[localNumberOfMeshElements];
+    } 
+  
   if (!error)
     {
       ncErrorCode = nc_inq_varid(stateFileID, "channelSurfacewaterDepth", &varID);
@@ -12112,7 +12727,13 @@ void FileManager::handleInitializeFromNetCDFFiles(size_t directorySize, const ch
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
     }
-
+  
+  if (!error)
+    {
+       channelEvaporationCumulative  = new double[localNumberOfMeshElements];
+       channelElementNeighborsSurfacewaterCumulativeFlow = new doublearrayccn[localNumberOfMeshElements];
+    }
+        
   // Close file.
   if (stateFileOpen)
     {
