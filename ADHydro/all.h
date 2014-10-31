@@ -382,4 +382,30 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 }
 
+// Utility functions for memory management.
+
+// FIXME use this everywhere.
+// If a pointer is not NULL array delete whatever it is pointing at and set the
+// pointer to NULL.
+//
+// Parameters:
+//
+// pointer - Pointer passed by reference.  If it is not NULL whatever it is
+//           pointing at will be array deleted and the pointer will be set to
+//           NULL.
+template <typename T> inline void deleteArrayIfNonNull(T** pointer)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  // FIXME can't link non-charm programs with CkAssert
+  //CkAssert(NULL != pointer);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (NULL != *pointer)
+    {
+      delete[] *pointer;
+      
+      *pointer = NULL;
+    }
+}
+
 #endif // __ALL_H__

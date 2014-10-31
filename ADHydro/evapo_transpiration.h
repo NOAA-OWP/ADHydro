@@ -6,6 +6,11 @@
 #include <charm++.h>
 #pragma GCC diagnostic warning "-Wsign-compare"
 
+// FIXME use these everywhere.
+#define EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS (3)
+#define EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS (4)
+#define EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS (EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS + EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS)
+
 // The evapo-transpiration module has a concept of snow layers and soil layers
 // that is separate from the rest of the ADHydro simulation.  There can be up
 // to three snow layers, and there are always four soil layers.  The interface
