@@ -31,12 +31,12 @@ EXES := adhydro                       \
         adhydro_create_xmf_file       \
         test_date_functions
 
-ADHYDRO_OBJS := adhydro.o         \
-                mesh_element.o    \
-                channel_element.o \
-                file_manager.o    \
-                surfacewater.o    \
-                groundwater.o     \
+ADHYDRO_OBJS := adhydro.o             \
+                mesh_element.o        \
+                channel_element.o     \
+                file_manager.o        \
+                surfacewater.o        \
+                groundwater.o         \
                 evapo_transpiration.o \
                 gar.o                 
 
