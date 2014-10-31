@@ -1,5 +1,7 @@
 #include "surfacewater.h"
 
+#define COURANT_DIFFUSIVE (0.9)
+
 bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity, double inflowHeight,
                                       double edgeLength, double edgeNormalX, double edgeNormalY, double surfacewaterDepth)
 {
@@ -194,7 +196,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           // Suggest new timestep.
-          dtTemp = 0.1 * elementLength / (*flowRate / area + sqrt(GRAVITY * surfacewaterDepth));
+          dtTemp = COURANT_DIFFUSIVE * elementLength / (*flowRate / area + sqrt(GRAVITY * surfacewaterDepth));
           
           if (*dtNew > dtTemp)
             {
@@ -301,7 +303,7 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
       *flowRate = (pow(averageDepth, 5.0 / 3.0) / (averageManningsN * sqrt(fabs(headSlope)))) * headSlope * edgeLength;
 
       // Suggest new timestep.
-      dtTemp = 0.1 * sqrt(2.0 * averageArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY * averageDepth));
+      dtTemp = COURANT_DIFFUSIVE * sqrt(2.0 * averageArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY * averageDepth));
 
       if (*dtNew > dtTemp)
         {
@@ -400,7 +402,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double
 //        A   = cross section area, in [m^2];
 //        Z   = water surface elevation, in [m];
 //        Z_x = slope of water surface elevation, [-].
-//        n   = Manning's roughness coefficint, in [s/m^(-1/3)];
+//        n   = Manning's roughness coefficint, in [s/m^(1/3)];
 //
 // Parameters:
 //
@@ -501,7 +503,7 @@ void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double el
       *flowRate = velocityDirection * velocityMagnitude * averageArea;
       
       // Suggest new timestep.
-      dtTemp = 0.1 * distance / (fabs(*flowRate) / averageArea + criticalVelocity);
+      dtTemp = COURANT_DIFFUSIVE * distance / (fabs(*flowRate) / averageArea + criticalVelocity);
 
       if (*dtNew > dtTemp)
         {
