@@ -475,7 +475,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   if (!error)
     {
       // gar_domain_alloc(&domain, parameters, layer_top_depth, layer_bottom_depth, yes_groundwater, initial_water_content, yes_groundwater, water_table);
-      error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, groundwaterHead - elementZSurface);
+      error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
     }
   // End of gar_domain initialization.
     
