@@ -17,7 +17,7 @@ module mesh_element
       }
       
       // Then the element must receive initialization messages from all neighbors.
-      while(!allInitialized())
+      while (!allInitialized())
       {
         case
         {
@@ -45,11 +45,11 @@ module mesh_element
       }
       
       // Then the element must receive one forcing data message as part of initialization.
-      when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
-                              double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
-                              double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
-                              double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
-                              double planetaryBoundaryLayerHeightNew)
+      when forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
+                              float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
+                              float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
+                              float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
+                              float planetaryBoundaryLayerHeightNew)
       {
         serial
         {
@@ -60,16 +60,16 @@ module mesh_element
         }
       }
       
-      while(true)
+      while (true)
       {
         case
         {
           // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
-          when forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
-                                  double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
-                                  double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
-                                  double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
-                                  double planetaryBoundaryLayerHeightNew)
+          when forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
+                                  float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
+                                  float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
+                                  float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
+                                  float planetaryBoundaryLayerHeightNew)
           {
             serial
             {
@@ -516,8 +516,11 @@ module mesh_element
             serial
             {
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)]
-                  .meshStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError, precipitationCumulative, evaporationCumulative, evapoTranspirationState.canLiq,
-                                     evapoTranspirationState.canIce, evapoTranspirationState.snEqv, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsGroundwaterCumulativeFlow);
+                  .meshStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError, precipitation, precipitationCumulative,
+                                    evaporation, evaporationCumulative, surfacewaterInfiltration, groundwaterRecharge, evapoTranspirationState,
+                                    meshNeighborsSurfacewaterFlowRate, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsGroundwaterFlowRate,
+                                    meshNeighborsGroundwaterCumulativeFlow, channelNeighborsSurfacewaterFlowRate, channelNeighborsSurfacewaterCumulativeFlow,
+                                    channelNeighborsGroundwaterFlowRate, channelNeighborsGroundwaterCumulativeFlow);
             }
           }
           
@@ -529,7 +532,7 @@ module mesh_element
               handleCheckInvariant();
             }
             
-            while(!allInvariantChecked())
+            while (!allInvariantChecked())
             {
               case
               {
@@ -565,16 +568,16 @@ module mesh_element
                                                         neighborGroundwaterFlowRate, neighborGroundwaterCumulativeFlow, neighborDt);
                   }
                 }
-              } // End case within while(!allNeighborInvariantChecked())
-            } // End while(!allNeighborInvariantChecked())
+              } // End case within while (!allNeighborInvariantChecked())
+            } // End while (!allNeighborInvariantChecked())
             
             serial
             {
               contribute();
             }
           } // End when checkInvariant()
-        } // End case within while(true).
-      } // End while(true).
+        } // End case within while (true).
+      } // End while (true).
     }; // End entry void runForever().
     
     entry void initialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit);
@@ -583,11 +586,11 @@ module mesh_element
     entry void initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
                                          double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
                                          double neighborBedThickness);
-    entry void forcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew, double surfaceTemperatureNew,
-                                  double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew, double northWindSpeedNew,
-                                  double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew, double shortWaveRadiationDownNew,
-                                  double longWaveRadiationDownNew, double precipitationRateNew, double soilBottomTemperatureNew,
-                                  double planetaryBoundaryLayerHeightNew);
+    entry void forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
+                                  float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
+                                  float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
+                                  float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
+                                  float planetaryBoundaryLayerHeightNew);
     entry void doTimestep(size_t iterationThisTimestep, double dtThisTimestep);
     entry void calculateGroundwaterBoundaryConditionsMessage(size_t iterationThisMessage);
     entry void meshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);

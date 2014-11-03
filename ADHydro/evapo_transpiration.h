@@ -6,7 +6,6 @@
 #include <charm++.h>
 #pragma GCC diagnostic warning "-Wsign-compare"
 
-// FIXME use these everywhere.
 #define EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS (3)
 #define EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS (4)
 #define EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS (EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS + EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS)
@@ -31,49 +30,41 @@
 // one call back in to the next call.
 typedef struct
 {
-  float fIceOld[3]; // Ice fraction of each snow layer at the beginning of the
-                    // last timestep.
-  float albOld;     // Snow albedo, unitless.
-  float snEqvO;     // The value of snEqv at the beginning of the last
-                    // timestep.
-  float stc[7];     // Temperature in Kelvin of each snow and soil layer.
-  float tah;        // Canopy air temperature in Kelvin.
-  float eah;        // Canopy air water vapor pressure in Pascal.
-  float fWet;       // Wetted or snowed fraction of canopy, unitless.
-  float canLiq;     // Intercepted liquid water in canopy in millimeters of
-                    // water equivalent.
-  float canIce;     // Intercepted solid water in canopy in millimeters of
-                    // water equivalent.
-  float tv;         // Vegetation temperature in Kelvin.
-  float tg;         // Ground temperature in Kelvin.
-  int   iSnow;      // Actual number of snow layers.
-  float zSnso[7];   // Layer bottom depth in meters from snow surface of each
-                    // snow and soil layer.  Specify depths as negative
-                    // numbers.
-  float snowH;      // Total snow height in meters.
-  float snEqv;      // Total quantity of snow in millimeters of water
-                    // equivalent.
-  float snIce[3];   // Solid water in each snow layer in millimeters of water
-                    // equivalent.
-  float snLiq[3];   // Liquid water in each snow layer in millimeters of water
-                    // equivalent.
-  float lfMass;     // Leaf mass in grams per square meter.
-  float rtMass;     // Fine root mass in grams per square meter.
-  float stMass;     // Stem mass in grams per square meter.
-  float wood;       // Wood mass including woody roots in grams per square
-                    // meter.
-  float stblCp;     // Stable carbon in deep soil in grams per square meter.
-  float fastCp;     // Short lived carbon in shallow soil in grams per square
-                    // meter.
-  float lai;        // Leaf area index, unitless.
-  float sai;        // Stem area index, unitless.
-  float cm;         // Momentum drag coefficient.
-  float ch;         // Sensible heat exchange coefficient.
-  float tauss;      // Non-dimensional snow age.
-  float deepRech;   // Recharge in meters of water to or from the water table
-                    // when deep.
-  float rech;       // Recharge in meters of water to or from the water table
-                    // when shallow.
+  float fIceOld[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
+                  // Ice fraction of each snow layer at the beginning of the last timestep.
+  float albOld;   // Snow albedo, unitless.
+  float snEqvO;   // The value of snEqv at the beginning of the last timestep.
+  float stc[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS];
+                  // Temperature in Kelvin of each snow and soil layer.
+  float tah;      // Canopy air temperature in Kelvin.
+  float eah;      // Canopy air water vapor pressure in Pascal.
+  float fWet;     // Wetted or snowed fraction of canopy, unitless.
+  float canLiq;   // Intercepted liquid water in canopy in millimeters of water equivalent.
+  float canIce;   // Intercepted solid water in canopy in millimeters of water equivalent.
+  float tv;       // Vegetation temperature in Kelvin.
+  float tg;       // Ground temperature in Kelvin.
+  int   iSnow;    // Actual number of snow layers.
+  float zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS];
+                  // Layer bottom depth in meters from snow surface of each snow and soil layer.  Specify depths as negative numbers.
+  float snowH;    // Total snow height in meters.
+  float snEqv;    // Total quantity of snow in millimeters of water equivalent.
+  float snIce[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
+                  // Solid water in each snow layer in millimeters of water equivalent.
+  float snLiq[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
+                  // Liquid water in each snow layer in millimeters of water equivalent.
+  float lfMass;   // Leaf mass in grams per square meter.
+  float rtMass;   // Fine root mass in grams per square meter.
+  float stMass;   // Stem mass in grams per square meter.
+  float wood;     // Wood mass including woody roots in grams per square meter.
+  float stblCp;   // Stable carbon in deep soil in grams per square meter.
+  float fastCp;   // Short lived carbon in shallow soil in grams per square meter.
+  float lai;      // Leaf area index, unitless.
+  float sai;      // Stem area index, unitless.
+  float cm;       // Momentum drag coefficient.
+  float ch;       // Sensible heat exchange coefficient.
+  float tauss;    // Non-dimensional snow age.
+  float deepRech; // Recharge in meters of water to or from the water table when deep.
+  float rech;     // Recharge in meters of water to or from the water table when shallow.
 } EvapoTranspirationStateStruct;
 
 PUPbytes(EvapoTranspirationStateStruct);
@@ -197,10 +188,11 @@ bool evapoTranspirationInit(const char* directory);
 //                           means water was created.  Negative means water was
 //                           destroyed.
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
-                            float shdMax, float smcEq[4], float sfcTmp, float sfcPrs, float psfc, float uu, float vv, float q2, float qc, float solDn,
-                            float lwDn, float prcp, float tBot, float pblh, float sh2o[4], float smc[4], float zwt, float wa, float wt,  float smcwtd,
-                            EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromCanopy,
-                            float* evaporationFromSnow, float* evaporationFromGround, float* transpiration, float* waterError);
+                            float shdMax, float smcEq[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float sfcTmp, float sfcPrs, float psfc, float uu, float vv,
+                            float q2, float qc, float solDn, float lwDn, float prcp, float tBot, float pblh,
+                            float sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float zwt, float wa,
+                            float wt,  float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd,
+                            float* evaporationFromCanopy, float* evaporationFromSnow, float* evaporationFromGround, float* transpiration, float* waterError);
 
 // Calculate evapo-transpiration for a location with a water surface.  This
 // should be used for places permanently covered with surfacewater such as

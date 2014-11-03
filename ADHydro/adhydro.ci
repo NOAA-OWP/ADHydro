@@ -8,7 +8,6 @@ mainmodule adhydro
   {
     initproc void setLoadBalancingToManual();
     entry ADHydro(CkArgMsg* msg);
-    entry [reductiontarget] void fileManagerBarrier();
     entry [reductiontarget] void fileManagerInitialized();
     entry [reductiontarget] void writeFiles();
     entry [reductiontarget] void checkForcingData();

@@ -34,6 +34,11 @@ void ChannelElement::pup(PUP::er &p)
   p | manningsN;
   p | surfacewaterDepth;
   p | surfacewaterError;
+  p | precipitation;
+  p | precipitationCumulative;
+  p | evaporation;
+  p | evaporationCumulative;
+  p | evapoTranspirationState;
   p | groundwaterDone;
   p | surfacewaterDone;
   p | dt;
@@ -90,26 +95,26 @@ bool ChannelElement::allInitialized()
 
 bool ChannelElement::allInvariantChecked()
 {
-  int  edge;               // Loop counter.
-  bool initialized = true; // Flag to record whether we have found an unchecked neighbor.
+  int  edge;           // Loop counter.
+  bool checked = true; // Flag to record whether we have found an unchecked neighbor.
   
-  for (edge = 0; initialized && edge < channelNeighborsSize; edge++)
+  for (edge = 0; checked && edge < channelNeighborsSize; edge++)
     {
-      initialized = channelNeighborsInvariantChecked[edge];
+      checked = channelNeighborsInvariantChecked[edge];
     }
   
-  for (edge = 0; initialized && edge < meshNeighborsSize; edge++)
+  for (edge = 0; checked && edge < meshNeighborsSize; edge++)
     {
-      initialized = meshNeighborsInvariantChecked[edge];
+      checked = meshNeighborsInvariantChecked[edge];
     }
   
-  return initialized;
+  return checked;
 }
 
 void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit)
 {
   bool         error                  = false;                                                        // Error flag.
-  int          edge;                                                                                  // Loop counter.
+  int          ii, edge;                                                                              // Loop counters.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                         // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localChannelElementStart; // Index of this element in file manager arrays.
   
@@ -343,6 +348,479 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
         {
           CkError("ERROR in ChannelElement::handleInitialize, element %d: surfacewaterError initialization information not available from local file manager.\n",
                   thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      precipitation           = 0.0;
+      precipitationCumulative = 0.0;
+      evaporation             = 0.0;
+      evaporationCumulative   = 0.0;
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelFIceOld)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.fIceOld[ii] = fileManagerLocalBranch->channelFIceOld[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: fIceOld initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelAlbOld)
+        {
+          evapoTranspirationState.albOld = fileManagerLocalBranch->channelAlbOld[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: albOld initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSnEqvO)
+        {
+          evapoTranspirationState.snEqvO = fileManagerLocalBranch->channelSnEqvO[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: snEqvO initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelStc)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
+            {
+              evapoTranspirationState.stc[ii] = fileManagerLocalBranch->channelStc[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: stc initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelTah)
+        {
+          evapoTranspirationState.tah = fileManagerLocalBranch->channelTah[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: tah initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelEah)
+        {
+          evapoTranspirationState.eah = fileManagerLocalBranch->channelEah[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: eah initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelFWet)
+        {
+          evapoTranspirationState.fWet = fileManagerLocalBranch->channelFWet[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: fWet initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelCanLiq)
+        {
+          evapoTranspirationState.canLiq = fileManagerLocalBranch->channelCanLiq[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: canLiq initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelCanIce)
+        {
+          evapoTranspirationState.canIce = fileManagerLocalBranch->channelCanIce[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: canIce initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelTv)
+        {
+          evapoTranspirationState.tv = fileManagerLocalBranch->channelTv[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: tv initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelTg)
+        {
+          evapoTranspirationState.tg = fileManagerLocalBranch->channelTg[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: tg initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelISnow)
+        {
+          evapoTranspirationState.iSnow = fileManagerLocalBranch->channelISnow[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: iSnow initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelZSnso)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
+            {
+              evapoTranspirationState.zSnso[ii] = fileManagerLocalBranch->channelZSnso[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: zSnso initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSnowH)
+        {
+          evapoTranspirationState.snowH = fileManagerLocalBranch->channelSnowH[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: snowH initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSnEqv)
+        {
+          evapoTranspirationState.snEqv = fileManagerLocalBranch->channelSnEqv[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: snEqv initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSnIce)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.snIce[ii] = fileManagerLocalBranch->channelSnIce[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: snIce initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSnLiq)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.snLiq[ii] = fileManagerLocalBranch->channelSnLiq[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: snLiq initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelLfMass)
+        {
+          evapoTranspirationState.lfMass = fileManagerLocalBranch->channelLfMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: lfMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelRtMass)
+        {
+          evapoTranspirationState.rtMass = fileManagerLocalBranch->channelRtMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: rtMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelStMass)
+        {
+          evapoTranspirationState.stMass = fileManagerLocalBranch->channelStMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: stMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelWood)
+        {
+          evapoTranspirationState.wood = fileManagerLocalBranch->channelWood[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: wood initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelStblCp)
+        {
+          evapoTranspirationState.stblCp = fileManagerLocalBranch->channelStblCp[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: stblCp initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelFastCp)
+        {
+          evapoTranspirationState.fastCp = fileManagerLocalBranch->channelFastCp[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: fastCp initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelLai)
+        {
+          evapoTranspirationState.lai = fileManagerLocalBranch->channelLai[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: lai initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelSai)
+        {
+          evapoTranspirationState.sai = fileManagerLocalBranch->channelSai[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: sai initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelCm)
+        {
+          evapoTranspirationState.cm = fileManagerLocalBranch->channelCm[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: cm initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelCh)
+        {
+          evapoTranspirationState.ch = fileManagerLocalBranch->channelCh[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: ch initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelTauss)
+        {
+          evapoTranspirationState.tauss = fileManagerLocalBranch->channelTauss[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: tauss initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelDeepRech)
+        {
+          evapoTranspirationState.deepRech = fileManagerLocalBranch->channelDeepRech[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: deepRech initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->channelRech)
+        {
+          evapoTranspirationState.rech = fileManagerLocalBranch->channelRech[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: rech initialization information not available from local file manager.\n", thisIndex);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -1592,6 +2070,23 @@ void ChannelElement::handleCheckInvariant()
   if (!(0.0 <= surfacewaterDepth))
     {
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: surfacewaterDepth must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: precipitation must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: precipitationCumulative must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
       error = true;
     }
   

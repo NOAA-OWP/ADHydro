@@ -17,7 +17,7 @@ module channel_element
       }
       
       // Then the element must receive initialization messages from all neighbors.
-      while(!allInitialized())
+      while (!allInitialized())
       {
         case
         {
@@ -53,7 +53,7 @@ module channel_element
         }
       }
       
-      while(true)
+      while (true)
       {
         case
         {
@@ -401,7 +401,10 @@ module channel_element
               // FIXME rather than requiring a separate message to tell the element to send its state to the file manager we could have an extra parameter to
               // the DoTimestep message that tells it to send its state to the file manager as soon as the timestep is done.
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)]
-                  .channelStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, 0.0 /* FIXME -> fill in real value for channel evaporation cumulative*/, channelNeighborsSurfacewaterCumulativeFlow);
+                  .channelStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, precipitation, precipitationCumulative, evaporation,
+                                       evaporationCumulative, evapoTranspirationState, channelNeighborsSurfacewaterFlowRate,
+                                       channelNeighborsSurfacewaterCumulativeFlow, meshNeighborsSurfacewaterFlowRate, meshNeighborsSurfacewaterCumulativeFlow,
+                                       meshNeighborsGroundwaterFlowRate, meshNeighborsGroundwaterCumulativeFlow);
             }
           }
           
@@ -413,7 +416,7 @@ module channel_element
               handleCheckInvariant();
             }
             
-            while(!allInvariantChecked())
+            while (!allInvariantChecked())
             {
               case
               {
@@ -444,16 +447,16 @@ module channel_element
                                                      neighborGroundwaterCumulativeFlow, neighborDt);
                   }
                 }
-              } // End case within while(!allNeighborInvariantChecked())
-            } // End while(!allNeighborInvariantChecked())
+              } // End case within while (!allNeighborInvariantChecked())
+            } // End while (!allNeighborInvariantChecked())
             
             serial
             {
               contribute();
             }
           } // End when checkInvariant()
-        } // End case within while(true).
-      } // End while(true).
+        } // End case within while (true).
+      } // End while (true).
     }; // End entry void runForever().
     
     entry void initialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit);

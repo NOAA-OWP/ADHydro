@@ -51,6 +51,7 @@ void MeshElement::pup(PUP::er &p)
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | evapoTranspirationState;
+  // FIXME PUP garParameters and garDomain
   p | atmosphereLayerThickness;
   p | shadedFraction;
   p | shadedFractionMaximum;
@@ -153,7 +154,7 @@ bool MeshElement::allInvariantChecked()
 void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit)
 {
   bool         error                  = false;                                                     // Error flag.
-  int          edge;                                                                               // Loop counter.
+  int          ii, edge;                                                                           // Loop counters.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                      // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localMeshElementStart; // Index of this element in file manager arrays.
   
@@ -296,9 +297,38 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
-  // FIXME initialize from file manager.
-  vegetationType = 11;
-  soilType       = 8;
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshVegetationType)
+        {
+          vegetationType = fileManagerLocalBranch->meshVegetationType[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: vegetationType initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSoilType)
+        {
+          soilType = fileManagerLocalBranch->meshSoilType[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: soilType initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
   
   if (!error)
     {
@@ -414,55 +444,477 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   
   if (!error)
     {
-      // FIXME initialize from file manager
-      evapoTranspirationState.fIceOld[0] = 0.0;
-      evapoTranspirationState.fIceOld[1] = 0.0;
-      evapoTranspirationState.fIceOld[2] = 0.0;
-      evapoTranspirationState.albOld     = 1.0;
-      evapoTranspirationState.snEqvO     = 0.0;
-      evapoTranspirationState.stc[0]     = 0.0;
-      evapoTranspirationState.stc[1]     = 0.0;
-      evapoTranspirationState.stc[2]     = 0.0;
-      evapoTranspirationState.stc[3]     = 300.0;
-      evapoTranspirationState.stc[4]     = 300.0;
-      evapoTranspirationState.stc[5]     = 300.0;
-      evapoTranspirationState.stc[6]     = 300.0;
-      evapoTranspirationState.tah        = 300.0;
-      evapoTranspirationState.eah        = 2000.0;
-      evapoTranspirationState.fWet       = 0.0;
-      evapoTranspirationState.canLiq     = 0.0;
-      evapoTranspirationState.canIce     = 0.0;
-      evapoTranspirationState.tv         = 300.0;
-      evapoTranspirationState.tg         = 300.0;
-      evapoTranspirationState.iSnow      = 0;
-      evapoTranspirationState.zSnso[0]   = 0.0;
-      evapoTranspirationState.zSnso[1]   = 0.0;
-      evapoTranspirationState.zSnso[2]   = 0.0;
-      evapoTranspirationState.zSnso[3]   = -0.05 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[4]   = -0.2 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[5]   = -0.5 * (elementZSurface - elementZBedrock);
-      evapoTranspirationState.zSnso[6]   = -(elementZSurface - elementZBedrock);
-      evapoTranspirationState.snowH      = 0.0;
-      evapoTranspirationState.snEqv      = 0.0;
-      evapoTranspirationState.snIce[0]   = 0.0;
-      evapoTranspirationState.snIce[1]   = 0.0;
-      evapoTranspirationState.snIce[2]   = 0.0;
-      evapoTranspirationState.snLiq[0]   = 0.0;
-      evapoTranspirationState.snLiq[1]   = 0.0;
-      evapoTranspirationState.snLiq[2]   = 0.0;
-      evapoTranspirationState.lfMass     = 100000.0;
-      evapoTranspirationState.rtMass     = 100000.0;
-      evapoTranspirationState.stMass     = 100000.0;
-      evapoTranspirationState.wood       = 200000.0;
-      evapoTranspirationState.stblCp     = 200000.0;
-      evapoTranspirationState.fastCp     = 200000.0;
-      evapoTranspirationState.lai        = 4.6;
-      evapoTranspirationState.sai        = 0.6;
-      evapoTranspirationState.cm         = 0.002;
-      evapoTranspirationState.ch         = 0.002;
-      evapoTranspirationState.tauss      = 0.0;
-      evapoTranspirationState.deepRech   = 0.0;
-      evapoTranspirationState.rech       = 0.0;
+      precipitation            = 0.0;
+      precipitationCumulative  = 0.0;
+      evaporation              = 0.0;
+      evaporationCumulative    = 0.0;
+      surfacewaterInfiltration = 0.0;
+      groundwaterRecharge      = 0.0;
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshFIceOld)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.fIceOld[ii] = fileManagerLocalBranch->meshFIceOld[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: fIceOld initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshAlbOld)
+        {
+          evapoTranspirationState.albOld = fileManagerLocalBranch->meshAlbOld[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: albOld initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSnEqvO)
+        {
+          evapoTranspirationState.snEqvO = fileManagerLocalBranch->meshSnEqvO[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: snEqvO initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshStc)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
+            {
+              evapoTranspirationState.stc[ii] = fileManagerLocalBranch->meshStc[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: stc initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshTah)
+        {
+          evapoTranspirationState.tah = fileManagerLocalBranch->meshTah[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: tah initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshEah)
+        {
+          evapoTranspirationState.eah = fileManagerLocalBranch->meshEah[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: eah initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshFWet)
+        {
+          evapoTranspirationState.fWet = fileManagerLocalBranch->meshFWet[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: fWet initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshCanLiq)
+        {
+          evapoTranspirationState.canLiq = fileManagerLocalBranch->meshCanLiq[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: canLiq initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshCanIce)
+        {
+          evapoTranspirationState.canIce = fileManagerLocalBranch->meshCanIce[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: canIce initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshTv)
+        {
+          evapoTranspirationState.tv = fileManagerLocalBranch->meshTv[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: tv initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshTg)
+        {
+          evapoTranspirationState.tg = fileManagerLocalBranch->meshTg[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: tg initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshISnow)
+        {
+          evapoTranspirationState.iSnow = fileManagerLocalBranch->meshISnow[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: iSnow initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshZSnso)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
+            {
+              evapoTranspirationState.zSnso[ii] = fileManagerLocalBranch->meshZSnso[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: zSnso initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSnowH)
+        {
+          evapoTranspirationState.snowH = fileManagerLocalBranch->meshSnowH[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: snowH initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSnEqv)
+        {
+          evapoTranspirationState.snEqv = fileManagerLocalBranch->meshSnEqv[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: snEqv initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSnIce)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.snIce[ii] = fileManagerLocalBranch->meshSnIce[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: snIce initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSnLiq)
+        {
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+            {
+              evapoTranspirationState.snLiq[ii] = fileManagerLocalBranch->meshSnLiq[fileManagerLocalIndex][ii];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: snLiq initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshLfMass)
+        {
+          evapoTranspirationState.lfMass = fileManagerLocalBranch->meshLfMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: lfMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshRtMass)
+        {
+          evapoTranspirationState.rtMass = fileManagerLocalBranch->meshRtMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: rtMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshStMass)
+        {
+          evapoTranspirationState.stMass = fileManagerLocalBranch->meshStMass[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: stMass initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshWood)
+        {
+          evapoTranspirationState.wood = fileManagerLocalBranch->meshWood[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: wood initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshStblCp)
+        {
+          evapoTranspirationState.stblCp = fileManagerLocalBranch->meshStblCp[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: stblCp initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshFastCp)
+        {
+          evapoTranspirationState.fastCp = fileManagerLocalBranch->meshFastCp[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: fastCp initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshLai)
+        {
+          evapoTranspirationState.lai = fileManagerLocalBranch->meshLai[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: lai initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshSai)
+        {
+          evapoTranspirationState.sai = fileManagerLocalBranch->meshSai[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: sai initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshCm)
+        {
+          evapoTranspirationState.cm = fileManagerLocalBranch->meshCm[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: cm initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshCh)
+        {
+          evapoTranspirationState.ch = fileManagerLocalBranch->meshCh[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: ch initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshTauss)
+        {
+          evapoTranspirationState.tauss = fileManagerLocalBranch->meshTauss[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: tauss initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshDeepRech)
+        {
+          evapoTranspirationState.deepRech = fileManagerLocalBranch->meshDeepRech[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: deepRech initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshRech)
+        {
+          evapoTranspirationState.rech = fileManagerLocalBranch->meshRech[fileManagerLocalIndex];
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: rech initialization information not available from local file manager.\n", thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
   // FIXME, wencong, initialize gar_domain here ?? Use some fake numbers for testing.
@@ -483,17 +935,11 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   
   if (!error)
     {
-      precipitation            = 0.0;
-      precipitationCumulative  = 0.0;
-      evaporation              = 0.0;
-      evaporationCumulative    = 0.0;
-      surfacewaterInfiltration = 0.0;
-      groundwaterRecharge      = 0.0;
-      groundwaterDone          = true;
-      infiltrationDone         = true;
-      surfacewaterDone         = true;
-      dt                       = 1.0;
-      dtNew                    = 1.0;
+      groundwaterDone  = true;
+      infiltrationDone = true;
+      surfacewaterDone = true;
+      dt               = 1.0;
+      dtNew            = 1.0;
       
       if (NULL != fileManagerLocalBranch->meshMeshNeighbors && NULL != fileManagerLocalBranch->meshMeshNeighborsChannelEdge)
         {
@@ -775,11 +1221,11 @@ void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReci
     }
 }
 
-void MeshElement::handleForcingDataMessage(double atmosphereLayerThicknessNew, double shadedFractionNew, double shadedFractionMaximumNew,
-                                           double surfaceTemperatureNew, double surfacePressureNew, double atomsphereLayerPressureNew, double eastWindSpeedNew,
-                                           double northWindSpeedNew, double atmosphereLayerMixingRatioNew, double cloudMixingRatioNew,
-                                           double shortWaveRadiationDownNew, double longWaveRadiationDownNew, double precipitationRateNew,
-                                           double soilBottomTemperatureNew, double planetaryBoundaryLayerHeightNew)
+void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew,
+                                           float surfaceTemperatureNew, float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew,
+                                           float northWindSpeedNew, float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew,
+                                           float shortWaveRadiationDownNew, float longWaveRadiationDownNew, float precipitationRateNew,
+                                           float soilBottomTemperatureNew, float planetaryBoundaryLayerHeightNew)
 {
   // FIXME error checking on inputs.
   
@@ -806,22 +1252,22 @@ void MeshElement::handleForcingDataMessage(double atmosphereLayerThicknessNew, d
 #pragma GCC diagnostic ignored "-Wswitch"
 void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep)
 {
-  bool   error = false;           // Error flag.
-  int    ii, edge;                // Loop counters.
-  double layerMiddleDepth;        // For calculating input to evapoTranspirationSoil.
-  double distanceAboveWaterTable; // For calculating input to evapoTranspirationSoil.
-  double relativeSaturation;      // For calculating input to evapoTranspirationSoil.
-  float  smcEq[4];                // Input to evapoTranspirationSoil.
-  float  sh2o[4];                 // Input to evapoTranspirationSoil.
-  float  smc[4];                  // Input to evapoTranspirationSoil.
-  float  surfacewaterAdd;         // Output of evapoTranspirationSoil.
-  float  evaporationFromCanopy;   // Output of evapoTranspirationSoil.
-  float  evaporationFromSnow;     // Output of evapoTranspirationSoil.
-  float  evaporationFromGround;   // Output of evapoTranspirationSoil.
-  float  transpiration;           // Output of evapoTranspirationSoil.
-  float  waterError;              // Output of evapoTranspirationSoil.
-  double unsatisfiedEvaporation;  // Unsatisfied evaporation in meters of water.  Positive means water evaporated off of the ground.  Negative means water
-                                  // condensed on to the ground.
+  bool   error = false;                                    // Error flag.
+  int    ii, edge;                                         // Loop counters.
+  double layerMiddleDepth;                                 // For calculating input to evapoTranspirationSoil.
+  double distanceAboveWaterTable;                          // For calculating input to evapoTranspirationSoil.
+  double relativeSaturation;                               // For calculating input to evapoTranspirationSoil.
+  float  smcEq[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]; // Input to evapoTranspirationSoil.
+  float  sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];  // Input to evapoTranspirationSoil.
+  float  smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];   // Input to evapoTranspirationSoil.
+  float  surfacewaterAdd;                                  // Output of evapoTranspirationSoil.
+  float  evaporationFromCanopy;                            // Output of evapoTranspirationSoil.
+  float  evaporationFromSnow;                              // Output of evapoTranspirationSoil.
+  float  evaporationFromGround;                            // Output of evapoTranspirationSoil.
+  float  transpiration;                                    // Output of evapoTranspirationSoil.
+  float  waterError;                                       // Output of evapoTranspirationSoil.
+  double unsatisfiedEvaporation;                           // Unsatisfied evaporation in meters of water.  Positive means water evaporated off of the ground.
+                                                           // Negative means water condensed on to the ground.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtThisTimestep))
@@ -843,9 +1289,10 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
 
       // FIXME get real values for soil moisture from infiltration state.
-      for (ii = 0; ii < 4; ii++)
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
-          layerMiddleDepth        = 0.5 * (evapoTranspirationState.zSnso[ii + 3] + evapoTranspirationState.zSnso[ii + 3 - 1]); // Depth as a negative number.
+          layerMiddleDepth        = 0.5 * (evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] +
+                                    evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]); // Depth as a negative number.
           distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
 
           if (0.1 > distanceAboveWaterTable)
@@ -868,10 +1315,10 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
         }
 
       // FIXME calculate yearlen, julian, and cosZ from absolute time.
-      error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0, 1.0, dt, sqrt(elementArea),
+      error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0f, 1.0f, dt, sqrt(elementArea),
                                      atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN,
                                      surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
-                                     shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0, soilBottomTemperature + ZERO_C_IN_KELVIN,
+                                     shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0f, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
                                      (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],
                                      &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround,
@@ -911,7 +1358,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
               evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
               groundwaterHead        = elementZBedrock;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %lf meters.\n",
+              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %le meters.\n",
                       thisIndex, unsatisfiedEvaporation);
             }
         }
@@ -942,7 +1389,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
               evaporation            -= surfacewaterDepth;
               surfacewaterDepth       = 0.0;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %lf meters.\n", thisIndex, unsatisfiedEvaporation);
+              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %le meters.\n", thisIndex, unsatisfiedEvaporation);
             }
         }
       
@@ -1053,7 +1500,6 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
   
   if (!error)
     {
-     /*
       // Calculate infiltration.  FIXME trivial infiltration, improve.
      
       // Calculate the amount that infiltrates.
@@ -1067,7 +1513,11 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
       // Infiltration goes instantly to groundwater.
       groundwaterRecharge = surfacewaterInfiltration;
       infiltrationDone    = true;
-      */
+      
+      /* FIXME, Bob, I'm commenting out the GARTO infiltration in the version checked in to the repository.  Because the GARTO state isn't PUPed yet we can't
+      // run with GARTO and load balancing.  Therefore, I'm leaving as the verison in the repository a version that can run on multiple processors with load
+      // balancing.  Wencong, feel free to uncomment this for your testing, but I think we shouldn't uncomment it in the version checked in ot the repository
+      // until it is fully working.
       // FIXME, wencong, testing GARTO infiltration.
       // gar_timestep(gar_domain* domain, double dt, double* surfacewater_depth, double water_table, double* groundwater_recharge)
       groundwaterRecharge = 0.0;
@@ -1079,6 +1529,7 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
                               //gar_domain* domain_gar, int infiltration_type)
       //error = soil_temperature_timestep(soil_temperature, soil_depth_z, num_elements_t, 0.5* (shortWaveRadiationDown + longWaveRadiationDown), dt, domain, 1);
       //CkPrintf("soil_temperature[1] = %lf \n", soil_temperature[1]);
+      */
       
       checkGroundwaterFlowRates(iterationThisMessage);
     }
@@ -2309,6 +2760,7 @@ void MeshElement::handleCheckInvariant()
       error = true;
     }
   
+  // FIXME check invariant on GARTO data
   // FIXME check invariant on forcing data
   
   if (!groundwaterDone)
