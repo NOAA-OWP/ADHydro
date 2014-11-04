@@ -18,7 +18,7 @@ int main(int argc, char*argv[])
  int TmpvarID;                                                  // Variable Id. Used for more than one variable, therefore temporary		
  size_t numInstances_stt, numInstances_geo, numInstances_par;	// # of instances in the *.nc files
  double time;					                // time of simulation in the state.nc file
- unsigned long long int Inst_geo, Inst_par;			           	// group # for geometry.nc and parameter.nc files -> read from state.nc file
+ unsigned long long int Inst_geo, Inst_par;			// group # for geometry.nc and parameter.nc files -> read from state.nc file
  int tmpID;					                // temporary net cdf ID
  size_t nMeshNgb;                                               // # of Mesh Neighbors
  size_t nchannelVrtArr;                                         // size of Channel Element Vertices Array
@@ -211,32 +211,32 @@ fprintf(ChannelOut,"    <Grid GridType=\"Collection\" CollectionType=\"Temporal\
       	    exit(0);
  	}	
  	
- 	// meshMeshNeighbors dimension ID  
- 	err_status = nc_inq_dimid (ncid_geo,"meshMeshNeighbors" , &tmpID);
+ 	// meshMeshNeighborsSize dimension ID  
+ 	err_status = nc_inq_dimid (ncid_geo,"meshMeshNeighborsSize" , &tmpID);
  	if (err_status != NC_NOERR)
  	{
-      	    printf("Problem getting meshMeshNeighbors dimmesion id from ../geometry.nc\n");
+      	    printf("Problem getting meshMeshNeighborsSize dimesion id from ../geometry.nc\n");
    	    exit(0);
  	}
- 	// # meshMeshNeighbors
+ 	// # meshMeshNeighborsSize
  	err_status = nc_inq_dimlen  (ncid_geo, tmpID, &nMeshNgb);
   	if (err_status != NC_NOERR)
  	{
 	    printf("Problem getting dimmesion from ../geometry.nc\n");
       	    exit(0);
  	}
- 	// sizeOfChannelElementVerticesArray dimension ID  
- 	err_status = nc_inq_dimid (ncid_geo,"sizeOfChannelElementVerticesArray" , &tmpID);
+ 	// channelElementVerticesSize dimension ID  
+ 	err_status = nc_inq_dimid (ncid_geo,"channelElementVerticesSize" , &tmpID);
  	if (err_status != NC_NOERR)
  	{
-      	    printf("Problem getting sizeOfChannelElementVerticesArray dimmesion id from ../geometry.nc\n");
+      	    printf("Problem getting channelElementVerticesSize dimmesion id from ../geometry.nc\n");
    	    exit(0);
  	}
- 	// # meshMeshNeighbors
+ 	// channelElementVerticesSize varaible
  	err_status = nc_inq_dimlen  (ncid_geo, tmpID, &nchannelVrtArr);
   	if (err_status != NC_NOERR)
  	{
-	    printf("Problem getting sizeOfChannelElementVerticesArray dimmesion from ../geometry.nc\n");
+	    printf("Problem getting channelElementVerticesSize dimmesion from ../geometry.nc\n");
       	    exit(0);
  	}	
         // sizeOfChannelElementVerticesArray dimension ID  
@@ -373,6 +373,226 @@ fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1
 fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshGroundwaterError</DataItem>\n",numInstances_stt,nMeshEle);
 fprintf(meshOut,"          </DataItem>\n");
 fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshPrecipitation\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshPrecipitation</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshPrecipitationCumulative\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshPrecipitationCumulative</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshEvaporation\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshEvaporation</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSurfacewaterInfiltration\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshSurfacewaterInfiltration</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshGroundwaterRecharge\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshGroundwaterRecharge</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+/* FIXME -> meshFIceOld(instances, meshElements, evapoTranspirationSnowLayers) not added yet. To be figured out. Use vector attribute type
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshFIceOld\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/meshFIceOld</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+*/
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshAlbOld\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshAlbOld</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSnEqvO\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSnEqvO</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+/* FIXME -> meshStc(instances, meshElements, evapoTranspirationAllLayers) not added yet. To be figured out. Use vector attribute type
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshStc\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshStc</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+*/
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshTah\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshTah</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshEah\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshEah</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshFWet\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshFWet</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshCanLiq\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshCanLiq</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshCanIce\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshCanIce</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshTv\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshTv</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshTg\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshTg</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshISnow\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Int\" Dimensions=\"%zu %d\" Format=\"HDF\" >state.nc:/meshISnow</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+/*  FIXME -> meshZSnso(instances, meshElements, evapoTranspirationAllLayers) not added yet. To be figured out. Use vector attribute type
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshZSnso\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshZSnso</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+*/
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSnowH\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSnowH</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSnEqv\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSnEqv</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+/* FIXME -> meshSnIce(instances, meshElements, evapoTranspirationSnowLayers) not added yet. To be figured out. Use vector attribute type
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSnIce\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSnIce</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+*/
+/* FIXME -> meshSnLiq(instances, meshElements, evapoTranspirationSnowLayers) not added yet. To be figured out. Use vector attribute type
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSnLiq\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSnLiq</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+*/
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshLfMass\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshLfMass</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshRtMass\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshRtMass</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshStMass\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshStMass</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshWood\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshWood</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshStblCp\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshStblCp</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshFastCp\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshFastCp</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshLai\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshLai</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshSai\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshSai</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshCm\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshCm</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshCh\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshCh</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshTauss\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshTauss</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshDeepRech\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshDeepRech</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
+fprintf(meshOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"meshRech\">\n");        
+fprintf(meshOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nMeshEle);
+fprintf(meshOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nMeshEle);   
+fprintf(meshOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/meshRech</DataItem>\n",numInstances_stt,nMeshEle);
+fprintf(meshOut,"          </DataItem>\n");
+fprintf(meshOut,"        </Attribute>\n");
 fprintf(meshOut,"      </Grid>\n");    
 
 // for all groups: Channel file
@@ -486,6 +706,220 @@ fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" 
 fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
 fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
 fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/channelSurfacewaterError</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelPrecipitation\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/channelPrecipitation</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelPrecipitationCumulative\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/channelPrecipitationCumulative</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelEvaporation\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/channelEvaporation</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelEvaporationCumulative\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">state.nc:/channelEvaporationCumulative</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+/* FIXME -> channelFIceOld(instances, channelElements, evapoTranspirationSnowLayers) not added yet. To be figured out. Use vector attribute type 
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelFIceOld\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelFIceOld</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+*/
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelAlbOld\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelAlbOld</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSnEqvO\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSnEqvO</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+/*FIXME -> channelStc(instances, channelElements, evapoTranspirationAllLayers) not added yet. To be figured out. Use vector attribute type 
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelStc\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelStc</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+*/
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelTah\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelTah</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelEah\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelEah</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelFWet\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelFWet</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelCanLiq\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelCanLiq</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelCanIce\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelCanIce</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelTv\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelTv</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelTg\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelTg</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelISnow\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Int\" Dimensions=\"%zu %d\" Format=\"HDF\">state.nc:/channelISnow</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+/*FIXME -> channelZSnso(instances, channelElements, evapoTranspirationAllLayers)  not added yet. To be figured out. Use vector attribute type 
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelZSnso\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelZSnso</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+*/
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSnowH\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSnowH</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSnEqv\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSnEqv</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+/*FIXME -> channelSnIce(instances, channelElements, evapoTranspirationSnowLayers)  not added yet. To be figured out. Use vector attribute type
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSnIce\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSnIce</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+*/
+/* FIXME -> channelSnLiq(instances, channelElements, evapoTranspirationSnowLayers)  not added yet. To be figured out. Use vector attribute type
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSnLiq\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSnLiq</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+*/
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelLfMass\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelLfMass</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelRtMass\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelRtMass</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelStMass\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelStMass</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelWood\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelWood</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelStblCp\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelStblCp</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelFastCp\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelFastCp</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelLai\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelLai</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelSai\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelSai</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelCm\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelCm</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelCh\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelCh</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelTauss\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelTauss</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelDeepRech\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelDeepRech</DataItem>\n",numInstances_stt,nChannelEle);
+fprintf(ChannelOut,"          </DataItem>\n");
+fprintf(ChannelOut,"        </Attribute>\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelRech\">\n");
+fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
+fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%zu 0 1 1 1 %d</DataItem>\n",nn,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"4\">state.nc:/channelRech</DataItem>\n",numInstances_stt,nChannelEle);
 fprintf(ChannelOut,"          </DataItem>\n");
 fprintf(ChannelOut,"        </Attribute>\n");
 fprintf(ChannelOut,"      </Grid>\n");    
