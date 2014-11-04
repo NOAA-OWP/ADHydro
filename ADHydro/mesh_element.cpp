@@ -2,6 +2,7 @@
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
+#include <math.h>
 
 // FIXME questions and to-do list items
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
@@ -1250,13 +1251,25 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
 
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
-void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep)
+void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep)
 {
   bool   error = false;                                    // Error flag.
   int    ii, edge;                                         // Loop counters.
+  long   year;                                             // For calculating input to evapoTranspirationSoil.
+  long   month;                                            // For calculating input to evapoTranspirationSoil.
+  long   day;                                              // For calculating input to evapoTranspirationSoil.
+  long   hour;                                             // For calculating input to evapoTranspirationSoil.
+  long   minute;                                           // For calculating input to evapoTranspirationSoil.
+  double second;                                           // For calculating input to evapoTranspirationSoil.
+  double declinationOfSun;                                 // For calculating input to evapoTranspirationSoil in radians.
+  double hourAngle;                                        // For calculating input to evapoTranspirationSoil in radians.
   double layerMiddleDepth;                                 // For calculating input to evapoTranspirationSoil.
   double distanceAboveWaterTable;                          // For calculating input to evapoTranspirationSoil.
   double relativeSaturation;                               // For calculating input to evapoTranspirationSoil.
+  double latitude;                                         // Input to evapoTranspirationSoil in radians.
+  int    yearlen;                                          // Input to evapoTranspirationSoil in days.
+  float  julian;                                           // Input to evapoTranspirationSoil in days.
+  float  cosZ;                                             // Input to evapoTranspirationSoil, unitless.
   float  smcEq[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]; // Input to evapoTranspirationSoil.
   float  sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];  // Input to evapoTranspirationSoil.
   float  smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];   // Input to evapoTranspirationSoil.
@@ -1288,6 +1301,46 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
 
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
 
+      // Calculate yearlen, julian, and cosZ from absolute time.
+      julianToGregorian(date, &year, &month, &day, &hour, &minute, &second);
+      
+      // Determine if it is a leap year.
+      if (0 == year % 400)
+        {
+          yearlen = 366;
+        }
+      else if (0 == year % 100)
+        {
+          yearlen = 365;
+        }
+      else if (0 == year % 4)
+        {
+          yearlen = 366;
+        }
+      else
+        {
+          yearlen = 365;
+        }
+      
+      // Calculate the ordinal day of the year by subtracting the Julian date of Jan 1 beginning midnight.
+      julian = date - gregorianToJulian(year, 1, 1, 0, 0, 0);
+      
+      // Calculate cosZ.
+      latitude         = elementY / POLAR_RADIUS_OF_EARTH;
+      declinationOfSun = -23.44 * M_PI / 180.0 * cos(2 * M_PI * (julian + 10) / yearlen);
+      hourAngle        = (date - gregorianToJulian(year, month, day, 12, 0, 0)) * 2 * M_PI;
+      // FIXME I got this calculation off of Wikipedia, but something about it does not seem right.  Double check it.
+      cosZ             = sin(latitude) * sin(declinationOfSun) + cos(latitude) * cos(declinationOfSun) * cos(hourAngle);
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(-1.0f <= cosZ && 1.0f >= cosZ);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      if (0.0f > cosZ)
+        {
+          cosZ = 0.0f;
+        }
+      
       // FIXME get real values for soil moisture from infiltration state.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -1314,10 +1367,9 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTi
           smc[ii]   = porosity * relativeSaturation;
         }
 
-      // FIXME calculate yearlen, julian, and cosZ from absolute time.
-      error = evapoTranspirationSoil(vegetationType, soilType, elementY / POLAR_RADIUS_OF_EARTH, 365, 183.0f, 1.0f, dt, sqrt(elementArea),
-                                     atmosphereLayerThickness, shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN,
-                                     surfacePressure, atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
+      error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), atmosphereLayerThickness,
+                                     shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN, surfacePressure,
+                                     atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0f, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
                                      (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],

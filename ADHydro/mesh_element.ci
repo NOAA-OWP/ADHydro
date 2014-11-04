@@ -82,11 +82,11 @@ module mesh_element
           
           // When the element receives a doTimestep message it starts the rounds of messages to calculate groundwater and surfacewater movement.
           // FIXME document communication pattern here.
-          when doTimestep(size_t iterationThisTimestep, double dtThisTimestep)
+          when doTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep)
           {
             serial
             {
-              handleDoTimestep(iterationThisTimestep, dtThisTimestep);
+              handleDoTimestep(iterationThisTimestep, date, dtThisTimestep);
             }
             
             while (!groundwaterDone)
@@ -591,7 +591,7 @@ module mesh_element
                                   float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
                                   float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
                                   float planetaryBoundaryLayerHeightNew);
-    entry void doTimestep(size_t iterationThisTimestep, double dtThisTimestep);
+    entry void doTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep);
     entry void calculateGroundwaterBoundaryConditionsMessage(size_t iterationThisMessage);
     entry void meshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
     entry void channelGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth);
