@@ -515,12 +515,30 @@ module mesh_element
           {
             serial
             {
+              int ii; // Loop counter.
+              
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)]
                   .meshStateMessage(thisIndex, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError, precipitation, precipitationCumulative,
                                     evaporation, evaporationCumulative, surfacewaterInfiltration, groundwaterRecharge, evapoTranspirationState,
                                     meshNeighborsSurfacewaterFlowRate, meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsGroundwaterFlowRate,
                                     meshNeighborsGroundwaterCumulativeFlow, channelNeighborsSurfacewaterFlowRate, channelNeighborsSurfacewaterCumulativeFlow,
                                     channelNeighborsGroundwaterFlowRate, channelNeighborsGroundwaterCumulativeFlow);
+              
+              // Zero out cumulative values on output.
+              precipitationCumulative = 0.0;
+              evaporationCumulative   = 0.0;
+              
+              for (ii = 0; ii < meshNeighborsSize; ii++)
+              {
+                meshNeighborsSurfacewaterCumulativeFlow[ii] = 0.0;
+                meshNeighborsGroundwaterCumulativeFlow[ii]  = 0.0;
+              }
+              
+              for (ii = 0; ii < channelNeighborsSize; ii++)
+              {
+                channelNeighborsSurfacewaterCumulativeFlow[ii] = 0.0;
+                channelNeighborsGroundwaterCumulativeFlow[ii]  = 0.0;
+              }
             }
           }
           

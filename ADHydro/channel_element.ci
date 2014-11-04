@@ -398,6 +398,8 @@ module channel_element
           {
             serial
             {
+              int ii; // Loop counter.
+              
               // FIXME rather than requiring a separate message to tell the element to send its state to the file manager we could have an extra parameter to
               // the DoTimestep message that tells it to send its state to the file manager as soon as the timestep is done.
               fileManagerProxy[FileManager::home(thisIndex, fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)]
@@ -405,6 +407,21 @@ module channel_element
                                        evaporationCumulative, evapoTranspirationState, channelNeighborsSurfacewaterFlowRate,
                                        channelNeighborsSurfacewaterCumulativeFlow, meshNeighborsSurfacewaterFlowRate, meshNeighborsSurfacewaterCumulativeFlow,
                                        meshNeighborsGroundwaterFlowRate, meshNeighborsGroundwaterCumulativeFlow);
+              
+              // Zero out cumulative values on output.
+              precipitationCumulative = 0.0;
+              evaporationCumulative   = 0.0;
+              
+              for (ii = 0; ii < channelNeighborsSize; ii++)
+              {
+                channelNeighborsSurfacewaterCumulativeFlow[ii] = 0.0;
+              }
+              
+              for (ii = 0; ii < meshNeighborsSize; ii++)
+              {
+                meshNeighborsSurfacewaterCumulativeFlow[ii] = 0.0;
+                meshNeighborsGroundwaterCumulativeFlow[ii]  = 0.0;
+              }
             }
           }
           
