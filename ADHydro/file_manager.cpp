@@ -2221,6 +2221,7 @@ void FileManager::calculateDerivedValues()
         }
     }
   
+  /*
   // Calculate meshConductivity from vegetation and soil type.
   if (NULL == meshConductivity && NULL != meshVegetationType && NULL != meshSoilType)
     {
@@ -2244,7 +2245,7 @@ void FileManager::calculateDerivedValues()
           meshPorosity[ii] = 0.5;
         }
     }
-  
+   
   // Calculate meshManningsN from vegetation and soil type.
   if (NULL == meshManningsN && NULL != meshVegetationType && NULL != meshSoilType)
     {
@@ -2256,7 +2257,179 @@ void FileManager::calculateDerivedValues()
           meshManningsN[ii] = 0.038;
         }
     }
+  */
   
+  // MeshConductivity and meshPorosity are taken from 19-category SOILPARM.TBL of Noah-MP.
+  if ((NULL == meshConductivity || NULL == meshPorosity) && NULL != meshSoilType)
+    {
+      if (NULL == meshConductivity)
+        {
+          meshConductivity = new double[localNumberOfMeshElements];
+        }
+      if (NULL == meshPorosity)
+        {
+          meshPorosity     = new double[localNumberOfMeshElements];
+        }
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+         {
+           switch (meshSoilType[ii])
+             {
+               case  1: // SAND.
+                       meshConductivity[ii] = 4.66E-5;
+                       meshPorosity[ii]     = 0.339;
+                       break;
+               case  2: // LOAMY SAND.
+                       meshConductivity[ii] = 1.41E-5;
+                       meshPorosity[ii]     = 0.421;
+                       break;
+               case  3: // SANDY LOAM.
+                       meshConductivity[ii] = 5.23E-6;
+                       meshPorosity[ii]     = 0.434;
+                       break;
+               case  4: // SILT LOAM.
+                       meshConductivity[ii] = 2.81E-6;
+                       meshPorosity[ii]     = 0.476;
+                       break;
+               case  5: // SILT.
+                       meshConductivity[ii] = 2.81E-6;
+                       meshPorosity[ii]     = 0.476;
+                       break;
+               case  6: // LOAM.
+                       meshConductivity[ii] = 3.38E-6;
+                       meshPorosity[ii]     = 0.439;
+                       break;
+               case  7: // SANDY CLAY LOAM.
+                       meshConductivity[ii] = 4.45E-6;
+                       meshPorosity[ii]     = 0.404;
+                       break;
+               case  8: // SILTY CLAY LOAM.
+                       meshConductivity[ii] = 2.03E-6;
+                       meshPorosity[ii]     = 0.464;
+                       break;
+               case  9: // CLAY LOAM.
+                       meshConductivity[ii] = 2.45E-6;
+                       meshPorosity[ii]     = 0.465;
+                       break;
+               case 10: // SANDY CLAY.
+                       meshConductivity[ii] = 7.22E-6;
+                       meshPorosity[ii]     = 0.406;
+                       break;
+               case 11: // SILTY CLAY.
+                       meshConductivity[ii] = 1.34E-6;
+                       meshPorosity[ii]     = 0.468;
+                       break;
+               case 12: // CLAY.
+                       meshConductivity[ii] = 9.74E-7;
+                       meshPorosity[ii]     = 0.468;
+                       break;
+               case 13: // ORGANIC MATERIAL.
+                       meshConductivity[ii] = 3.38E-6;
+                       meshPorosity[ii]     = 0.439;
+                       break;
+               case 14: // WATER.
+                       meshConductivity[ii] = 0.0;
+                       meshPorosity[ii]     = 1.0;
+                       break;
+               case 15: // BEDROCK.
+                       meshConductivity[ii] = 1.41E-4;
+                       meshPorosity[ii]     = 0.2;
+                       break;
+               case 16: // OTHER(land-ice).
+                       meshConductivity[ii] = 1.41E-5;
+                       meshPorosity[ii]     = 0.421;
+                       break;
+               case 17: // PLAYA.
+                       meshConductivity[ii] = 9.74E-7;
+                       meshPorosity[ii]     = 0.468;
+                       break;
+               case 18: // LAVA.
+                       meshConductivity[ii] = 1.41E-4;
+                       meshPorosity[ii]     = 0.2;
+                       break;
+               case 19: // WHITE SAND.
+                       meshConductivity[ii] = 4.66E-5;
+                       meshPorosity[ii]     = 0.339;
+                       break;
+             } // End of switch.
+         } // End of element loop.
+    } // End of assigning meshConductivity and meshPorosity.
+  
+  // Calculate meshManningsN by transfer the USGS 40-category NLCD40 vegetation type (in VEGPARM.TBL of Noah-MP) 
+  // to the 21-category NLCD 1992 Land cover classification, and use the Manning's from Bunya et al., 2009 
+  // (High-resolution riverin flow, tide, wind, wind wave and storm surge model for southern Louisiana and Mississippi Part I.).
+  if (NULL == meshManningsN && NULL != meshVegetationType)
+    {
+      meshManningsN = new double[localNumberOfMeshElements];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        { 
+          switch (meshVegetationType[ii])
+            {
+              case 21: // Open Water.                  Use manning's n from NLCD 1992 class 11.
+                      meshManningsN[ii] = 0.02;
+                      break;
+              case 22: // ice/snow.                    Use manning's n from NLCD 1992 class 12.
+                      meshManningsN[ii] = 0.022;
+                      break;
+              case 23: // developed open space.        Use manning's n from NLCD 1992 class 21.
+                      meshManningsN[ii] = 0.12;
+                      break;
+              case 24: // developed low intensity.     Use manning's n from NLCD 1992 class 21.
+                      meshManningsN[ii] = 0.12;
+                      break;
+              case 25: // developed medium intensity.  Use manning's n from NLCD 1992 class 22.
+                      meshManningsN[ii] = 0.121;
+                      break;
+              case 26: // developed high intensity.    Use manning's n from NLCD 1992 class 22.
+                      meshManningsN[ii] = 0.121;
+                      break;
+              case 27: // barren land.                 Use manning's n from NLCD 1992 class 31.
+                      meshManningsN[ii] = 0.04;
+                      break;
+              case 28: // deciduous forest.            Use manning's n from NLCD 1992 class 41.
+                      meshManningsN[ii] = 0.16;
+                      break;
+              case 29: // evergreen forest.            Use manning's n from NLCD 1992 class 42.
+                      meshManningsN[ii] = 0.18;
+                      break;
+              case 30: // mixed forest.                Use manning's n from NLCD 1992 class 43.
+                      meshManningsN[ii] = 0.17;
+                      break;
+              case 31: // dwarf scrub-Alaska only.     Use 0.05.
+                      meshManningsN[ii] = 0.05;
+                      break;
+              case 32: // shrub.                       Use manning's n from NLCD 1992 class 51.
+                      meshManningsN[ii] = 0.07;
+                      break;
+              case 33: // grassland.                   Use manning's n from NLCD 1992 class 71.
+                      meshManningsN[ii] = 0.035;
+                      break;
+              case 34: // sedge/herbaceous-Alaska only.  Use 0.05.
+                      meshManningsN[ii] = 0.05;
+                      break;
+              case 35: // Lichens-Alaska only.          Use 0.05.  
+                      meshManningsN[ii] = 0.05; 
+                      break;
+              case 36: // Moss-Alaska only.             Use 0.05. 
+                      meshManningsN[ii] = 0.05; 
+                      break;
+              case 37: // Pasture.                     Use manning's n from NLCD 1992 class 81.
+                      meshManningsN[ii] = 0.033;
+                      break;
+              case 38: // cultivated crops.            Use manning's n from NLCD 1992 class 82.
+                      meshManningsN[ii] = 0.04;
+                      break;
+              case 39: // woody wetland.               Use manning's n from NLCD 1992 class 91.
+                      meshManningsN[ii] = 0.14;
+                      break;
+              case 40: // herbaceous wetland.          Use manning's n from NLCD 1992 class 92.
+                      meshManningsN[ii] = 0.035;
+                      break;
+            } // End of switch meshVegetationType[ii]. 
+        } // End of element loop.
+    } // End of assigning meshManningsN.
+    
   // If not already specified meshSurfacewaterDepth defaults to zero.
   if (NULL == meshSurfacewaterDepth)
     {
