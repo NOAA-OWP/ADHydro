@@ -29,6 +29,7 @@ VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_rout
 EXES := adhydro                       \
         adhydro_channel_preprocessing \
         adhydro_create_xmf_file       \
+        adhydro_offline_mass_balance_check \
         test_date_functions
 
 ADHYDRO_OBJS := adhydro.o             \
@@ -55,6 +56,8 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
 ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
+
+ADHYDRO_OFFLINE_BALANCE_CHECK_OBJS := adhydro_offline_mass_balance_check.o
 
 TEST_DATE_FUNCTIONS_OBJS := test_date_functions.o
 
@@ -103,6 +106,10 @@ adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
 
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+
+adhydro_offline_mass_balance_check: $(ADHYDRO_OFFLINE_BALANCE_CHECK_OBJS)
+	$(CC) $^ -o $@ -lnetcdf -g -Wall
+adhydro_offline_mass_balance_check.o: adhydro_offline_mass_balance_check.c
 
 test_date_functions: $(TEST_DATE_FUNCTIONS_OBJS)
 	$(CXX) $^ -o $@ -g -Wall
@@ -187,6 +194,6 @@ gar.o: gar.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(ADHYDRO_OFFLINE_BALANCE_CHECK_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
 
 .PHONY: clean
