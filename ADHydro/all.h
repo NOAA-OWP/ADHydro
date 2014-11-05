@@ -69,14 +69,6 @@
 #define ZERO_C_IN_KELVIN      (273.15)    // Kelvin.
 #define PONDED_DEPTH          (0.01)      // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
 
-// Using NetCDF parallel collective I/O with Charm++ causes a problematic
-// interaction.  Setting this flag causes a workaround to be used.  See the
-// comment of FileManager::resizeUnlimitedDimensions in file_manager.h for more
-// details.
-// I think I figured out what was going on and it was a problem in my code.
-// Remove this after verifying it works okay on Mt Moran and Yellowstone.
-//#define NETCDF_COLLECTIVE_IO_WORKAROUND
-
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
 {
@@ -380,6 +372,54 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
   //CkAssert(1 <= *month && 12 >= *month && 1 <= *day && 31 >= *day && 0 <= *hour && 59 >= *hour && 0 <= *minute && 59 >= *minute && 0.0 <= *second &&
   //         60.0 > *second);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+}
+
+// Utility functions for memory management.
+
+// If a pointer is not NULL delete whatever it is pointing at and set the
+// pointer to NULL.
+//
+// Parameters:
+//
+// pointer - Pointer passed by reference.  If it is not NULL whatever it is
+//           pointing at will be deleted and the pointer will be set to
+//           NULL.
+template <typename T> inline void deleteIfNonNull(T** pointer)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  // FIXME can't link non-charm programs with CkAssert
+  //CkAssert(NULL != pointer);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (NULL != *pointer)
+    {
+      delete *pointer;
+      
+      *pointer = NULL;
+    }
+}
+
+// If a pointer is not NULL array delete whatever it is pointing at and set the
+// pointer to NULL.
+//
+// Parameters:
+//
+// pointer - Pointer passed by reference.  If it is not NULL whatever it is
+//           pointing at will be array deleted and the pointer will be set to
+//           NULL.
+template <typename T> inline void deleteArrayIfNonNull(T** pointer)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  // FIXME can't link non-charm programs with CkAssert
+  //CkAssert(NULL != pointer);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (NULL != *pointer)
+    {
+      delete[] *pointer;
+      
+      *pointer = NULL;
+    }
 }
 
 #endif // __ALL_H__

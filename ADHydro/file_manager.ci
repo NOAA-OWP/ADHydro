@@ -4,178 +4,200 @@ module file_manager
   {
     entry FileManager();
     
-    entry void initialize()
+    // Dummy function for structured dagger infinite loop.
+    entry void runForever()
     {
+      // The file manager must receive exactly one type of initialization message first.
       case
       {
-        when initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
-                                      size_t fileBasenameSize, const char fileBasename[fileBasenameSize])
-        {
-          serial
-          {
-            handleInitializeFromASCIIFiles(directorySize, directory, fileBasenameSize, fileBasename);
-          }
-        }
-        
         when initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize])
         {
           serial
           {
-            handleInitializeFromNetCDFFiles(directorySize, directory);
+            handleInitializeFromNetCDFFiles(directory);
           }
         }
       }
-    };
-    
-    entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize],
-                                        size_t fileBasenameSize, const char fileBasename[fileBasenameSize]);
-    entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
-    entry void calculateDerivedValues();
-    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
-    
-    entry void waitForVertexData()
-    {
+      
+      // Calculating derived values may require getting vertex data from other file managers.
+      serial
+      {
+        updateVertices();
+      }
+      
+      // If it is not required allVerticesUpdated will immediately return true.
       while (!allVerticesUpdated())
-      {
-        when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock)
-        {
-          serial
-          {
-            handleMeshVertexDataMessage(element, vertex, x, y, zSurface, zBedrock);
-          }
-        }
-      }
-      
-      serial
-      {
-        delete[] meshVertexUpdated;
-        
-        finishCalculateDerivedValues();
-      }
-    };
-    
-    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface, double zBedrock);
-    entry void readForcingData(CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double currentTime, size_t directorySize,
-                               const char directory[directorySize]);
-    entry void createFiles(size_t directorySize, const char directory[directorySize]);
-    entry void resizeUnlimitedDimensions(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
-    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
-    
-    entry void updateState(double currentTimeNew, double dtNew, size_t iterationNew)
-    {
-      serial
-      {
-        int ii; // Loop counter.
-        
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-        if (!(0.0 < dtNew))
-          {
-            CkError("ERROR in FileManager::updateState: dtNew must be greater than zero.\n");
-            CkExit();
-          }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-        currentTime = currentTimeNew;
-        dt          = dtNew;
-        iteration   = iterationNew;
-        
-        for (ii = 0; ii < localNumberOfMeshElements; ii++)
-        {
-          meshElementUpdated[ii] = false;
-        }
-        
-        for (ii = 0; ii < localNumberOfChannelElements; ii++)
-        {
-          channelElementUpdated[ii] = false;
-        }
-      }
-      
-      while (!allElementsUpdated())
       {
         case
         {
-          when meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError, double precipitationCumulative, double evaporationCumulative, 
-                                float canLiq, float canIce, float snEqv, double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize], 
-                                double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize] )
+          when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface)
           {
             serial
             {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-              if (!(localMeshElementStart <= element && element < localMeshElementStart + localNumberOfMeshElements))
-                {
-                  CkError("ERROR in FileManager::meshStateMessage, element %d: element data not owned by this local branch.\n", element);
-                  CkExit();
-                }
-                
-              if (!(0.0 <= surfacewaterDepth))
-                {
-                  CkError("ERROR in FileManager::meshStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
-                  CkExit();
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-              meshSurfacewaterDepth[element - localMeshElementStart]        = surfacewaterDepth;
-              meshSurfacewaterError[element - localMeshElementStart]        = surfacewaterError;
-              meshGroundwaterHead[element - localMeshElementStart]          = groundwaterHead;
-              meshGroundwaterError[element - localMeshElementStart]         = groundwaterError;
-              meshPrecipitationCumulative[element - localMeshElementStart]  = precipitationCumulative;
-              meshEvaporationCumulative[element - localMeshElementStart]    = evaporationCumulative;
-              meshCanopyLiquid[element - localMeshElementStart]             = canLiq;
-              meshCanopyIce[element - localMeshElementStart]                = canIce;
-              meshSnowWaterEquivalent[element - localMeshElementStart]      = snEqv;
-              
-              for (int nn = 0; nn < MeshElement::meshNeighborsSize; nn++)
-                 {
-                   meshElementNeighborsSurfacewaterCumulativeFlow[element - localMeshElementStart][nn] = meshNeighborsSurfacewaterCumulativeFlow[nn];
-                   meshElementNeighborsGroundwaterCumulativeFlow[element - localMeshElementStart][nn]  = meshNeighborsGroundwaterCumulativeFlow[nn];
-                 }
-                        
-              meshElementUpdated[element - localMeshElementStart]           = true;
+              handleMeshVertexDataMessage(element, vertex, x, y, zSurface);
             }
           }
           
-          when channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double evaporationCumulative, double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize] )
+          when channelVertexDataMessage(int element, int vertex, double x, double y, double zBank)
           {
             serial
             {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-              if (!(localChannelElementStart <= element && element < localChannelElementStart + localNumberOfChannelElements))
-                {
-                  CkError("ERROR in FileManager::channelStateMessage, element %d: element data not owned by this local branch.\n", element);
-                  CkExit();
-                }
-                
-              if (!(0.0 <= surfacewaterDepth))
-                {
-                  CkError("ERROR in FileManager::channelStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
-                  CkExit();
-                }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-              channelSurfacewaterDepth[element - localChannelElementStart]      = surfacewaterDepth;
-              channelSurfacewaterError[element - localChannelElementStart]      = surfacewaterError;
-              channelEvaporationCumulative [element - localChannelElementStart] = evaporationCumulative;
-              
-              for (int nn = 0; nn < ChannelElement::channelNeighborsSize; nn++)
-                 {
-                   //channelNeighborsSurfacewaterCumulativeFlow[element - localMeshElementStart][nn] = channelNeighborsSurfacewaterCumulativeFlow[nn];
-                 }
-                 
-              channelElementUpdated[element - localChannelElementStart]         = true;
+              handleChannelVertexDataMessage(element, vertex, x, y, zBank);
             }
           }
-        } // End case within while (!allElementsUpdated()).
-      } // End while (!allElementsUpdated()).
+        }
+      }
       
+      // Then the file manager must calculate derived values.
       serial
       {
-        contribute();
+        calculateDerivedValues();
       }
-    }; // End updateState.
+      
+      // Then the file manager must create the output files.
+      when createFiles(size_t directorySize, const char directory[directorySize])
+      {
+        serial
+        {
+          handleCreateFiles(directory);
+        }
+      }
+      
+      // Then the file manager must write the initial state into the output files.
+      when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
+      {
+        serial
+        {
+          handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
+        }
+      }
+      
+      // Then the file manager must read forcing data as part of initialization.
+      when readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
+                           double referenceDate, double currentTime)
+      {
+        serial
+        {
+          handleReadForcingData(directory, meshProxy, channelProxy, referenceDate, currentTime);
+        }
+      }
+      
+      while (true)
+      {
+        case
+        {
+          // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
+          when readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
+                               double referenceDate, double currentTime)
+          {
+            serial
+            {
+              handleReadForcingData(directory, meshProxy, channelProxy, referenceDate, currentTime);
+            }
+          }
+          
+          // Update state messages can also optionally arrive between timesteps.
+          when updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
+          {
+            serial
+            {
+              handleUpdateState(referenceDateNew, currentTimeNew, dtNew, iterationNew);
+            }
+            
+            while (!allElementsUpdated())
+            {
+              case
+              {
+                when meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
+                                      double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
+                                      double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
+                                      double meshNeighborsSurfacewaterFlowRate[MeshElement::meshNeighborsSize],
+                                      double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize],
+                                      double meshNeighborsGroundwaterFlowRate[MeshElement::meshNeighborsSize],
+                                      double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize],
+                                      double channelNeighborsSurfacewaterFlowRate[MeshElement::channelNeighborsSize],
+                                      double channelNeighborsSurfacewaterCumulativeFlow[MeshElement::channelNeighborsSize],
+                                      double channelNeighborsGroundwaterFlowRate[MeshElement::channelNeighborsSize],
+                                      double channelNeighborsGroundwaterCumulativeFlow[MeshElement::channelNeighborsSize])
+                {
+                  serial
+                  {
+                    handleMeshStateMessage(element, surfacewaterDepth, surfacewaterError, groundwaterHead, groundwaterError, precipitation,
+                                           precipitationCumulative, evaporation, evaporationCumulative, surfacewaterInfiltration, groundwaterRecharge,
+                                           evapoTranspirationState, meshNeighborsSurfacewaterFlowRate, meshNeighborsSurfacewaterCumulativeFlow,
+                                           meshNeighborsGroundwaterFlowRate, meshNeighborsGroundwaterCumulativeFlow, channelNeighborsSurfacewaterFlowRate,
+                                           channelNeighborsSurfacewaterCumulativeFlow, channelNeighborsGroundwaterFlowRate,
+                                           channelNeighborsGroundwaterCumulativeFlow);
+                  }
+                }
+                
+                when channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double precipitation, double precipitationCumulative,
+                                         double evaporation, double evaporationCumulative, EvapoTranspirationStateStruct evapoTranspirationState,
+                                         double channelNeighborsSurfacewaterFlowRate[ChannelElement::channelNeighborsSize],
+                                         double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize],
+                                         double meshNeighborsSurfacewaterFlowRate[ChannelElement::meshNeighborsSize],
+                                         double meshNeighborsSurfacewaterCumulativeFlow[ChannelElement::meshNeighborsSize],
+                                         double meshNeighborsGroundwaterFlowRate[ChannelElement::meshNeighborsSize],
+                                         double meshNeighborsGroundwaterCumulativeFlow[ChannelElement::meshNeighborsSize])
+                {
+                  serial
+                  {
+                    handleChannelStateMessage(element, surfacewaterDepth, surfacewaterError, precipitation, precipitationCumulative, evaporation,
+                                              evaporationCumulative, evapoTranspirationState, channelNeighborsSurfacewaterFlowRate,
+                                              channelNeighborsSurfacewaterCumulativeFlow, meshNeighborsSurfacewaterFlowRate,
+                                              meshNeighborsSurfacewaterCumulativeFlow, meshNeighborsGroundwaterFlowRate,
+                                              meshNeighborsGroundwaterCumulativeFlow);
+                  }
+                }
+              }
+            }
+            
+            serial
+            {
+              contribute();
+            }
+            
+            // Updating state must always be followed by writing that state into the output files.
+            when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
+            {
+              serial
+              {
+                handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
+              }
+            }
+          } // End when updateState.
+        } // End case within while (true).
+      } // End while (true).
+    }; // End entry void runForever().
     
-    entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError, double precipitationCumulative, double evaporationCumulative, 
-                                float canLiq, float canIce, float snEqv, double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize], 
-                                double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize]);
-    entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double evaporationCumulative, double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize]);
+    entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
+    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
+    entry void getChannelVertexDataMessage(int requester, int element, int vertex, int node);
+    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface);
+    entry void channelVertexDataMessage(int element, int vertex, double x, double y, double zBank);
+    entry void createFiles(size_t directorySize, const char directory[directorySize]);
+    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
+    entry void readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
+                               double referenceDate, double currentTime);
+    entry void updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
+    entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
+                                double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
+                                double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
+                                double meshNeighborsSurfacewaterFlowRate[MeshElement::meshNeighborsSize],
+                                double meshNeighborsSurfacewaterCumulativeFlow[MeshElement::meshNeighborsSize],
+                                double meshNeighborsGroundwaterFlowRate[MeshElement::meshNeighborsSize],
+                                double meshNeighborsGroundwaterCumulativeFlow[MeshElement::meshNeighborsSize],
+                                double channelNeighborsSurfacewaterFlowRate[MeshElement::channelNeighborsSize],
+                                double channelNeighborsSurfacewaterCumulativeFlow[MeshElement::channelNeighborsSize],
+                                double channelNeighborsGroundwaterFlowRate[MeshElement::channelNeighborsSize],
+                                double channelNeighborsGroundwaterCumulativeFlow[MeshElement::channelNeighborsSize]);
+    entry void channelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double precipitation, double precipitationCumulative,
+                                   double evaporation, double evaporationCumulative, EvapoTranspirationStateStruct evapoTranspirationState,
+                                   double channelNeighborsSurfacewaterFlowRate[ChannelElement::channelNeighborsSize],
+                                   double channelNeighborsSurfacewaterCumulativeFlow[ChannelElement::channelNeighborsSize],
+                                   double meshNeighborsSurfacewaterFlowRate[ChannelElement::meshNeighborsSize],
+                                   double meshNeighborsSurfacewaterCumulativeFlow[ChannelElement::meshNeighborsSize],
+                                   double meshNeighborsGroundwaterFlowRate[ChannelElement::meshNeighborsSize],
+                                   double meshNeighborsGroundwaterCumulativeFlow[ChannelElement::meshNeighborsSize]);
   }; // End group FileManager.
 }; // End module file_manager.

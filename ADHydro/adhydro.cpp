@@ -26,7 +26,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy = CProxy_FileManager::ckNew();
   
   // Set the callback to continue initialization when the file manager is ready.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerBarrier), thisProxy));
+  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerInitialized), thisProxy));
   
   // Initialize the file manager.
   // FIXME make choice of initialization and ascii fileBasename command line parameters.
@@ -41,10 +41,7 @@ ADHydro::ADHydro(CkMigrateMessage* msg)
 
 ADHydro::~ADHydro()
 {
-  if (NULL != commandLineArguments)
-    {
-      delete commandLineArguments;
-    }
+  deleteIfNonNull(&commandLineArguments);
 }
 
 void ADHydro::pup(PUP::er &p)
@@ -82,23 +79,13 @@ void ADHydro::pup(PUP::er &p)
   p | startingIteration;
   p | writeGeometry;
   p | writeParameter;
-  p | needToUpdateForcingData;
   p | needToCheckInvariant;
-}
-
-void ADHydro::fileManagerBarrier()
-{
-  // Set the callback to continue initialization when the file manager is ready.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerInitialized), thisProxy));
-  
-  // Have the file manager complete initialization.
-  fileManagerProxy.calculateDerivedValues();
 }
 
 void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
-  referenceDate           = gregorianToJulian(2010, 1, 1, 0, 0, 0.0); // FIXME initilaize from FileManager.
+  referenceDate           = fileManagerProxy.ckLocalBranch()->referenceDate;
   currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
   endTime                 = currentTime + 12000.0; // FIXME make command line parameter
   dt                      = fileManagerProxy.ckLocalBranch()->dt;
@@ -108,7 +95,6 @@ void ADHydro::fileManagerInitialized()
   startingIteration       = iteration;
   writeGeometry           = true;
   writeParameter          = true;
-  needToUpdateForcingData = true;
   needToCheckInvariant    = true;
   
   // Create mesh and channels.
@@ -145,11 +131,7 @@ void ADHydro::writeFiles()
   // Set the callback to check forcing data when files are written.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
   
-#ifdef NETCDF_COLLECTIVE_IO_WORKAROUND
-  fileManagerProxy[0].resizeUnlimitedDimensions(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
-#else // NETCDF_COLLECTIVE_IO_WORKAROUND
   fileManagerProxy.writeFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
-#endif // NETCDF_COLLECTIVE_IO_WORKAROUND
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
@@ -158,7 +140,8 @@ void ADHydro::writeFiles()
 
 void ADHydro::checkForcingData()
 {
-  if (needToUpdateForcingData)
+  if (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
+      fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0))
     {
       // Set callback.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -180,11 +163,9 @@ void ADHydro::checkForcingData()
         }
 
       // Update forcing data.
-      fileManagerProxy.readForcingData(meshProxy, channelProxy, currentTime, strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+      fileManagerProxy.readForcingData(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], meshProxy, channelProxy, referenceDate,
+                                       currentTime);
       thisProxy.waitForForcingDataToFinish();
-      
-      // Now that we have updated the forcing data we don't need to do it again unless they change.
-      needToUpdateForcingData = false;
     }
   else
     {
@@ -198,12 +179,16 @@ void ADHydro::forcingDataDone()
   // If debug level is set to internal invariants check every timestep.
   checkInvariant();
 #elif (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  // If debug level is set to user input invariants check once at the beginning.
   if (needToCheckInvariant)
     {
       checkInvariant();
       
-      // If debug level is set to user input invariants check once at the beginning.
       needToCheckInvariant = false;
+    }
+  else
+    {
+      doTimestep();
     }
 #else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   // Otherwise do not check the invariant and just start the timestep.
@@ -287,7 +272,7 @@ void ADHydro::doTimestep()
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
           meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-          meshProxy.doTimestep(iteration, dt);
+          meshProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
         }
       else
         {
@@ -297,7 +282,7 @@ void ADHydro::doTimestep()
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
         {
           channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
-          channelProxy.doTimestep(iteration, dt);
+          channelProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
         }
       else
         {
@@ -323,12 +308,6 @@ void ADHydro::timestepDone(double dtNew)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // FIXME replace this with absolute time
-  if ((int)(currentTime / 3600.0) < (int)(currentTime + dt / 3600.0))
-  {
-    needToUpdateForcingData = true;
-  }
-
   // Update time and iteration number.
   currentTime += dt;
   dt           = dtNew;
@@ -353,7 +332,7 @@ void ADHydro::timestepDone(double dtNew)
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
 
       // Start the output phase.
-      fileManagerProxy.updateState(currentTime, dt, iteration);
+      fileManagerProxy.updateState(referenceDate, currentTime, dt, iteration);
       
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
