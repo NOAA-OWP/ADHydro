@@ -402,7 +402,15 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
       zSurface = meshNodeZSurface[node - localMeshNodeStart];
     }
 
-  thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface);
+  if (CkMyPe() == requester)
+    {
+      // The requester is me, no need to send a message.
+      handleMeshVertexDataMessage(element, vertex, x, y, zSurface);
+    }
+  else
+    {
+      thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface);
+    }
 }
 
 void FileManager::getChannelVertexDataMessage(int requester, int element, int vertex, int node)
@@ -454,7 +462,15 @@ void FileManager::getChannelVertexDataMessage(int requester, int element, int ve
       zBank = channelNodeZBank[node - localChannelNodeStart];
     }
 
-  thisProxy[requester].channelVertexDataMessage(element, vertex, x, y, zBank);
+  if (CkMyPe() == requester)
+    {
+      // The requester is me, no need to send a message.
+      handleChannelVertexDataMessage(element, vertex, x, y, zBank);
+    }
+  else
+    {
+      thisProxy[requester].channelVertexDataMessage(element, vertex, x, y, zBank);
+    }
 }
 
 void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
@@ -1824,10 +1840,6 @@ void FileManager::updateVertices()
   int  ii, jj;                             // Loop counters.
   bool needToGetMeshVertexData    = false; // Whether we need to get any vertex data.
   bool needToGetChannelVertexData = false; // Whether we need to get any vertex data.
-  double x;                                // X coordinate of vertex that is a locally available node.
-  double y;                                // Y coordinate of vertex that is a locally available node.
-  double zSurface;                         // Z surface coordinate of vertex that is a locally available node.
-  double zBank;                            // Z bank coordinate of vertex that is a locally available node.
 
   // Get vertex data from node data.
   if (NULL != meshElementVertices)
@@ -1880,41 +1892,15 @@ void FileManager::updateVertices()
         {
           for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
             {
+              meshVertexUpdated[ii][jj] = false;
+
               if (localMeshNodeStart <= meshElementVertices[ii][jj] && meshElementVertices[ii][jj] < localMeshNodeStart + localNumberOfMeshNodes)
                 {
-                  if (NULL != meshNodeX)
-                    {
-                      x = meshNodeX[meshElementVertices[ii][jj] - localMeshNodeStart];
-                    }
-                  else
-                    {
-                      x = 0.0;
-                    }
-
-                  if (NULL != meshNodeY)
-                    {
-                      y = meshNodeY[meshElementVertices[ii][jj] - localMeshNodeStart];
-                    }
-                  else
-                    {
-                      y = 0.0;
-                    }
-
-                  if (NULL != meshNodeZSurface)
-                    {
-                      zSurface = meshNodeZSurface[meshElementVertices[ii][jj] - localMeshNodeStart];
-                    }
-                  else
-                    {
-                      zSurface = 0.0;
-                    }
-
-                  handleMeshVertexDataMessage(ii + localMeshElementStart, jj, x, y, zSurface);
+                  // The node belongs to me, no need to send a message.
+                  getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, meshElementVertices[ii][jj]);
                 }
               else
                 {
-                  meshVertexUpdated[ii][jj] = false;
-
                   // FIXME improve efficiency.  Don't send duplicate messages for the same node.
                   thisProxy[home(meshElementVertices[ii][jj], globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj,
                                                                                                                  meshElementVertices[ii][jj]);
@@ -1931,42 +1917,16 @@ void FileManager::updateVertices()
         {
           for (jj = 0; jj < ChannelElement::channelVerticesSize; jj++)
             {
+              channelVertexUpdated[ii][jj] = false;
+
               if (localChannelNodeStart <= channelElementVertices[ii][jj] &&
                   channelElementVertices[ii][jj] < localChannelNodeStart + localNumberOfChannelNodes)
                 {
-                  if (NULL != channelNodeX)
-                    {
-                      x = channelNodeX[channelElementVertices[ii][jj] - localChannelNodeStart];
-                    }
-                  else
-                    {
-                      x = 0.0;
-                    }
-
-                  if (NULL != channelNodeY)
-                    {
-                      y = channelNodeY[channelElementVertices[ii][jj] - localChannelNodeStart];
-                    }
-                  else
-                    {
-                      y = 0.0;
-                    }
-
-                  if (NULL != channelNodeZBank)
-                    {
-                      zBank = channelNodeZBank[channelElementVertices[ii][jj] - localChannelNodeStart];
-                    }
-                  else
-                    {
-                      zBank = 0.0;
-                    }
-
-                  handleChannelVertexDataMessage(ii + localChannelElementStart, jj, x, y, zBank);
+                  // The node belongs to me, no need to send a message.
+                  getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, channelElementVertices[ii][jj]);
                 }
               else
                 {
-                  channelVertexUpdated[ii][jj] = false;
-
                   // FIXME improve efficiency.  Don't send duplicate messages for the same node.
                   thisProxy[home(channelElementVertices[ii][jj], globalNumberOfChannelNodes)].getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart,
                                                                                                                           jj, channelElementVertices[ii][jj]);
