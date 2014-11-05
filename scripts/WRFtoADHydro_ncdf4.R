@@ -18,13 +18,13 @@ library(timeDate)
 
 WRF_Folder<<-"/localstore/MtMoranLink/project/CI-WATER/data/WRF/WRF_output_new/historical/"  # path to the WRF files
 WRF_Files<<-c("2000_new/wrfout_d03_2000-01-01_00:00:00", "2000_new/wrfout_d03_2000-01-31_12:00:00", "2000_new/wrfout_d03_2000-03-02_00:00:00", "2000_new/wrfout_d03_2000-04-01_12:00:00",
-	      "2000_new/wrfout_d03_2000-05-02_00:00:00", "2000_new/wrfout_d03_2000-06-01_12:00:00", "2000_new/wrfout_d03_2000-07-02_00:00:00", "2000_new/wrfout_d03_2000-08-01_12:00:00",
-        "2000_new/wrfout_d03_2000-09-01_00:00:00", "2000_new/wrfout_d03_2000-10-01_12:00:00", "2000_new/wrfout_d03_2000-11-01_00:00:00", "2000_new/wrfout_d03_2000-12-01_12:00:00",
+ 	       "2000_new/wrfout_d03_2000-05-02_00:00:00", "2000_new/wrfout_d03_2000-06-01_12:00:00", "2000_new/wrfout_d03_2000-07-02_00:00:00", "2000_new/wrfout_d03_2000-08-01_12:00:00",
+       	"2000_new/wrfout_d03_2000-09-01_00:00:00", "2000_new/wrfout_d03_2000-10-01_12:00:00", "2000_new/wrfout_d03_2000-11-01_00:00:00", "2000_new/wrfout_d03_2000-12-01_12:00:00")
         "2001_new/wrfout_d03_2001-01-01_00:00:00", "2001_new/wrfout_d03_2001-01-31_12:00:00", "2001_new/wrfout_d03_2001-03-03_00:00:00", "2001_new/wrfout_d03_2001-04-02_12:00:00",
         "2001_new/wrfout_d03_2001-05-03_00:00:00", "2001_new/wrfout_d03_2001-06-02_12:00:00", "2001_new/wrfout_d03_2001-07-03_00:00:00", "2001_new/wrfout_d03_2001-08-02_12:00:00",
-	      "2001_new/wrfout_d03_2001-09-02_00:00:00", "2001_new/wrfout_d03_2001-10-02_00:00:00", "2001_new/wrfout_d03_2001-11-02_00:00:00", "2001_new/wrfout_d03_2001-12-02_12:00:00",
+	      "2001_new/wrfout_d03_2001-09-02_00:00:00", "2001_new/wrfout_d03_2001-10-02_12:00:00", "2001_new/wrfout_d03_2001-11-02_00:00:00", "2001_new/wrfout_d03_2001-12-02_12:00:00",
         "2002_new/wrfout_d03_2002-01-01_00:00:00", "2002_new/wrfout_d03_2002-01-31_12:00:00", "2002_new/wrfout_d03_2002-03-03_00:00:00", "2002_new/wrfout_d03_2002-04-02_12:00:00",
-        "2002_new/wrfout_d03_2002-05-03_00:00:00", "2002_new/wrfout_d03_2002-06-02_12:00:00", "2002_new/wrfout_d03_2002-07-03_00:00:00", "2002_new/wrfout_d03_2002-08-02_12:00:00",
+        "2002_new/wrfout_d03_2002-05-03_00:00:00", "2002_new/wrfout_d03_2002-06-02_12:00:00", "2002_new/wrfout_d03_2002-07-03_00:00:00", "2002_new/wrfout_d03_2002-08-02_12:00:00"
 	      "2002_new/wrfout_d03_2002-09-02_00:00:00", "2002_new/wrfout_d03_2002-10-02_12:00:00", "2002_new/wrfout_d03_2002-11-02_00:00:00", "2002_new/wrfout_d03_2002-12-02_12:00:00",
 	      "2003_new/wrfout_d03_2003-01-01_00:00:00", "2003_new/wrfout_d03_2003-01-31_12:00:00", "2003_new/wrfout_d03_2003-03-03_00:00:00", "2003_new/wrfout_d03_2003-04-02_12:00:00",
 	      "2003_new/wrfout_d03_2003-05-03_00:00:00", "2003_new/wrfout_d03_2003-06-02_12:00:00", "2003_new/wrfout_d03_2003-07-03_00:00:00", "2003_new/wrfout_d03_2003-08-02_12:00:00",
@@ -410,11 +410,11 @@ Rdumpo=capture.output(print(ex.nco), file = NULL, append = FALSE)
 write.table(Rdumpo,paste(Outfolder,"Rncdumpo.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
 
 cat("**********Averaging basin values for verification",fill=TRUE)
-Avefinal=matrix(NA,rowsfinal,(dim(finalold)[2]-3)) ## matrix containing the variables in the columns (not includign  node, WRFHOUR or JULTIME) and times in the rows
+Avefinal=matrix(NA,rowsfinal,(length(Outnames)-2)) ## matrix containing the variables in the columns (not includign  node, WRFHOUR or JULTIME) and times in the rows
 colnames(Avefinal)=Outnames[3:length(Outnames)]
 
-for (vi in 1:(dim(finalold)[2]-3)){  # by columns
-  cat("Averaging column ",vi, " of ",dim(finalold)[2]-3, fill=TRUE)
+for (vi in 1:(length(Outnames)-2)){  # by columns
+  cat("Averaging column ",vi, " of ",length(Outnames)-2, fill=TRUE)
   z = ncvar_get( ex.nco, Outnames[vi+2])   # variable
   for (ti in 1:rowsfinal){	
 	Avefinal[ti,vi]=mean(as.numeric(z[,ti]))  # FIX ME and CHECK ME 	
@@ -423,44 +423,64 @@ for (vi in 1:(dim(finalold)[2]-3)){  # by columns
 
 ### PLotting basin average values# 
 
-if (dim(finalold)[2]<=9){
-x11()
-par(mar = rep(2, 4),mfrow=c(dim(finalold)[2],1))
-for (pli in 4:length(Outnames)){
+if (dim(finalold)[2]<=8){
+postscript(paste(Outfolder,"Basin_Average_TS.ps",sep=""),width=8000,height=5500)
+mat=matrix(1:5,5,1)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 1:(length(Outnames)-2)){
+plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
+}
+dev.off()
+}
+
+if (dim(finalold)[2]<=13 & dim(finalold)[2]>8){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+mat=matrix(1:5,5,1)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 1:5){
+plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
+}
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 6:dim(Avefinal)[2]){
 plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
 }
 }
 
-if (dim(finalold)[2]<=15 & dim(finalold)[2]>9){
-x11()
-par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 1:6){
+if (dim(finalold)[2]<=18 & dim(finalold)[2]>13){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+mat=matrix(1:5,5,1)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 1:5){
 plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
 }
-x11()
-par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 7:dim(Avefinal)[2]){
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 6:10){
 plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
 }
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 11:dim(Avefinal)[2]){
+plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
+}
+dev.off()
 }
 
-if (dim(finalold)[2]<=21 & dim(finalold)[2]>15){
-x11()
-par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 1:6){
-plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
-}
-x11()
-par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 7:12){
-plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
-}
-x11()
-par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 13:dim(Avefinal)[2]){
-plot(Avefinal[,pli],type="l",main=Outnames[pli+2])
-}
-}	
 	
 
 cat("End of processes at ",date(),fill=TRUE)
