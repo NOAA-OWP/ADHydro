@@ -5728,10 +5728,10 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
       
       for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
         {
-          meshProxy[ii].forcingDataMessage(20.0, vegFra[ii - localMeshElementStart], maxVegFra[ii - localMeshElementStart], t2[ii - localMeshElementStart],
-                                           psfc[ii - localMeshElementStart], psfc[ii - localMeshElementStart] - 120.0, u[ii - localMeshElementStart],
+          meshProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localMeshElementStart], maxVegFra[ii - localMeshElementStart], t2[ii - localMeshElementStart],
+                                           psfc[ii - localMeshElementStart], psfc[ii - localMeshElementStart] - 120.0f, u[ii - localMeshElementStart],
                                            v[ii - localMeshElementStart], qVapor[ii - localMeshElementStart], qCloud[ii - localMeshElementStart],
-                                           swDown[ii - localMeshElementStart], gLw[ii - localMeshElementStart],  tPrec[ii - localMeshElementStart],
+                                           swDown[ii - localMeshElementStart], gLw[ii - localMeshElementStart], tPrec[ii - localMeshElementStart],
                                            tslb[ii - localMeshElementStart],  pblh[ii - localMeshElementStart]);
         }
       

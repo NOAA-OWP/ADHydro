@@ -538,8 +538,22 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       *evaporationFromCanopy = eCan * dt;
       evaporationFromSurface = eDir * dt;
       
-      // Surface evaporation is taken first from the snow layer up to the amount in snEqv at the beginning of the timestep, which is now in snEqvO.
-      if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
+      // Surface condensation is added to the snow layer if any snow exists or otherwise added to the ground as water.  Surface evaporation is taken first from
+      // the snow layer up to the amount in snEqv at the beginning of the timestep, which is now in snEqvO, and then any remaining is taken from the ground.
+      if (0.0 > evaporationFromSurface)
+        {
+          if (0.0 < evapoTranspirationState->snEqvO)
+            {
+              *evaporationFromSnow   = evaporationFromSurface;
+              *evaporationFromGround = 0.0f;
+            }
+          else
+            {
+              *evaporationFromSnow   = 0.0f;
+              *evaporationFromGround = evaporationFromSurface;
+            }
+        }
+      else if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
         {
           *evaporationFromSnow   = evaporationFromSurface;
           *evaporationFromGround = 0.0f;
@@ -650,7 +664,11 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
+          // NOFIX I thought that snEqv only got set to zero if it was less than 0.001.  However, we had a run where condensation caused snEqv to grow above
+          // 0.001 and it kept getting set to zero even when it was more than epsilon above 0.001 and this assertion failed.  It is a little worrisome that we
+          // don't completely understand the conditions that cause Noah-MP to set snEqv to zero.  However, the calculation of snEqvShouldBe appears to be
+          // correct so we are just commeting out this assertion.
+          //CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
