@@ -2278,9 +2278,10 @@ void FileManager::calculateDerivedValues()
         } // End of element loop.
     } // End of assigning meshConductivity and meshPorosity.
   
-  // Calculate meshManningsN by transfering the USGS 40-category NLCD40 vegetation type (in VEGPARM.TBL of Noah-MP) to the 21-category NLCD 1992 Land cover
+  // Calculate meshManningsN by transfering the USGS 27-category vegetation type (in VEGPARM.TBL of Noah-MP) to the 21-category NLCD 1992 Land cover
   // classification and use the Manning's N from Bunya et al., 2009.  (High-resolution river inflow, tide, wind, wind wave and storm surge model for southern
   // Louisiana and Mississippi Part I.)
+  // Need to correspond to the python scrip in ADHydro/scripts/readFromSSURGO_STASGO.py. See comments there.
   if (NULL == meshManningsN && NULL != meshVegetationType)
     {
       meshManningsN = new double[localNumberOfMeshElements];
@@ -2289,67 +2290,48 @@ void FileManager::calculateDerivedValues()
         {
           switch (meshVegetationType[ii])
           {
-          // FIXME ?!? meshVegetationType varies from 1 to 27, not 21 to 40.
-          case 21: // Open Water.                   Use manning's n from NLCD 1992 class 11.
-            meshManningsN[ii] = 0.02;
-            break;
-          case 22: // Ice/snow.                     Use manning's n from NLCD 1992 class 12.
-            meshManningsN[ii] = 0.022;
-            break;
-          case 23: // Developed open space.         Use manning's n from NLCD 1992 class 21.
-            meshManningsN[ii] = 0.12;
-            break;
-          case 24: // Developed low intensity.      Use manning's n from NLCD 1992 class 21.
-            meshManningsN[ii] = 0.12;
-            break;
-          case 25: // Developed medium intensity.   Use manning's n from NLCD 1992 class 22.
-            meshManningsN[ii] = 0.121;
-            break;
-          case 26: // Developed high intensity.     Use manning's n from NLCD 1992 class 22.
-            meshManningsN[ii] = 0.121;
-            break;
-          case 27: // Barren land.                  Use manning's n from NLCD 1992 class 31.
-            meshManningsN[ii] = 0.04;
-            break;
-          case 28: // Deciduous forest.             Use manning's n from NLCD 1992 class 41.
-            meshManningsN[ii] = 0.16;
-            break;
-          case 29: // Evergreen forest.             Use manning's n from NLCD 1992 class 42.
-            meshManningsN[ii] = 0.18;
-            break;
-          case 30: // Mixed forest.                 Use manning's n from NLCD 1992 class 43.
-            meshManningsN[ii] = 0.17;
-            break;
-          case 31: // Dwarf scrub-Alaska only.      Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 32: // Shrub.                        Use manning's n from NLCD 1992 class 51.
-            meshManningsN[ii] = 0.07;
-            break;
-          case 33: // Grassland.                    Use manning's n from NLCD 1992 class 71.
-            meshManningsN[ii] = 0.035;
-            break;
-          case 34: // Sedge/herbaceous-Alaska only. Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 35: // Lichens-Alaska only.          Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 36: // Moss-Alaska only.             Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 37: // Pasture.                      Use manning's n from NLCD 1992 class 81.
-            meshManningsN[ii] = 0.033;
-            break;
-          case 38: // Cultivated crops.             Use manning's n from NLCD 1992 class 82.
-            meshManningsN[ii] = 0.04;
-            break;
-          case 39: // Woody wetland.                Use manning's n from NLCD 1992 class 91.
-            meshManningsN[ii] = 0.14;
-            break;
-          case 40: // Herbaceous wetland.           Use manning's n from NLCD 1992 class 92.
-            meshManningsN[ii] = 0.035;
-            break;
+            case 16: // open water
+                   meshManningsN[ii] = 0.02;
+                   break;
+            case 24: //  ice/snow
+                   meshManningsN[ii] = 0.022;
+                   break; 
+            case 1: //  Urban and Built-Up Land
+                   meshManningsN[ii] = 0.12;
+                   break;
+            case 19: //  barren land
+                   meshManningsN[ii] = 0.04;
+                   break;
+            case 11: //  deciduous forest
+                   meshManningsN[ii] = 0.16;
+                   break;
+            case 13: //  evergreen forest
+                   meshManningsN[ii] = 0.18;
+                   break;
+            case 15: //  mixed forest
+                   meshManningsN[ii] = 0.17;
+                   break;
+            case 22: //  'Mixed Tundra' Alaska only, use n = 0.05.
+                   meshManningsN[ii] = 0.05;
+                   break;
+            case 8: //   'Shrubland'
+                   meshManningsN[ii] = 0.07;
+                   break;
+            case 7: //   'Grassland'
+                   meshManningsN[ii] = 0.035;
+                   break;
+            case 2: //  'Dryland Cropland and Pasture'
+                   meshManningsN[ii] = 0.033;
+                   break;
+            case 3: //  'Irrigated Cropland and Pasture' 
+                   meshManningsN[ii] = 0.04;
+                   break;
+            case 18: //   'Wooded Wetland' 
+                   meshManningsN[ii] = 0.14;
+                   break;
+            case 17: //  'Herbaceous Wetland' 
+                   meshManningsN[ii] = 0.035;
+                   break;            
           } // End of switch meshVegetationType[ii].
         } // End of element loop.
     } // End of assigning meshManningsN.
