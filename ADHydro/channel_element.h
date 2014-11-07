@@ -114,8 +114,9 @@ private:
   //
   // iterationThisTimestep - Iteration number to put on all messages this
   //                         timestep.
+  // date                  - Current Julian date.
   // dtThisTimestep        - Duration for this timestep in seconds.
-  void handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep);
+  void handleDoTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep);
   
   // Receive a groundwater state message from a mesh neighbor, calculate
   // groundwater flow rate across the edge shared with the neighbor, and

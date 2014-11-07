@@ -1053,7 +1053,7 @@ void ChannelElement::handleForcingDataMessage()
 
 // Suppress warning enum value not handled in switch.
 #pragma GCC diagnostic ignored "-Wswitch"
-void ChannelElement::handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep)
+void ChannelElement::handleDoTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep)
 {
   int edge; // Loop counter.
   

@@ -272,7 +272,7 @@ void ADHydro::doTimestep()
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
           meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-          meshProxy.doTimestep(iteration, dt);
+          meshProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
         }
       else
         {
@@ -282,7 +282,7 @@ void ADHydro::doTimestep()
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
         {
           channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
-          channelProxy.doTimestep(iteration, dt);
+          channelProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
         }
       else
         {

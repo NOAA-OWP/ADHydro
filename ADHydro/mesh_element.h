@@ -160,8 +160,9 @@ private:
   //
   // iterationThisTimestep - Iteration number to put on all messages this
   //                         timestep.
+  // date                  - Current Julian date.
   // dtThisTimestep        - Duration for this timestep in seconds.
-  void handleDoTimestep(size_t iterationThisTimestep, double dtThisTimestep);
+  void handleDoTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep);
   
   // Calculate groundwater flow rate for all boundary condition edges.  Also
   // calculate infiltration.  Exit on error.
