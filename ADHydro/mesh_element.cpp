@@ -2117,6 +2117,7 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
    */
   
   // FIXME, here is the code for updating groundwater head with GARTO infiltration.
+  /*
   groundwaterHead += groundwaterRecharge / porosity; // Or groundwaterRecharge / gar_specific_yield(garDomain, elementZSurface - groundwaterHead);
   
   // Cap groundwater_head at the surface.
@@ -2148,7 +2149,7 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
     }
   // End of updating groundwater head with GARTO infiltration.
-  
+  */
   // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
   // FIXME should we try to take the water back from the error accumulator later?
   if (elementZBedrock > groundwaterHead)
