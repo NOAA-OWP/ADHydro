@@ -500,47 +500,69 @@ def getVegParm(s):
    success, data = layer.identify(QgsPoint(x, y))
    data = str(data.values()[0])
    val = np.nan
+   # Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
+      # NLCD    definition                     USGS         definition
+      #	11	open water	               16           Water Bodies   
+      #	12	ice/snow	               24           Snow or Ice
+      #	21	developed open space	       1            Urban and Built-Up Land
+      #	22	developed low intensity	       1            Urban and Built-Up Land
+      #	23	developed medium intensity     1            Urban and Built-Up Land
+      #	24	developed high intensity       1            Urban and Built-Up Land
+      #	31	barren land	               19           Barren or Sparsely Vegetated
+      #	41	deciduous forest	       11 and 12    'Deciduous Broadleaf Forest' and "Deciduous Needleleaf Forest"
+      #	42	evergreen forest	       13 and 14    'Evergreen Broadleaf Forest' and 'Evergreen Needleleaf Forest'
+      #	43	mixed forest	               15           'Mixed Forest' 
+      #	51	dwarf scrub-Alaska only	       none/use 22  'Mixed Tundra' 22
+      #	52	shrub	                       8            'Shrubland' 
+      #	71	grassland	               7            'Grassland' 
+      #	72	sedge/herbaceous-Alaska only   none/use 22
+      # 73	Lichens-Alaska only	       none/use 22
+      #	74	Moss-Alaska only	       none/use 22
+      # 81	Pasture	                       2?            'Dryland Cropland and Pasture' 
+      # 82	cultivated crops	       3?            'Irrigated Cropland and Pasture' 
+      # 90	woody wetland	               18            'Wooded Wetland' 
+      # 95	herbaceous wetland	       17            'Herbaceous Wetland' 
    if success:
       if (data == '11'):
-         val = 21
+         val = 16
       elif (data == '12'):
-         val = 22
-      elif (data == '21'):
-         val = 23
-      elif (data == '22'):
          val = 24
+      elif (data == '21'):
+         val = 1
+      elif (data == '22'):
+         val = 1
       elif (data == '23'):
-         val = 25
+         val = 1
       elif (data == '24'):
-         val = 26
+         val = 1
       elif (data == '31'):
-         val = 27
+         val = 19
       elif (data == '41'):
-         val = 28
+         val = 11
       elif (data == '42'):
-         val = 29   
+         val = 13   
       elif (data == '43'):
-         val = 30   
+         val = 15   
       elif (data == '51'):
-         val = 31
+         val = 22
       elif (data == '52'):
-         val = 32
+         val = 8
       elif (data == '71'):
-         val = 33   
+         val = 7   
       elif (data == '72'):
-         val = 34
+         val = 22
       elif (data == '73'):
-         val = 35            
+         val = 22            
       elif (data == '74'):
-         val = 36
+         val = 22
       elif (data == '81'):
-         val = 37
+         val = 2
       elif (data == '82'):
-         val = 38   
+         val = 3   
       elif (data == '90'):
-         val = 39   
+         val = 18   
       elif (data == '95'):
-         val = 40      
+         val = 17      
       else:
          assert (data == '128')
    #set veg type to the value val, or np.nan if not success, then return the series

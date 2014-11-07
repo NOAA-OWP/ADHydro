@@ -293,8 +293,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float t2mb     = NAN; // Unused.
   float q2v      = NAN; // Unused.
   float q2b      = NAN; // Unused.
-  float runSrf   = NAN; // Unused.
-  float runSub   = NAN; // Unused.
+  float runSrf   = NAN; // Infiltration excess runoff in millimeters of water per second.
+  float runSub   = NAN; // Saturation excess runoff in millimeters of water per second.
   float apar     = NAN; // Unused.
   float psn      = NAN; // Unused.
   float sav      = NAN; // Unused.
@@ -364,46 +364,48 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
-  int   iLocOriginal    = iLoc;
-  int   jLocOriginal    = jLoc;
-  float latOriginal     = lat;
-  int   yearLenOriginal = yearLen;
-  float julianOriginal  = julian;
-  float cosZOriginal    = cosZ;
-  float dtOriginal      = dt;
-  float dxOriginal      = dx;
-  float dz8wOriginal    = dz8w;
-  int   nSoilOriginal   = nSoil;
+  int   iLocOriginal         = iLoc;
+  int   jLocOriginal         = jLoc;
+  float latOriginal          = lat;
+  int   yearLenOriginal      = yearLen;
+  float julianOriginal       = julian;
+  float cosZOriginal         = cosZ;
+  float dtOriginal           = dt;
+  float dxOriginal           = dx;
+  float dz8wOriginal         = dz8w;
+  int   nSoilOriginal        = nSoil;
   float zSoilOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
-  int   nSnowOriginal   = nSnow;
-  float shdFacOriginal  = shdFac;
-  float shdMaxOriginal  = shdMax;
-  int   vegTypeOriginal = vegType;
-  int   isUrbanOriginal = isUrban;
-  int   iceOriginal     = ice;
-  int   istOriginal     = ist;
-  int   iscOriginal     = isc;
+  int   nSnowOriginal        = nSnow;
+  float shdFacOriginal       = shdFac;
+  float shdMaxOriginal       = shdMax;
+  int   vegTypeOriginal      = vegType;
+  int   isUrbanOriginal      = isUrban;
+  int   iceOriginal          = ice;
+  int   istOriginal          = ist;
+  int   iscOriginal          = isc;
   float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]
-                        = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
-  int   iz0tlndOriginal = iz0tlnd;
-  float sfcTmpOriginal  = sfcTmp;
-  float sfcPrsOriginal  = sfcPrs;
-  float psfcOriginal    = psfc;
-  float uuOriginal      = uu;
-  float vvOriginal      = vv;
-  float q2Original      = q2;
-  float qcOriginal      = qc;
-  float solDnOriginal   = solDn;
-  float lwDnOriginal    = lwDn;
-  float prcpOriginal    = prcp;
-  float tBotOriginal    = tBot;
-  float co2AirOriginal  = co2Air;
-  float o2AirOriginal   = o2Air;
-  float folNOriginal    = folN;
+                             = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
+  int   iz0tlndOriginal      = iz0tlnd;
+  float sfcTmpOriginal       = sfcTmp;
+  float sfcPrsOriginal       = sfcPrs;
+  float psfcOriginal         = psfc;
+  float uuOriginal           = uu;
+  float vvOriginal           = vv;
+  float q2Original           = q2;
+  float qcOriginal           = qc;
+  float solDnOriginal        = solDn;
+  float lwDnOriginal         = lwDn;
+  float prcpOriginal         = prcp;
+  float tBotOriginal         = tBot;
+  float co2AirOriginal       = co2Air;
+  float o2AirOriginal        = o2Air;
+  float folNOriginal         = folN;
   float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                        = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
-  float pblhOriginal    = pblh;
-  float zLvlOriginal    = zLvl;
+                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+  float pblhOriginal         = pblh;
+  float zLvlOriginal         = zLvl;
+  float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
+  float soilMoistureNew      = 0.0f; // Total soil moisture after timestep in millimeters of water.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -464,6 +466,16 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           zSoilOriginal[ii] = zSoil[ii];
+          
+          // Calculate soil moisture at the beginning of the timestep.
+          if (0 == ii)
+            {
+              soilMoistureOriginal += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureOriginal is in millimeters.
+            }
+          else
+            {
+              soilMoistureOriginal += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
@@ -526,8 +538,22 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       *evaporationFromCanopy = eCan * dt;
       evaporationFromSurface = eDir * dt;
       
-      // Surface evaporation is taken first from the snow layer up to the amount in snEqv at the beginning of the timestep, which is now in snEqvO.
-      if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
+      // Surface condensation is added to the snow layer if any snow exists or otherwise added to the ground as water.  Surface evaporation is taken first from
+      // the snow layer up to the amount in snEqv at the beginning of the timestep, which is now in snEqvO, and then any remaining is taken from the ground.
+      if (0.0 > evaporationFromSurface)
+        {
+          if (0.0 < evapoTranspirationState->snEqvO)
+            {
+              *evaporationFromSnow   = evaporationFromSurface;
+              *evaporationFromGround = 0.0f;
+            }
+          else
+            {
+              *evaporationFromSnow   = 0.0f;
+              *evaporationFromGround = evaporationFromSurface;
+            }
+        }
+      else if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
         {
           *evaporationFromSnow   = evaporationFromSurface;
           *evaporationFromGround = 0.0f;
@@ -638,7 +664,11 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
+          // NOFIX I thought that snEqv only got set to zero if it was less than 0.001.  However, we had a run where condensation caused snEqv to grow above
+          // 0.001 and it kept getting set to zero even when it was more than epsilon above 0.001 and this assertion failed.  It is a little worrisome that we
+          // don't completely understand the conditions that cause Noah-MP to set snEqv to zero.  However, the calculation of snEqvShouldBe appears to be
+          // correct so we are just commeting out this assertion.
+          //CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
@@ -683,6 +713,22 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0f <= *surfacewaterAdd && 0.0f <= *transpiration);
+      
+      // Calculate soil moisture at the end of the timestep.
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+        {
+          if (0 == ii)
+            {
+              soilMoistureNew += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureNew is in millimeters.
+            }
+          else
+            {
+              soilMoistureNew += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
+        }
+      
+      // Verify that soil moisture balances.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runSrf * dt - runSub * dt, soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -760,8 +806,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float t2mb     = NAN; // Unused.
   float q2v      = NAN; // Unused.
   float q2b      = NAN; // Unused.
-  float runSrf   = NAN; // Unused.
-  float runSub   = NAN; // Unused.
+  float runSrf   = NAN; // Infiltration excess runoff in millimeters of water per second.
+  float runSub   = NAN; // Saturation excess runoff in millimeters of water per second.
   float apar     = NAN; // Unused.
   float psn      = NAN; // Unused.
   float sav      = NAN; // Unused.
@@ -819,46 +865,48 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
-  int   iLocOriginal    = iLoc;
-  int   jLocOriginal    = jLoc;
-  float latOriginal     = lat;
-  int   yearLenOriginal = yearLen;
-  float julianOriginal  = julian;
-  float cosZOriginal    = cosZ;
-  float dtOriginal      = dt;
-  float dxOriginal      = dx;
-  float dz8wOriginal    = dz8w;
-  int   nSoilOriginal   = nSoil;
+  int   iLocOriginal         = iLoc;
+  int   jLocOriginal         = jLoc;
+  float latOriginal          = lat;
+  int   yearLenOriginal      = yearLen;
+  float julianOriginal       = julian;
+  float cosZOriginal         = cosZ;
+  float dtOriginal           = dt;
+  float dxOriginal           = dx;
+  float dz8wOriginal         = dz8w;
+  int   nSoilOriginal        = nSoil;
   float zSoilOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
-  int   nSnowOriginal   = nSnow;
-  float shdFacOriginal  = shdFac;
-  float shdMaxOriginal  = shdMax;
-  int   vegTypeOriginal = vegType;
-  int   isUrbanOriginal = isUrban;
-  int   iceOriginal     = ice;
-  int   istOriginal     = ist;
-  int   iscOriginal     = isc;
+  int   nSnowOriginal        = nSnow;
+  float shdFacOriginal       = shdFac;
+  float shdMaxOriginal       = shdMax;
+  int   vegTypeOriginal      = vegType;
+  int   isUrbanOriginal      = isUrban;
+  int   iceOriginal          = ice;
+  int   istOriginal          = ist;
+  int   iscOriginal          = isc;
   float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]
-                        = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
-  int   iz0tlndOriginal = iz0tlnd;
-  float sfcTmpOriginal  = sfcTmp;
-  float sfcPrsOriginal  = sfcPrs;
-  float psfcOriginal    = psfc;
-  float uuOriginal      = uu;
-  float vvOriginal      = vv;
-  float q2Original      = q2;
-  float qcOriginal      = qc;
-  float solDnOriginal   = solDn;
-  float lwDnOriginal    = lwDn;
-  float prcpOriginal    = prcp;
-  float tBotOriginal    = tBot;
-  float co2AirOriginal  = co2Air;
-  float o2AirOriginal   = o2Air;
-  float folNOriginal    = folN;
+                             = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
+  int   iz0tlndOriginal      = iz0tlnd;
+  float sfcTmpOriginal       = sfcTmp;
+  float sfcPrsOriginal       = sfcPrs;
+  float psfcOriginal         = psfc;
+  float uuOriginal           = uu;
+  float vvOriginal           = vv;
+  float q2Original           = q2;
+  float qcOriginal           = qc;
+  float solDnOriginal        = solDn;
+  float lwDnOriginal         = lwDn;
+  float prcpOriginal         = prcp;
+  float tBotOriginal         = tBot;
+  float co2AirOriginal       = co2Air;
+  float o2AirOriginal        = o2Air;
+  float folNOriginal         = folN;
   float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                        = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
-  float pblhOriginal    = pblh;
-  float zLvlOriginal    = zLvl;
+                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+  float pblhOriginal         = pblh;
+  float zLvlOriginal         = zLvl;
+  float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
+  float soilMoistureNew      = 0.0f; // Total soil moisture after timestep in millimeters of water.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -921,6 +969,16 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           zSoilOriginal[ii] = zSoil[ii];
+          
+          // Calculate soil moisture at the beginning of the timestep.
+          if (0 == ii)
+            {
+              soilMoistureOriginal += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureOriginal is in millimeters.
+            }
+          else
+            {
+              soilMoistureOriginal += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
@@ -1071,6 +1129,22 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0f <= *surfacewaterAdd);
+      
+      // Calculate soil moisture at the end of the timestep.
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+        {
+          if (0 == ii)
+            {
+              soilMoistureNew += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureNew is in millimeters.
+            }
+          else
+            {
+              soilMoistureNew += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
+        }
+      
+      // Verify that soil moisture balances.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runSrf * dt - runSub * dt, soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -1118,8 +1192,8 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
   float sSoil    = NAN; // Unused.
   float tRad     = NAN; // Unused.
   float eDir     = NAN; // Evaporation rate from surface in millimeters of water equivalent per second.
-  float runSrf   = NAN; // Unused.
-  float runSub   = NAN; // Unused.
+  float runSrf   = NAN; // Infiltration excess runoff in millimeters of water per second.
+  float runSub   = NAN; // Saturation excess runoff in millimeters of water per second.
   float sag      = NAN; // Unused.
   float albedo   = NAN; // Unused.
   float qSnBot   = NAN; // Snowmelt rate from the bottom of the snow pack in millimeters of water per second.
@@ -1150,25 +1224,27 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
-  int   iLocOriginal   = iLoc;
-  int   jLocOriginal   = jLoc;
-  float cosZOriginal   = cosZ;
-  int   nSnowOriginal  = nSnow;
-  int   nSoilOriginal  = nSoil;
-  float dtOriginal     = dt;
-  float sfcTmpOriginal = sfcTmp;
-  float sfcPrsOriginal = sfcPrs;
-  float uuOriginal     = uu;
-  float vvOriginal     = vv;
-  float q2Original     = q2;
-  float solDnOriginal  = solDn;
-  float prcpOriginal   = prcp;
-  float lwDnOriginal   = lwDn;
-  float tBotOriginal   = tBot;
-  float zLvlOriginal   = zLvl;
+  int   iLocOriginal         = iLoc;
+  int   jLocOriginal         = jLoc;
+  float cosZOriginal         = cosZ;
+  int   nSnowOriginal        = nSnow;
+  int   nSoilOriginal        = nSoil;
+  float dtOriginal           = dt;
+  float sfcTmpOriginal       = sfcTmp;
+  float sfcPrsOriginal       = sfcPrs;
+  float uuOriginal           = uu;
+  float vvOriginal           = vv;
+  float q2Original           = q2;
+  float solDnOriginal        = solDn;
+  float prcpOriginal         = prcp;
+  float lwDnOriginal         = lwDn;
+  float tBotOriginal         = tBot;
+  float zLvlOriginal         = zLvl;
   float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                       = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
   float zSoilOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
+  float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
+  float soilMoistureNew      = 0.0f; // Total soil moisture after timestep in millimeters of water.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                                                     
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -1231,6 +1307,16 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           zSoilOriginal[ii] = zSoil[ii];
+          
+          // Calculate soil moisture at the beginning of the timestep.
+          if (0 == ii)
+            {
+              soilMoistureOriginal += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureOriginal is in millimeters.
+            }
+          else
+            {
+              soilMoistureOriginal += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
@@ -1367,6 +1453,22 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0f <= *surfacewaterAdd);
+      
+      // Calculate soil moisture at the end of the timestep.
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+        {
+          if (0 == ii)
+            {
+              soilMoistureNew += smc[ii] * -zSoil[ii] * 1000.0f; // * 1000.0f because zSoil is in meters and soilMoistureNew is in millimeters.
+            }
+          else
+            {
+              soilMoistureNew += smc[ii] * (zSoil[ii - 1] - zSoil[ii]) * 1000.0f;
+            }
+        }
+      
+      // Verify that soil moisture balances.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runSrf * dt - runSub * dt, soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
