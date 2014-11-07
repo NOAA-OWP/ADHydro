@@ -2016,7 +2016,7 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
   
   // Update groundwaterHead and get or put water from the infiltration state.
   // FIXME currently there is no infiltration state and groundwater head also represents the presence of water.
-  groundwaterHead += groundwaterRecharge / porosity;
+  //groundwaterHead += groundwaterRecharge / porosity;
   
   /* FIXME here's the old code for updating groundwater head
               // Resolve groundwater_recharge by moving groundwater_head and putting or taking water from the infiltration domain.
@@ -2064,12 +2064,45 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
             }
    */
   
+  // FIXME, here is the code for updating groundwater head with GARTO infiltration.
+  groundwaterHead += groundwaterRecharge / porosity; // Or groundwaterRecharge / gar_specific_yield(garDomain, elementZSurface - groundwaterHead);
+  
+  // Cap groundwater_head at the surface.
+  if (groundwaterHead > elementZSurface)
+    {
+      groundwaterHead = elementZSurface;
+    }
+  
+  if (epsilonLess(0.0, groundwaterRecharge))
+    {
+      // If there is excess water put it immediately into the groundwater front of the infiltration domain.
+      gar_add_groundwater(garDomain, &groundwaterRecharge);
+      if (epsilonLess(0.0, groundwaterRecharge))
+        {
+          // Not all of the water could fit in to the infiltration domain because the domain is full.
+          // Put the excess water on the surface and the groundwater head moves up to the surface.
+          // The real groundwater head is at the top of the surfacewater, but we set the variable to be at the surface and inside
+          // groundwater_timestep we add surfacewater_depth because if we set groundwater_head to be at the top of the surfacewater
+          // we would need to update it any time the value of surfacewater_depth changed.
+          surfacewaterDepth    += groundwaterRecharge;
+          groundwaterRecharge   = 0.0;
+           groundwaterHead      = elementZSurface;
+       }
+    }
+  else if (epsilonGreater(0.0, groundwaterRecharge))
+    {
+      // If there is a water deficit take it immediately from the groundwater front of the infiltration domain.
+      gar_take_groundwater(garDomain, elementZSurface - groundwaterHead, &groundwaterRecharge);
+      // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+    }
+  // End of updating groundwater head with GARTO infiltration.
+  
   // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
   // FIXME should we try to take the water back from the error accumulator later?
   if (elementZBedrock > groundwaterHead)
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(epsilonEqual(elementZBedrock, groundwaterHead));
+     // CkAssert(epsilonEqual(elementZBedrock, groundwaterHead));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       groundwaterError += (elementZBedrock - groundwaterHead) * elementArea * porosity;
