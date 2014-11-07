@@ -2068,7 +2068,7 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
   
   // Update groundwaterHead and get or put water from the infiltration state.
   // FIXME currently there is no infiltration state and groundwater head also represents the presence of water.
-  //groundwaterHead += groundwaterRecharge / porosity;
+  groundwaterHead += groundwaterRecharge / porosity;
   
   /* FIXME here's the old code for updating groundwater head
               // Resolve groundwater_recharge by moving groundwater_head and putting or taking water from the infiltration domain.
