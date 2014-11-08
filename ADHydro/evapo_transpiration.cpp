@@ -657,21 +657,18 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           snowmeltOnGround = evapoTranspirationState->snEqvO + snowfallBelowCanopy - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
       
-      // If snEqv falls below 0.001 mm then Noah-MP sets it to zero and the water is lost.  If snEqv grows above 2000 mm then Noah-MP sets it to 2000 and the
-      // water is lost.  We are calculating what snEqv should be and putting the water back.
+      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
+      // Noah-MP sets it to 2000 and the water is lost.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = evapoTranspirationState->snEqvO + snowfallBelowCanopy + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
       
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          // NOFIX I thought that snEqv only got set to zero if it was less than 0.001.  However, we had a run where condensation caused snEqv to grow above
-          // 0.001 and it kept getting set to zero even when it was more than epsilon above 0.001 and this assertion failed.  It is a little worrisome that we
-          // don't completely understand the conditions that cause Noah-MP to set snEqv to zero.  However, the calculation of snEqvShouldBe appears to be
-          // correct so we are just commeting out this assertion.
-          //CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
+          CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
+          evapoTranspirationState->snowH = snEqvShouldBe / 1000.0; // Divide by one thousand to convert from millimeters to meters.
         }
       else if (epsilonEqual(2000.0f, evapoTranspirationState->snEqv))
         {
