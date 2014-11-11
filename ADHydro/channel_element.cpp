@@ -978,8 +978,8 @@ void ChannelElement::handleInitializeChannelNeighbor(int neighbor, int neighborR
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(channelNeighbors[edge] == neighbor))
     {
-      CkError("ERROR in ChannelElement::handleInitializeChannelNeighbor, element %d: received an initialization message from an element that is not my "
-              "neighbor.\n", thisIndex);
+      CkError("ERROR in ChannelElement::handleInitializeChannelNeighbor, element %d: received an initialization message from element %d that is not my "
+              "neighbor.\n", thisIndex, neighbor);
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -1020,8 +1020,8 @@ void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReci
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(meshNeighbors[edge] == neighbor))
     {
-      CkError("ERROR in ChannelElement::handleInitializeMeshNeighbor, element %d: received an initialization message from an element that is not my "
-              "neighbor.\n", thisIndex);
+      CkError("ERROR in ChannelElement::handleInitializeMeshNeighbor, element %d: received an initialization message from element %d that is not my "
+              "neighbor.\n", thisIndex, neighbor);
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
