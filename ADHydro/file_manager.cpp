@@ -2278,9 +2278,10 @@ void FileManager::calculateDerivedValues()
         } // End of element loop.
     } // End of assigning meshConductivity and meshPorosity.
   
-  // Calculate meshManningsN by transfering the USGS 40-category NLCD40 vegetation type (in VEGPARM.TBL of Noah-MP) to the 21-category NLCD 1992 Land cover
+  // Calculate meshManningsN by transfering the USGS 27-category vegetation type (in VEGPARM.TBL of Noah-MP) to the 21-category NLCD 1992 Land cover
   // classification and use the Manning's N from Bunya et al., 2009.  (High-resolution river inflow, tide, wind, wind wave and storm surge model for southern
   // Louisiana and Mississippi Part I.)
+  // Need to correspond to the python scrip in ADHydro/scripts/readFromSSURGO_STASGO.py. See comments there.
   if (NULL == meshManningsN && NULL != meshVegetationType)
     {
       meshManningsN = new double[localNumberOfMeshElements];
@@ -2289,67 +2290,48 @@ void FileManager::calculateDerivedValues()
         {
           switch (meshVegetationType[ii])
           {
-          // FIXME ?!? meshVegetationType varies from 1 to 27, not 21 to 40.
-          case 21: // Open Water.                   Use manning's n from NLCD 1992 class 11.
-            meshManningsN[ii] = 0.02;
-            break;
-          case 22: // Ice/snow.                     Use manning's n from NLCD 1992 class 12.
-            meshManningsN[ii] = 0.022;
-            break;
-          case 23: // Developed open space.         Use manning's n from NLCD 1992 class 21.
-            meshManningsN[ii] = 0.12;
-            break;
-          case 24: // Developed low intensity.      Use manning's n from NLCD 1992 class 21.
-            meshManningsN[ii] = 0.12;
-            break;
-          case 25: // Developed medium intensity.   Use manning's n from NLCD 1992 class 22.
-            meshManningsN[ii] = 0.121;
-            break;
-          case 26: // Developed high intensity.     Use manning's n from NLCD 1992 class 22.
-            meshManningsN[ii] = 0.121;
-            break;
-          case 27: // Barren land.                  Use manning's n from NLCD 1992 class 31.
-            meshManningsN[ii] = 0.04;
-            break;
-          case 28: // Deciduous forest.             Use manning's n from NLCD 1992 class 41.
-            meshManningsN[ii] = 0.16;
-            break;
-          case 29: // Evergreen forest.             Use manning's n from NLCD 1992 class 42.
-            meshManningsN[ii] = 0.18;
-            break;
-          case 30: // Mixed forest.                 Use manning's n from NLCD 1992 class 43.
-            meshManningsN[ii] = 0.17;
-            break;
-          case 31: // Dwarf scrub-Alaska only.      Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 32: // Shrub.                        Use manning's n from NLCD 1992 class 51.
-            meshManningsN[ii] = 0.07;
-            break;
-          case 33: // Grassland.                    Use manning's n from NLCD 1992 class 71.
-            meshManningsN[ii] = 0.035;
-            break;
-          case 34: // Sedge/herbaceous-Alaska only. Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 35: // Lichens-Alaska only.          Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 36: // Moss-Alaska only.             Use 0.05.
-            meshManningsN[ii] = 0.05;
-            break;
-          case 37: // Pasture.                      Use manning's n from NLCD 1992 class 81.
-            meshManningsN[ii] = 0.033;
-            break;
-          case 38: // Cultivated crops.             Use manning's n from NLCD 1992 class 82.
-            meshManningsN[ii] = 0.04;
-            break;
-          case 39: // Woody wetland.                Use manning's n from NLCD 1992 class 91.
-            meshManningsN[ii] = 0.14;
-            break;
-          case 40: // Herbaceous wetland.           Use manning's n from NLCD 1992 class 92.
-            meshManningsN[ii] = 0.035;
-            break;
+            case 16: // open water
+                   meshManningsN[ii] = 0.02;
+                   break;
+            case 24: //  ice/snow
+                   meshManningsN[ii] = 0.022;
+                   break; 
+            case 1: //  Urban and Built-Up Land
+                   meshManningsN[ii] = 0.12;
+                   break;
+            case 19: //  barren land
+                   meshManningsN[ii] = 0.04;
+                   break;
+            case 11: //  deciduous forest
+                   meshManningsN[ii] = 0.16;
+                   break;
+            case 13: //  evergreen forest
+                   meshManningsN[ii] = 0.18;
+                   break;
+            case 15: //  mixed forest
+                   meshManningsN[ii] = 0.17;
+                   break;
+            case 22: //  'Mixed Tundra' Alaska only, use n = 0.05.
+                   meshManningsN[ii] = 0.05;
+                   break;
+            case 8: //   'Shrubland'
+                   meshManningsN[ii] = 0.07;
+                   break;
+            case 7: //   'Grassland'
+                   meshManningsN[ii] = 0.035;
+                   break;
+            case 2: //  'Dryland Cropland and Pasture'
+                   meshManningsN[ii] = 0.033;
+                   break;
+            case 3: //  'Irrigated Cropland and Pasture' 
+                   meshManningsN[ii] = 0.04;
+                   break;
+            case 18: //   'Wooded Wetland' 
+                   meshManningsN[ii] = 0.14;
+                   break;
+            case 17: //  'Herbaceous Wetland' 
+                   meshManningsN[ii] = 0.035;
+                   break;            
           } // End of switch meshVegetationType[ii].
         } // End of element loop.
     } // End of assigning meshManningsN.
@@ -5614,7 +5596,11 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   int    ncErrorCode;       // Return value of NetCDF functions.
   int    fileID;            // ID of NetCDF file.
   bool   fileOpen = false;  // Whether fileID refers to an open file.
+  int    variableID;        // ID of variable in NetCDF file.
+  size_t numberOfInstances; // Size of instance dimension.
   size_t instance;          // Instance index for file.
+  double currentDate;       // The date and time represented by referenceDateNew and currentTimeNew as a Julian date.
+  float* jultime   = NULL;  // Used to read Julian date.
   float* t2        = NULL;  // Used to read air temperature at 2m height forcing.
   float* vegFra    = NULL;  // Used to read vegetation fraction forcing.
   float* maxVegFra = NULL;  // Used to read maximum vegetation fraction forcing.
@@ -5648,15 +5634,96 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
         }
     }
   
-  // Get the index of the forcing data to use and record that the forcing data is initialized and the date of the current forcing data and next forcing data.
-  // FIXME for now just use the first instance in the file and use fake values for the dates.
+  // Get the number of instances.
   if (!error)
     {
-      instance               = 0;
-      forcingDataInitialized = true;
-      forcingDataDate        = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
-      nextForcingDataDate    = forcingDataDate + 3600.0;
+      error = readNetCDFDimensionSize(fileID, "Time", &numberOfInstances);
     }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!error && !(0 < numberOfInstances))
+    {
+      CkError("ERROR in FileManager::handleReadForcingData: No forcing data in NetCDF forcing file.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  // Get the Julian dates for all instances.
+  if (!error)
+    {
+      // Get the variable ID.
+      ncErrorCode = nc_inq_varid(fileID, "JULTIME", &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::handleReadForcingData: unable to get variable JULTIME in NetCDF forcing file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      jultime = new float[numberOfInstances];
+      
+      // Get the variable data.
+      ncErrorCode = nc_get_var(fileID, variableID, jultime);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::handleReadForcingData: unable to read variable JULTIME in NetCDF forcing file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // It is an error if the first forcing data instance is after the current date and time.
+  if (!error)
+    {
+      currentDate = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
+      
+      if (!(jultime[0] <= currentDate))
+        {
+          CkError("ERROR in FileManager::handleReadForcingData: Current time is before first forcing data instance in NetCDF forcing file.\n");
+          error = true;
+        }
+    }
+  
+  // Search for the last instance that is before or equal to the current date and time.
+  // FIXME to improve efficiency make this a binary search.
+  if (!error)
+    {
+      instance = 0;
+      
+      while (instance + 1 < numberOfInstances && jultime[instance + 1] <= currentDate)
+        {
+          instance++;
+        }
+      
+      // instance is now the index of the forcing data instance we will use.
+      // Record the dates of the current forcing data and next forcing data and that the forcing data is initialized.
+      forcingDataDate = jultime[instance];
+      
+      if (instance + 1 < numberOfInstances)
+        {
+          nextForcingDataDate = jultime[instance + 1];
+        }
+      else
+        {
+          CkError("WARNING in FileManager::handleReadForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will be "
+                  "loaded after this no matter how long the simulation runs.\n");
+          
+          nextForcingDataDate = INFINITY;
+        }
+      
+      forcingDataInitialized = true;
+    }
+  
+  deleteArrayIfNonNull(&jultime);
   
   // Read forcing variables.
   if (0 < localNumberOfMeshElements)
