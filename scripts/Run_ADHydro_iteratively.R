@@ -28,7 +28,7 @@ mtmoran_sta<<-"ssh hmorenor@mtmoran.uwyo.edu qstat -u "
 mtmoran_del<<-"ssh hmorenor@mtmoran.uwyo.edu qdel"
 nchecks<<-800000  # number of iterative checks separated by about 30 seconds that the program makes during a run  
 checko<<-20       # use the last checko iterations to check that the model does not get stopped at the beggining of the simulation
-num=27  #  Consecutive number of state.nc outputs... careful when restarting this script to avoid overwriting outputs
+num=2  #  Consecutive number of state.nc outputs... careful when restarting this script to avoid overwriting outputs
 #*************************************************************************************************************************************************************
 
 # A new job is submitted
