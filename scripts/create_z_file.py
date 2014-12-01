@@ -2,9 +2,9 @@
 import re
 
 # modify these to point to your files
-inputMeshFile = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node"
+inputMeshFile = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.node"
 inputDEMFile  = "/share/CI-WATER_Simulation_Data/upper_colorado/projected/projected.vrt"
-outputZFile   = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.z"
+outputZFile   = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.z"
 
 with open(inputMeshFile, "r") as nodeFile:
   with open(outputZFile, "w") as zFile:

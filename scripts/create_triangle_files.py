@@ -3,16 +3,21 @@
 # These files must already have been pre-processed according to the mesh
 # creation instructions.  This code will generate the .poly and .node input
 # files for triangle and a .link file that contains the mapping from waterbody
-# permanent codes to link numbers.
+# reach codes to link numbers.
+import sys
 import math
 
+# Reach codes of waterbodies are 14 digit integers, which can be represented in
+# a 64 bit int.  Make sure that a python int is large enough.
+assert long(sys.maxint) >= 99999999999999L
+
 # modify these to point to your files
-input_directory_path       = "/share/CI-WATER_Simulation_Data/small_green_mesh"
+input_directory_path       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
 input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
 input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
 input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
 input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
-output_directory_path      = "/share/CI-WATER_Simulation_Data/small_green_mesh"
+output_directory_path      = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
 output_node_file           = output_directory_path + "/" + "mesh.node"
 output_poly_file           = output_directory_path + "/" + "mesh.poly"
 output_link_file           = output_directory_path + "/" + "mesh.1.link"
@@ -95,22 +100,30 @@ with open(output_node_file, "w") as node_file:
         region += 1
       #
       # Add the waterbody nodes and segments to the mesh.
+      reachcodeindex = waterbody_provider.fieldNameIndex("ReachCode")
+      assert -1 != reachcodeindex # ReachCode must be found.
       permanentindex = waterbody_provider.fieldNameIndex("Permanent_")
       assert -1 != permanentindex # Permanent_ must be found.
-      waterbody_provider.select([permanentindex])
+      waterbody_provider.select([reachcodeindex, permanentindex])
       while waterbody_provider.nextFeature(feature):
         polygon = feature.geometry().asPolygon()
         assert 0 < len(polygon) # No empty polygons.
-        permanent, success = feature.attributeMap()[permanentindex].toInt()
+        # For some reason toInt rolls over like it is doing a 32 bit conversion even though sys.maxint indicates a 64 bit int.
+        # Deal with this by converting to long first, and then to int.
+        reachcodelong, success = feature.attributeMap()[reachcodeindex].toString().toLong()
+        # If reach code is not found, use permanent code instead.
+        if not success:
+          reachcodelong, success = feature.attributeMap()[permanentindex].toString().toLong()
         assert success
-        # FIXLATER this search could be sped up by storing a map of permanent -> linkno
+        reachcode = int(reachcodelong)
+        # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
         linkno = 0
-        while linkno < len(used_linknos) and -1 != used_linknos[linkno] and permanent != used_linknos[linkno]:
+        while linkno < len(used_linknos) and -1 != used_linknos[linkno] and reachcode != used_linknos[linkno]:
           linkno += 1
         while linkno >= len(used_linknos):
           used_linknos.append(-1)
-        used_linknos[linkno] = permanent
-        print "Waterbody number " + str(feature.id()) + " permanent code " + str(permanent) + " assigned to linkno " + str(linkno)
+        used_linknos[linkno] = reachcode
+        print "Waterbody number " + str(feature.id()) + " reach code " + str(reachcode) + " assigned to linkno " + str(linkno)
         boundary_marker = str(-linkno) # The boundary marker indicates which waterbody.  Use negative because marker 1 is used by triangle.
         for ring in polygon:
           firstnode = node
@@ -176,7 +189,7 @@ with open(output_node_file, "w") as node_file:
       poly_file.seek(8)
       poly_file.write(str(segment))
       #
-      # Write out the mapping from waterbody permanent codes to link numbers.
+      # Write out the mapping from waterbody reach codes to link numbers.
       link_file.write(str(len(used_linknos)) + " 1\n")
       linkno = 0
       while linkno < len(used_linknos):
