@@ -2,9 +2,9 @@
 import re
 
 # modify these to point to your files
-inputMeshFile = "/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.node"
-inputDEMFile  = "/share/CI-WATER Simulation Data/upper_colorado/projected/projected.vrt"
-outputZFile   = "/share/CI-WATER Simulation Data/small_green_mesh/mesh.1.chan.z"
+inputMeshFile = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node"
+inputDEMFile  = "/share/CI-WATER_Simulation_Data/upper_colorado/projected/projected.vrt"
+outputZFile   = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.z"
 
 with open(inputMeshFile, "r") as nodeFile:
   with open(outputZFile, "w") as zFile:
@@ -15,7 +15,9 @@ with open(inputMeshFile, "r") as nodeFile:
     nextNodeNumber = 0
     #
     for line in nodeFile:
-      if firstLine:
+      if line.strip().startswith("#") or 0 == len(line.strip()):
+        print "Ignoring comment line: " + line
+      elif firstLine:
         # Process header line.
         firstLine = False
         match = re.match("\s*([-+]?\d+)", line)

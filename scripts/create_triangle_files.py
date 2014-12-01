@@ -7,12 +7,12 @@
 import math
 
 # modify these to point to your files
-input_directory_path       = "/user2/rsteinke/Desktop/tiny_green_mesh"
+input_directory_path       = "/share/CI-WATER_Simulation_Data/small_green_mesh"
 input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
 input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
 input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
 input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
-output_directory_path      = "/user2/rsteinke/Desktop/tiny_green_mesh"
+output_directory_path      = "/share/CI-WATER_Simulation_Data/small_green_mesh"
 output_node_file           = output_directory_path + "/" + "mesh.node"
 output_poly_file           = output_directory_path + "/" + "mesh.poly"
 output_link_file           = output_directory_path + "/" + "mesh.1.link"
