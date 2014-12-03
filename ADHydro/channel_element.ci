@@ -57,6 +57,35 @@ module channel_element
       {
         case
         {
+          // There is a case where if the reciprocal neighbor links in the input files are broken the simulation can hang before getting to the invariant where
+          // the reciprocal links are checked.  We need this here to handle that case.  The case is A thinks B is his neighbor, but B doesn't think A is his
+          // neighbor.  A sends an initialize neighbor message to B and waits for an initialize neighbor message from B.  If B receives A's message he will
+          // report an error, but B can receive messages from everyone he thinks are his neighbors and exit the initialize neighbor loop before receiving A's
+          // message.  In this case, B will never receive A's message to report an error, and A will never contribute to the forcing data done reduction and
+          // the program will hang with no error message.  Having this here will allow B to receive A's message and report an error.
+          when initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborZBank, double neighborZBed,
+                                         double neighborLength, ChannelTypeEnum neighborChannelType, double neighborBaseWidth,
+                                         double neighborSideSlope, double neighborManningsN)
+          {
+            serial
+            {
+              CkError("ERROR in ChannelElement::initializeChannelNeighbor, element %d: received an initialization message from element %d that is not my "
+                      "neighbor.\n", thisIndex, neighbor);
+              CkExit();
+            }
+          }
+          
+          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
+                                      double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
+          {
+            serial
+            {
+              CkError("ERROR in ChannelElement::initializeMeshNeighbor, element %d: received an initialization message from element %d that is not my "
+                      "neighbor.\n", thisIndex, neighbor);
+              CkExit();
+            }
+          }
+          
           // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
           when forcingDataMessage()
           {

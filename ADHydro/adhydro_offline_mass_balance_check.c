@@ -198,6 +198,7 @@ int main(int argc, char*argv[])
  err_status = nc_open(namestring, 0, ncid_stt);
  if (err_status != NC_NOERR)
  {
+        printf("In initialize: \n");
         printf("Problem openning file %s\n", namestring);
         exit(0);
  }
@@ -207,6 +208,7 @@ int main(int argc, char*argv[])
  err_status = nc_open(namestring, 0, ncid_geo);
  if (err_status != NC_NOERR)
  {
+        printf("In initialize: \n");
         printf("Problem openning file %s\n", namestring);
         exit(0);
  }
@@ -216,6 +218,7 @@ int main(int argc, char*argv[])
  err_status = nc_open(namestring, 0, ncid_par);
  if (err_status != NC_NOERR)
  {
+        printf("In initialize: \n");
         printf("Problem openning file %s\n", namestring);
         exit(0);
  }
@@ -226,6 +229,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimid (*ncid_stt,"instances" , &tmpID);
  if (err_status != NC_NOERR)
  {
+     printf("In initialize: \n");
      printf("Problem getting \"instances\" id from ../state.nc\n");
      exit(0);
  }
@@ -233,6 +237,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimlen  (*ncid_stt, tmpID, nInstances);
  if (err_status != NC_NOERR)
  {
+    printf("In initialize: \n");
     printf("Problem getting # \"instances\" from ../state.nc\n");
     exit(0);
   }
@@ -241,6 +246,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimid (*ncid_stt,"meshElements" , &tmpID);
  if (err_status != NC_NOERR)
  {
+     printf("In initialize: \n");
      printf("Problem getting \"meshElements\" id from ../state.nc\n");
      exit(0);
  }
@@ -248,6 +254,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimlen  (*ncid_stt, tmpID, nMeshEle);
  if (err_status != NC_NOERR)
  {
+    printf("In initialize: \n");
     printf("Problem getting # \"instances\" from ../state.nc\n");
     exit(0);
   }
@@ -256,6 +263,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimid (*ncid_stt,"channelElements" , &tmpID);
  if (err_status != NC_NOERR)
  {
+     printf("In initialize: \n");
      printf("Problem getting \"channelElements\" id from ../state.nc\n");
      exit(0);
  }
@@ -263,6 +271,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_dimlen  (*ncid_stt, tmpID, nChannelEle);
  if (err_status != NC_NOERR)
  {
+    printf("In initialize: \n");
     printf("Problem getting # \"channelElements\" from ../state.nc\n");
     exit(0);
   }
@@ -272,6 +281,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_varid 	( *ncid_stt, "currentTime", currentTimeID);
  if (err_status != NC_NOERR)
  {
+   printf("In initialize: \n");
    printf("Problem getting the \"currentTime\" variable ID from ../state.nc\n");
    exit(0);
  }
@@ -279,6 +289,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_varid( *ncid_stt, "meshSurfacewaterDepth", meshSurfacewaterDepthID);
  if (err_status != NC_NOERR)
   {
+    printf("In initialize: \n");
     printf("Problem getting the \"meshSurfacewaterDepth\" variable ID from ../state.nc\n");
     exit(0);
    }
@@ -286,6 +297,7 @@ int main(int argc, char*argv[])
  err_status = nc_inq_varid( *ncid_stt, "meshGroundwaterHead", meshGroundwaterHeadID);
  if (err_status != NC_NOERR)
   {
+    printf("In initialize: \n");
     printf("Problem getting the \"meshSurfacewaterHead\" variable ID from ../state.nc\n");
     exit(0);
   }
@@ -293,6 +305,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid ( *ncid_stt, "meshPrecipitationCumulative", meshPrecipitaitonCumulativeID);
   if (err_status != NC_NOERR)
    {
+     printf("In initialize: \n");
      printf("Problem getting the \"meshPrecipitationCumulative\" variable ID from ../state.nc\n");
      exit(0);
   } 
@@ -300,48 +313,55 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid ( *ncid_stt, "meshEvaporationCumulative", meshEvaporationCumulativeID);
   if (err_status != NC_NOERR)
   {
+    printf("In initialize: \n");
     printf("Problem getting the \"evaporationCumulative\" variable ID from ../state.nc\n");
     exit(0);
   }
      
- err_status = nc_inq_varid ( *ncid_stt, "meshCanopyIce", canIceID);
+ err_status = nc_inq_varid ( *ncid_stt, "meshCanIce", canIceID);
  if (err_status != NC_NOERR)
   {
-     printf("Problem getting the \"canIce\" variable ID from ../state.nc\n");
+     printf("In initialize: \n");
+     printf("Problem getting the \"meshCanIce\" variable ID from ../state.nc\n");
      exit(0);
    }
     
- err_status = nc_inq_varid ( *ncid_stt, "meshCanopyLiquid", canLiqID);
+ err_status = nc_inq_varid ( *ncid_stt, "meshCanLiq", canLiqID);
  if (err_status != NC_NOERR)
    {
+     printf("In initialize: \n");
      printf("Problem getting the \"canLiq\" variable ID from ../state.nc\n");
      exit(0);
    }
      
-  err_status = nc_inq_varid ( *ncid_stt, "meshSnowWaterEquivalent", snEqvID);
+  err_status = nc_inq_varid ( *ncid_stt, "meshSnEqv", snEqvID);
   if (err_status != NC_NOERR)
    {
-     printf("Problem getting the \"snEqv\" variable ID from ../state.nc\n");
+     printf("In initialize: \n");
+     printf("Problem getting the \"meshSnEqv\" variable ID from ../state.nc\n");
      exit(0);
    }
    
- err_status  = nc_inq_varid ( *ncid_stt, "meshElementNeighborsSurfacewaterCumulativeFlow", EleNeighgSfcFlowID);
+ err_status  = nc_inq_varid ( *ncid_stt, "meshMeshNeighborsSurfacewaterCumulativeFlow", EleNeighgSfcFlowID);
  if (err_status  != NC_NOERR)
  {
-   printf("Problem getting the \"meshElementNeighborsSurfacewaterCumulativeFlow\" variable ID from ../geometry.nc\n");
+   printf("In initialize: \n");
+   printf("Problem getting the \"meshMeshNeighborsSurfacewaterCumulativeFlow\" variable ID from ../state.nc\n");
    exit(0);
   }   
 
- err_status  = nc_inq_varid ( *ncid_stt, "meshElementNeighborsGroundwaterCumulativeFlow", EleNeighgGrdFlowID);
+ err_status  = nc_inq_varid ( *ncid_stt, "meshMeshNeighborsGroundwaterCumulativeFlow", EleNeighgGrdFlowID);
  if (err_status  != NC_NOERR)
   {
-    printf("Problem getting the \"meshElementNeighborsGroundwaterCumulativeFlow\" variable ID from ../geometry.nc\n");
+    printf("In initialize: \n");
+    printf("Problem getting the \"meshMeshNeighborsGroundwaterCumulativeFlow\" variable ID from ../geometry.nc\n");
     exit(0);
   }   
 
   err_status = nc_inq_varid ( *ncid_stt, "channelSurfacewaterDepth", channelSurfacewaterDepthID);
   if (err_status != NC_NOERR)
    {
+    printf("In initialize: \n");
     printf("Problem getting the \"channelSurfacewaterDepth\" variable ID from ../state.nc\n");
     exit(0);
    }
@@ -349,45 +369,51 @@ int main(int argc, char*argv[])
  err_status = nc_inq_varid ( *ncid_stt, "channelEvaporationCumulative", channelEvaporationCumulativeID);
  if (err_status != NC_NOERR)
   {
+    printf("In initialize: \n");
     printf("Problem getting the \"channelEvaporationCumulative\" variable ID from ../state.nc\n");
     exit(0);
   }
  
- err_status = nc_inq_varid ( *ncid_stt, "channelElementNeighborsSurfacewaterCumulativeFlow", ChanNeighgSfcFlowID);
+ err_status = nc_inq_varid ( *ncid_stt, "channelChannelNeighborsSurfacewaterCumulativeFlow", ChanNeighgSfcFlowID);
   if (err_status != NC_NOERR)
    {
-     printf("Problem getting the \"channelElementNeighborsSurfacewaterCumulativeFlow\" variable ID from ../geometry.nc\n");
+     printf("In initialize: \n");
+     printf("Problem getting the \"channelChannelNeighborsSurfacewaterCumulativeFlow\" variable ID from ../geometry.nc\n");
      exit(0);
    }
  
   // From geometry.nc file
   
   // getting meshElement neighbor size ID from geometry.nc file
- err_status = nc_inq_dimid (*ncid_geo,"meshMeshNeighbors" , &tmpID);
+ err_status = nc_inq_dimid (*ncid_geo,"meshMeshNeighborsSize" , &tmpID);
  if (err_status != NC_NOERR)
  {
-     printf("Problem getting \"meshMeshNeighbors\" id from ../geometry.nc\n");
+     printf("In initialize: \n");
+     printf("Problem getting \"meshMeshNeighborsSize\" id from ../geometry.nc\n");
      exit(0);
  }
  // # meshElement beighbors  
  err_status = nc_inq_dimlen  (*ncid_geo, tmpID, NmeshMeshNeighbors);
  if (err_status != NC_NOERR)
  {
-    printf("Problem getting # \"meshMeshNeighbors\" from ../geometry.nc\n");
+    printf("In initialize: \n");
+    printf("Problem getting # \"meshMeshNeighborsSize\" from ../geometry.nc\n");
     exit(0);
   }
   
   // getting channelChannel neighbor size ID from geometry.nc file
- err_status = nc_inq_dimid (*ncid_geo,"channelChannelNeighbors" , &tmpID);
+ err_status = nc_inq_dimid (*ncid_geo,"channelChannelNeighborsSize" , &tmpID);
  if (err_status != NC_NOERR)
  {
-     printf("Problem getting \"channelChannelNeighbors\" id from ../geometry.nc\n");
+     printf("In initialize: \n");
+     printf("Problem getting \"channelChannelNeighborsSize\" id from ../geometry.nc\n");
      exit(0);
  }
  // # channelElement beighbors  
  err_status = nc_inq_dimlen  (*ncid_geo, tmpID, NchannelChannelNeighbors);
  if (err_status != NC_NOERR)
  {
+    printf("In initialize: \n");
     printf("Problem getting # \"channelChannelNeighbors\" from ../geometry.nc\n");
     exit(0);
   }
@@ -396,6 +422,7 @@ int main(int argc, char*argv[])
   err_status  = nc_inq_varid 	( *ncid_geo, "meshMeshNeighbors", EleNeighID);
   if (err_status  != NC_NOERR)
    {
+    printf("In initialize: \n");
     printf("Problem getting the \"meshMeshNeighbors\" variable ID from ../geometry.nc\n");
     exit(0);
    }
@@ -403,6 +430,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid 	( *ncid_geo, "meshElementZBedrock", meshElementZBedrockID);
   if (err_status != NC_NOERR)
    {
+      printf("In initialize: \n");
       printf("Problem getting the \"meshElementZBedrock\" variable ID from ../geometry.nc\n");
       exit(0);
    }
@@ -410,6 +438,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid 	( *ncid_geo, "meshElementArea", meshElementAreaID);
   if (err_status != NC_NOERR)
    {
+     printf("In initialize: \n");
      printf("Problem getting the \"meshElementArea\" variable ID from ../geometry.nc\n");
      exit(0);
    }
@@ -418,6 +447,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid 	( *ncid_geo, "channelChannelNeighbors", ChanNeighID);
   if (err_status != NC_NOERR)
    {
+     printf("In initialize: \n");
      printf("Problem getting the \"channelChannelNeighbors\" variable ID from ../geometry.nc\n");
      exit(0);
    }
@@ -425,6 +455,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid 	( *ncid_geo, "channelElementLength", channelElementLengthID);
   if (err_status != NC_NOERR)
    {
+      printf("In initialize: \n");
       printf("Problem getting the \"channelElementLength\" variable ID from ../geometry.nc\n");
       exit(0);
    }
@@ -433,6 +464,7 @@ int main(int argc, char*argv[])
   err_status = nc_inq_varid 	( *ncid_par, "meshPorosity", meshPorosityID);
   if (err_status != NC_NOERR)
    {
+      printf("In initialize: \n");
       printf("Problem getting the \"meshPorosity\" variable ID from ../parameter.nc\n");
       exit(0);
    }
@@ -441,6 +473,7 @@ int main(int argc, char*argv[])
   
   if (err_status != NC_NOERR)
   {
+    printf("In initialize: \n");
     printf("Problem getting the \"channelSideSlope\" variable ID from ../parameter.nc\n");
     exit(0);
   }
@@ -527,7 +560,7 @@ int main(int argc, char*argv[])
            printf("Problem getting the \"geometryInstance\" variable ID from ../state.nc\n");
            exit(0);
         }
-       err_status = nc_get_var1_ulonglong ( ncid_stt,geometryInstanceID, &stateInstance, &geometryInstance); 	
+       err_status = nc_get_var1_ulonglong ( ncid_stt, geometryInstanceID, &stateInstance, &geometryInstance); 	
        if (err_status != NC_NOERR)
         {
            printf ("In getElementAndChannelGeometry:\n");
@@ -808,7 +841,7 @@ int main(int argc, char*argv[])
      return (channelSurfacewaterDepth);
  }
  
- double ElemBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[3], double meshElementArea, int meshPrecipitaitonCumulativeID, int CummEvapoID, size_t nMeshEle, int NmeshMeshNeighbors,  
+ double ElemBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[2], double meshElementArea, int meshPrecipitaitonCumulativeID, int CummEvapoID, size_t nMeshEle, int NmeshMeshNeighbors,  
                          int EleNeighID, int EleNeighgSfcFlowID, int EleNeighgGrdFlowID)
  {
    int err;                                 // error variable
@@ -859,11 +892,11 @@ int main(int argc, char*argv[])
  	           
         if (boundary < 0)
          {
-             err = nc_get_var1_double ( ncid_stt,EleNeighgSfcFlowID, indices, &tmp_d); 	
+             err = nc_get_var1_double ( ncid_stt,EleNeighgSfcFlowID, tmp_indices, &tmp_d); 	
              if (err != NC_NOERR)
               {
                      printf("In ElemBoundaryflow: \n");
-                     printf("Problem getting the \"channelSurfacewaterDepth\" variable from ../state.nc\n");
+                     printf("Problem getting the \"Element Neighbor Surface water Flow\" variable from ../state.nc\n");
                      exit(0);
               } 
               
@@ -872,11 +905,11 @@ int main(int argc, char*argv[])
               else
                     meshMeshNeighborsoutFlow+= tmp_d;  
               
-              err = nc_get_var1_double ( ncid_stt,EleNeighgGrdFlowID, indices, &tmp_d); 	
+              err = nc_get_var1_double ( ncid_stt,EleNeighgGrdFlowID, tmp_indices, &tmp_d); 	
               if (err != NC_NOERR)
                {
                      printf("In ElemBoundaryflow: \n");
-                     printf("Problem getting the \"channelSurfacewaterDepth\" variable from ../state.nc\n");
+                     printf("Problem getting the \"Element Neighbor Gorubnd water Flow\" variable from ../state.nc\n");
                      exit(0);
                 } 
              if (tmp_d < 0)
@@ -892,7 +925,7 @@ int main(int argc, char*argv[])
  return  meshMeshNeighborsoutFlow - CumEvapo + meshMeshNeighborsinFlow - PrcpCum;
  }
  
-double ChanBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[3], size_t nChannelEle, int NchannelChannelNeighbors, int ChanNeighID, int ChanNeighgSfcFlowID, double cumEvapo)
+double ChanBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[2], size_t nChannelEle, int NchannelChannelNeighbors, int ChanNeighID, int ChanNeighgSfcFlowID, double cumEvapo)
  {
    int err;                                     // err variable
    int boundary;                                // counter
@@ -906,7 +939,6 @@ double ChanBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[3], size_t nC
    
   for (nNeighbor = 0; nNeighbor < NchannelChannelNeighbors; nNeighbor++)
     {  
-       indices[2] = nNeighbor;
        tmp_indices[2] = indices[2];
        
        err = nc_get_var1_int ( ncid_geo, ChanNeighID, tmp_indices, &boundary); 	
@@ -919,7 +951,7 @@ double ChanBoundaryflow(int ncid_stt, int ncid_geo, size_t indices[3], size_t nC
  	         
        if (boundary < 0)
           {
-               err = nc_get_var1_double ( ncid_stt,ChanNeighgSfcFlowID, indices, &tmp_d); 	
+               err = nc_get_var1_double ( ncid_stt,ChanNeighgSfcFlowID, tmp_indices, &tmp_d); 	
                if (err != NC_NOERR)
                   {
                       printf("In ChanBoundaryflow: \n");
