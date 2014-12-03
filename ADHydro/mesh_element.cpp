@@ -1556,33 +1556,30 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
      
       // Calculate the amount that infiltrates.
       surfacewaterInfiltration = conductivity * dt; // Meters of water.
-
       if (surfacewaterInfiltration > surfacewaterDepth)
         {
           surfacewaterInfiltration = surfacewaterDepth;
         }
-
+      
       // Infiltration goes instantly to groundwater.
       groundwaterRecharge = surfacewaterInfiltration;
       infiltrationDone    = true;
       
-      /* FIXME, Bob, I'm commenting out the GARTO infiltration in the version checked in to the repository.  Because the GARTO state isn't PUPed yet we can't
+      // FIXME, Bob, I'm commenting out the GARTO infiltration in the version checked in to the repository.  Because the GARTO state isn't PUPed yet we can't
       // run with GARTO and load balancing.  Therefore, I'm leaving as the verison in the repository a version that can run on multiple processors with load
       // balancing.  Wencong, feel free to uncomment this for your testing, but I think we shouldn't uncomment it in the version checked in ot the repository
       // until it is fully working.
       // FIXME, wencong, testing GARTO infiltration.
       // gar_timestep(gar_domain* domain, double dt, double* surfacewater_depth, double water_table, double* groundwater_recharge)
-      groundwaterRecharge = 0.0;
-      error = gar_timestep(garDomain, dt, &surfacewaterDepth, groundwaterHead - elementZSurface, &groundwaterRecharge);
-      infiltrationDone    = true;
+      //groundwaterRecharge = 0.0;
+      //error               = gar_timestep(garDomain, dt, &surfacewaterDepth, elementZSurface - groundwaterHead, &groundwaterRecharge);
+      //infiltrationDone    = true;
   
       // Testing 1D soil temperature.
       // soil_temperature_timestep(double* soil_temperature, double* soil_depth_z, int num_elements, double input_heat_flux, double dt, 
                               //gar_domain* domain_gar, int infiltration_type)
       //error = soil_temperature_timestep(soil_temperature, soil_depth_z, num_elements_t, 0.5* (shortWaveRadiationDown + longWaveRadiationDown), dt, domain, 1);
-      //CkPrintf("soil_temperature[1] = %lf \n", soil_temperature[1]);
-      */
-      
+
       checkGroundwaterFlowRates(iterationThisMessage);
     }
   else
@@ -2116,10 +2113,9 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
             }
    */
   
-  // FIXME, here is the code for updating groundwater head with GARTO infiltration.
+  // FIXME, here is the new code for updating groundwater head with GARTO infiltration.
   /*
   groundwaterHead += groundwaterRecharge / porosity; // Or groundwaterRecharge / gar_specific_yield(garDomain, elementZSurface - groundwaterHead);
-  
   // Cap groundwater_head at the surface.
   if (groundwaterHead > elementZSurface)
     {
@@ -2149,7 +2145,7 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
     }
   // End of updating groundwater head with GARTO infiltration.
-  */
+  
   // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
   // FIXME should we try to take the water back from the error accumulator later?
   if (elementZBedrock > groundwaterHead)
@@ -2167,7 +2163,8 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       surfacewaterDepth += (groundwaterHead - elementZSurface) * porosity;
       groundwaterHead    = elementZSurface;
     }
-  
+  // End of updating groundwater head with GARTO infiltration.
+  */
   // Suggest new timestep.
   if (elementZBedrock < groundwaterHead)
     {
