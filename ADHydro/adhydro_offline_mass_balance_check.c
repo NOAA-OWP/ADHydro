@@ -551,7 +551,7 @@ int main(int argc, char*argv[])
 
 void getElementAndChannelGeometry(int ncid_stt, int ncid_geo, size_t stateInstance, size_t nMeshEle, size_t nChannelEle,  size_t nMeshNgb, size_t nChannelNgb, int meshElementZBedrockID, int meshElementAreaID, int EleNeighID, 
                                   int channelElementLengthID, int ChanNeighID, double meshElementZBedrock[nMeshEle], double meshElementArea[nMeshEle], double channelElementLength[nChannelEle], 
-                                  int meshMeshNeighbors[nMeshEle*nMeshNgb], int channelChannelNeighbors[nChannelEle*nChannelNgb]);
+                                  int meshMeshNeighbors[nMeshEle*nMeshNgb], int channelChannelNeighbors[nChannelEle*nChannelNgb])
  {
     int      err_status;                 // error variable
     int      geometryInstanceID;
