@@ -9,15 +9,17 @@ require(tcltk)
 require(ncdf4)
 ## INPUT DATA ###################################################################################################################
 
-outpath="/localstore/output/"   ## Path to read output data
+outpath="/localstore/output/Run2/"   ## Path to read output data
 filen="state.nc"                # root name of a set of files to read in sequential order
-nout=c(1,2,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,24,25,26)                   # number of outputs to read
+nout=c(1,2)                   # number of outputs to read
+
+# Reads first file to determine dimensions
 ex.ncp = nc_open(paste(outpath, nout[1],filen, sep="")) # it opens the first file
+inst<<-length(ncvar_get(ex.ncp,"currentTime"))
+meshel<<-dim(ncvar_get(ex.ncp,"meshSurfacewaterDepth"))[1]
+chanel<<-dim(ncvar_get(ex.ncp,"channelSurfacewaterDepth"))[1]
 Rdump=capture.output(print(ex.ncp), file = NULL, append = FALSE)
 write.table(Rdump,paste(outpath,"Pncdump.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
-meshel<<-36861  #This value can be extracted from line 21
-chanel<<-14974  #This value can be extracted from line 21
-inst<<-9        # initial number of time steps output in the 1state.nc file
 
 # define the netcdf coordinate variables -- note that these have values!
   dim1 = ncdim_def( "instances","",seq(1,inst), unlim=TRUE)

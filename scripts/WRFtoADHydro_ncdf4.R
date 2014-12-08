@@ -14,58 +14,59 @@ rm(list=ls())  # remove all objects before starting
 library(ncdf4)
 library(abind)
 library(timeDate)
+options(digits=16)
 ################ INPUT MODULE #####################################################################################################################################################
 
 WRF_Folder<<-"/localstore/MtMoranLink/project/CI-WATER/data/WRF/WRF_output_new/historical/"  # path to the WRF files
 WRF_Files<<-c("2000_new/wrfout_d03_2000-01-01_00:00:00", "2000_new/wrfout_d03_2000-01-31_12:00:00", "2000_new/wrfout_d03_2000-03-02_00:00:00", "2000_new/wrfout_d03_2000-04-01_12:00:00",
- 	       "2000_new/wrfout_d03_2000-05-02_00:00:00", "2000_new/wrfout_d03_2000-06-01_12:00:00", "2000_new/wrfout_d03_2000-07-02_00:00:00", "2000_new/wrfout_d03_2000-08-01_12:00:00",
-       	"2000_new/wrfout_d03_2000-09-01_00:00:00", "2000_new/wrfout_d03_2000-10-01_12:00:00", "2000_new/wrfout_d03_2000-11-01_00:00:00", "2000_new/wrfout_d03_2000-12-01_12:00:00")
-        "2001_new/wrfout_d03_2001-01-01_00:00:00", "2001_new/wrfout_d03_2001-01-31_12:00:00", "2001_new/wrfout_d03_2001-03-03_00:00:00", "2001_new/wrfout_d03_2001-04-02_12:00:00",
-        "2001_new/wrfout_d03_2001-05-03_00:00:00", "2001_new/wrfout_d03_2001-06-02_12:00:00", "2001_new/wrfout_d03_2001-07-03_00:00:00", "2001_new/wrfout_d03_2001-08-02_12:00:00",
-	      "2001_new/wrfout_d03_2001-09-02_00:00:00", "2001_new/wrfout_d03_2001-10-02_12:00:00", "2001_new/wrfout_d03_2001-11-02_00:00:00", "2001_new/wrfout_d03_2001-12-02_12:00:00",
-        "2002_new/wrfout_d03_2002-01-01_00:00:00", "2002_new/wrfout_d03_2002-01-31_12:00:00", "2002_new/wrfout_d03_2002-03-03_00:00:00", "2002_new/wrfout_d03_2002-04-02_12:00:00",
-        "2002_new/wrfout_d03_2002-05-03_00:00:00", "2002_new/wrfout_d03_2002-06-02_12:00:00", "2002_new/wrfout_d03_2002-07-03_00:00:00", "2002_new/wrfout_d03_2002-08-02_12:00:00"
-	      "2002_new/wrfout_d03_2002-09-02_00:00:00", "2002_new/wrfout_d03_2002-10-02_12:00:00", "2002_new/wrfout_d03_2002-11-02_00:00:00", "2002_new/wrfout_d03_2002-12-02_12:00:00",
-	      "2003_new/wrfout_d03_2003-01-01_00:00:00", "2003_new/wrfout_d03_2003-01-31_12:00:00", "2003_new/wrfout_d03_2003-03-03_00:00:00", "2003_new/wrfout_d03_2003-04-02_12:00:00",
-	      "2003_new/wrfout_d03_2003-05-03_00:00:00", "2003_new/wrfout_d03_2003-06-02_12:00:00", "2003_new/wrfout_d03_2003-07-03_00:00:00", "2003_new/wrfout_d03_2003-08-02_12:00:00",
-	      "2003_new/wrfout_d03_2003-09-02_00:00:00", "2003_new/wrfout_d03_2003-10-02_12:00:00", "2003_new/wrfout_d03_2003-11-02_00:00:00", "2003_new/wrfout_d03_2003-12-02_12:00:00",
-	      "2004_new/wrfout_d03_2004-01-01_00:00:00", "2004_new/wrfout_d03_2004-01-31_12:00:00", "2004_new/wrfout_d03_2004-03-02_00:00:00", "2004_new/wrfout_d03_2004-04-01_12:00:00",
-	      "2004_new/wrfout_d03_2004-05-02_00:00:00", "2004_new/wrfout_d03_2004-06-01_12:00:00", "2004_new/wrfout_d03_2004-07-02_00:00:00", "2004_new/wrfout_d03_2004-08-01_12:00:00",
-	      "2004_new/wrfout_d03_2004-09-01_00:00:00", "2004_new/wrfout_d03_2004-10-01_12:00:00", "2004_new/wrfout_d03_2004-11-01_00:00:00", "2004_new/wrfout_d03_2004-12-01_12:00:00",
-	      "2005_new/wrfout_d03_2005-01-01_00:00:00", "2005_new/wrfout_d03_2005-01-31_12:00:00", "2005_new/wrfout_d03_2005-03-03_00:00:00", "2005_new/wrfout_d03_2005-04-02_12:00:00",
-	      "2005_new/wrfout_d03_2005-05-03_00:00:00", "2005_new/wrfout_d03_2005-06-02_12:00:00", "2005_new/wrfout_d03_2005-07-03_00:00:00", "2005_new/wrfout_d03_2005-08-02_12:00:00",
-	      "2005_new/wrfout_d03_2005-09-02_00:00:00", "2005_new/wrfout_d03_2005-10-02_12:00:00", "2005_new/wrfout_d03_2005-11-02_00:00:00", "2005_new/wrfout_d03_2005-12-02_12:00:00",
-	      "2006_new/wrfout_d03_2006-01-01_00:00:00", "2006_new/wrfout_d03_2006-01-31_12:00:00", "2006_new/wrfout_d03_2006-03-03_00:00:00", "2006_new/wrfout_d03_2006-04-02_12:00:00",
-	      "2006_new/wrfout_d03_2006-05-03_00:00:00", "2006_new/wrfout_d03_2006-06-02_12:00:00", "2006_new/wrfout_d03_2006-07-03_00:00:00", "2006_new/wrfout_d03_2006-08-02_12:00:00",
-	      "2006_new/wrfout_d03_2006-09-02_00:00:00", "2006_new/wrfout_d03_2006-10-02_12:00:00", "2006_new/wrfout_d03_2006-11-02_00:00:00", "2006_new/wrfout_d03_2006-12-02_12:00:00",
-	      "2007_new/wrfout_d03_2007-01-01_00:00:00", "2007_new/wrfout_d03_2007-01-31_12:00:00", "2007_new/wrfout_d03_2007-03-03_00:00:00", "2007_new/wrfout_d03_2007-04-02_12:00:00",
-	      "2007_new/wrfout_d03_2007-05-03_00:00:00", "2007_new/wrfout_d03_2007-06-02_12:00:00", "2007_new/wrfout_d03_2007-07-03_00:00:00", "2007_new/wrfout_d03_2007-08-02_12:00:00",
-	      "2007_new/wrfout_d03_2007-09-02_00:00:00", "2007_new/wrfout_d03_2007-10-02_12:00:00", "2007_new/wrfout_d03_2007-11-02_00:00:00", "2007_new/wrfout_d03_2007-12-02_12:00:00",
-	      "2008_new/wrfout_d03_2008-01-01_00:00:00", "2008_new/wrfout_d03_2008-01-31_12:00:00", "2008_new/wrfout_d03_2008-03-02_00:00:00", "2008_new/wrfout_d03_2008-04-01_12:00:00", 
-	      "2008_new/wrfout_d03_2008-05-02_00:00:00", "2008_new/wrfout_d03_2008-06-01_12:00:00", "2008_new/wrfout_d03_2008-07-02_00:00:00", "2008_new/wrfout_d03_2008-08-01_12:00:00",
-	      "2008_new/wrfout_d03_2008-09-01_00:00:00", "2008_new/wrfout_d03_2008-10-01_12:00:00", "2008_new/wrfout_d03_2008-11-01_00:00:00", "2008_new/wrfout_d03_2008-12-01_12:00:00",
-	      "2009_new/wrfout_d03_2009-01-01_00:00:00", "2009_new/wrfout_d03_2009-01-31_12:00:00", "2009_new/wrfout_d03_2009-03-03_00:00:00", "2009_new/wrfout_d03_2009-04-02_12:00:00",
-	      "2009_new/wrfout_d03_2009-05-03_00:00:00", "2009_new/wrfout_d03_2009-06-02_12:00:00", "2009_new/wrfout_d03_2009-07-03_00:00:00", "2009_new/wrfout_d03_2009-08-02_12:00:00", 
-	      "2009_new/wrfout_d03_2009-09-02_00:00:00", "2009_new/wrfout_d03_2009-10-02_12:00:00", "2009_new/wrfout_d03_2009-11-02_00:00:00", "2009_new/wrfout_d03_2009-12-02_12:00:00",
-	      "2010_new/wrfout_d03_2010-01-01_00:00:00", "2010_new/wrfout_d03_2010-01-31_12:00:00", "2010_new/wrfout_d03_2010-03-03_00:00:00", "2010_new/wrfout_d03_2010-04-02_12:00:00",
-	      "2010_new/wrfout_d03_2010-05-03_00:00:00", "2010_new/wrfout_d03_2010-06-02_12:00:00", "2010_new/wrfout_d03_2010-07-03_00:00:00", "2010_new/wrfout_d03_2010-08-02_12:00:00",
-        "2010_new/wrfout_d03_2010-09-02_00:00:00", "2010_new/wrfout_d03_2010-10-02_12:00:00", "2010_new/wrfout_d03_2010-11-02_00:00:00", "2010_new/wrfout_d03_2010-12-02_12:00:00") # Ordered list of WRF files
+ 	      "2000_new/wrfout_d03_2000-05-02_00:00:00", "2000_new/wrfout_d03_2000-06-01_12:00:00", "2000_new/wrfout_d03_2000-07-02_00:00:00", "2000_new/wrfout_d03_2000-08-01_12:00:00",
+      	      "2000_new/wrfout_d03_2000-09-01_00:00:00", "2000_new/wrfout_d03_2000-10-01_12:00:00", "2000_new/wrfout_d03_2000-11-01_00:00:00", "2000_new/wrfout_d03_2000-12-01_12:00:00")
+#             "2001_new/wrfout_d03_2001-01-01_00:00:00", "2001_new/wrfout_d03_2001-01-31_12:00:00", "2001_new/wrfout_d03_2001-03-03_00:00:00", "2001_new/wrfout_d03_2001-04-02_12:00:00",
+#             "2001_new/wrfout_d03_2001-05-03_00:00:00", "2001_new/wrfout_d03_2001-06-02_12:00:00", "2001_new/wrfout_d03_2001-07-03_00:00:00", "2001_new/wrfout_d03_2001-08-02_12:00:00",
+#	      "2001_new/wrfout_d03_2001-09-02_00:00:00", "2001_new/wrfout_d03_2001-10-02_12:00:00", "2001_new/wrfout_d03_2001-11-02_00:00:00", "2001_new/wrfout_d03_2001-12-02_12:00:00",
+#             "2002_new/wrfout_d03_2002-01-01_00:00:00", "2002_new/wrfout_d03_2002-01-31_12:00:00", "2002_new/wrfout_d03_2002-03-03_00:00:00", "2002_new/wrfout_d03_2002-04-02_12:00:00",
+#             "2002_new/wrfout_d03_2002-05-03_00:00:00", "2002_new/wrfout_d03_2002-06-02_12:00:00", "2002_new/wrfout_d03_2002-07-03_00:00:00", "2002_new/wrfout_d03_2002-08-02_12:00:00",
+#	      "2002_new/wrfout_d03_2002-09-02_00:00:00", "2002_new/wrfout_d03_2002-10-02_12:00:00", "2002_new/wrfout_d03_2002-11-02_00:00:00", "2002_new/wrfout_d03_2002-12-02_12:00:00",
+#	      "2003_new/wrfout_d03_2003-01-01_00:00:00", "2003_new/wrfout_d03_2003-01-31_12:00:00", "2003_new/wrfout_d03_2003-03-03_00:00:00", "2003_new/wrfout_d03_2003-04-02_12:00:00",
+#	      "2003_new/wrfout_d03_2003-05-03_00:00:00", "2003_new/wrfout_d03_2003-06-02_12:00:00", "2003_new/wrfout_d03_2003-07-03_00:00:00", "2003_new/wrfout_d03_2003-08-02_12:00:00",
+#	      "2003_new/wrfout_d03_2003-09-02_00:00:00", "2003_new/wrfout_d03_2003-10-02_12:00:00", "2003_new/wrfout_d03_2003-11-02_00:00:00", "2003_new/wrfout_d03_2003-12-02_12:00:00",
+#	      "2004_new/wrfout_d03_2004-01-01_00:00:00", "2004_new/wrfout_d03_2004-01-31_12:00:00", "2004_new/wrfout_d03_2004-03-02_00:00:00", "2004_new/wrfout_d03_2004-04-01_12:00:00",
+#	      "2004_new/wrfout_d03_2004-05-02_00:00:00", "2004_new/wrfout_d03_2004-06-01_12:00:00", "2004_new/wrfout_d03_2004-07-02_00:00:00", "2004_new/wrfout_d03_2004-08-01_12:00:00",
+#	      "2004_new/wrfout_d03_2004-09-01_00:00:00", "2004_new/wrfout_d03_2004-10-01_12:00:00", "2004_new/wrfout_d03_2004-11-01_00:00:00", "2004_new/wrfout_d03_2004-12-01_12:00:00",
+#	      "2005_new/wrfout_d03_2005-01-01_00:00:00", "2005_new/wrfout_d03_2005-01-31_12:00:00", "2005_new/wrfout_d03_2005-03-03_00:00:00", "2005_new/wrfout_d03_2005-04-02_12:00:00",
+#	      "2005_new/wrfout_d03_2005-05-03_00:00:00", "2005_new/wrfout_d03_2005-06-02_12:00:00", "2005_new/wrfout_d03_2005-07-03_00:00:00", "2005_new/wrfout_d03_2005-08-02_12:00:00",
+#	      "2005_new/wrfout_d03_2005-09-02_00:00:00", "2005_new/wrfout_d03_2005-10-02_12:00:00", "2005_new/wrfout_d03_2005-11-02_00:00:00", "2005_new/wrfout_d03_2005-12-02_12:00:00",
+#	      "2006_new/wrfout_d03_2006-01-01_00:00:00", "2006_new/wrfout_d03_2006-01-31_12:00:00", "2006_new/wrfout_d03_2006-03-03_00:00:00", "2006_new/wrfout_d03_2006-04-02_12:00:00",
+#	      "2006_new/wrfout_d03_2006-05-03_00:00:00", "2006_new/wrfout_d03_2006-06-02_12:00:00", "2006_new/wrfout_d03_2006-07-03_00:00:00", "2006_new/wrfout_d03_2006-08-02_12:00:00",
+#	      "2006_new/wrfout_d03_2006-09-02_00:00:00", "2006_new/wrfout_d03_2006-10-02_12:00:00", "2006_new/wrfout_d03_2006-11-02_00:00:00", "2006_new/wrfout_d03_2006-12-02_12:00:00",
+#	      "2007_new/wrfout_d03_2007-01-01_00:00:00", "2007_new/wrfout_d03_2007-01-31_12:00:00", "2007_new/wrfout_d03_2007-03-03_00:00:00", "2007_new/wrfout_d03_2007-04-02_12:00:00",
+#	      "2007_new/wrfout_d03_2007-05-03_00:00:00", "2007_new/wrfout_d03_2007-06-02_12:00:00", "2007_new/wrfout_d03_2007-07-03_00:00:00", "2007_new/wrfout_d03_2007-08-02_12:00:00",
+#	      "2007_new/wrfout_d03_2007-09-02_00:00:00", "2007_new/wrfout_d03_2007-10-02_12:00:00", "2007_new/wrfout_d03_2007-11-02_00:00:00", "2007_new/wrfout_d03_2007-12-02_12:00:00",
+#	      "2008_new/wrfout_d03_2008-01-01_00:00:00", "2008_new/wrfout_d03_2008-01-31_12:00:00", "2008_new/wrfout_d03_2008-03-02_00:00:00", "2008_new/wrfout_d03_2008-04-01_12:00:00", 
+#	      "2008_new/wrfout_d03_2008-05-02_00:00:00", "2008_new/wrfout_d03_2008-06-01_12:00:00", "2008_new/wrfout_d03_2008-07-02_00:00:00", "2008_new/wrfout_d03_2008-08-01_12:00:00",
+#	      "2008_new/wrfout_d03_2008-09-01_00:00:00", "2008_new/wrfout_d03_2008-10-01_12:00:00", "2008_new/wrfout_d03_2008-11-01_00:00:00", "2008_new/wrfout_d03_2008-12-01_12:00:00",
+#	      "2009_new/wrfout_d03_2009-01-01_00:00:00", "2009_new/wrfout_d03_2009-01-31_12:00:00", "2009_new/wrfout_d03_2009-03-03_00:00:00", "2009_new/wrfout_d03_2009-04-02_12:00:00",
+#	      "2009_new/wrfout_d03_2009-05-03_00:00:00", "2009_new/wrfout_d03_2009-06-02_12:00:00", "2009_new/wrfout_d03_2009-07-03_00:00:00", "2009_new/wrfout_d03_2009-08-02_12:00:00", 
+#	      "2009_new/wrfout_d03_2009-09-02_00:00:00", "2009_new/wrfout_d03_2009-10-02_12:00:00", "2009_new/wrfout_d03_2009-11-02_00:00:00", "2009_new/wrfout_d03_2009-12-02_12:00:00",
+#	      "2010_new/wrfout_d03_2010-01-01_00:00:00", "2010_new/wrfout_d03_2010-01-31_12:00:00", "2010_new/wrfout_d03_2010-03-03_00:00:00", "2010_new/wrfout_d03_2010-04-02_12:00:00",
+#	      "2010_new/wrfout_d03_2010-05-03_00:00:00", "2010_new/wrfout_d03_2010-06-02_12:00:00", "2010_new/wrfout_d03_2010-07-03_00:00:00", "2010_new/wrfout_d03_2010-08-02_12:00:00",
+#              "2010_new/wrfout_d03_2010-09-02_00:00:00", "2010_new/wrfout_d03_2010-10-02_12:00:00", "2010_new/wrfout_d03_2010-11-02_00:00:00", "2010_new/wrfout_d03_2010-12-02_12:00:00") # Ordered list of WRF files
        
-TINF<<-"/share/CI-WATER Simulation Data/small_green_mesh/geometry.nc"  # netcdf file with the AD-Hydro mesh elements for which the WRF data will be extracted
+TINF<<-"/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc"  # netcdf file with the AD-Hydro mesh elements for which the WRF data will be extracted
 RE=6378137 		# in meters; Earth's radius at the equator GRS80 ellipsoid
 Lambda00<<--109 	# reference meridian in degrees. Sign indicates if it's west or east of Greenwich
 FalseEast<<-20000000 	# False East of desired coordinate system
 FalseNorth<<-10000000	# False North of  desired coordinate system
 cell_Buffer<<-4 	# number of cells to be added to the selected rectangular from the minimum and maximum TIN points to efficiently read the WRF data. Use a number >2
 soillayers<<-4  	# number of total staggered soil layers. It can be extracted from the Rncdump.txt file from line 39
-JulOrigin<<-"2000-01-01 00:00:00" # origin for the Julian date column
 Outnames<<-c("WRFHOUR","JULTIME","T2","QVAPOR","QCLOUD","PSFC","U","V","VEGFRA","MAXVEGFRA","TPREC","SWDOWN","GLW","PBLH","TSLB")  # Variables process + WRFHOUR and JULTIME 
-Outfolder<<-"/share/CI-WATER Simulation Data/WRF_to_ADHydro/"	# Folder name for final netcdf output
+Outfolder<<-"/share/CI-WATER_Simulation_Data/WRF_to_ADHydro/"	# Folder name for final netcdf output
 Outncfile<<-"WRF_ADHydro_Small_Green_River" # Base name for output file
 
 
 ############### MODULE METADATA AND HEADERS #######################################################################################################################################
-
+JulOrigin<<-"0001-01-01 12:00:00" # Refence for AC Julian date era. Please do not modify this reference as years BC will be added to this number
+cat("************************************************* WRF to ADHydro ***********************************************************************",fill=TRUE)
 cat("Time started processing ",date(),fill=TRUE)
 ex.nc = nc_open(paste(WRF_Folder, WRF_Files[1], sep="")) # it opens the first file
 Rdump=capture.output(print(ex.nc), file = NULL, append = FALSE)
@@ -208,10 +209,10 @@ for (u in 1:length(Outnames)){
     for (zi in 1:length(zt)){
       pa= substring(zt[zi], 1:nchar(zt[zi]), 1:nchar(zt[zi]))
       prejul=timeDate(paste(pa[1],pa[2],pa[3],pa[4],pa[5],pa[6],pa[7],pa[8],pa[9],pa[10]," ",pa[12],pa[13],pa[14],pa[15], pa[16], pa[17],pa[18],pa[19],sep=""))    
-      finalold[,u+1,zi]=rep(as.numeric(julian(prejul,origin=timeDate(JulOrigin),units="secs")),dim(finalold)[1])
+      finalold[,u+1,zi]=rep(as.numeric(julian(prejul,origin=timeDate("0001-01-01 12:00:00"),units="days")),dim(finalold)[1])+rep((1721424+2),dim(finalold)[1]) # 1721424+2 days from Julian Origin
       }
   }
-	
+
     
 	if (Outnames[u]=="QVAPOR" | Outnames[u]=="QCLOUD"){
         varia=Outnames[u]
@@ -336,9 +337,9 @@ dim2= ncdim_def( "Time",paste("Hours since ",finalold[1,2,1]),seq(1,(dim(finalol
 
 
 # define the EMPTY netcdf variables
-varNODES=ncvar_def("NODES","", list(dim1), -99999, longname="NODES")
+#varNODES=ncvar_def("NODES","", list(dim1), -99999, longname="NODES")
 #varWRFHOUR=ncvar_def("WRFHOUR","hours", list(dim2),longname="WRFHOUR",prec='char')
-varJULTIME=ncvar_def("JULTIME","secs", list(dim2), -99999, longname="JULTIME")
+varJULTIME=ncvar_def("JULTIME","days", list(dim2), -99999, longname="JULTIME",prec="double")
 varT2 = ncvar_def("T2","Celsius", list(dim1,dim2), -99999, longname="T2")
 varQVAPOR = ncvar_def("QVAPOR","kg kg-1", list(dim1,dim2), -99999, longname="QVAPOR")
 varQCLOUD = ncvar_def("QCLOUD","kg kg-1", list(dim1,dim2), -99999, longname="QCLOUD")
@@ -356,12 +357,12 @@ varTSLB = ncvar_def("TSLB","Celsius", list(dim1,dim2), -99999, longname="TSLB")
 # put the variable into the file, and
 # close
 
-nc.ex = nc_create(paste(Outfolder,Outncfile,"_",exportname,".nc",sep=""),list(varNODES, varJULTIME, varT2, varQVAPOR, varQCLOUD,
+nc.ex = nc_create(paste(Outfolder,Outncfile,"_",exportname,".nc",sep=""),list(varJULTIME, varT2, varQVAPOR, varQCLOUD,
         varPSFC, varU, varV, varVEGFRA, varMAXVEGFRA, varTPREC, varSWDOWN, varGLW, varPBLH, varTSLB),force_v4=TRUE)
-ncvar_put(nc.ex, varNODES, finalold[,which(ordencols=="node"),1])
+#ncvar_put(nc.ex, varNODES, finalold[,which(ordencols=="node"),1])
 }
 
-ncvar_put(nc.ex, varJULTIME, finalold[1,which(ordencols=="JULTIME"),],start=tini,count=length(zt))
+ncvar_put(nc.ex, varJULTIME, as.numeric(finalold[1,which(ordencols=="JULTIME"),]),start=tini,count=length(zt))
 #ncvar_put(nc.ex, varWRFHOUR, finalold[1,which(ordencols=="WRFHOUR"),],start=tini,count=length(zt))
 ncvar_put(nc.ex, varT2, finalold[,which(ordencols=="T2"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
 ncvar_put(nc.ex, varQVAPOR, finalold[,which(ordencols=="QVAPOR"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))

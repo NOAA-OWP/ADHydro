@@ -1501,6 +1501,10 @@ int gar_timestep(gar_domain* domain, double dt, double* surfacewater_depth, doub
   int error                     = false;
   int No_flow_lower_bc          = false;   // No flow lower boundary condition is for certain testing problems, put inside gar_timestep().
   
+  if (water_table < 0.0)
+    {
+      water_table = 0.0;  // Add Nov. 06, 2014.
+    }
   // Flow through saturated bin.
   gar_saturated_bin(domain, dt, surfacewater_depth, groundwater_recharge, water_table);
   

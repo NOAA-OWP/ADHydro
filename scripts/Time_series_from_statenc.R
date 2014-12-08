@@ -11,7 +11,8 @@ require(ncdf4)
 
 outpath="/localstore/output/"   ## Path to read output data
 filen="state.nc"                # root name of a set of files to read in sequential order
-nout=c(1,2,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,29)                   # number of outputs to read
+nout=c(1,2) #c(1,2,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,29,31,33,34,35,36,37,38,39,40,41,42,43,44,45,47,48,50,52,53,54,55,56,58,59,
+       #60,61,62,64,65,66,67,68,69,71,72,73,75,76,77,78,79,80)                   # number of outputs to read
 toplot=c("meshSurfacewaterDepth","meshGroundwaterHead","channelSurfacewaterDepth")
 
 ##################################################################################################################################
@@ -21,12 +22,14 @@ Rdump=capture.output(print(ex.ncp), file = NULL, append = FALSE)
 write.table(Rdump,paste(outpath,"Pncdump.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
 
 for (j in 1:length(nout)){
+    cat("Reading state.nc # ", nout[j], fill=TRUE)
     ex.ncp = nc_open(paste(outpath, nout[j],filen, sep="")) # it opens the first file 
     dt=ncvar_get(ex.ncp, "dt")
     ctime=ncvar_get(ex.ncp, "currentTime")
     basinave=matrix(NA,length(ctime),length(toplot))  # Rows are the time steps, columns are the basin-averaged variables
   
     for (pli in 1: length(toplot)){
+    cat("Averaging column ", pli, " of ", length(toplot), fill=TRUE)
     cual=toplot[pli]
     ordenada=cual
     ordenada=as.name(ordenada)
