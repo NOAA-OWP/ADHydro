@@ -42,7 +42,7 @@ def point_in_polygon(feature):
   if not geom.contains(QgsPoint(testx, testy)):
     testx = mx + dy * scale
     testy = my - dx * scale
-    assert geom.contains(QgsPoint(testx, testy))
+    assert geom.contains(QgsPoint(testx, testy)) # if the first point was not in the polygon, this second one must be.
   return testx, testy
 
 with open(output_node_file, "w") as node_file:
@@ -114,7 +114,7 @@ with open(output_node_file, "w") as node_file:
         # If reach code is not found, use permanent code instead.
         if not success:
           reachcodelong, success = feature.attributeMap()[permanentindex].toString().toLong()
-        assert success
+        assert success # Integer conversion must succeed.
         reachcode = int(reachcodelong)
         # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
         linkno = 0
@@ -148,7 +148,7 @@ with open(output_node_file, "w") as node_file:
         assert 0 < len(polyline) # No empty polylines.
         linkno, success = feature.attributeMap()[linknoindex].toInt()
         assert success # Integer conversion must succeed.
-        assert linkno == used_linknos[linkno]
+        assert linkno == used_linknos[linkno] # The permanent code of a stream must be its linkno.
         boundary_marker = str(-linkno) # The boundary marker indicates which stream.  Use negative because marker 1 is used by triangle.
         firstnode = node
         for point in polyline:
