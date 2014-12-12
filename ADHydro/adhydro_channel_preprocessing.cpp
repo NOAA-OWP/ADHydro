@@ -14,8 +14,8 @@
 // waterbodies.
 
 #define SHAPES_SIZE     (2)  // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE   (16) // Size of array of upstream links in ChannelLinkStruct.
-#define DOWNSTREAM_SIZE (3)  // Size of array of downstream links in ChannelLinkStruct.
+#define UPSTREAM_SIZE   (13) // Size of array of upstream links in ChannelLinkStruct.
+#define DOWNSTREAM_SIZE (5)  // Size of array of downstream links in ChannelLinkStruct.
 
 // A linkElementStruct represents a section of a stream link.  The section
 // goes from prev->endLocation to endLocation along the 1D length of the link
@@ -612,6 +612,64 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
     }
 }
 
+// Calculate whether linkNo2 is the same link as or downstream of linkNo1.
+// This function does a depth first search of the downstream connections of
+// linkNo1 to find linkNo2.  It performs brute force cycle detection by keeping
+// a hop count and if that exceeds the total number of used links a cycle is
+// detected.
+//
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels               - The channel network as a 1D array of
+//                          ChannelLinkStruct.
+// size                   - The number of elements in channels.
+// linkNo1                - The link to check if it is the same link as or
+//                          upstream of linkNo2.
+// linkNo2                - The link to check if it is the same link as or
+//                          downstream of linkNo1.
+// hopCount               - The number of links traversed so far.
+// numberOfLinks          - The total number of used links.  If hopCount
+//                          exceeds this there must be a cycle.
+// coincidentOrDownstream - Scalar passed by reference will be filled in with
+//                          true if linkNo2 is the same link as or downstream
+//                          of linkNo1, false otherwise.
+bool isCoincidentOrDownstream(ChannelLinkStruct* channels, int size, int linkNo1, int linkNo2, int hopCount, int numberOfLinks, bool* coincidentOrDownstream)
+{
+  bool error = false; // Error flag.
+  int  ii;            // Loop counter.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= linkNo1 && linkNo1 < size && 0 <= linkNo2 && linkNo2 < size && 0 <= hopCount &&
+         0 <= numberOfLinks && numberOfLinks <= size && NULL != coincidentOrDownstream);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (hopCount > numberOfLinks)
+    {
+      fprintf(stderr, "ERROR in isCoincidentOrDownstream: Detected cycle in channel network in link %d.\n", linkNo1);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+  *coincidentOrDownstream = (linkNo1 == linkNo2); // Initialize coincidentOrDownstream to a value even if there is an error.
+  
+  // Search all downstream links of LinkNo1.
+  if (!error)
+    {
+      for (ii = 0; !*coincidentOrDownstream && ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo1].downstream[ii]; ii++)
+        {
+          if (!isBoundary(channels[linkNo1].downstream[ii]))
+            {
+              isCoincidentOrDownstream(channels, size, channels[linkNo1].downstream[ii], linkNo2, hopCount + 1, numberOfLinks, coincidentOrDownstream);
+            }
+        }
+    }
+  
+  return error;
+}
+
 // Used for the return value of upstreamDownstream.
 typedef enum
 {
@@ -623,8 +681,8 @@ typedef enum
 
 // Return the upstream/downstream relationship between two intersections.
 // This function assumes that each stream link has at most one downstream
-// connection, which is true before linking waterbodies to streams, which is
-// where this is run in the code.
+// connection and no cycles, which is true before linking waterbodies to
+// streams, which is where this is run in the code.
 //
 // Parameters:
 //
@@ -670,6 +728,9 @@ UpstreamDownstreamEnum getUpstreamDownstream(ChannelLinkStruct* channels, int si
     }
   else
     {
+      // FIXME I could use isCoincidentOrDownstream here, but then getUpstreamDownstream would have to return an error in case it finds a cycle.  There should
+      // be no cycles in the TauDEM input, and the connections shouldn't have been modified yet, but maybe that would be a good check to do anyway.
+      
       // Search downstream of intersection2 to find intersection1.
       linkNo = channels[intersection2->edge].downstream[0];
       
@@ -2775,9 +2836,6 @@ bool linkAllWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size)
     {
       if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
-          // FIXME remove
-          printf("adding waterbody stream intersections for waterbody %d.\n", ii);
-          
           while (!error && NULL != channels[ii].firstElement)
             {
               if (UPSTREAM == channels[ii].firstElement->movedTo || DOWNSTREAM == channels[ii].firstElement->movedTo)
@@ -2797,12 +2855,307 @@ bool linkAllWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size)
   return error;
 }
 
+// Returns: True if linkNo1 and LinkNo2 are already directly connected.  False
+// otherwise.
+//
+// Parameters:
+//
+// channels - The channel network as a 1D array of ChannelLinkStruct.
+// size     - The number of elements in channels.
+// linkNo1  - The first link to check for connection.
+// linkNo2  - The second link to check for connection.
+bool alreadyConnected(ChannelLinkStruct* channels, int size, int linkNo1, int linkNo2)
+{
+  int  ii;                // Loop counter.
+  bool connected = false; // return value.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= linkNo1 && linkNo1 < size && 0 <= linkNo2 && linkNo2 < size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  for (ii = 0; !connected && ii < UPSTREAM_SIZE && NOFLOW != channels[linkNo1].upstream[ii]; ii++)
+    {
+      connected = (linkNo2 == channels[linkNo1].upstream[ii]);
+    }
+  
+  for (ii = 0; !connected && ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo1].downstream[ii]; ii++)
+    {
+      connected = (linkNo2 == channels[linkNo1].downstream[ii]);
+    }
+  
+  return connected;
+}
+
+// Read all of the intersections between waterbodies and other waterbodies and
+// make those links.
+// 
+// This function opens the waterbodies waterbodies intersections shapefile and
+// for each intersection links the two waterbodies together.  No links are
+// broken.  If the waterbodies are already linked the intersection is ignored.
+// If one waterbody is already transitively upstream of the other, but not
+// directly linked it is linked upstream.  Otherwise, the upstream/downstream
+// relationship is arbitrary.
+// 
+// Returns: true if there is an error, false otherwise.
+//
+// Parameters:
+//
+// channels     - The channel network as a 1D array of ChannelLinkStruct.
+// size         - The number of elements in channels.
+// fileBasename - The basename of the waterbody shapefile to read.
+//                readAndLinkWaterbodyWaterbodyIntersections will read the
+//                following files: fileBasename.shp, and fileBasename.dbf.
+bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int size, const char* fileBasename)
+{
+  bool        error         = false;  // Error flag.
+  int         ii;                     // Loop counter.
+  int         numberOfLinks = 0;      // Total number of links in the channel network for detecting cycles.
+  SHPHandle   shpFile;                // Geometry  part of the shapefile.
+  DBFHandle   dbfFile;                // Attribute part of the shapefile.
+  int         numScanned;             // Used to check that sscanf scanned all of the requested values.
+  int         numberOfShapes;         // Number of shapes in the shapefile.
+  int         reachCode1Index;        // Index of metadata field.
+  int         permanent1Index;        // Index of metadata field.
+  int         reachCode2Index;        // Index of metadata field.
+  int         permanent2Index;        // Index of metadata field.
+  const char* tempString;             // String representation of reachCode or permanent.
+  long long   reachCode1;             // The reach code of the first intersecting waterbody.
+  long long   permanent1;             // The permanent code of the first intersecting waterbody.
+  long long   reachCode2;             // The reach code of the second intersecting waterbody.
+  long long   permanent2;             // The permanent code of the second intersecting waterbody.
+  int         linkNo1;                // The linkno of the first intersecting waterbody.
+  int         linkNo2;                // The linkno of the second intersecting waterbody.
+  bool        coincidentOrDownstream; // Whether linkNo2 is the same link as or downstream of linkNo1.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 < size && NULL != fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  // We are using a brute force method to detect cycles in the channel network.  As we traverse downstream we keep a hop count and if the hop count exceeds
+  // the total number of links we know we have visited at least one link more than once so there is a cycle.  Here we find the total number of links.
+  for (ii = 0; ii < size; ii++)
+    {
+      if (NOT_USED != channels[ii].type)
+        {
+          numberOfLinks++;
+        }
+    }
+  
+  // Open the geometry and attribute files.
+  shpFile = SHPOpen(fileBasename, "rb");
+  dbfFile = DBFOpen(fileBasename, "rb");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(NULL != shpFile))
+    {
+      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open shp file %s.\n", fileBasename);
+      error = true;
+    }
+
+  if (NULL == dbfFile)
+    {
+      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open dbf file %s.\n", fileBasename);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+  // Get the number of shapes and attribute indices
+  if (!error)
+    {
+      numberOfShapes  = DBFGetRecordCount(dbfFile);
+      reachCode1Index = DBFGetFieldIndex(dbfFile, "ReachCode");
+      permanent1Index = DBFGetFieldIndex(dbfFile, "Permanent1");
+      reachCode2Index = DBFGetFieldIndex(dbfFile, "ReachCode_");
+      permanent2Index = DBFGetFieldIndex(dbfFile, "Permanent_");
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 < numberOfShapes))
+        {
+          // Only warn because you could have zero intersections.
+          fprintf(stderr, "WARNING in readAndLinkWaterbodyWaterbodyIntersections: Zero shapes in dbf file %s.\n", fileBasename);
+        }
+      
+      if (!(-1 != reachCode1Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field ReachCode in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != permanent1Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field Permanent1 in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != reachCode2Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field ReachCode_ in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != permanent2Index))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field Permanent_ in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+
+  // Read and link the intersections.
+  for (ii = 0; !error && ii < numberOfShapes; ii++)
+    {
+      tempString = DBFReadStringAttribute(dbfFile, ii, reachCode1Index);
+      numScanned = sscanf(tempString, "%lld", &reachCode1);
+
+      // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
+      if (1 != numScanned)
+        {
+          reachCode1 = -1;
+        }
+
+      tempString = DBFReadStringAttribute(dbfFile, ii, permanent1Index);
+      numScanned = sscanf(tempString, "%lld", &permanent1);
+
+      // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
+      if (1 != numScanned)
+        {
+          permanent1 = -1;
+        }
+      
+      linkNo1 = 0;
+      
+      while(linkNo1 < size && ((WATERBODY != channels[linkNo1].type && ICEMASS != channels[linkNo1].type) ||
+                               (reachCode1 != channels[linkNo1].reachCode && permanent1 != channels[linkNo1].reachCode)))
+        {
+          linkNo1++;
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      if (!(0 <= linkNo1 && linkNo1 < size && (WATERBODY == channels[linkNo1].type || ICEMASS == channels[linkNo1].type)))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find waterbody reach code %lld or permanent code %lld in channel "
+                  "network.\n", reachCode1, permanent1);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+      if (!error)
+        {
+          tempString = DBFReadStringAttribute(dbfFile, ii, reachCode2Index);
+          numScanned = sscanf(tempString, "%lld", &reachCode2);
+
+          // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
+          if (1 != numScanned)
+            {
+              reachCode2 = -1;
+            }
+
+          tempString = DBFReadStringAttribute(dbfFile, ii, permanent2Index);
+          numScanned = sscanf(tempString, "%lld", &permanent2);
+
+          // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
+          if (1 != numScanned)
+            {
+              permanent2 = -1;
+            }
+
+          linkNo2 = 0;
+
+          while(linkNo2 < size && ((WATERBODY != channels[linkNo2].type && ICEMASS != channels[linkNo2].type) ||
+                                   (reachCode2 != channels[linkNo2].reachCode && permanent2 != channels[linkNo2].reachCode)))
+            {
+              linkNo2++;
+            }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(0 <= linkNo2 && linkNo2 < size && (WATERBODY == channels[linkNo2].type || ICEMASS == channels[linkNo2].type)))
+            {
+              fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find waterbody reach code %lld or permanent code %lld in "
+                      "channel network.\n", reachCode2, permanent2);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+      
+      if (!error && linkNo1 != linkNo2 && !alreadyConnected(channels, size, linkNo1, linkNo2))
+        {
+          error = isCoincidentOrDownstream(channels, size, linkNo1, linkNo2, 0, numberOfLinks, &coincidentOrDownstream);
+          
+          if (!error)
+            {
+              if (coincidentOrDownstream)
+                {
+                  error = addUpstreamDownstreamConnection(channels, size, linkNo1, linkNo2);
+                }
+              else
+                {
+                  error = addUpstreamDownstreamConnection(channels, size, linkNo2, linkNo1);
+                }
+            }
+        }
+    } // End read and link the intersections.
+
+  // Close the files.
+  if (NULL != shpFile)
+    {
+      SHPClose(shpFile);
+    }
+  
+  if (NULL != dbfFile)
+    {
+      DBFClose(dbfFile);
+    }
+  
+  return error;
+}
+
+// Free memory allocated for the channel network.
+//
+// Parameters:
+//
+// channels - A pointer to the channel network passed by reference.
+//            Will be set to NULL after the memory is deallocated.
+// size     - A scalar passed by reference containing the number of elements in
+//            channels.  Will be set to zero after the memory is deallocated.
+void channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
+{
+  int ii, jj; // Loop counters.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && NULL != *channels && NULL != size && 0 < *size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  for (ii = 0; ii < *size; ii++)
+    {
+      for (jj = 0; jj < SHAPES_SIZE; jj++)
+        {
+          if (NULL != (*channels)[ii].shapes[jj])
+            {
+              SHPDestroyObject((*channels)[ii].shapes[jj]);
+            }
+        }
+      
+      while (NULL != (*channels)[ii].firstElement)
+        {
+          killLinkElement(*channels, *size, ii, (*channels)[ii].firstElement);
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      assert(NULL == (*channels)[ii].lastElement);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  delete[] *channels;
+  
+  *channels = NULL;
+  *size     = 0;
+}
+
 // FIXME make into a more user friendly main program.
 int main(void)
 {
   bool               error = false; // Error flag.
-  //bool               tempError;     // Error flag.
-  //int                ii;            // Loop counter.
+  int                ii;            // Loop counter.
   ChannelLinkStruct* channels;      // The channel network.
   int                size;          // The number of elements in channels.
   
@@ -2834,7 +3187,6 @@ int main(void)
       error = linkAllWaterbodyStreamIntersections(channels, size);
     }
   
-  /*
   if (!error)
     {
       error = readAndLinkWaterbodyWaterbodyIntersections(channels, size,
@@ -2849,17 +3201,17 @@ int main(void)
         }
     }
   
+  /* FIXME uncomment
   if (!error)
     {
       error = writeChannelNetwork(channels, size);
     }
-  
+  */
+
   if (NULL != channels)
     {
-      tempError = channelNetworkDealloc(&channels, &size);
-      error     = error || tempError;
+      channelNetworkDealloc(&channels, &size);
     }
-  */
-  
-  return 0;
+
+  return error;
 }
