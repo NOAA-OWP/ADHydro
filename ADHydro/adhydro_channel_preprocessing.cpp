@@ -59,6 +59,7 @@ typedef struct
   double             length;                      // Meters.
   double             upstreamContributingArea;    // For unmoved streams, contributing area in square meters at   upstream end of shape.  For others, 0.0.
   double             downstreamContributingArea;  // For unmoved streams, contributing area in square meters at downstream end of shape.  For others, 0.0.
+  int                streamOrder;                 // For unmoved streams, stream order.  For others, 0.
   int                upstream[UPSTREAM_SIZE];     // Array indices of links upstream from this link or boundary condition codes.
   int                downstream[DOWNSTREAM_SIZE]; // Array indices of links downstream from this link or boundary condition codes.
   LinkElementStruct* firstElement;                // Sections of the link associated with mesh edges or NULL if no elements.
@@ -844,6 +845,7 @@ bool readLink(ChannelLinkStruct** channels, int* size, const char* filename)
       (*channels)[ii].length                     = 0.0;
       (*channels)[ii].upstreamContributingArea   = 0.0;
       (*channels)[ii].downstreamContributingArea = 0.0;
+      (*channels)[ii].streamOrder                = 0;
       
       for (jj = 0; jj < UPSTREAM_SIZE; jj++)
         {
@@ -1142,6 +1144,7 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
   int       dslinknoIndex;   // Index of metadata field.
   int       us_cont_arIndex; // Index of metadata field.
   int       ds_cont_arIndex; // Index of metadata field.
+  int       orderIndex;      // Index of metadata field.
   int       linkNo;          // The link number of the stream.
   int       linkNo2;         // For storing a link that must be connected to.
 
@@ -1177,6 +1180,7 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
       dslinknoIndex   = DBFGetFieldIndex(dbfFile, "DSLINKNO");
       us_cont_arIndex = DBFGetFieldIndex(dbfFile, "US_Cont_Ar");
       ds_cont_arIndex = DBFGetFieldIndex(dbfFile, "DS_Cont_Ar");
+      orderIndex      = DBFGetFieldIndex(dbfFile, "Order");
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(0 < numberOfShapes))
@@ -1218,6 +1222,12 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
       if (!(-1 != ds_cont_arIndex))
         {
           fprintf(stderr, "ERROR in readTaudemStreamnet: Could not find field DS_Cont_Ar in dbf file %s.\n", fileBasename);
+          error = true;
+        }
+      
+      if (!(-1 != orderIndex))
+        {
+          fprintf(stderr, "ERROR in readTaudemStreamnet: Could not find field Order in dbf file %s.\n", fileBasename);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -1265,6 +1275,7 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
           channels[linkNo].shapes[0]                  = SHPReadObject(shpFile, ii);
           channels[linkNo].upstreamContributingArea   = DBFReadDoubleAttribute(dbfFile, ii, us_cont_arIndex);
           channels[linkNo].downstreamContributingArea = DBFReadDoubleAttribute(dbfFile, ii, ds_cont_arIndex);
+          channels[linkNo].streamOrder                = DBFReadIntegerAttribute(dbfFile, ii, orderIndex);
           channels[linkNo].upstream[0]                = DBFReadIntegerAttribute(dbfFile, ii, uslinkno1Index);
           channels[linkNo].upstream[1]                = DBFReadIntegerAttribute(dbfFile, ii, uslinkno2Index);
           channels[linkNo].downstream[0]              = DBFReadIntegerAttribute(dbfFile, ii, dslinknoIndex);
