@@ -58,6 +58,11 @@ class ADHydro : public CBase_ADHydro
   
 public:
   
+  // Global read-only variable specifies whether to run the simulation in drain
+  // down mode.  In this mode, there will be no precipitation, and water level
+  // in the channels will be capped.
+  static bool drainDownMode;
+  
   // Set the load balancing mode to manual.  We need to wait for a few
   // timesteps to generate load statistics, and then we need to load balance
   // once.  After that we need to load balance very rarely if at all.
@@ -77,9 +82,6 @@ public:
   //
   // msg - Charm++ migration message.
   ADHydro(CkMigrateMessage* msg);
-  
-  // Destructor.  commandLineArguments needs to be deleted.
-  ~ADHydro();
   
   // Pack/unpack method.
   //
@@ -129,19 +131,21 @@ private:
   CProxy_FileManager    fileManagerProxy; // Group of file managers.
   
   // I/O information
-  CkArgMsg* commandLineArguments; // Contains the input and output directory paths.
+  std::string inputDirectory;  // The directory from which to read input files.
+  std::string outputDirectory; // The directory in which to place output files.
   
   // Time information.
-  double referenceDate;     // The Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to
-                            // referenceDate + currentTime / (24.0 * 3600.0).
-  double currentTime;       // Current simulation time in seconds since referenceDate.
-  double endTime;           // The time to simulate to in seconds since referenceDate.
-  double dt;                // Next simulation timestep duration in seconds.
-  double outputPeriod;      // Simulation time in seconds between outputs to file.  Zero means output every timestep.
-  double nextOutputTime;    // Simulation time in seconds since referenceDate of the next output to file.  The next output to file will occur as soon as
-                            // currentTime equals or exceeds this value.
-  size_t iteration;         // Iteration number to put on all messages this timestep.
-  size_t startingIteration; // Iteration number of the first timestep in this run.  Used to decide when to load balance.
+  double referenceDate;      // The Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to
+                             // referenceDate + currentTime / (24.0 * 3600.0).
+  double currentTime;        // Current simulation time in seconds since referenceDate.
+  double simulationDuration; // The duration to simulate in seconds.
+  double endTime;            // The time to simulate to in seconds since referenceDate.
+  double dt;                 // Next simulation timestep duration in seconds.
+  double outputPeriod;       // Simulation time in seconds between outputs to file.  Zero means output every timestep.
+  double nextOutputTime;     // Simulation time in seconds since referenceDate of the next output to file.  The next output to file will occur as soon as
+                             // currentTime equals or exceeds this value.
+  size_t iteration;          // Iteration number to put on all messages this timestep.
+  size_t startingIteration;  // Iteration number of the first timestep in this run.  Used to decide when to load balance.
   
   // Flags.
   bool writeGeometry;           // Flag to indicate whether the geometry has changed and needs to be outputted.

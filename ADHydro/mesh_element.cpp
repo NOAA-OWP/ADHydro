@@ -1267,6 +1267,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
   double distanceAboveWaterTable;                          // For calculating input to evapoTranspirationSoil.
   double relativeSaturation;                               // For calculating input to evapoTranspirationSoil.
   double latitude;                                         // Input to evapoTranspirationSoil in radians.
+  double longitude;                                        // Input to evapoTranspirationSoil in radians.
   int    yearlen;                                          // Input to evapoTranspirationSoil in days.
   float  julian;                                           // Input to evapoTranspirationSoil in days.
   float  cosZ;                                             // Input to evapoTranspirationSoil, unitless.
@@ -1326,10 +1327,11 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
       julian = date - gregorianToJulian(year, 1, 1, 0, 0, 0);
       
       // Calculate cosZ.
-      latitude         = elementY / POLAR_RADIUS_OF_EARTH;
+      latitude         = (elementY - FALSE_NORTHING) / POLAR_RADIUS_OF_EARTH;
+      longitude        = CENTRAL_MERIDIAN + (elementX - FALSE_EASTING) / (POLAR_RADIUS_OF_EARTH * cos(latitude));
       declinationOfSun = -23.44 * M_PI / 180.0 * cos(2 * M_PI * (julian + 10) / yearlen);
-      hourAngle        = (date - gregorianToJulian(year, month, day, 12, 0, 0)) * 2 * M_PI;
-      // FIXME I got this calculation off of Wikipedia, but something about it does not seem right.  Double check it.
+      hourAngle        = (date - gregorianToJulian(year, month, day, 12, 0, 0)) * 2 * M_PI + longitude; // This calculates the hour angle at longitude zero,
+                                                                                                        // and then adds the longitude of this location.
       cosZ             = sin(latitude) * sin(declinationOfSun) + cos(latitude) * cos(declinationOfSun) * cos(hourAngle);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1371,10 +1373,8 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
                                      shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN, surfacePressure,
                                      atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0f, soilBottomTemperature + ZERO_C_IN_KELVIN,
-                                     planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead,
-                                     (groundwaterHead - elementZBedrock) * porosity * 1000.0,  (groundwaterHead - elementZBedrock) * porosity * 1000.0, smc[3],
-                                     &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround,
-                                     &transpiration, &waterError);
+                                     planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead, smc[3], &evapoTranspirationState,
+                                     &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround, &transpiration, &waterError);
     }
   
   if (!error)
@@ -2145,26 +2145,27 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
     }
   // End of updating groundwater head with GARTO infiltration.
+  */
   
-  // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
-  // FIXME should we try to take the water back from the error accumulator later?
   if (elementZBedrock > groundwaterHead)
     {
+      // Even though we are limiting outward flows, groundwaterhead can go below bedrock due to roundoff error.
+      // FIXME should we try to take the water back from the error accumulator later?
+      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-     // CkAssert(epsilonEqual(elementZBedrock, groundwaterHead));
+      CkAssert(epsilonEqual(elementZBedrock, groundwaterHead));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       groundwaterError += (elementZBedrock - groundwaterHead) * elementArea * porosity;
       groundwaterHead   = elementZBedrock;
     }
-  // If groundwater rises above the surface put the excess in the surfacewater.
   else if (elementZSurface < groundwaterHead)
     {
+      // If groundwater rises above the surface put the excess in the surfacewater.
       surfacewaterDepth += (groundwaterHead - elementZSurface) * porosity;
       groundwaterHead    = elementZSurface;
     }
-  // End of updating groundwater head with GARTO infiltration.
-  */
+  
   // Suggest new timestep.
   if (elementZBedrock < groundwaterHead)
     {

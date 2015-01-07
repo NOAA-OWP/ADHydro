@@ -64,10 +64,14 @@
 #define DEBUG_LEVEL (DEBUG_LEVEL_DEVELOPMENT)
 
 // Constants.
-#define GRAVITY               (9.81)      // Meters per second squared.
-#define POLAR_RADIUS_OF_EARTH (6356752.3) // Meters.
-#define ZERO_C_IN_KELVIN      (273.15)    // Kelvin.
-#define PONDED_DEPTH          (0.01)      // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
+#define GRAVITY               (9.81)                  // Meters per second squared.
+#define POLAR_RADIUS_OF_EARTH (6356752.3)             // Meters.
+// FIXME These projection parameters should be superfile parameters instead of hardcoded constants.
+#define CENTRAL_MERIDIAN      (-109.0 * M_PI / 180.0) // Radians.
+#define FALSE_EASTING         (20000000.0)            // Meters.
+#define FALSE_NORTHING        (10000000.0)            // Meters.
+#define ZERO_C_IN_KELVIN      (273.15)                // Kelvin.
+#define PONDED_DEPTH          (0.01)                  // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum

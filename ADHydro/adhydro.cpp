@@ -1,5 +1,8 @@
 #include "adhydro.h"
 #include "file_manager.h"
+#include "INIReader.h"
+
+bool ADHydro::drainDownMode;
 
 void ADHydro::setLoadBalancingToManual()
 {
@@ -9,18 +12,71 @@ void ADHydro::setLoadBalancingToManual()
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  // Save command line arguments.
-  commandLineArguments = msg;
-
+  const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
+  INIReader   superfile(superfileName);                                // superfile reader object.
+  long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
+  long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
+  long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
+  double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
+  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  // Print usage message and exit if number of arguments is incorrect or either argument is any flag.
-  if (!(3 == commandLineArguments->argc && '-' != commandLineArguments->argv[1][0] && '-' != commandLineArguments->argv[2][0]))
+  // If the superfile cannot be read print usage message and exit.
+  if (0 != superfile.ParseError())
     {
-      CkPrintf("\nUsage:\n\nadhydro <input directory> <output directory>\n\n");
-      CkPrintf("E.g.:\n\nadhydro ../input/mesh.1 ../output/mesh.1/run_1\n\n");
+      if (0 > superfile.ParseError())
+        {
+          CkError("ERROR in ADHydro::ADHydro: cannot open superfile %s.\n", superfileName);
+        }
+      else
+        {
+          CkError("ERROR in ADHydro::ADHydro: parse error on line number %d of superfile %s.\n", superfile.ParseError(), superfileName);
+        }
+      
+      CkError("\nUsage:\n\nadhydro <superfile>\n\n");
+      CkError("E.g.:\n\nadhydro ../input/mesh.1/run_1.superfile\n\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  // Get initialization values from the superfile.
+  inputDirectory  = superfile.Get("", "inputDirectory", "");
+  outputDirectory = superfile.Get("", "outputDirectory", "");
+  referenceDate   = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian
+                                                                 // date in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
+                                                                 // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
+                                                                 // will be taken from the input NetCDF files.
+  
+  // If there is no referenceDate read a Gregorian date and convert to julian date.
+  if (isnan(referenceDate))
+    {
+      referenceDateYear   = superfile.GetInteger("", "referenceDateYear", -1);
+      referenceDateMonth  = superfile.GetInteger("", "referenceDateMonth", -1);
+      referenceDateDay    = superfile.GetInteger("", "referenceDateDay", -1);
+      referenceDateHour   = superfile.GetInteger("", "referenceDateHour", -1);
+      referenceDateMinute = superfile.GetInteger("", "referenceDateMinute", -1);
+      referenceDateSecond = superfile.GetReal("", "referenceDateSecond", -1.0);
+      
+      if (1 <= referenceDateYear && 1 <= referenceDateMonth && 12 >= referenceDateMonth && 1 <= referenceDateDay && 31 >= referenceDateDay &&
+          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0 <= referenceDateSecond &&
+          60 > referenceDateSecond)
+        {
+          referenceDate = gregorianToJulian(referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute,
+                                            referenceDateSecond);
+        }
+    }
+  
+  currentTime        = superfile.GetReal("", "currentTime", NAN);        // If currentTime is not in the superfile it will be taken from the input NetCDF
+                                                                         // files.
+  simulationDuration = superfile.GetReal("", "simulationDuration", 0.0); // If simulationDuration is not in the superfile it defaults to zero and the
+                                                                         // simulation will not run any timesteps.
+  dt                 = superfile.GetReal("", "dt", NAN);                 // If dt is not in the superfile it will be taken from the input NetCDF files.
+  outputPeriod       = superfile.GetReal("", "outputPeriod", 0.0);       // If outputPeriod is not in the superfile it defaults to zero and the simulation will
+                                                                         // output every timestep.
+  iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
+  drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
+                                                                         // will run in normal mode.
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();
@@ -29,9 +85,19 @@ ADHydro::ADHydro(CkArgMsg* msg)
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerInitialized), thisProxy));
   
   // Initialize the file manager.
-  // FIXME make choice of initialization and ascii fileBasename command line parameters.
-  //fileManagerProxy.initializeFromASCIIFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], strlen("mesh.1") + 1, "mesh.1");
-  fileManagerProxy.initializeFromNetCDFFiles(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1]);
+  if (superfile.GetBoolean("", "initializeFromASCIIFiles", false))
+    {
+      // FIXME implement initializeFromASCIIFiles
+      //fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), strlen("mesh.1") + 1, "mesh.1");
+      CkError("ERROR in ADHydro::ADHydro: initializeFromASCIIFiles not yet implemented.\n");
+      CkExit();
+    }
+  else
+    {
+      // FIXME send a std::string in the message instead of a C string and length?
+      // FIXME or make inputDirectory and outputDirectory read only variables?
+      fileManagerProxy.initializeFromNetCDFFiles(inputDirectory.length() + 1, inputDirectory.c_str());
+    }
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -39,38 +105,18 @@ ADHydro::ADHydro(CkMigrateMessage* msg)
   // Do nothing.
 }
 
-ADHydro::~ADHydro()
-{
-  deleteIfNonNull(&commandLineArguments);
-}
-
 void ADHydro::pup(PUP::er &p)
 {
-  bool commandLineArgumentsNonNULL = (NULL != commandLineArguments);
-  
   CBase_ADHydro::pup(p);
   __sdag_pup(p);
   p | meshProxy;
   p | channelProxy;
   p | fileManagerProxy;
-  p | commandLineArgumentsNonNULL;
-  
-  if (commandLineArgumentsNonNULL)
-    {
-      if (p.isUnpacking())
-        {
-          commandLineArguments = new CkArgMsg;
-        }
-      
-      p | *commandLineArguments;
-    }
-  else
-    {
-      commandLineArguments = NULL;
-    }
-  
+  p | inputDirectory;
+  p | outputDirectory;
   p | referenceDate;
   p | currentTime;
+  p | simulationDuration;
   p | endTime;
   p | dt;
   p | outputPeriod;
@@ -85,17 +131,34 @@ void ADHydro::pup(PUP::er &p)
 void ADHydro::fileManagerInitialized()
 {
   // Initialize member variables.
-  referenceDate           = fileManagerProxy.ckLocalBranch()->referenceDate;
-  currentTime             = fileManagerProxy.ckLocalBranch()->currentTime;
-  endTime                 = currentTime + 12000.0; // FIXME make command line parameter
-  dt                      = fileManagerProxy.ckLocalBranch()->dt;
-  outputPeriod            = 3600.0; // FIXME make command line parameter
-  nextOutputTime          = currentTime + outputPeriod;
-  iteration               = fileManagerProxy.ckLocalBranch()->iteration;
-  startingIteration       = iteration;
-  writeGeometry           = true;
-  writeParameter          = true;
-  needToCheckInvariant    = true;
+  if (isnan(referenceDate))
+    {
+      referenceDate = fileManagerProxy.ckLocalBranch()->referenceDate;
+    }
+  
+  if (isnan(currentTime))
+    {
+      currentTime = fileManagerProxy.ckLocalBranch()->currentTime;
+    }
+  
+  endTime = currentTime + simulationDuration;
+  
+  if (isnan(dt))
+    {
+      dt = fileManagerProxy.ckLocalBranch()->dt;
+    }
+  
+  nextOutputTime = currentTime + outputPeriod;
+  
+  if ((size_t)-1 == iteration)
+    {
+      iteration = fileManagerProxy.ckLocalBranch()->iteration;
+    }
+  
+  startingIteration    = iteration;
+  writeGeometry        = true;
+  writeParameter       = true;
+  needToCheckInvariant = true;
   
   // Create mesh and channels.
   if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -123,7 +186,7 @@ void ADHydro::fileManagerInitialized()
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
   
   // Have the file manager create output files.
-  fileManagerProxy.createFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2]);
+  fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
 }
 
 void ADHydro::writeFiles()
@@ -131,7 +194,7 @@ void ADHydro::writeFiles()
   // Set the callback to check forcing data when files are written.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
   
-  fileManagerProxy.writeFiles(strlen(commandLineArguments->argv[2]) + 1, commandLineArguments->argv[2], writeGeometry, writeParameter, true);
+  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true);
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
@@ -163,7 +226,7 @@ void ADHydro::checkForcingData()
         }
 
       // Update forcing data.
-      fileManagerProxy.readForcingData(strlen(commandLineArguments->argv[1]) + 1, commandLineArguments->argv[1], meshProxy, channelProxy, referenceDate,
+      fileManagerProxy.readForcingData(inputDirectory.length() + 1, inputDirectory.c_str(), meshProxy, channelProxy, referenceDate,
                                        currentTime);
       thisProxy.waitForForcingDataToFinish();
     }
@@ -199,12 +262,6 @@ void ADHydro::forcingDataDone()
 void ADHydro::checkInvariant()
 {
   bool error = false; // Error flag.
-  
-  if (!(NULL != commandLineArguments))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: commandLineArguments must not be NULL.\n");
-      error = true;
-    }
   
   if (!(currentTime <= endTime))
     {

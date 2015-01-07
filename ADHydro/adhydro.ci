@@ -6,6 +6,7 @@ mainmodule adhydro
   
   mainchare [migratable] ADHydro
   {
+    readonly bool drainDownMode;
     initproc void setLoadBalancingToManual();
     entry ADHydro(CkArgMsg* msg);
     entry [reductiontarget] void fileManagerInitialized();

@@ -21,10 +21,10 @@ CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS)  -I/usr/include/libshp -g -Wall
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS)  -I/usr/include/libshp -I../inih/cpp -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
 
-VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines
+VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
 EXES := adhydro                            \
         adhydro_channel_preprocessing      \
@@ -53,6 +53,9 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
                module_date_utilities.o        \
                module_wrf_utilities.o
 
+INIH_OBJS := INIReader.o \
+             ini.o
+
 ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
@@ -65,7 +68,7 @@ all: $(EXES)
 
 .PHONY: all
 
-adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS)
+adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $^ -o $@ $(LDFLAGS)
 
 adhydro.o: adhydro.cpp            \
@@ -80,7 +83,8 @@ adhydro.o: adhydro.cpp            \
            file_manager.decl.h    \
            evapo_transpiration.h  \
            gar.h                  \
-           all.h
+           all.h                  \
+           INIReader.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 adhydro.decl.h                    \
@@ -98,6 +102,7 @@ adhydro_channel_preprocessing.o: adhydro_channel_preprocessing.cpp \
                                  channel_element.h                 \
                                  channel_element.decl.h            \
                                  file_manager.decl.h               \
+                                 evapo_transpiration.h             \
                                  all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 

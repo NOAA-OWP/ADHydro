@@ -136,9 +136,6 @@ bool evapoTranspirationInit(const char* directory);
 //                           soil layer, unitless.
 // zwt                     - Depth in meters to water table.  Specify depth as
 //                           a positive number.
-// wa                      - Water stored in aquifer in millimeters of water.
-// wt                      - Water stored in aquifer and saturated soil in
-//                           millimeters of water.
 // smcwtd                  - Water content between the bottom of the lowest
 //                           soil layer and water table, unitless.
 // evapoTranspirationState - State that is simulated by the evapo-transpiration
@@ -190,9 +187,9 @@ bool evapoTranspirationInit(const char* directory);
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx, float dz8w, float shdFac,
                             float shdMax, float smcEq[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float sfcTmp, float sfcPrs, float psfc, float uu, float vv,
                             float q2, float qc, float solDn, float lwDn, float prcp, float tBot, float pblh,
-                            float sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float zwt, float wa,
-                            float wt,  float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd,
-                            float* evaporationFromCanopy, float* evaporationFromSnow, float* evaporationFromGround, float* transpiration, float* waterError);
+                            float sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS], float zwt,
+                            float smcwtd, EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromCanopy,
+                            float* evaporationFromSnow, float* evaporationFromGround, float* transpiration, float* waterError);
 
 // Calculate evapo-transpiration for a location with a water surface.  This
 // should be used for places permanently covered with surfacewater such as
