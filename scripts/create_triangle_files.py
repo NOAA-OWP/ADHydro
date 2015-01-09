@@ -117,7 +117,7 @@ with open(output_node_file, "w") as node_file:
         assert success # Integer conversion must succeed.
         reachcode = int(reachcodelong)
         # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
-        linkno = 0
+        linkno = 1 # We have to start at 1 because we can't use 0 as a boundary marker in triangle because 0 indicates no boundary marker.
         while linkno < len(used_linknos) and -1 != used_linknos[linkno] and reachcode != used_linknos[linkno]:
           linkno += 1
         while linkno >= len(used_linknos):
@@ -149,6 +149,7 @@ with open(output_node_file, "w") as node_file:
         linkno, success = feature.attributeMap()[linknoindex].toInt()
         assert success # Integer conversion must succeed.
         assert linkno == used_linknos[linkno] # The permanent code of a stream must be its linkno.
+        assert 0 < linkno # TauDEM doesn't use linkno 0 and we can't use it as a boundary marker in triangle because 0 indicates no boundary marker.
         boundary_marker = str(-linkno) # The boundary marker indicates which stream.  Use negative because marker 1 is used by triangle.
         firstnode = node
         for point in polyline:
