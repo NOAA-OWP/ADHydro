@@ -10,7 +10,7 @@
 #define REDPRM                 noahmp_routines_mp_redprm_
 #define NOAHMP_SFLX            noahmp_routines_mp_noahmp_sflx_
 #define NOAHMP_GLACIER         noahmp_glacier_routines_mp_noahmp_glacier_
-#define NOAHMP_POROSITY        noahmp_globals_MOD_smcmax_
+#define NOAHMP_POROSITY        noahmp_globals_mp_smcmax_
 #else // INTEL_COMPILER
 #define READ_MP_VEG_PARAMETERS __noahmp_veg_parameters_MOD_read_mp_veg_parameters
 #define SOIL_VEG_GEN_PARM      __module_sf_noahmpdrv_MOD_soil_veg_gen_parm
