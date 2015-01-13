@@ -30,6 +30,7 @@ EXES := adhydro                            \
         adhydro_channel_preprocessing      \
         adhydro_create_xmf_file            \
         adhydro_offline_mass_balance_check \
+        adhydro_mesh_check                 \
         test_date_functions
 
 ADHYDRO_OBJS := adhydro.o             \
@@ -61,6 +62,8 @@ ADHYDRO_CHANNEL_PREPROCESSING_OBJS := adhydro_channel_preprocessing.o
 ADHYDRO_CREATE_XMF_FILE_OBJS := adhydro_create_xmf_file.o
 
 ADHYDRO_OFFLINE_MASS_BALANCE_CHECK_OBJS := adhydro_offline_mass_balance_check.o
+
+ADHYDRO_MESH_CHECK_OBJS := adhydro_mesh_check.o
 
 TEST_DATE_FUNCTIONS_OBJS := test_date_functions.o
 
@@ -118,6 +121,13 @@ adhydro_offline_mass_balance_check: $(ADHYDRO_OFFLINE_MASS_BALANCE_CHECK_OBJS)
 adhydro_offline_mass_balance_check.o: adhydro_offline_mass_balance_check.c \
                                       adhydro_offline_mass_balance_check.h
 	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+
+adhydro_mesh_check: $(ADHYDRO_MESH_CHECK_OBJS)
+	$(CXX) $^ -o $@ -g -Wall
+
+adhydro_mesh_check.o: adhydro_mesh_check.cpp \
+                      all.h
+	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 test_date_functions: $(TEST_DATE_FUNCTIONS_OBJS)
 	$(CXX) $^ -o $@ -g -Wall
@@ -202,6 +212,6 @@ gar.o: gar.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 clean:
-	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(ADHYDRO_OFFLINE_MASS_BALANCE_CHECK_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
+	rm -f charmrun $(EXES) $(ADHYDRO_OBJS) $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS) $(ADHYDRO_CREATE_XMF_FILE_OBJS) $(ADHYDRO_OFFLINE_MASS_BALANCE_CHECK_OBJS) $(ADHYDRO_MESH_CHECK_OBJS) $(TEST_DATE_FUNCTIONS_OBJS) *.decl.h *.def.h
 
 .PHONY: clean

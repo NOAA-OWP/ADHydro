@@ -3,5 +3,6 @@ adhydro
 adhydro_channel_preprocessing
 adhydro_create_xmf_file
 adhydro_offline_mass_balance_check
+adhydro_mesh_check
 test_date_functions
 
