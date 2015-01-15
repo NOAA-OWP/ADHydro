@@ -331,27 +331,161 @@ private:
   // globalNumberOfItems - The total number of this kind of item.
   static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
   
-  // FIXME comment
-  int openNetCDFFile(const char* directory, const char* filename, bool create, bool write, int* fileID);
+  // Open or create a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // directory - The directory in which to open or create the file.
+  // filename  - The file to open or create.
+  // create    - Whether to create the file.  If true, it is an error if the
+  //             file already exists.  If false, it is an error if the file
+  //             does not already exist.
+  // write     - Whether to open the file for write.  If false, the file is
+  //             opened read-only.  If create is true, write is ignored and the
+  //             file is always created open for write.
+  // fileID    - Scalar passed by reference will be filled in with the ID of
+  //             the open file.
+  bool openNetCDFFile(const char* directory, const char* filename, bool create, bool write, int* fileID);
   
-  // FIXME comment
-  int createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID);
+  // Create a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to create.
+  // dimensionSize - The size of the dimension to create.
+  // dimensionID   - Scalar passed by reference will be filled in with the ID
+  //                 of the created dimension.
+  bool createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID);
   
-  // FIXME comment
-  int readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize);
+  // Get the size of a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to get the size of.
+  // dimensionSize - Scalar passed by reference will be filled in with the size
+  //                 of the dimension.
+  bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize);
   
-  // FIXME comment
-  int createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
-                           int dimensionID2);
+  // Create a variable in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID             - The file ID of the NetCDF file.
+  // variableName       - The name of the variable to create.
+  // dataType           - The type of the variable to create.
+  // numberOfDimensions - The number of dimensions of the variable to create.
+  // dimensionID0       - The ID of the first dimension of the variable.
+  // dimensionID1       - The ID of the second dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than two.
+  // dimensionID2       - The ID of the third dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than three.
+  bool createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
+                            int dimensionID2);
   
-  // FIXME comment
-  template <typename T> int readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
-                                               size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
-                                               T defaultValue, bool mandatory, T** variable);
+  // Read a variable from a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to read.
+  // instance              - The index of the first dimension to read.
+  //                         The count of the first dimension is always one.
+  //                         This reads one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to read.  This
+  //                         is ignored if the variable has less than two
+  //                         dimensions.
+  // numberOfNodesElements - The count of the second dimension to read.  If the
+  //                         variable has less than two dimensions this must be
+  //                         one. nodeElementStart and numberOfNodesElements
+  //                         combine to specify a subset of the nodes or
+  //                         elements stored in the variable.
+  // fileDimension         - The count of the third dimension to read.  The
+  //                         index of the third dimension is always zero.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // memoryDimension       - The size of the third dimension in memory.  This
+  //                         function can read an array whose third dimension
+  //                         in the file is smaller than the desired third
+  //                         dimension in memory.  In that case, what gets
+  //                         filled in to the extra cells depends on
+  //                         repeatLastValue and defaultValue.  It is an error
+  //                         if memoryDimension is less than fileDimension.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // repeatLastValue       - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is true the last value in each
+  //                         row of the third dimension in the file is repeated
+  //                         in the extra cells.  If repeatLastValue is false,
+  //                         defaultValue is used instead.
+  // defaultValue          - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is false the extra cells are
+  //                         filled in with defaultValue.  If repeatLastValue
+  //                         is true defaultValue is ignored.
+  // mandatory             - Whether the existence of the variable is
+  //                         mandatory.  If true, it is an error if the
+  //                         variable does not exist.  If false, this function
+  //                         does nothing if the variable does not exist.
+  // variable              - A pointer passed by reference.  The pointer (that
+  //                         is, *variable) may point to an array of size 1 *
+  //                         numberOfNodesElements * fileDimension, which is
+  //                         the size of the array that will be read, or it can
+  //                         be NULL.  If it is NULL it will be set to point to
+  //                         a newly allocated array.  This array, whether
+  //                         passed in or newly allocated is filled in with the
+  //                         values read from the NetCDF file.  Then, if
+  //                         memoryDimension is greater than fileDimension it
+  //                         is reallocated to the larger size.  NOTE: even if
+  //                         you pass in an array, it will be deleted and
+  //                         *variable will be set to point to a newly
+  //                         allocated array if memoryDimension is greater than
+  //                         fileDimension, but this will only happen if
+  //                         memoryDimension is greater than fileDimension.
+  //                         In any case, *variable will wind up pointing to an
+  //                         array of size 1 * numberOfNodesElements *
+  //                         memoryDimension.
+  template <typename T> bool readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
+                                                size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
+                                                T defaultValue, bool mandatory, T** variable);
   
-  // FIXME comment
-  int writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
-                          size_t memoryDimension, void* variable);
+  // Write a variable to a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to write.
+  // instance              - The index of the first dimension to write.
+  //                         The count of the first dimension is always one.
+  //                         This writes one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to write.
+  // numberOfNodesElements - The count of the second dimension to write.
+  //                         nodeElementStart and numberOfNodesElements combine
+  //                         to specify a subset of the nodes or elements
+  //                         stored in the variable.  They are ignored if the
+  //                         variable has less than two dimensions.
+  // memoryDimension       - The count of the third dimension to write.  This
+  //                         is ignored if the variable has less than three
+  //                         dimensions.
+  // variable              - An array of size 1 * numberOfNodesElements *
+  //                         memoryDimension which will be written into the
+  //                         variable in the file.
+  bool writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                           size_t memoryDimension, void* variable);
   
   // Initialize the file manager from NetCDF files.
   //
@@ -454,7 +588,32 @@ private:
   // Returns: true if all element information is updated, false otherwise.
   bool allElementsUpdated();
 
-  // FIXME comment
+  // Receive a state message from a mesh element and update the values for that
+  // element in the file manager's variables.
+  //
+  // Parameters:
+  //
+  // element                                    - The element that is reporting
+  //                                              its state.
+  // surfacewaterDepth                          - mesh element state.
+  // surfacewaterError                          - mesh element state.
+  // groundwaterHead                            - mesh element state.
+  // groundwaterError                           - mesh element state.
+  // precipitation                              - mesh element state.
+  // precipitationCumulative                    - mesh element state.
+  // evaporation                                - mesh element state.
+  // evaporationCumulative                      - mesh element state.
+  // surfacewaterInfiltration                   - mesh element state.
+  // groundwaterRecharge                        - mesh element state.
+  // evapoTranspirationState                    - mesh element state.
+  // meshNeighborsSurfacewaterFlowRate          - mesh element state.
+  // meshNeighborsSurfacewaterCumulativeFlow    - mesh element state.
+  // meshNeighborsGroundwaterFlowRate           - mesh element state.
+  // meshNeighborsGroundwaterCumulativeFlow     - mesh element state.
+  // channelNeighborsSurfacewaterFlowRate       - mesh element state.
+  // channelNeighborsSurfacewaterCumulativeFlow - mesh element state.
+  // channelNeighborsGroundwaterFlowRate        - mesh element state.
+  // channelNeighborsGroundwaterCumulativeFlow  - mesh element state.
   void handleMeshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
                               double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
                               double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
@@ -463,7 +622,26 @@ private:
                               double* channelNeighborsSurfacewaterFlowRate, double* channelNeighborsSurfacewaterCumulativeFlow,
                               double* channelNeighborsGroundwaterFlowRate, double* channelNeighborsGroundwaterCumulativeFlow);
 
-  // FIXME comment
+  // Receive a state message from a mesh element and update the values for that
+  // element in the file manager's variables.
+  //
+  // Parameters:
+  //
+  // element                                    - The element that is reporting
+  //                                              its state.
+  // surfacewaterDepth                          - channel element state.
+  // surfacewaterError                          - channel element state.
+  // precipitation                              - channel element state.
+  // precipitationCumulative                    - channel element state.
+  // evaporation                                - channel element state.
+  // evaporationCumulative                      - channel element state.
+  // evapoTranspirationState                    - channel element state.
+  // channelNeighborsSurfacewaterFlowRate       - channel element state.
+  // channelNeighborsSurfacewaterCumulativeFlow - channel element state.
+  // meshNeighborsSurfacewaterFlowRate          - channel element state.
+  // meshNeighborsSurfacewaterCumulativeFlow    - channel element state.
+  // meshNeighborsGroundwaterFlowRate           - channel element state.
+  // meshNeighborsGroundwaterCumulativeFlow     - channel element state.
   void handleChannelStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double precipitation,
                                  double precipitationCumulative, double evaporation, double evaporationCumulative,
                                  EvapoTranspirationStateStruct evapoTranspirationState,

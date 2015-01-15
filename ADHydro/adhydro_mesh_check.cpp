@@ -125,7 +125,7 @@ int main(void)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
 
-  // Allocate the array.
+  // Allocate arrays.
   if (!error)
     {
       detectedIndex = 0;
@@ -167,7 +167,7 @@ int main(void)
 
           area *= 0.5;
           
-          if (0 == meshCatchment || 1000.0 > area)
+          if (0 == meshCatchment || 7500.0 > area)
             {
               // This is a problem triangle.  Report it if there hasn't already been one reported within 100 meters.
               tooClose = false;
@@ -183,7 +183,8 @@ int main(void)
               
               if (!tooClose)
                 {
-                  printf("Found problem triangle at (%lf, %lf).\n", meshNodesX[meshVertex[0]], meshNodesY[meshVertex[0]]);
+                  printf("Found problem triangle at (%lf, %lf), catchment = %d, area = %lf.\n", meshNodesX[meshVertex[0]], meshNodesY[meshVertex[0]],
+                         meshCatchment, area);
                   
                   detectedX[detectedIndex] = meshNodesX[meshVertex[0]];
                   detectedY[detectedIndex] = meshNodesY[meshVertex[0]];

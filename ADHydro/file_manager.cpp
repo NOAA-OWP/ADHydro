@@ -500,7 +500,7 @@ void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfIte
     }
 }
 
-int FileManager::openNetCDFFile(const char* directory, const char* filename, bool create, bool write, int* fileID)
+bool FileManager::openNetCDFFile(const char* directory, const char* filename, bool create, bool write, int* fileID)
 {
   bool   error      = false; // Error flag.
   char*  nameString = NULL;  // Temporary string for file name.
@@ -562,7 +562,7 @@ int FileManager::openNetCDFFile(const char* directory, const char* filename, boo
   return error;
 }
 
-int FileManager::createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID)
+bool FileManager::createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID)
 {
   bool error = false; // Error flag.
   int  ncErrorCode;   // Return value of NetCDF functions.
@@ -585,7 +585,7 @@ int FileManager::createNetCDFDimension(int fileID, const char* dimensionName, si
   return error;
 }
 
-int FileManager::readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize)
+bool FileManager::readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize)
 {
   bool error = false; // Error flag.
   int  ncErrorCode;   // Return value of NetCDF functions.
@@ -625,8 +625,8 @@ int FileManager::readNetCDFDimensionSize(int fileID, const char* dimensionName, 
   return error;
 }
 
-int FileManager::createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
-                                      int dimensionID2)
+bool FileManager::createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
+                                       int dimensionID2)
 {
   bool error = false;                 // Error flag.
   int  ncErrorCode;                   // Return value of NetCDF functions.
@@ -655,9 +655,9 @@ int FileManager::createNetCDFVariable(int fileID, const char* variableName, nc_t
   return error;
 }
 
-template <typename T> int FileManager::readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
-                                                          size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
-                                                          T defaultValue, bool mandatory, T** variable)
+template <typename T> bool FileManager::readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
+                                                           size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
+                                                           T defaultValue, bool mandatory, T** variable)
 {
   bool   error = false;          // Error flag.
   size_t ii, jj;                 // Loop counters.
@@ -765,8 +765,8 @@ template <typename T> int FileManager::readNetCDFVariable(int fileID, const char
   return error;
 }
 
-int FileManager::writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
-                                     size_t memoryDimension, void* variable)
+bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                                      size_t memoryDimension, void* variable)
 {
   bool   error = false;          // Error flag.
   int    ncErrorCode;            // Return value of NetCDF functions.
@@ -2038,8 +2038,17 @@ void FileManager::handleChannelVertexDataMessage(int element, int vertex, double
 
 void FileManager::calculateDerivedValues()
 {
-  int    ii, jj; // Loop counters.
-  double value;  // For calculating derived values.
+  int    ii, jj;         // Loop counters.
+  double value;          // For calculating derived values.
+  double lengthSoFar;    // For traversing vertices.  The length traversed so far.
+  double nextLength;     // For traversing vertices.  The length to the next vertex.
+  double lengthFraction; // For traversing vertices.  The fraction of the distance from the current vertex to the next of the point of interest.
+  double minX;           // For finding the bounding box of vertices.
+  double maxX;           // For finding the bounding box of vertices.
+  double minY;           // For finding the bounding box of vertices.
+  double maxY;           // For finding the bounding box of vertices.
+  double minZBank;       // For finding the bounding box of vertices.
+  double maxZBank;       // For finding the bounding box of vertices.
 
   // Delete vertex updated arrays that are no longer needed.
   deleteArrayIfNonNull(&meshVertexUpdated);
@@ -2096,6 +2105,17 @@ void FileManager::calculateDerivedValues()
             }
 
           meshElementZSurface[ii] = value / MeshElement::meshNeighborsSize;
+        }
+    }
+  
+  // Calculate meshElementZSurface by adding meshElementSoilDepth to meshElementZBedrock.
+  if (NULL == meshElementZSurface && NULL != meshElementZBedrock && NULL != meshElementSoilDepth)
+    {
+      meshElementZSurface = new double[localNumberOfMeshElements];
+
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          meshElementZSurface[ii] = meshElementZBedrock[ii] + meshElementSoilDepth[ii];
         }
     }
   
@@ -2975,7 +2995,121 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // FIXME calculate channelElementX, channelElementY, channelElementZBank from channel vertices.
+  // Calculate channelElementX, channelElementY, channelElementZBank from channel vertices.
+  if ((NULL == channelElementX || NULL == channelElementY || NULL == channelElementZBank) && NULL != channelVertexX && NULL != channelVertexY &&
+      NULL != channelVertexZBank && NULL != channelElementLength)
+    {
+      if (NULL == channelElementX)
+        {
+          channelElementX = new double[localNumberOfChannelElements];
+        }
+      
+      if (NULL == channelElementY)
+        {
+          channelElementY = new double[localNumberOfChannelElements];
+        }
+      
+      if (NULL == channelElementZBank)
+        {
+          channelElementZBank = new double[localNumberOfChannelElements];
+        }
+      
+      for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          if (STREAM == channelChannelType[ii])
+            {
+              // For streams traverse the vertices to find the midpoint along the length of the stream.
+              jj          = 0;   // The vertex being processed.
+              lengthSoFar = 0.0; // The length up to jj - 1.
+              nextLength  = 0.0; // The length from jj - 1 to jj.
+              
+              do
+                {
+                  jj++;
+                  lengthSoFar += nextLength;
+                  nextLength   = sqrt((channelVertexX[ii][jj] - channelVertexX[ii][jj - 1]) * (channelVertexX[ii][jj] - channelVertexX[ii][jj - 1]) +
+                                      (channelVertexY[ii][jj] - channelVertexY[ii][jj - 1]) * (channelVertexY[ii][jj] - channelVertexY[ii][jj - 1]));
+                }
+              while (jj + 1 < localNumberOfChannelElements && channelElementLength[ii] * 0.5 > lengthSoFar + nextLength);
+              
+              if (0.0 == nextLength)
+                {
+                  lengthFraction = 0.0;
+                }
+              else
+                {
+                  lengthFraction = (channelElementLength[ii] * 0.5 - lengthSoFar) / nextLength;
+                }
+              
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              CkAssert(0.0 <= lengthFraction && 1.0 >= lengthFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              
+              channelElementX[ii]     = channelVertexX[ii][jj - 1]     + (channelVertexX[ii][jj]     - channelVertexX[ii][jj - 1])     * lengthFraction;
+              channelElementY[ii]     = channelVertexY[ii][jj - 1]     + (channelVertexY[ii][jj]     - channelVertexY[ii][jj - 1])     * lengthFraction;
+              channelElementZBank[ii] = channelVertexZBank[ii][jj - 1] + (channelVertexZBank[ii][jj] - channelVertexZBank[ii][jj - 1]) * lengthFraction;
+            }
+          else
+            {
+              // For waterbodies find the center of the bounding box of the vertices.
+              minX     = channelVertexX[ii][0];
+              maxX     = channelVertexX[ii][0];
+              minY     = channelVertexY[ii][0];
+              maxY     = channelVertexY[ii][0];
+              minZBank = channelVertexZBank[ii][0];
+              maxZBank = channelVertexZBank[ii][0];
+              
+              for (jj = 1; jj < ChannelElement::channelVerticesSize; jj++)
+                {
+                  if (minX > channelVertexX[ii][jj])
+                    {
+                      minX = channelVertexX[ii][jj];
+                    }
+                  
+                  if (maxX < channelVertexX[ii][jj])
+                    {
+                      maxX = channelVertexX[ii][jj];
+                    }
+                  
+                  if (minY > channelVertexY[ii][jj])
+                    {
+                      minY = channelVertexY[ii][jj];
+                    }
+                  
+                  if (maxY < channelVertexY[ii][jj])
+                    {
+                      maxY = channelVertexY[ii][jj];
+                    }
+                  
+                  if (minZBank > channelVertexZBank[ii][jj])
+                    {
+                      minZBank = channelVertexZBank[ii][jj];
+                    }
+                  
+                  if (maxZBank < channelVertexZBank[ii][jj])
+                    {
+                      maxZBank = channelVertexZBank[ii][jj];
+                    }
+                  
+                }
+              
+              channelElementX[ii]     = (minX     + maxX)     * 0.5;
+              channelElementY[ii]     = (minY     + maxY)     * 0.5;
+              channelElementZBank[ii] = (minZBank + maxZBank) * 0.5;
+            }
+        }
+    }
+  
+  // Calculate channelElementZBank by adding channelElementBankFullDepth to channelElementZBed.
+  if (NULL == channelElementZBank && NULL != channelElementBankFullDepth && NULL != channelElementZBed)
+    {
+      channelElementZBank = new double[localNumberOfChannelElements];
+
+      for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          channelElementZBank[ii] = channelElementZBed[ii] + channelElementBankFullDepth[ii];
+        }
+    }
   
   // Calculate channelElementBankFullDepth by subtracting channelElementZBed from channelElementZBank.
   if (NULL == channelElementBankFullDepth && NULL != channelElementZBank && NULL != channelElementZBed)
