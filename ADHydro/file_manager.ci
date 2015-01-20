@@ -10,6 +10,15 @@ module file_manager
       // The file manager must receive exactly one type of initialization message first.
       case
       {
+        when initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize], size_t fileBasenameSize,
+                                      const char fileBasename[fileBasenameSize])
+        {
+          serial
+          {
+            handleInitializeFromASCIIFiles(directory, fileBasename);
+          }
+        }
+        
         when initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize])
         {
           serial
@@ -170,6 +179,8 @@ module file_manager
       } // End while (true).
     }; // End entry void runForever().
     
+    entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize], size_t fileBasenameSize,
+                                        const char fileBasename[fileBasenameSize]);
     entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
     entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
     entry void getChannelVertexDataMessage(int requester, int element, int vertex, int node);

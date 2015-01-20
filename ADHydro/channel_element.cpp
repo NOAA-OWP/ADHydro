@@ -26,7 +26,7 @@ void ChannelElement::pup(PUP::er &p)
   p | elementZBed;
   p | elementLength;
   p | channelType;
-  p | permanentCode;
+  p | reachCode;
   p | baseWidth;
   p | sideSlope;
   p | bedConductivity;
@@ -227,14 +227,14 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
   
   if (!error)
     {
-      if (NULL != fileManagerLocalBranch->channelPermanentCode)
+      if (NULL != fileManagerLocalBranch->channelReachCode)
         {
-          permanentCode = fileManagerLocalBranch->channelPermanentCode[fileManagerLocalIndex];
+          reachCode = fileManagerLocalBranch->channelReachCode[fileManagerLocalIndex];
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
-          CkError("ERROR in ChannelElement::handleInitialize, element %d: permanentCode initialization information not available from local file manager.\n",
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: reachCode initialization information not available from local file manager.\n",
                   thisIndex);
           error = true;
         }
@@ -2025,9 +2025,9 @@ void ChannelElement::handleCheckInvariant()
       error = true;
     }
   
-  if (!(0 < permanentCode))
+  if (!(0 < reachCode))
     {
-      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: permanentCode must be greater than zero.\n", thisIndex);
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: reachCode must be greater than zero.\n", thisIndex);
       error = true;
     }
   

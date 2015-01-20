@@ -2,6 +2,7 @@ inputDirectory           = /share/CI-WATER_Simulation_Data/small_green_mesh
 outputDirectory          = /localstore/output
 ; initializeFromASCIIFiles = false     ; If initializeFromASCIIFiles is not in the superfile it defaults to false and the simulation will initialize from
                                        ; NetCDF files.
+; asciiFileBasename        = mesh.1    ; The basename of the ASCII files if initializing from ASCII files.
 ; referenceDate            = 2457013.0 ; If referenceDate is not in the superfile it will first attempt to convert the Gregorian date in referenceDateYear,
 ; referenceDateYear        = 2000      ; referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute, and referenceDateSecond to a Julian
 ; referenceDateMonth       = 1         ; date.  If that is unsuccessful it will be taken from the input NetCDF files.
@@ -10,7 +11,7 @@ outputDirectory          = /localstore/output
 ; referenceDateMinute      = 0
 ; referenceDateSecond      = 0.0
 ; currentTime              = 0.0       ; If currentTime is not in the superfile it will be taken from the input NetCDF files.
-simulationDuration       = 10.0       ; If simulationDuration is not in the superfile it defaults to zero and the simulation will not run any timesteps.
+; simulationDuration       = 0.0       ; If simulationDuration is not in the superfile it defaults to zero and the simulation will not run any timesteps.
 ; dt                       = 1.0       ; If dt is not in the superfile it will be taken from the input NetCDF files.
 ; outputPeriod             = 0.0       ; If outputPeriod is not in the superfile it defaults to zero and the simulation will output every timestep.
 ; iteration                = 1         ; If iteration is not in the superfile it will be taken from the input NetCDF files.

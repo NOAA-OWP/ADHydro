@@ -574,7 +574,6 @@ void removeUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, i
 // linkNo   - The link to try to prune.
 void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 {
-  int                ii;      // Loop counter.
   bool               prune;   // Whether to prune.
   LinkElementStruct* element; // For checking if elements are unassociated.
   int                linkNo2; // For storing a link that must be connected to.
@@ -602,9 +601,9 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 
       if (prune)
         {
-          for (ii = 0; DOWNSTREAM_SIZE > ii && NOFLOW != channels[linkNo].downstream[ii]; ii++)
+          while (NOFLOW != channels[linkNo].downstream[0])
             {
-              linkNo2 = channels[linkNo].downstream[ii];
+              linkNo2 = channels[linkNo].downstream[0];
               removeUpstreamDownstreamConnection(channels, size, linkNo, linkNo2);
               tryToPruneLink(channels, size, linkNo2);
             }
@@ -3318,7 +3317,7 @@ typedef enum
 //
 // First line: <# of elements>
 // Then for each element:
-// <element #> <element type> <reach code> <length> <top width> <bank full depth> <# of vertices> <# of channel neighbors> <# of mesh neighbors> <vertex> <vertex> ...<channel neighbor> <channel neighbor> ... <mesh neighbor> <mesh neighbor edge length> <mesh neighbor> <mesh neighbor edge length> ...
+// <element #> <element type> <reach code> <length> <top width> <bank full depth> <# of vertices> <# of channel neighbors> <# of mesh neighbors> <vertex> <vertex> ... <channel neighbor> <whether downstream> <channel neighbor> <whether downstream> ... <mesh neighbor> <mesh neighbor edge length in meters> <mesh neighbor> <mesh neighbor edge length in meters> ...
 //
 // Parameters:
 //
@@ -3462,6 +3461,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
           channelVertices[jj][kk] = -1;
         }
     }
+  
+  // Read in mesh node, element, and edge files to determine the edge length and mesh element neighbors of each channel edge.
   
   // FIXME this could be done in addAllStreamMeshEdges and saved for later.
   // Open the files.
@@ -4370,7 +4371,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
               
               // Output fixed length per-element information.
-              numPrinted = fprintf(outputFile, "%d %d %llu %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
+              numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
                                    topWidth, bankFullDepth, ChannelElement::channelVerticesSize, ChannelElement::channelNeighborsSize,
                                    ChannelElement::meshNeighborsSize);
 
@@ -4413,12 +4414,12 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                               
                               if (isBoundary(channels[ii].upstream[mm]))
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[ii].upstream[mm]);
+                                  numPrinted = fprintf(outputFile, " %d 0", channels[ii].upstream[mm]);
                                 }
                               else
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", (channels[channels[ii].upstream[mm]].elementStart +
-                                                                           channels[channels[ii].upstream[mm]].numberOfElements - 1));
+                                  numPrinted = fprintf(outputFile, " %d 0", (channels[channels[ii].upstream[mm]].elementStart +
+                                                                             channels[channels[ii].upstream[mm]].numberOfElements - 1));
                                 }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -4446,7 +4447,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
                         {
                           numberOfNeighbors++;
-                          numPrinted = fprintf(outputFile, " %d", jj - 1);
+                          numPrinted = fprintf(outputFile, " %d 0", jj - 1);
                           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                           if (!(0 < numPrinted))
@@ -4482,11 +4483,11 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                               
                               if (isBoundary(channels[ii].downstream[mm]))
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[ii].downstream[mm]);
+                                  numPrinted = fprintf(outputFile, " %d 1", channels[ii].downstream[mm]);
                                 }
                               else
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[channels[ii].downstream[mm]].elementStart);
+                                  numPrinted = fprintf(outputFile, " %d 1", channels[channels[ii].downstream[mm]].elementStart);
                                 }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -4514,7 +4515,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
                         {
                           numberOfNeighbors++;
-                          numPrinted = fprintf(outputFile, " %d", jj + 1);
+                          numPrinted = fprintf(outputFile, " %d 1", jj + 1);
                           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                           if (!(0 < numPrinted))
@@ -4540,7 +4541,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement::channelNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d", NOFLOW);
+                  numPrinted = fprintf(outputFile, " %d 0", NOFLOW);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))

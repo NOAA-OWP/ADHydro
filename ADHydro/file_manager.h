@@ -251,7 +251,7 @@ public:
   double*               channelElementZBed;
   double*               channelElementLength;
   ChannelTypeEnum*      channelChannelType;
-  int*                  channelPermanentCode;
+  long long*            channelReachCode;
   double*               channelBaseWidth;
   double*               channelSideSlope;
   double*               channelBedConductivity;
@@ -330,6 +330,38 @@ private:
   //                       the local number of items.
   // globalNumberOfItems - The total number of this kind of item.
   static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+  
+  // This function pulls out some duplicate code that is the same for reading
+  // the mesh and channels .node and .z files.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // directory    - The directory from which to read the files.
+  // fileBasename - The basename not including the directory path of the files
+  //                to read.  If readMesh is true readNodeAndZFiles will read
+  //                directory/fileBasename.node and directory/fileBasename.z.
+  //                If readMesh is false readNodeAndZFiles will read
+  //                directory/fileBasename.chan.node and
+  //                directory/fileBasename.chan.z.
+  // readMesh     - If true read the mesh node and z files.  If false read the
+  //                channel node and z files.
+  bool readNodeAndZFiles(const char* directory, const char* fileBasename, bool readMesh);
+  
+  // Initialize the file manager from ASCII files.
+  //
+  // ASCII files do not contain all of the file manager variables so some will
+  // be set to defaults in calculateDerivedValues.
+  //
+  // Parameters:
+  //
+  // directory    - The directory from which to read the files.
+  // fileBasename - The basename not including the directory path of the files
+  //                to read.  handleInitializeFromASCIIFiles will read the
+  //                following files: directory/fileBasename.node, FIXME finish
+  //                list of files.
+  void handleInitializeFromASCIIFiles(const char* directory, const char* fileBasename);
   
   // Open or create a NetCDF file.
   //

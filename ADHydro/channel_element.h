@@ -392,7 +392,7 @@ private:
   
   // Identification parameters.
   ChannelTypeEnum channelType;   // What type of channel is this.
-  int             permanentCode; // Permanent code of link that element came from.
+  long long       reachCode;     // For waterbodies, reach code.  For streams, original link number that element came from.
   
   // Hydraulic parameters.
   double baseWidth;       // Width of channel base in meters.

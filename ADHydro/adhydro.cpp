@@ -20,6 +20,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
   long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
   double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
+  std::string asciiFileBasename;                                       // The basename of the ASCII files if initializing from ASCII files.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // If the superfile cannot be read print usage message and exit.
@@ -59,8 +60,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
       referenceDateSecond = superfile.GetReal("", "referenceDateSecond", -1.0);
       
       if (1 <= referenceDateYear && 1 <= referenceDateMonth && 12 >= referenceDateMonth && 1 <= referenceDateDay && 31 >= referenceDateDay &&
-          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0 <= referenceDateSecond &&
-          60 > referenceDateSecond)
+          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0.0 <= referenceDateSecond &&
+          60.0 > referenceDateSecond)
         {
           referenceDate = gregorianToJulian(referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute,
                                             referenceDateSecond);
@@ -87,10 +88,10 @@ ADHydro::ADHydro(CkArgMsg* msg)
   // Initialize the file manager.
   if (superfile.GetBoolean("", "initializeFromASCIIFiles", false))
     {
-      // FIXME implement initializeFromASCIIFiles
-      //fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), strlen("mesh.1") + 1, "mesh.1");
-      CkError("ERROR in ADHydro::ADHydro: initializeFromASCIIFiles not yet implemented.\n");
-      CkExit();
+      asciiFileBasename = superfile.Get("", "asciiFileBasename", "");
+      
+      fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), asciiFileBasename.length() + 1,
+                                                asciiFileBasename.c_str());
     }
   else
     {
