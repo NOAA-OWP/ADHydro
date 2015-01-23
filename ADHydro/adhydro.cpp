@@ -105,6 +105,11 @@ ADHydro::ADHydro(CkArgMsg* msg)
       // FIXME or make inputDirectory and outputDirectory read only variables?
       fileManagerProxy.initializeFromNetCDFFiles(inputDirectory.length() + 1, inputDirectory.c_str());
     }
+  
+  if (1 <= verbosityLevel)
+    {
+      CkPrintf("Reading input files.\n");
+    }
 }
 
 ADHydro::ADHydro(CkMigrateMessage* msg)
@@ -133,10 +138,16 @@ void ADHydro::pup(PUP::er &p)
   p | writeGeometry;
   p | writeParameter;
   p | needToCheckInvariant;
+  p | printMessage;
 }
 
 void ADHydro::fileManagerInitialized()
 {
+  if (1 <= verbosityLevel)
+    {
+      CkPrintf("Finished reading input files.\nWriting output files.\n");
+    }
+  
   // Initialize member variables.
   if (isnan(referenceDate))
     {
@@ -166,6 +177,7 @@ void ADHydro::fileManagerInitialized()
   writeGeometry        = true;
   writeParameter       = true;
   needToCheckInvariant = true;
+  printMessage         = true;
   
   // Create mesh and channels.
   if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -210,33 +222,22 @@ void ADHydro::writeFiles()
 
 void ADHydro::checkForcingData()
 {
-  long   forcingDataYear;   // For calculating Gregorian date from Julian date.
-  long   forcingDataMonth;  // For calculating Gregorian date from Julian date.
-  long   forcingDataDay;    // For calculating Gregorian date from Julian date.
-  long   forcingDataHour;   // For calculating Gregorian date from Julian date.
-  long   forcingDataMinute; // For calculating Gregorian date from Julian date.
-  double forcingDataSecond; // For calculating Gregorian date from Julian date.
-  long   simulationYear;    // For calculating Gregorian date from Julian date.
-  long   simulationMonth;   // For calculating Gregorian date from Julian date.
-  long   simulationDay;     // For calculating Gregorian date from Julian date.
-  long   simulationHour;    // For calculating Gregorian date from Julian date.
-  long   simulationMinute;  // For calculating Gregorian date from Julian date.
-  double simulationSecond;  // For calculating Gregorian date from Julian date.
+  if (printMessage && 1 <= verbosityLevel)
+    {
+      CkPrintf("Finished writing output files.\n");
+    }
+  
+  printMessage = false;
   
   if (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
       fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0))
     {
       if (1 <= verbosityLevel)
         {
-          julianToGregorian(fileManagerProxy.ckLocalBranch()->nextForcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
-                            &forcingDataMinute, &forcingDataSecond);
-          julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
-                            &simulationMinute, &simulationSecond);
-          
-          CkPrintf("Reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
-                   forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
-                   simulationHour, simulationMinute, simulationSecond);
+          CkPrintf("Reading forcing data.\n");
         }
+      
+      printMessage = true;
       
       // Set callback.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -270,6 +271,37 @@ void ADHydro::checkForcingData()
 
 void ADHydro::forcingDataDone()
 {
+  long   forcingDataYear;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMonth;  // For calculating Gregorian date from Julian date.
+  long   forcingDataDay;    // For calculating Gregorian date from Julian date.
+  long   forcingDataHour;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMinute; // For calculating Gregorian date from Julian date.
+  double forcingDataSecond; // For calculating Gregorian date from Julian date.
+  long   simulationYear;    // For calculating Gregorian date from Julian date.
+  long   simulationMonth;   // For calculating Gregorian date from Julian date.
+  long   simulationDay;     // For calculating Gregorian date from Julian date.
+  long   simulationHour;    // For calculating Gregorian date from Julian date.
+  long   simulationMinute;  // For calculating Gregorian date from Julian date.
+  double simulationSecond;  // For calculating Gregorian date from Julian date.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  if (printMessage && 1 <= verbosityLevel)
+    {
+      julianToGregorian(fileManagerProxy.ckLocalBranch()->forcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
+                        &forcingDataMinute, &forcingDataSecond);
+      julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                        &simulationMinute, &simulationSecond);
+      
+      CkPrintf("Finished reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
+               forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
+               simulationHour, simulationMinute, simulationSecond);
+    }
+  
+  printMessage = false;
+  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   // If debug level is set to internal invariants check every timestep.
   checkInvariant();
@@ -423,6 +455,13 @@ void ADHydro::timestepDone(double dtNew)
   // Check if it is time to output to file.
   if (currentTime >= nextOutputTime || currentTime >= endTime)
     {
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("Writing output files.\n");
+        }
+      
+      printMessage = true;
+      
       if (0.0 < outputPeriod)
         {
           // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.

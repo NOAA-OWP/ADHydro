@@ -163,9 +163,10 @@ private:
   size_t startingIteration;  // Iteration number of the first timestep in this run.  Used to decide when to load balance.
   
   // Flags.
-  bool writeGeometry;           // Flag to indicate whether the geometry has changed and needs to be outputted.
-  bool writeParameter;          // Flag to indicate whether the parameters have changed and need to be outputted.
-  bool needToCheckInvariant;    // Flag to indicate whether the invariant needs to be checked.
+  bool writeGeometry;        // Flag to indicate whether the geometry has changed and needs to be outputted.
+  bool writeParameter;       // Flag to indicate whether the parameters have changed and need to be outputted.
+  bool needToCheckInvariant; // Flag to indicate whether the invariant needs to be checked.
+  bool printMessage;         // Flag to indicate whether you need to print a message after a callback.
 };
 
 #endif // __ADHYDRO_H__
