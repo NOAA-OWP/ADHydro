@@ -17,7 +17,7 @@ class CProxy_MeshElement;
 
 #include "all.h"
 #include "channel_element.decl.h"
-#include "mesh_element.decl.h"
+#include "mesh_element.h"
 
 // A ChannelElement object represents one link in the simulation channel
 // network.  A chare array of ChannelElement objects represents the entire
@@ -27,6 +27,10 @@ class ChannelElement : public CBase_ChannelElement
   ChannelElement_SDAG_CODE
   
 public:
+  
+  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+  static const int channelNeighborsSize = 18; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
   
   // Constructor.  All the constructor does is start the runForever function in
   // the SDAG code.  The constructor does not initialize or perform an
@@ -47,10 +51,6 @@ public:
   //
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
-  
-  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-  static const int channelNeighborsSize = 18; // Maximum number of channel neighbors.
-  static const int meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
   
 private:
   
@@ -92,14 +92,17 @@ private:
   //
   // neighbor               - Array index of neighbor element in chare array.
   // neighborReciprocalEdge - Array index of me in neighbor's neighbor list.
+  // neighborVertexX        - Array of X coordinates of neighbor vertices.
+  // neighborVertexY        - Array of Y coordinates of neighbor vertices.
   // neighborX              - X coordinate of neighbor.
   // neighborY              - Y coordinate of neighbor.
   // neighborZSurface       - Surface Z coordinate of neighbor.
   // neighborZBedrock       - Bedrock Z coordinate of neighbor.
   // neighborSlopeX         - Surface slope of neighbor in X direction.
   // neighborSlopeY         - Surface slope of neighbor in Y direction.
-  void handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                    double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
+  void handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                    double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                    double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
   
   // Receive a message with new forcing data.  Store this data in member
   // variables for future use.  When complete, all of the elements will

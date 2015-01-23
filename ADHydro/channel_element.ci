@@ -32,13 +32,14 @@ module channel_element
             }
           }
           
-          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                      double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
+          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                      double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                      double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
           {
             serial
             {
-              handleInitializeMeshNeighbor(neighbor, neighborReciprocalEdge, neighborX, neighborY, neighborZSurface, neighborZBedrock, neighborSlopeX,
-                                           neighborSlopeY);
+              handleInitializeMeshNeighbor(neighbor, neighborReciprocalEdge, neighborVertexX, neighborVertexY, neighborX, neighborY, neighborZSurface,
+                                           neighborZBedrock, neighborSlopeX, neighborSlopeY);
             }
           }
         }
@@ -75,8 +76,9 @@ module channel_element
             }
           }
           
-          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                      double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
+          when initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                      double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                      double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
           {
             serial
             {
@@ -509,8 +511,9 @@ module channel_element
     entry void initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborZBank, double neighborZBed,
                                          double neighborLength, ChannelTypeEnum neighborChannelType, double neighborBaseWidth,
                                          double neighborSideSlope, double neighborManningsN);
-    entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                      double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
+    entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                      double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                      double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
     entry void forcingDataMessage();
     entry void doTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep);
     entry void meshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);

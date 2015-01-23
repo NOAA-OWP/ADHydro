@@ -32,13 +32,13 @@ module mesh_element
           }
           
           when initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                         double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                         double neighborBedThickness)
+                                         double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                         double neighborBedConductivity, double neighborBedThickness)
           {
             serial
             {
-              handleInitializeChannelNeighbor(neighbor, neighborReciprocalEdge, neighborX, neighborY, neighborZBank, neighborZBed, neighborBaseWidth,
-                                              neighborSideSlope, neighborBedConductivity, neighborBedThickness);
+              handleInitializeChannelNeighbor(neighbor, neighborReciprocalEdge, neighborX, neighborY, neighborZBank, neighborZBed, neighborChannelType,
+                                              neighborBaseWidth, neighborSideSlope, neighborBedConductivity, neighborBedThickness);
             }
           }
         }
@@ -82,8 +82,8 @@ module mesh_element
           }
           
           when initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                         double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                         double neighborBedThickness)
+                                         double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                         double neighborBedConductivity, double neighborBedThickness)
           {
             serial
             {
@@ -631,8 +631,8 @@ module mesh_element
     entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
                                       double neighborZBedrock, double neighborArea, double neighborConductivity, double neighborManningsN);
     entry void initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                         double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                         double neighborBedThickness);
+                                         double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                         double neighborBedConductivity, double neighborBedThickness);
     entry void forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
                                   float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
                                   float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,

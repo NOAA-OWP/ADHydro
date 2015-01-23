@@ -3,6 +3,7 @@
 #include "INIReader.h"
 
 bool ADHydro::drainDownMode;
+bool ADHydro::doMeshMassage;
 
 void ADHydro::setLoadBalancingToManual()
 {
@@ -78,6 +79,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
                                                                          // will run in normal mode.
+  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // if doMeshMassage is not in the superfile it defaults to false and mesh massage will
+                                                                         // not be run.
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();

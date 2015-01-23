@@ -63,6 +63,10 @@ public:
   // in the channels will be capped.
   static bool drainDownMode;
   
+  // Global read-only variable specifies whether to run mesh massage to fix
+  // digital dams and similar problems.
+  static bool doMeshMassage;
+  
   // Set the load balancing mode to manual.  We need to wait for a few
   // timesteps to generate load statistics, and then we need to load balance
   // once.  After that we need to load balance very rarely if at all.

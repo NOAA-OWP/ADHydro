@@ -1,4 +1,5 @@
 #include "file_manager.h"
+#include "adhydro.h"
 #include "all.h"
 #include <netcdf_par.h>
 
@@ -180,6 +181,7 @@ FileManager::FileManager()
   channelDeepRech                                   = NULL;
   channelRech                                       = NULL;
   channelChannelNeighbors                           = NULL;
+  channelChannelNeighborsDownstream                 = NULL;
   channelChannelNeighborsSurfacewaterFlowRate       = NULL;
   channelChannelNeighborsSurfacewaterCumulativeFlow = NULL;
   channelMeshNeighbors                              = NULL;
@@ -188,6 +190,9 @@ FileManager::FileManager()
   channelMeshNeighborsSurfacewaterCumulativeFlow    = NULL;
   channelMeshNeighborsGroundwaterFlowRate           = NULL;
   channelMeshNeighborsGroundwaterCumulativeFlow     = NULL;
+  channelPrunedSize                                 = 0;
+  numberOfChannelPruned                             = 0;
+  channelPruned                                     = NULL;
   referenceDate                                     = gregorianToJulian(2010, 1, 1, 0, 0, 0.0);
   currentTime                                       = 0.0;
   dt                                                = 1.0;
@@ -339,6 +344,7 @@ FileManager::~FileManager()
   deleteArrayIfNonNull(&channelDeepRech);
   deleteArrayIfNonNull(&channelRech);
   deleteArrayIfNonNull(&channelChannelNeighbors);
+  deleteArrayIfNonNull(&channelChannelNeighborsDownstream);
   deleteArrayIfNonNull(&channelChannelNeighborsSurfacewaterFlowRate);
   deleteArrayIfNonNull(&channelChannelNeighborsSurfacewaterCumulativeFlow);
   deleteArrayIfNonNull(&channelMeshNeighbors);
@@ -347,6 +353,7 @@ FileManager::~FileManager()
   deleteArrayIfNonNull(&channelMeshNeighborsSurfacewaterCumulativeFlow);
   deleteArrayIfNonNull(&channelMeshNeighborsGroundwaterFlowRate);
   deleteArrayIfNonNull(&channelMeshNeighborsGroundwaterCumulativeFlow);
+  deleteArrayIfNonNull(&channelPruned);
   deleteArrayIfNonNull(&meshVertexUpdated);
   deleteArrayIfNonNull(&channelVertexUpdated);
   deleteArrayIfNonNull(&meshElementUpdated);
@@ -741,38 +748,41 @@ bool FileManager::readNodeAndZFiles(const char* directory, const char* fileBasen
 
 void FileManager::handleInitializeFromASCIIFiles(const char* directory, const char* fileBasename)
 {
-  bool      error       = false;      // Error flag.
-  int       ii, jj, kk;               // Loop counters.
-  char*     nameString  = NULL;       // Temporary string for file names.
-  size_t    nameStringSize;           // Size of buffer allocated for nameString.
-  size_t    numPrinted;               // Used to check that snprintf printed the correct number of characters.
-  size_t    numScanned;               // Used to check that fscanf scanned the correct number of inputs.
-  FILE*     eleFile     = NULL;       // The ele file to read from.
-  FILE*     neighFile   = NULL;       // The neigh file to read from.
-  FILE*     edgeFile    = NULL;       // The edge file to read from.
-  FILE*     chanEleFile = NULL;       // The chan.ele file to read from.
-  int       numberOfEdges;            // The number of edges to read.
-  int       dimension;                // Used to check the dimensions in the files.
-  int       numberOfAttributes;       // Used to check the number of attributes in the files.
-  int       boundary;                 // Used to check the number of boundary markers in the files.
-  int       numberCheck;              // Used to check numbers that are error checked but otherwise unused.
-  int       index;                    // Used to read element and edge numbers.
-  int       vertex0;                  // Used to read vertices from the files.
-  int       vertex1;                  // Used to read vertices from the files.
-  int       vertex2;                  // Used to read vertices from the files.
-  int       catchment;                // Used to read catchments from the files.
-  int       neighbor0;                // Used to read neighbors from the files.
-  int       neighbor1;                // Used to read neighbors from the files.
-  int       neighbor2;                // Used to read neighbors from the files.
-  int       type;                     // Used to read channel type from the files.  Read as an int because reading as a ChannelTypeEnum gives a warning.
-  long long reachCode;                // Used to read channel reach code from the files.
-  double    length;                   // Used to read channel length from the files.
-  double    topWidth;                 // Used to read top width from the files.
-  double    bankFullDepth;            // Used to read bank full depth from the files.
-  int       numberOfVertices;         // The number of vertices for a particular channel element.
-  int       numberOfChannelNeighbors; // The number of channel neighbors for a particular channel element.
-  int       numberOfMeshNeighbors;    // The number of mesh neighbors for a particular channel element.
-  int       downstream;               // Used to read whether a channel neighbor is downstream.
+  bool               error         = false;    // Error flag.
+  int                ii, jj, kk;               // Loop counters.
+  char*              nameString    = NULL;     // Temporary string for file names.
+  size_t             nameStringSize;           // Size of buffer allocated for nameString.
+  size_t             numPrinted;               // Used to check that snprintf printed the correct number of characters.
+  size_t             numScanned;               // Used to check that fscanf scanned the correct number of inputs.
+  FILE*              eleFile       = NULL;     // The ele file to read from.
+  FILE*              neighFile     = NULL;     // The neigh file to read from.
+  FILE*              edgeFile      = NULL;     // The edge file to read from.
+  FILE*              chanEleFile   = NULL;     // The chan.ele file to read from.
+  FILE*              chanPruneFile = NULL;     // The chan.prune file to read from.
+  int                numberOfEdges;            // The number of edges to read.
+  int                dimension;                // Used to check the dimensions in the files.
+  int                numberOfAttributes;       // Used to check the number of attributes in the files.
+  int                boundary;                 // Used to check the number of boundary markers in the files.
+  int                numberCheck;              // Used to check numbers that are error checked but otherwise unused.
+  int                index;                    // Used to read element and edge numbers.
+  int                vertex0;                  // Used to read vertices from the files.
+  int                vertex1;                  // Used to read vertices from the files.
+  int                vertex2;                  // Used to read vertices from the files.
+  int                catchment;                // Used to read catchments from the files.
+  int                neighbor0;                // Used to read neighbors from the files.
+  int                neighbor1;                // Used to read neighbors from the files.
+  int                neighbor2;                // Used to read neighbors from the files.
+  int                type;                     // Used to read channel type from the files.  Read as int because reading as ChannelTypeEnum gives a warning.
+  long long          reachCode0;               // Used to read channel reach code from the files.
+  long long          reachCode1;               // Used to read channel reach code from the files.
+  double             length;                   // Used to read channel length from the files.
+  double             topWidth;                 // Used to read top width from the files.
+  double             bankFullDepth;            // Used to read bank full depth from the files.
+  int                numberOfVertices;         // The number of vertices for a particular channel element.
+  int                numberOfChannelNeighbors; // The number of channel neighbors for a particular channel element.
+  int                numberOfMeshNeighbors;    // The number of mesh neighbors for a particular channel element.
+  int                downstream;               // Used to read whether a channel neighbor is downstream.
+  LongLongArrayPair* tempChannelPruned;        // For reallocing channelPruned.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -797,8 +807,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   if (!error)
     {
       // Allocate space for file name strings.
-      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.ele") + 1; // The longest file extension is .chan.ele.
-      nameString     = new char[nameStringSize];                                                         // +1 for null terminating character.
+      nameStringSize = strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.prune") + 1; // The longest file extension is .chan.prune.
+      nameString     = new char[nameStringSize];                                                           // +1 for null terminating character.
 
       // Create file name.
       numPrinted = snprintf(nameString, nameStringSize, "%s/%s.ele", directory, fileBasename);
@@ -1185,22 +1195,23 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
     {
       localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
       
-      channelElementVertices         = new int[localNumberOfChannelElements][ChannelElement::channelVerticesSize + 2];
-      channelElementBankFullDepth    = new double[localNumberOfChannelElements];
-      channelElementLength           = new double[localNumberOfChannelElements];
-      channelChannelType             = new ChannelTypeEnum[localNumberOfChannelElements];
-      channelReachCode               = new long long[localNumberOfChannelElements];
-      channelBaseWidth               = new double[localNumberOfChannelElements];
-      channelSideSlope               = new double[localNumberOfChannelElements];
-      channelChannelNeighbors        = new int[localNumberOfChannelElements][ChannelElement::channelNeighborsSize];
-      channelMeshNeighbors           = new int[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
-      channelMeshNeighborsEdgeLength = new double[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+      channelElementVertices            = new int[localNumberOfChannelElements][XDMF_SIZE];
+      channelElementBankFullDepth       = new double[localNumberOfChannelElements];
+      channelElementLength              = new double[localNumberOfChannelElements];
+      channelChannelType                = new ChannelTypeEnum[localNumberOfChannelElements];
+      channelReachCode                  = new long long[localNumberOfChannelElements];
+      channelBaseWidth                  = new double[localNumberOfChannelElements];
+      channelSideSlope                  = new double[localNumberOfChannelElements];
+      channelChannelNeighbors           = new int[localNumberOfChannelElements][ChannelElement::channelNeighborsSize];
+      channelChannelNeighborsDownstream = new bool[localNumberOfChannelElements][ChannelElement::channelNeighborsSize];
+      channelMeshNeighbors              = new int[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
+      channelMeshNeighborsEdgeLength    = new double[localNumberOfChannelElements][ChannelElement::meshNeighborsSize];
     }
   
   // Read channel elements.
   for (ii = 0; !error && ii < globalNumberOfChannelElements; ii++)
     {
-      numScanned = fscanf(chanEleFile, "%d %d %lld %lf %lf %lf %d %d %d", &index, &type, &reachCode, &length, &topWidth, &bankFullDepth, &numberOfVertices,
+      numScanned = fscanf(chanEleFile, "%d %d %lld %lf %lf %lf %d %d %d", &index, &type, &reachCode1, &length, &topWidth, &bankFullDepth, &numberOfVertices,
                           &numberOfChannelNeighbors, &numberOfMeshNeighbors);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1224,7 +1235,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           error = true;
         }
       
-      if (!(0 < reachCode))
+      if (!(0 < reachCode1))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: channel %d: reach code must be greater than zero in chan.ele file.\n", index);
           error = true;
@@ -1279,7 +1290,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           channelElementBankFullDepth[index - localChannelElementStart]    = bankFullDepth;
           channelElementLength[       index - localChannelElementStart]    = length;
           channelChannelType[         index - localChannelElementStart]    = (ChannelTypeEnum)type;
-          channelReachCode[           index - localChannelElementStart]    = reachCode;
+          channelReachCode[           index - localChannelElementStart]    = reachCode1;
           // FIXME This assumes rectangular channels.  Calculate some other way?
           channelBaseWidth[           index - localChannelElementStart]    = topWidth;
           channelSideSlope[           index - localChannelElementStart]    = 0.0;
@@ -1309,6 +1320,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           // Save values.
           if (!error && localChannelElementStart <= index && index < localChannelElementStart + localNumberOfChannelElements)
             {
+              // +2 to skip over XDMF metadata.
               channelElementVertices[index - localChannelElementStart][jj + 2] = vertex0;
             }
         }
@@ -1318,6 +1330,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
         {
           for (jj = numberOfVertices; jj < ChannelElement::channelVerticesSize; jj++)
             {
+              // +2 to skip over XDMF metadata.
               channelElementVertices[index - localChannelElementStart][jj + 2] =
                   channelElementVertices[index - localChannelElementStart][(numberOfVertices - 1) + 2];
             }
@@ -1348,8 +1361,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           // Save values.
           if (!error && localChannelElementStart <= index && index < localChannelElementStart + localNumberOfChannelElements)
             {
-              channelChannelNeighbors[index - localChannelElementStart][jj] = neighbor0;
-              // FIXME save downstream
+              channelChannelNeighbors[          index - localChannelElementStart][jj] = neighbor0;
+              channelChannelNeighborsDownstream[index - localChannelElementStart][jj] = downstream;
             }
         }
       
@@ -1358,8 +1371,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
         {
           for (jj = numberOfChannelNeighbors; jj < ChannelElement::channelNeighborsSize; jj++)
             {
-              channelChannelNeighbors[index - localChannelElementStart][jj] = NOFLOW;
-              // FIXME fill in downstream.
+              channelChannelNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
+              channelChannelNeighborsDownstream[index - localChannelElementStart][jj] = false;
             }
         }
       
@@ -1427,7 +1440,86 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
             }
         }
     } // End read channel elements.
-  
+
+  // channelPruned is only used for mesh massage so only read it in if you are doing mesh massage.
+  if (ADHydro::doMeshMassage)
+    {
+      // Create file name.
+      if (!error)
+        {
+          numPrinted = snprintf(nameString, nameStringSize, "%s/%s.chan.prune", directory, fileBasename);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.prune") == numPrinted && numPrinted < nameStringSize))
+            {
+              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating chan.prune file name %s.  %d "
+                      "should be equal to %d and less than %d.\n", nameString, numPrinted,
+                      strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".chan.prune"), nameStringSize);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      // Open file.
+      if (!error)
+        {
+          chanPruneFile = fopen(nameString, "r");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NULL != chanPruneFile))
+            {
+              fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open chan.prune file %s.\n", nameString);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      // Allocate array.
+      if (!error)
+        {
+          channelPrunedSize     = 2;
+          numberOfChannelPruned = 0;
+          channelPruned         = new LongLongArrayPair[channelPrunedSize];
+        }
+
+      if (!error)
+        {
+          do
+            {
+              numScanned = fscanf(chanPruneFile, "%lld %lld", &reachCode0, &reachCode1);
+
+              if (2 == numScanned)
+                {
+                  // Realloc channelPruned array if necessary.
+                  if (channelPrunedSize == numberOfChannelPruned)
+                    {
+                      channelPrunedSize *= 2;
+                      tempChannelPruned  = new LongLongArrayPair[channelPrunedSize];
+
+                      for (ii = 0; ii < numberOfChannelPruned; ii++)
+                        {
+                          tempChannelPruned[ii][0] = channelPruned[ii][0];
+                          tempChannelPruned[ii][1] = channelPruned[ii][1];
+                        }
+
+                      delete[] channelPruned;
+
+                      channelPruned = tempChannelPruned;
+                    }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  CkAssert(channelPrunedSize > numberOfChannelPruned);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                  channelPruned[numberOfChannelPruned][0] = reachCode0;
+                  channelPruned[numberOfChannelPruned][1] = reachCode1;
+                  numberOfChannelPruned++;
+                }
+            }
+          while (2 == numScanned);
+        }
+    }
+
   // Close the files.
   if (NULL != eleFile)
     {
@@ -1447,6 +1539,11 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   if (NULL != chanEleFile)
     {
       fclose(chanEleFile);
+    }
+
+  if (NULL != chanPruneFile)
+    {
+      fclose(chanPruneFile);
     }
 
   // Delete nameString.
@@ -2207,10 +2304,10 @@ void FileManager::handleInitializeFromNetCDFFiles(const char* directory)
       if (!error)
         {
           error = readNetCDFVariable(fileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                     channelElementVerticesSize, ChannelElement::channelVerticesSize + 2, true, 0, false, (int**)&channelElementVertices);
+                                     channelElementVerticesSize, XDMF_SIZE, true, 0, false, (int**)&channelElementVertices);
 
-          // If ChannelElement::channelVerticesSize is not the same value as in the file we need to reset the number of vertices in the XDMF data.
-          if (channelElementVerticesSize != ChannelElement::channelVerticesSize + 2)
+          // If ChannelElement::channelVerticesSize is not the same value as in the file we need to reset the number of vertices in the XDMF metadata.
+          if (channelElementVerticesSize != XDMF_SIZE)
             {
               for (ii = 0; ii < localNumberOfChannelElements; ii++)
                 {
@@ -2278,6 +2375,13 @@ void FileManager::handleInitializeFromNetCDFFiles(const char* directory)
           error = readNetCDFVariable(fileID, "channelChannelNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, ChannelElement::channelNeighborsSize, false, (int)NOFLOW, false,
                                      (int**)&channelChannelNeighbors);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "channelChannelNeighborsDownstream", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                     channelChannelNeighborsSize, ChannelElement::channelNeighborsSize, false, false, false,
+                                     (bool**)&channelChannelNeighborsDownstream);
         }
 
       if (!error)
@@ -2865,6 +2969,7 @@ void FileManager::updateVertices()
   int  ii, jj;                             // Loop counters.
   bool needToGetMeshVertexData    = false; // Whether we need to get any vertex data.
   bool needToGetChannelVertexData = false; // Whether we need to get any vertex data.
+  int  node;                               // The node number of a vertex.
 
   // Get vertex data from node data.
   if (NULL != meshElementVertices)
@@ -2918,17 +3023,17 @@ void FileManager::updateVertices()
           for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
             {
               meshVertexUpdated[ii][jj] = false;
+              node                      = meshElementVertices[ii][jj];
 
-              if (localMeshNodeStart <= meshElementVertices[ii][jj] && meshElementVertices[ii][jj] < localMeshNodeStart + localNumberOfMeshNodes)
+              if (localMeshNodeStart <= node && node < localMeshNodeStart + localNumberOfMeshNodes)
                 {
                   // The node belongs to me, no need to send a message.
-                  getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, meshElementVertices[ii][jj]);
+                  getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, node);
                 }
               else
                 {
                   // FIXME improve efficiency.  Don't send duplicate messages for the same node.
-                  thisProxy[home(meshElementVertices[ii][jj], globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj,
-                                                                                                                 meshElementVertices[ii][jj]);
+                  thisProxy[home(node, globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, node);
                 }
             }
         }
@@ -2943,18 +3048,17 @@ void FileManager::updateVertices()
           for (jj = 0; jj < ChannelElement::channelVerticesSize; jj++)
             {
               channelVertexUpdated[ii][jj] = false;
+              node                         = channelElementVertices[ii][jj + 2]; // +2 to skip over XDMF metadata.
 
-              if (localChannelNodeStart <= channelElementVertices[ii][jj] &&
-                  channelElementVertices[ii][jj] < localChannelNodeStart + localNumberOfChannelNodes)
+              if (localChannelNodeStart <= node && node < localChannelNodeStart + localNumberOfChannelNodes)
                 {
                   // The node belongs to me, no need to send a message.
-                  getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, channelElementVertices[ii][jj]);
+                  getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, node);
                 }
               else
                 {
                   // FIXME improve efficiency.  Don't send duplicate messages for the same node.
-                  thisProxy[home(channelElementVertices[ii][jj], globalNumberOfChannelNodes)].getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart,
-                                                                                                                          jj, channelElementVertices[ii][jj]);
+                  thisProxy[home(node, globalNumberOfChannelNodes)].getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, node);
                 }
             }
         }
@@ -3059,6 +3163,432 @@ void FileManager::handleChannelVertexDataMessage(int element, int vertex, double
     }
   
   channelVertexUpdated[element - localChannelElementStart][vertex] = true;
+}
+
+int FileManager::findDownstreamElement(int element)
+{
+  int ii;                         // Loop counter.
+  int downstreamElement = NOFLOW; // An element or boundary condition code downstream of element.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(0 <= element && element < globalNumberOfChannelElements && NULL != channelChannelNeighbors && NULL != channelChannelNeighborsDownstream);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  for (ii = 0; NOFLOW == downstreamElement && ii < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[element][ii]; ii++)
+    {
+      if (!isBoundary(channelChannelNeighbors[element][ii]))
+        {
+          if (channelChannelNeighborsDownstream[element][ii])
+            {
+              downstreamElement = channelChannelNeighbors[element][ii];
+            }
+        }
+      else if (OUTFLOW == channelChannelNeighbors[element][ii])
+        {
+          downstreamElement = channelChannelNeighbors[element][ii];
+        }
+    }
+  
+  return downstreamElement;
+}
+
+double FileManager::breakDigitalDam(int element, int dammedElement, double length)
+{
+  double slope;             // The slope downward from dammedElement to the point where the digital dam is broken, unitless.
+  int    downstreamElement; // An element or boundary condition code downstream of element.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(0 <= element && element < globalNumberOfChannelElements && 0 <= dammedElement && dammedElement < globalNumberOfChannelElements && 0.0 < length &&
+           NULL != channelElementZBank && NULL != channelElementZBed && NULL != channelElementLength && NULL != channelChannelType && NULL != channelChannelNeighbors &&
+           NULL != channelChannelNeighborsDownstream);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (channelElementZBed[dammedElement] > channelElementZBed[element])
+    {
+      // element is lower than dammedElement.  Calculate the slope from dammedElement to element.
+      slope = (channelElementZBed[dammedElement] - channelElementZBed[element]) / (length + 0.5 * channelElementLength[element]);
+    }
+  else if (WATERBODY == channelChannelType[element])
+    {
+      // element is a waterbody, which is allowed to be dammed, so lower it to the level of dammedElement.
+      CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+              channelElementZBed[element] - channelElementZBed[dammedElement], channelElementZBed[element], channelElementZBed[dammedElement]);
+      
+      channelElementZBank[element] -= channelElementZBed[element] - channelElementZBed[dammedElement];
+      channelElementZBed[element]   = channelElementZBed[dammedElement];
+      slope                         = 0.0;
+    }
+  else
+    {
+      downstreamElement = findDownstreamElement(element);
+      
+      if (isBoundary(downstreamElement))
+        {
+          // element has an outflow boundary or no downstream connections at all.  Lower it to the level of dammedElement.
+          if (OUTFLOW != downstreamElement)
+            {
+              CkError("WARNING in FileManager::breakDigitalDam: channel element %d has no downstream connections.\n", element);
+            }
+          
+          CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+                  channelElementZBed[element] - channelElementZBed[dammedElement], channelElementZBed[element], channelElementZBed[dammedElement]);
+          
+          channelElementZBank[element] -= channelElementZBed[element] - channelElementZBed[dammedElement];
+          channelElementZBed[element]   = channelElementZBed[dammedElement];
+          slope                         = 0.0;
+        }
+      else
+        {
+          // Continue to search downstream, and when the search returns lower element to a straight line slope down from the dammed element.
+          slope = breakDigitalDam(downstreamElement, dammedElement, length + channelElementLength[element]);
+          
+          CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+                  channelElementZBed[element] - (channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element])),
+                  channelElementZBed[element],   channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]));
+          
+          channelElementZBank[element] -= channelElementZBed[element] -      (channelElementZBed[dammedElement] -
+                                                                              slope * (length + 0.5 * channelElementLength[element]));
+          channelElementZBed[element]   = channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]);
+        }
+    }
+  
+  return slope;
+}
+
+int FileManager::connectMeshElementToChannelElementByReachCode(int element, long long reachCode)
+{
+  int    ii;                // Loop counter.
+  int    neighbor = NOFLOW; // A neighbor of element.
+  double neighborZBank;     // The bank Z coordinate of neighbor.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(0 <= element && element < globalNumberOfMeshElements && NULL != meshChannelNeighbors && NULL != channelElementZBank && NULL != channelChannelType &&
+           NULL != channelReachCode && NULL != channelMeshNeighbors);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  for (ii = 0; ii < globalNumberOfChannelElements; ii++)
+    {
+      if (reachCode == channelReachCode[ii] && (NOFLOW == neighbor || neighborZBank > channelElementZBank[ii]))
+        {
+          neighbor      = ii;
+          neighborZBank = channelElementZBank[ii];
+        }
+    }
+  
+  if (NOFLOW != neighbor)
+    {
+      CkError("WARNING in FileManager::connectMeshElementToChannelElementByReachCode: breaking digital dam by connecting mesh element %d to channel element "
+              "%d.\n", element, neighbor);
+      
+      // Place the elements in each other's neighbor lists.
+      ii = 0;
+      
+      while (ii < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[element][ii])
+        {
+          ii++;
+        }
+      
+      if (ii < MeshElement::channelNeighborsSize)
+        {
+          meshChannelNeighbors[element][ii] = neighbor;
+        }
+      else
+        {
+          CkError("ERROR in FileManager::connectMeshElementToChannelElementByReachCode: mesh element %d has more than the maximum %d channel neighbors.\n",
+                  element, MeshElement::channelNeighborsSize);
+          CkExit();
+        }
+      
+      ii = 0;
+      
+      while (ii < ChannelElement::meshNeighborsSize && NOFLOW != channelMeshNeighbors[neighbor][ii])
+        {
+          ii++;
+        }
+      
+      if (ii < ChannelElement::meshNeighborsSize)
+        {
+          channelMeshNeighbors[neighbor][ii] = element;
+        }
+      else
+        {
+          CkError("ERROR in FileManager::connectMeshElementToChannelElementByReachCode: channel element %d has more than the maximum %d mesh neighbors.\n",
+                  neighbor, ChannelElement::meshNeighborsSize);
+          CkExit();
+        }
+    }
+  
+  return neighbor;
+}
+
+void FileManager::meshMassage()
+{
+  int    ii, jj, kk;         // Loop counters.
+  bool   hasLowerNeighbor;   // Whether an element has a lower neighbor.
+  bool   hasChannelNeighbor; // Whether an element has a channel neighbor.
+  int    downstreamElement;  // An element or boundary condition code downstream of an element.
+  int    neighbor;           // A neighbor of an element.
+  double edgeZSurface;       // The surface Z coordinate of the center of a mesh edge.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(1 == CkNumPes()))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshMassage is not implemented for distributed operation.  It can only be run on one processor.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshVertexZSurface))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshVertexZSurface must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshElementZSurface))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshElementZSurface must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshCatchment))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshCatchment must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshMeshNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshChannelNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshChannelNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelElementZBank))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelElementZBank must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelElementZBed))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelElementZBed must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelElementLength))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelElementLength must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelChannelType))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelChannelType must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelReachCode))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelReachCode must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelChannelNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelChannelNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelChannelNeighborsDownstream))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelChannelNeighborsDownstream must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelMeshNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  // Break digital dams in the channel network.
+  for (ii = 0; ii < globalNumberOfChannelElements; ii++)
+    {
+      // Only break digital dams for streams.  The reason waterbodies have standing water in them is because there is some kind of real dam keeping it there.
+      if (STREAM == channelChannelType[ii])
+        {
+          hasLowerNeighbor = false;
+
+          for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
+            {
+              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+                {
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                    {
+                      hasLowerNeighbor = true;
+                    }
+                }
+              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+                {
+                  hasLowerNeighbor = true;
+                }
+            }
+          
+          if (!hasLowerNeighbor)
+            {
+              downstreamElement = findDownstreamElement(ii);
+              
+              if (isBoundary(downstreamElement))
+                {
+                  CkError("WARNING in FileManager::meshMassage: channel element %d has no downstream connections.\n", ii);
+                }
+              else
+                {
+                  breakDigitalDam(downstreamElement, ii, 0.5 * channelElementLength[ii]);
+                }
+            }
+        }
+    } // End break digital dams in the channel network.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  // Check that all digital dams in the channel network are broken.
+  for (ii = 0; ii < globalNumberOfChannelElements; ii++)
+    {
+      // Only check digital dams for streams.  The reason waterbodies have standing water in them is because there is some kind of real dam keeping it there.
+      if (STREAM == channelChannelType[ii])
+        {
+          hasLowerNeighbor = false;
+
+          for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
+            {
+              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+                {
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                    {
+                      hasLowerNeighbor = true;
+                    }
+                }
+              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+                {
+                  hasLowerNeighbor = true;
+                }
+            }
+          
+          if (!hasLowerNeighbor)
+            {
+              CkError("WARNING in FileManager::meshMassage: channel element %d is still a digital dam after all digital dams were broken.\n", ii);
+            }
+        }
+    } // End check that all digital dams in the channel network are broken.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  
+  // Place a NOFLOW boundary between neighboring mesh elements that are in different catchments and separated by a ridge.
+  for (ii = 0; ii < globalNumberOfMeshElements; ii++)
+    {
+      for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          neighbor = meshMeshNeighbors[ii][jj];
+          
+          // Only the lower ID number of the pair has to check.  This check also excludes boundary condition codes.
+          if (ii < neighbor && meshCatchment[ii] != meshCatchment[neighbor])
+            {
+              // Get the height of the center of the edge separating the neighbors.  If it is higher than both neighbors it is considered a ridge.
+              // FIXME this could be replaced with checking if both elements slope away form the edge.
+              edgeZSurface = 0.5 * (meshVertexZSurface[ii][(jj + 1) % MeshElement::meshNeighborsSize] +
+                                    meshVertexZSurface[ii][(jj + 2) % MeshElement::meshNeighborsSize]);
+              
+              if (edgeZSurface > meshElementZSurface[ii] && edgeZSurface > meshElementZSurface[neighbor])
+                {
+                  // Find and remove ii from neighbor's neighbor list
+                  kk = 0;
+                  
+                  while (kk < MeshElement::meshNeighborsSize && ii != meshMeshNeighbors[neighbor][kk])
+                    {
+                      kk++;
+                    }
+                  
+                  if (kk < MeshElement::meshNeighborsSize)
+                    {
+                      meshMeshNeighbors[neighbor][kk] = NOFLOW;
+                    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+                  else
+                    {
+                      CkError("ERROR in FileManager::meshMassage: mesh element %d is not in his mesh neighbor %d's neighbor list.\n", ii, neighbor);
+                      CkExit();
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+                  
+                  // Remove neighbor from ii's neighbor list.
+                  meshMeshNeighbors[ii][jj] = NOFLOW;
+                }
+            }
+        }
+    } // End place a NOFLOW boundary between neighboring mesh elements that are in different catchments and separated by a ridge.
+  
+  // Break digital dams in the mesh.
+  for (ii = 0; ii < globalNumberOfMeshElements; ii++)
+    {
+      hasLowerNeighbor   = false;
+      hasChannelNeighbor = false;
+      
+      for (jj = 0; !hasLowerNeighbor && jj < MeshElement::meshNeighborsSize; jj++)
+        {
+          if (!isBoundary(meshMeshNeighbors[ii][jj]))
+            {
+              if (meshElementZSurface[ii] > meshElementZSurface[meshMeshNeighbors[ii][jj]])
+                {
+                  hasLowerNeighbor = true;
+                }
+            }
+          else if (OUTFLOW == meshMeshNeighbors[ii][jj])
+            {
+              hasLowerNeighbor = true;
+            }
+        }
+      
+      for (jj = 0; !hasChannelNeighbor && jj < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[ii][jj]; jj++)
+        {
+          // Don't count icemasses because an icemass could be higher than the mesh element.
+          if (ICEMASS != channelChannelType[meshChannelNeighbors[ii][jj]])
+            {
+              hasChannelNeighbor = true;
+            }
+        }
+      
+      if (!hasLowerNeighbor && !hasChannelNeighbor)
+        {
+          // Break the digital dam by arbitrarily connecting the mesh element to the lowest stream element in the same catchment.
+          neighbor = connectMeshElementToChannelElementByReachCode(ii, meshCatchment[ii]);
+          
+          if (NOFLOW == neighbor && NULL != channelPruned)
+            {
+              // The stream for that catchment was pruned.  Get the reach code of a link downstream of it.
+              jj = 0;
+              
+              while (jj < numberOfChannelPruned && channelPruned[jj][0] != meshCatchment[ii])
+                {
+                  jj++;
+                }
+              
+              if (jj < numberOfChannelPruned)
+                {
+                  neighbor = connectMeshElementToChannelElementByReachCode(ii, channelPruned[jj][1]);
+                }
+            }
+
+          if (NOFLOW == neighbor)
+            {
+              CkError("WARNING in FileManager::meshMassage: mesh element %d is a digital dam, but there is no channel element in catchment %d to connect it "
+                      "to.\n", ii, meshCatchment[ii]);
+            }
+        }
+    } // End break digital dams in the mesh.
 }
 
 void FileManager::calculateDerivedValues()
@@ -4676,6 +5206,12 @@ void FileManager::calculateDerivedValues()
     {
       channelElementUpdated = new bool[localNumberOfChannelElements];
     }
+  
+  // Fix digital dams and similar problems.
+  if (ADHydro::doMeshMassage)
+    {
+      meshMassage();
+    }
 
   contribute();
 }
@@ -4757,7 +5293,7 @@ void FileManager::handleCreateFiles(const char* directory)
   
   if (!error)
     {
-      error = createNetCDFDimension(fileID, "channelElementVerticesSize", ChannelElement::channelVerticesSize + 2, &channelElementVerticesSizeDimensionID);
+      error = createNetCDFDimension(fileID, "channelElementVerticesSize", XDMF_SIZE, &channelElementVerticesSizeDimensionID);
     }
   
   if (!error)
@@ -4988,6 +5524,17 @@ void FileManager::handleCreateFiles(const char* directory)
   if (!error && NULL != channelChannelNeighbors)
     {
       error = createNetCDFVariable(fileID, "channelChannelNeighbors", NC_INT, 3, instancesDimensionID, channelElementsDimensionID,
+                                   channelChannelNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != channelChannelNeighborsDownstream)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // Assumes bool is 1 byte when storing as NC_BYTE.
+      CkAssert(1 == sizeof(bool));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      error = createNetCDFVariable(fileID, "channelChannelNeighborsDownstream", NC_BYTE, 3, instancesDimensionID, channelElementsDimensionID,
                                    channelChannelNeighborsSizeDimensionID);
     }
   
@@ -5938,8 +6485,8 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       
       if (!error && NULL != channelElementVertices)
         {
-          error = writeNetCDFVariable(fileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                      ChannelElement::channelVerticesSize + 2, channelElementVertices);
+          error = writeNetCDFVariable(fileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements, XDMF_SIZE,
+                                      channelElementVertices);
         }
       
       if (!error && NULL != channelVertexX)
@@ -5998,6 +6545,12 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
         {
           error = writeNetCDFVariable(fileID, "channelChannelNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                       ChannelElement::channelNeighborsSize, channelChannelNeighbors);
+        }
+      
+      if (!error && NULL != channelChannelNeighborsDownstream)
+        {
+          error = writeNetCDFVariable(fileID, "channelChannelNeighborsDownstream", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                      ChannelElement::channelNeighborsSize, channelChannelNeighborsDownstream);
         }
       
       if (!error && NULL != channelMeshNeighbors)

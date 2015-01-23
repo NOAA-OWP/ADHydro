@@ -8,8 +8,44 @@
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
 // Will it send out one MPI message per mesh edge rather than all of the ghost node information in a single message?  Yes, I believe so.
 // As elements migrate to different nodes update interaction in a way that guarantees both sides agree on the interaction.
-// Scale channel dx w/ bankfull depth?
 // Think about implications of file manager files being open or closed when checkpointing.
+
+double MeshElement::calculateZOffset(int meshElement, double meshVertexX[meshNeighborsSize], double meshVertexY[meshNeighborsSize], double meshElementX,
+                                     double meshElementY, double meshElementZSurface, double meshElementSlopeX, double meshElementSlopeY, int channelElement,
+                                     double channelElementX, double channelElementY, double channelElementZBank, ChannelTypeEnum channelType)
+{
+  int    ii;                        // Loop counter.
+  bool   foundIntersection = false; // Whether the line segment from the center of the mesh element to the center of the channel element intersects any edges
+                                    // of the mesh element.
+  double zOffset;                   // The Z coordinate offset that is being calculated.
+  
+  // If the center of the channel element is not inside the mesh element only follow the slope of the mesh element to the edge of the mesh element.  We do this
+  // by finding whether the line segment from the center of the mesh element to the center of the channel element intersects any of the mesh edges, and if it
+  // does use the intersection point instead of the center of the channel element.
+  for (ii = 0; !foundIntersection && ii < meshNeighborsSize; ii++)
+    {
+      foundIntersection = get_line_intersection(meshElementX, meshElementY, channelElementX, channelElementY, meshVertexX[ii], meshVertexY[ii],
+                                                meshVertexX[(ii + 1) % meshNeighborsSize], meshVertexY[(ii + 1) % meshNeighborsSize], &channelElementX,
+                                                &channelElementY);
+    }
+  
+  zOffset = (channelElementX - meshElementX) * meshElementSlopeX + (channelElementY - meshElementY) * meshElementSlopeY;
+  
+  // If the channel element is still higher than the mesh element after applying the offset we raise the offset to make them level.  We do not do this for
+  // icemasses because there are often real situations where a glacier on a slope is higher than its neighboring mesh elements.
+  if (ICEMASS != channelType && zOffset < channelElementZBank - meshElementZSurface)
+    {
+      if (10.0 < channelElementZBank - meshElementZSurface - zOffset)
+        {
+          CkError("WARNING in MeshElement::calculateZOffset: mesh element %d is lower than neighboring channel element %d by %lf meters.  Raising zOffset to "
+                  "make them level.\n", meshElement, channelElement, channelElementZBank - meshElementZSurface - zOffset);
+        }
+      
+      zOffset = channelElementZBank - meshElementZSurface;
+    }
+  
+  return zOffset;
+}
 
 MeshElement::MeshElement()
 {
@@ -28,6 +64,8 @@ void MeshElement::pup(PUP::er &p)
   __sdag_pup(p);
   p | channelProxy;
   p | fileManagerProxy;
+  PUParray(p, vertexX, meshNeighborsSize);
+  PUParray(p, vertexY, meshNeighborsSize);
   p | elementX;
   p | elementY;
   p | elementZSurface;
@@ -172,6 +210,44 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       channelProxy     = channelProxyInit;
       fileManagerProxy = fileManagerProxyInit;
       
+      if (NULL != fileManagerLocalBranch->meshVertexX)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              vertexX[edge] = fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: vertexX initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              vertexY[edge] = fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: vertexY initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
       if (NULL != fileManagerLocalBranch->meshElementX)
         {
           elementX = fileManagerLocalBranch->meshElementX[fileManagerLocalIndex];
@@ -1088,8 +1164,8 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                 {
                   channelNeighborsInitialized[edge] = false;
                   
-                  channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock,
-                                                                              elementSlopeX, elementSlopeY);
+                  channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, vertexX, vertexY, elementX, elementY, elementZSurface,
+                                                                              elementZBedrock, elementSlopeX, elementSlopeY);
                 }
               else
                 {
@@ -1180,8 +1256,8 @@ void MeshElement::handleInitializeMeshNeighbor(int neighbor, int neighborRecipro
 }
 
 void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                                  double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                                  double neighborBedThickness)
+                                                  double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                                  double neighborBedConductivity, double neighborBedThickness)
 {
   bool error = false; // Error flag.
   int  edge  = 0;     // Loop counter.
@@ -1207,7 +1283,8 @@ void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReci
       channelNeighborsInteraction[edge]     = BOTH_CALCULATE_FLOW_RATE;
       channelNeighborsZBank[edge]           = neighborZBank;
       channelNeighborsZBed[edge]            = neighborZBed;
-      channelNeighborsZOffset[edge]         = (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY;
+      channelNeighborsZOffset[edge]         = calculateZOffset(thisIndex, vertexX, vertexY, elementX, elementY, elementZSurface, elementSlopeX, elementSlopeY,
+                                                               neighbor, neighborX, neighborY, neighborZBank, neighborChannelType);
       channelNeighborsBaseWidth[edge]       = neighborBaseWidth;
       channelNeighborsSideSlope[edge]       = neighborSideSlope;
       channelNeighborsBedConductivity[edge] = neighborBedConductivity;
@@ -2941,6 +3018,7 @@ void MeshElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
+      // FIXME add check that all channel neighbors have to be packed to the front of the array.
       if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] &&
                                                  channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
@@ -3225,8 +3303,7 @@ void MeshElement::handleCheckChannelNeighborInvariant(int neighbor, int edge, in
       error = true;
     }
   
-  if (!(neighborZOffset == channelNeighborsZOffset[edge] &&
-        (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY == channelNeighborsZOffset[edge]))
+  if (!(neighborZOffset == channelNeighborsZOffset[edge]))
     {
       CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsZOffset is incorrect.\n", thisIndex, edge);
       error = true;

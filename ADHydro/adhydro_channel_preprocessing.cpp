@@ -574,9 +574,9 @@ void removeUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, i
 // linkNo   - The link to try to prune.
 void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 {
+  int                ii;      // Loop counter.
   bool               prune;   // Whether to prune.
   LinkElementStruct* element; // For checking if elements are unassociated.
-  int                linkNo2; // For storing a link that must be connected to.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 <= linkNo && linkNo < size);
@@ -601,11 +601,10 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 
       if (prune)
         {
-          while (NOFLOW != channels[linkNo].downstream[0])
+          for (ii = 0; ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo].downstream[ii]; ii++)
             {
-              linkNo2 = channels[linkNo].downstream[0];
-              removeUpstreamDownstreamConnection(channels, size, linkNo, linkNo2);
-              tryToPruneLink(channels, size, linkNo2);
+              removeUpstreamConnection(channels, size, linkNo, channels[linkNo].downstream[ii]);
+              tryToPruneLink(channels, size, channels[linkNo].downstream[ii]);
             }
           
           channels[linkNo].type = PRUNED_STREAM;
@@ -3319,18 +3318,24 @@ typedef enum
 // Then for each element:
 // <element #> <element type> <reach code> <length> <top width> <bank full depth> <# of vertices> <# of channel neighbors> <# of mesh neighbors> <vertex> <vertex> ... <channel neighbor> <whether downstream> <channel neighbor> <whether downstream> ... <mesh neighbor> <mesh neighbor edge length in meters> <mesh neighbor> <mesh neighbor edge length in meters> ...
 //
+// The format of the .chan.prune file is:
+//
+// For each pruned stream:
+// <reach code of pruned stream> <reach code of unpruned link that pruned stream flows downstream into>
+//
 // Parameters:
 //
-// channels              - The channel network as a 1D array of
-//                         ChannelLinkStruct.
-// size                  - The number of elements in channels.
-// meshNodeFilename      - The name of the .node file to read.
-// meshElementFilename   - The name of the .ele file to read.
-// meshEdgeFilename      - The name of the .edge file to read.
-// channelNodeFilename   - The name of the .chan.node file to write.
-// chanelElementFilename - The name of the .chan.ele file to write.
+// channels               - The channel network as a 1D array of
+//                          ChannelLinkStruct.
+// size                   - The number of elements in channels.
+// meshNodeFilename       - The name of the .node file to read.
+// meshElementFilename    - The name of the .ele file to read.
+// meshEdgeFilename       - The name of the .edge file to read.
+// channelNodeFilename    - The name of the .chan.node file to write.
+// channelElementFilename - The name of the .chan.ele file to write.
+// channelPruneFilename   - The name of the .chan.prune file to write.
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* meshNodeFilename, const char* meshElementFilename, const char* meshEdgeFilename,
-                         const char* channelNodeFilename, const char* channelElementFilename)
+                         const char* channelNodeFilename, const char* channelElementFilename, const char* channelPruneFilename)
 {
   bool               error                   = false; // Error flag.
   int                ii, jj, kk, ll, mm;              // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices,
@@ -4799,9 +4804,62 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
             } // End write out the elements of the link.
         } // End if (STREAM == channels[ii].type || WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
-    } // End write the elements into the element file.
+    } // End write the channel elements into the channel element file.
 
-  // Close the element file.
+  // Close the channel element file.
+  if (NULL != outputFile)
+    {
+      fclose(outputFile);
+      outputFile = NULL;
+    }
+  
+  // Open the channel prune file.
+  if (!error)
+    {
+      outputFile = fopen(channelPruneFilename, "w");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != outputFile))
+        {
+          fprintf(stderr, "ERROR in writeChannelNetwork: Could not open channel prune file %s.\n", channelPruneFilename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Write the pruned links into the channel prune file.
+  for (ii = 0; ii < size; ii++)
+    {
+      if (PRUNED_STREAM == channels[ii].type)
+        {
+          jj = channels[ii].downstream[0];
+
+          while (!isBoundary(jj) && PRUNED_STREAM == channels[jj].type)
+            {
+              jj = channels[jj].downstream[0];
+            }
+
+          if (!isBoundary(jj))
+            {
+              numPrinted = fprintf(outputFile, "%lld %lld\n", channels[ii].reachCode, channels[jj].reachCode);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(0 < numPrinted))
+                {
+                  fprintf(stderr, "ERROR in writeChannelNetwork: incorrect return value %lu of snprintf when writing link %d in channel prune file.\n",
+                          numPrinted, ii);
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          else
+            {
+              fprintf(stderr, "WARNING in main: pruned stream %d does not flows downstream into any unpruned link.\n", ii);
+            }
+        }
+    }
+
+  // Close the channel prune file.
   if (NULL != outputFile)
     {
       fclose(outputFile);
@@ -4950,7 +5008,8 @@ int main(void)
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele");
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele",
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune");
     }
 
   if (NULL != channels)

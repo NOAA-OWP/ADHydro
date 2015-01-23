@@ -19,22 +19,27 @@ class CProxy_ChannelElement;
 #include "channel_element.h"
 #include <netcdf.h>
 
-typedef float  FloatArraySnowLayers[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // Fixed size array of floats.  Size is number of E-T snow layers.
-typedef float  FloatArrayAllLayers[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS];   // Fixed size array of floats.  Size is number of E-T snow and soil layers.
-typedef int    IntArrayMMN[MeshElement::meshNeighborsSize];                     // Fixed size array of ints.    Size is mesh    mesh neighbors.
-typedef bool   BoolArrayMMN[MeshElement::meshNeighborsSize];                    // Fixed size array of bools.   Size is mesh    mesh neighbors.
-typedef double DoubleArrayMMN[MeshElement::meshNeighborsSize];                  // Fixed size array of doubles. Size is mesh    mesh neighbors.
-typedef int    IntArrayMCN[MeshElement::channelNeighborsSize];                  // Fixed size array of ints.    Size is mesh    channel neighbors.
-typedef double DoubleArrayMCN[MeshElement::channelNeighborsSize];               // Fixed size array of doubles. Size is mesh    channel neighbors.
-typedef int    IntArrayXDMF[ChannelElement::channelVerticesSize + 2];           // Fixed size array of ints.    Size is channel vertices + 2.
-                                                                                // This is used only for channelElementVertices.
-                                                                                // See the comment of that variable for explanation.
-typedef double DoubleArrayCV[ChannelElement::channelVerticesSize];              // Fixed size array of doubles. Size is channel vertices.
-typedef bool   BoolArrayCV[ChannelElement::channelVerticesSize];                // Fixed size array of bools.   Size is channel vertices.
-typedef int    IntArrayCCN[ChannelElement::channelNeighborsSize];               // Fixed size array of ints.    Size is channel channel neighbors.
-typedef double DoubleArrayCCN[ChannelElement::channelNeighborsSize];            // Fixed size array of doubles. Size is channel channel neighbors.
-typedef int    IntArrayCMN[ChannelElement::meshNeighborsSize];                  // Fixed size array of ints.    Size is channel mesh neighbors.
-typedef double DoubleArrayCMN[ChannelElement::meshNeighborsSize];               // Fixed size array of doubles. Size is channel mesh neighbors.
+#define XDMF_SIZE (ChannelElement::channelVerticesSize + 2) // channelElementVertices must have two extra values of XDMF metadata.
+
+typedef float     FloatArraySnowLayers[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // Fixed size array of floats.     Size is number of E-T snow layers.
+typedef float     FloatArrayAllLayers[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS];   // Fixed size array of floats.     Size is number of E-T snow and soil
+                                                                                   // layers.
+typedef int       IntArrayMMN[MeshElement::meshNeighborsSize];                     // Fixed size array of ints.       Size is mesh    mesh neighbors.
+typedef bool      BoolArrayMMN[MeshElement::meshNeighborsSize];                    // Fixed size array of bools.      Size is mesh    mesh neighbors.
+typedef double    DoubleArrayMMN[MeshElement::meshNeighborsSize];                  // Fixed size array of doubles.    Size is mesh    mesh neighbors.
+typedef int       IntArrayMCN[MeshElement::channelNeighborsSize];                  // Fixed size array of ints.       Size is mesh    channel neighbors.
+typedef double    DoubleArrayMCN[MeshElement::channelNeighborsSize];               // Fixed size array of doubles.    Size is mesh    channel neighbors.
+typedef int       IntArrayXDMF[XDMF_SIZE];                                         // Fixed size array of ints.       Size is channel vertices + 2.
+                                                                                   // This is used only for channelElementVertices.
+                                                                                   // See the comment of that variable for explanation.
+typedef double    DoubleArrayCV[ChannelElement::channelVerticesSize];              // Fixed size array of doubles.    Size is channel vertices.
+typedef bool      BoolArrayCV[ChannelElement::channelVerticesSize];                // Fixed size array of bools.      Size is channel vertices.
+typedef int       IntArrayCCN[ChannelElement::channelNeighborsSize];               // Fixed size array of ints.       Size is channel channel neighbors.
+typedef double    DoubleArrayCCN[ChannelElement::channelNeighborsSize];            // Fixed size array of doubles.    Size is channel channel neighbors.
+typedef bool      BoolArrayCCN[ChannelElement::channelNeighborsSize];              // Fixed size array of bools.      Size is channel channel neighbors.
+typedef int       IntArrayCMN[ChannelElement::meshNeighborsSize];                  // Fixed size array of ints.       Size is channel mesh neighbors.
+typedef double    DoubleArrayCMN[ChannelElement::meshNeighborsSize];               // Fixed size array of doubles.    Size is channel mesh neighbors.
+typedef long long LongLongArrayPair[2];                                            // Fixed size array of long long.  Size is 2.
 
 // The group of file managers acts as an in-memory cache for values that are
 // read from and written to NetCDF files.  Reading and writing individual
@@ -220,17 +225,17 @@ public:
   double* channelNodeZBank;
   
   // This array stores the node indices of the vertices of each element, but
-  // with some special properties required for display as an XDMF file.
-  // We want to display streams as polylines and waterbodies as polygons.
-  // In XDMF this requires a mixed topology.  In a mixed topology, each element
-  // must store its shape type, either 2 for polyline or 3 for polygon, and
-  // number of vertices followed by the node indices of the vertices.  In order
-  // for the mixed topology to work with the rectangular arrays of NetCDF files
-  // all elements must have the same number of vertices.  Therefore,
+  // with some extra metadata required for display as an XDMF file.  We want to
+  // display streams as polylines and waterbodies as polygons.  In XDMF this
+  // requires a mixed topology.  In a mixed topology, each element must store
+  // its shape type, either 2 for polyline or 3 for polygon, and number of
+  // vertices followed by the node indices of the vertices.  In order for the
+  // mixed topology to work with the rectangular arrays of NetCDF files all
+  // elements must have the same number of vertices.  Therefore,
   // channelElementVertices[n][0] is the shape type, always 2 or 3,
   // channelElementVertices[n][1] is the number of vertices, always
   // ChannelElement::channelVerticesSize, and the remaining values are the node
-  // indices of ther vertices with channelElementVertices[n][2] holding vertex
+  // indices of the vertices with channelElementVertices[n][2] holding vertex
   // 0, channelElementVertices[n][3] holding vertex 1, etc.  If a shape has
   // fewer vertices than ChannelElement::channelVerticesSize then the last
   // vertex is repeated as necessary.
@@ -294,6 +299,7 @@ public:
   float*                channelDeepRech;
   float*                channelRech;
   IntArrayCCN*          channelChannelNeighbors;
+  BoolArrayCCN*         channelChannelNeighborsDownstream;
   DoubleArrayCCN*       channelChannelNeighborsSurfacewaterFlowRate;
   DoubleArrayCCN*       channelChannelNeighborsSurfacewaterCumulativeFlow;
   IntArrayCMN*          channelMeshNeighbors;
@@ -302,6 +308,16 @@ public:
   DoubleArrayCMN*       channelMeshNeighborsSurfacewaterCumulativeFlow;
   DoubleArrayCMN*       channelMeshNeighborsGroundwaterFlowRate;
   DoubleArrayCMN*       channelMeshNeighborsGroundwaterCumulativeFlow;
+  
+  // This array stores a lookup table of reach codes for pruned streams.
+  // channelPruned[n][0] stores the reach code of a pruned stream.
+  // channelPruned[n][1] stores the reach code of an unpruned channel that is
+  // downstream of the pruned stream and should be used in place of the pruned
+  // stream if needed.  This is only available if you initialize from ASCII
+  // files and is only used for meshMassage.
+  int                channelPrunedSize;     // The size of the allocated array pointed to by channelPruned.
+  int                numberOfChannelPruned; // The number of valid entries in channelPruned.
+  LongLongArrayPair* channelPruned;         // The lookup table of reach codes for pruned streams.
   
   // Time information.  This is only kept up to date when inputting or outputting.
   double referenceDate; // The Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to
@@ -554,6 +570,63 @@ private:
   // y       - Y coordinate of vertex.
   // zBank   - Bank Z coordinate of vertex.
   void handleChannelVertexDataMessage(int element, int vertex, double x, double y, double zBank);
+  
+  // Returns: An element immediately downstream of element, or OUTFLOW if
+  // element has an outflow boundary, or NOFLOW if element has neither.  If
+  // element has more than one qualifying downstream element or a downstream
+  // element and an outflow boundary the first one encountered is returned
+  // arbitrarily.
+  //
+  // Parameters:
+  //
+  // element - The element to find an element or outflow boundary downstream
+  //           of.
+  int findDownstreamElement(int element);
+  
+  // Break a digital dam.  The digital dam is broken by searching downstream
+  // from the dammed element to find an element lower than the dammed element.
+  // All elements between the dammed element and the lower element have their
+  // ZBed lowered to be on a straight line slope between the two.
+  //
+  // Waterbodies are allowed to be dammed so if element is a waterbody then it
+  // has its ZBed lowered to match the dammed element and it is used as the
+  // lower element.  This is also done if downstream of element has an outflow
+  // boundary or if element has no downstream connections at all.
+  //
+  // The downstream search is done recursively by arbitrarily choosing the
+  // first downstream connection of element.  This function could be improved
+  // for cases where elements have multiple downstream connections.
+  //
+  // Returns: The slope from the dammed element to the lower element.
+  //
+  // Parameters:
+  //
+  // element       - The element to check for being the lower element or to
+  //                 lower its ZBed if it is not.
+  // dammedElement - The original element that has the digital dam.
+  // length        - The length in meters traversed so far to the beginning of
+  //                 element.
+  double breakDigitalDam(int element, int dammedElement, double length);
+  
+  // To break digital dams in the mesh we arbitrarily connect mesh elements to
+  // the lowest channel element from the same catchment.  Catchment numbers for
+  // streams are stored in the channel element's reach code.  If a stream is
+  // pruned we may not find a channel element with that reach code in which
+  // case the return value indicates that no connection was made.  The caller
+  // should then find the reach code of an unpruned link downstream of the
+  // pruned stream and call this function again with that new reach code.
+  //
+  // Returns: The channel element number that element was connected to, or
+  //          NOFLOW if no connection was made.
+  //
+  // Parameters:
+  //
+  // element   - The mesh element to connect to a channel element.
+  // reachCode - The reach code of a channel element to connect to.
+  int connectMeshElementToChannelElementByReachCode(int element, long long reachCode);
+  
+  // Fix digital dams and similar problems.
+  void meshMassage();
   
   // If a variable is not available the file managers attempt to derive it from
   // other variables, for example element center coordinates from element
