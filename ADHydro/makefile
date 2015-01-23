@@ -142,6 +142,8 @@ mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \
                 mesh_element.decl.h    \
                 mesh_element.def.h     \
+                adhydro.h              \
+                adhydro.decl.h         \
                 channel_element.h      \
                 channel_element.decl.h \
                 file_manager.h         \
@@ -161,6 +163,8 @@ channel_element.o: channel_element.cpp    \
                    channel_element.h      \
                    channel_element.decl.h \
                    channel_element.def.h  \
+                   adhydro.h              \
+                   adhydro.decl.h         \
                    mesh_element.h         \
                    mesh_element.decl.h    \
                    file_manager.h         \
@@ -195,18 +199,26 @@ file_manager.decl.h \
 file_manager.def.h: file_manager.ci
 	$(CHARMC) $<
 
-surfacewater.o: surfacewater.cpp \
-                surfacewater.h   \
+surfacewater.o: surfacewater.cpp      \
+                surfacewater.h        \
+                adhydro.h             \
+                adhydro.decl.h        \
+                evapo_transpiration.h \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
-groundwater.o: groundwater.cpp \
-               groundwater.h   \
+groundwater.o: groundwater.cpp       \
+               groundwater.h         \
+               adhydro.h             \
+               adhydro.decl.h        \
+               evapo_transpiration.h \
                all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
+                       adhydro.h               \
+                       adhydro.decl.h          \
                        all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 	

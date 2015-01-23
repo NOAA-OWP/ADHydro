@@ -126,8 +126,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -136,8 +139,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -146,8 +152,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -165,8 +174,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -174,8 +186,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -183,8 +198,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshGroundwaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -219,8 +237,12 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
-                             "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    // This will occur all of the time for any element with no boundary edges so use verbosity level 4.
+                    if (4 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                              "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -228,8 +250,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
-                             "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                              "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -237,8 +262,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
-                             "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale calculateSurfacewaterBoundaryConditionsMessage "
+                              "for iteration %lu.\n", thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -257,8 +285,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -267,8 +298,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -277,8 +311,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -296,8 +333,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -305,8 +345,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -314,8 +357,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterStateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -334,8 +380,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -344,8 +393,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -354,8 +406,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale channelSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -374,8 +429,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -384,8 +442,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 
@@ -394,8 +455,11 @@ module channel_element
                 {
                   serial
                   {
-                    CkPrintf("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
-                             thisIndex, iterationThisTimestep, iterationThisMessage);
+                    if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("NOTE: channel element %d, iteration %lu: Discarding unneeded stale meshSurfacewaterFlowRateMessage for iteration %lu.\n",
+                              thisIndex, iterationThisTimestep, iterationThisMessage);
+                    }
                   }
                 }
                 

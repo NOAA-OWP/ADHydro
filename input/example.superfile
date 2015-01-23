@@ -21,4 +21,5 @@ outputDirectory          = /localstore/output
                                        ; If drainDownMode is not in the superfile it defaults to false.
 ; doMeshMassage            = false     ; If doMeshMassage is true the simulation will run mesh massage to fix digital pits and similar problems.
                                        ; If doMeshMassage is not in the superfile it defaults to false.
-
+; verbosityLevel           = 2         ; Controls how much is printed to the display.  Least verbose is zero.  Most verbose is four.
+                                       ; If verbosityLevel is not in the superfile it defaults to two.

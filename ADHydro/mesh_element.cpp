@@ -1,4 +1,5 @@
 #include "mesh_element.h"
+#include "adhydro.h"
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
@@ -35,7 +36,8 @@ double MeshElement::calculateZOffset(int meshElement, double meshVertexX[meshNei
   // icemasses because there are often real situations where a glacier on a slope is higher than its neighboring mesh elements.
   if (ICEMASS != channelType && zOffset < channelElementZBank - meshElementZSurface)
     {
-      if (10.0 < channelElementZBank - meshElementZSurface - zOffset)
+      if ((2 <= ADHydro::verbosityLevel && 100.0 < channelElementZBank - meshElementZSurface - zOffset) ||
+          (3 <= ADHydro::verbosityLevel &&  10.0 < channelElementZBank - meshElementZSurface - zOffset) || 4 <= ADHydro::verbosityLevel)
         {
           CkError("WARNING in MeshElement::calculateZOffset: mesh element %d is lower than neighboring channel element %d by %lf meters.  Raising zOffset to "
                   "make them level.\n", meshElement, channelElement, channelElementZBank - meshElementZSurface - zOffset);
@@ -1487,13 +1489,16 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
               evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
               groundwaterHead        = elementZBedrock;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %le meters.\n",
-                      thisIndex, unsatisfiedEvaporation);
+              if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %le meters.\n", thisIndex,
+                          unsatisfiedEvaporation);
+                }
             }
         }
       
-      // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater
-      // print a warning and reduce the quantity of transpiration.
+      // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater print a
+      // warning and reduce the quantity of transpiration.
       unsatisfiedEvaporation = transpiration / 1000.0;
       
       if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
@@ -1518,7 +1523,11 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
               evaporation            -= surfacewaterDepth;
               surfacewaterDepth       = 0.0;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %le meters.\n", thisIndex, unsatisfiedEvaporation);
+              if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %le meters.\n", thisIndex,
+                          unsatisfiedEvaporation);
+                }
             }
         }
       

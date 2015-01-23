@@ -222,6 +222,7 @@ int gar_domain_alloc(gar_domain** domain, gar_parameters* parameters,double laye
         }
       else
         {
+          // FIXME verbosity level
           CkError("WARNING: initial_water_content less than the residual water content, using the residual water content instead.\n");
           (*domain)->initial_water_content = parameters->theta_r;
         }        

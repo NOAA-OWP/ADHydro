@@ -368,6 +368,7 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // FIXME can't link non-charm programs with CkError and CkAssert
+  // FIXME make error? verbosity level?
   //if (1 > year)
   //  {
   //    CkError("WARNING in julianToGregorian: date conversion does not work properly for years before 1 CE.\n");

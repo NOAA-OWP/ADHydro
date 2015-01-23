@@ -2,8 +2,10 @@
 #include "file_manager.h"
 #include "INIReader.h"
 
+// Read-only global variables.
 bool ADHydro::drainDownMode;
 bool ADHydro::doMeshMassage;
+int  ADHydro::verbosityLevel;
 
 void ADHydro::setLoadBalancingToManual()
 {
@@ -79,8 +81,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
                                                                          // will run in normal mode.
-  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // if doMeshMassage is not in the superfile it defaults to false and mesh massage will
+  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // If doMeshMassage is not in the superfile it defaults to false and mesh massage will
                                                                          // not be run.
+  verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);    // If verbosityLevel is not in the superfile it defaults to two.
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();
@@ -207,9 +210,34 @@ void ADHydro::writeFiles()
 
 void ADHydro::checkForcingData()
 {
+  long   forcingDataYear;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMonth;  // For calculating Gregorian date from Julian date.
+  long   forcingDataDay;    // For calculating Gregorian date from Julian date.
+  long   forcingDataHour;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMinute; // For calculating Gregorian date from Julian date.
+  double forcingDataSecond; // For calculating Gregorian date from Julian date.
+  long   simulationYear;    // For calculating Gregorian date from Julian date.
+  long   simulationMonth;   // For calculating Gregorian date from Julian date.
+  long   simulationDay;     // For calculating Gregorian date from Julian date.
+  long   simulationHour;    // For calculating Gregorian date from Julian date.
+  long   simulationMinute;  // For calculating Gregorian date from Julian date.
+  double simulationSecond;  // For calculating Gregorian date from Julian date.
+  
   if (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
       fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0))
     {
+      if (1 <= verbosityLevel)
+        {
+          julianToGregorian(fileManagerProxy.ckLocalBranch()->nextForcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
+                            &forcingDataMinute, &forcingDataSecond);
+          julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                            &simulationMinute, &simulationSecond);
+          
+          CkPrintf("Reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
+                   forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
+                   simulationHour, simulationMinute, simulationSecond);
+        }
+      
       // Set callback.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
@@ -327,7 +355,10 @@ void ADHydro::doTimestep()
         }
 
       // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu\n", currentTime, dt, iteration);
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu.\n", currentTime, dt, iteration);
+        }
 
       // Set callbacks and start timestep.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -354,7 +385,11 @@ void ADHydro::doTimestep()
     }
   else
     {
-      CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("currentTime = %lf, simulation finished.\n", currentTime);
+        }
+      
       CkExit();
     }
 }
@@ -377,6 +412,11 @@ void ADHydro::timestepDone(double dtNew)
   // Load balance once after waiting a few iterations to generate load statistics.
   if (startingIteration + 5 == iteration && 1 < CkNumPes())
     {
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("Starting load balancing.\n");
+        }
+      
       CkStartLB();
     }
 

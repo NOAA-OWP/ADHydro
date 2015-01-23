@@ -1,4 +1,5 @@
 #include "evapo_transpiration.h"
+#include "adhydro.h"
 #include "all.h"
 #include <math.h>
 
@@ -1715,11 +1716,17 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
             }
           else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->stc[ii]))
             {
-              CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc below -60 degrees C.\n", ii);
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc below -60 degrees C.\n", ii);
+                }
             }
           else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->stc[ii]))
             {
-              CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc above 60 degrees C.\n", ii);
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc above 60 degrees C.\n", ii);
+                }
             }
         }
     }
@@ -1731,11 +1738,17 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
     }
   else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tah))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah below -60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah below -60 degrees C.\n");
+        }
     }
   else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tah))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah above 60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah above 60 degrees C.\n");
+        }
     }
 
   if (!(0.0f <= evapoTranspirationState->eah))
@@ -1769,11 +1782,17 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
     }
   else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tv))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv below -60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv below -60 degrees C.\n");
+        }
     }
   else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tv))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv above 60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv above 60 degrees C.\n");
+        }
     }
 
   if (!(0.0f <= evapoTranspirationState->tg))
@@ -1783,11 +1802,17 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
     }
   else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tg))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg below -60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg below -60 degrees C.\n");
+        }
     }
   else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tg))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg above 60 degrees C.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg above 60 degrees C.\n");
+        }
     }
 
   if (!(-EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS <= evapoTranspirationState->iSnow && evapoTranspirationState->iSnow <= 0))
@@ -1938,7 +1963,10 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
     }
   else if (!(6.0f >= evapoTranspirationState->lai))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: lai above six.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: lai above six.\n");
+        }
     }
 
   if (!(0.0f <= evapoTranspirationState->sai))
@@ -1948,7 +1976,10 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
     }
   else if (!(1.0f >= evapoTranspirationState->sai))
     {
-      CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above one.\n");
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above one.\n");
+        }
     }
 
   return error;

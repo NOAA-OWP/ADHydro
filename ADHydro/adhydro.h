@@ -67,6 +67,17 @@ public:
   // digital dams and similar problems.
   static bool doMeshMassage;
   
+  // Global read-only variable specifies how much to print to the display.
+  // Current verbosity levels are:
+  //
+  // 0 - Error messages only.
+  // 1 - Messages about general simulation progress.
+  // 2 - Warning messages about situations that are probably a problem.
+  // 3 - Warning messages about situations that may be a problem, but just
+  //     create too many messages for level two.
+  // 4 - Warning messages about situations that are probably ok.
+  static int verbosityLevel;
+  
   // Set the load balancing mode to manual.  We need to wait for a few
   // timesteps to generate load statistics, and then we need to load balance
   // once.  After that we need to load balance very rarely if at all.

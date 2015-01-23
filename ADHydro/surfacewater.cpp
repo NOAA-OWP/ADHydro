@@ -1,4 +1,5 @@
 #include "surfacewater.h"
+#include "adhydro.h"
 
 #define COURANT_DIFFUSIVE (0.9)
 
@@ -59,7 +60,11 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
           
           if (0.0 < *flowRate)
             {
-              CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+                }
+              
               *flowRate = 0.0;
             }
         }
@@ -69,7 +74,11 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
           
           if (0.0 > *flowRate)
             {
-              CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+                }
+              
               *flowRate = 0.0;
             }
         }
@@ -166,7 +175,11 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
           
           if (0.0 < *flowRate)
             {
-              CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+                }
+              
               *flowRate = 0.0;
             }
         }
@@ -186,7 +199,11 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
           
           if (0.0 > *flowRate)
             {
-              CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+                }
+              
               *flowRate = 0.0;
             }
           

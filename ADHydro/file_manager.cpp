@@ -608,7 +608,7 @@ bool FileManager::readNodeAndZFiles(const char* directory, const char* fileBasen
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != zFile))
         {
-          fprintf(stderr, "ERROR in FileManager::readNodeAndZFiles: could not open z file %s.\n", nameString);
+          CkError("ERROR in FileManager::readNodeAndZFiles: could not open z file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -832,7 +832,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != eleFile))
         {
-          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open ele file %s.\n", nameString);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open ele file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -884,7 +884,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != neighFile))
         {
-          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open neigh file %s.\n", nameString);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open neigh file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1050,7 +1050,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != edgeFile))
         {
-          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open edge file %s.\n", nameString);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open edge file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1162,7 +1162,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != chanEleFile))
         {
-          fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open chan.ele file %s.\n", nameString);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open chan.ele file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1422,8 +1422,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
               else
                 {
-                  fprintf(stderr, "ERROR in handleInitializeFromASCIIFiles: mesh element %d: number of channel neighbors exceeds maximum number %d.\n",
-                      neighbor0, MeshElement::channelNeighborsSize);
+                  CkError("ERROR in handleInitializeFromASCIIFiles: mesh element %d: number of channel neighbors exceeds maximum number %d.\n", neighbor0,
+                          MeshElement::channelNeighborsSize);
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -1468,7 +1468,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NULL != chanPruneFile))
             {
-              fprintf(stderr, "ERROR in FileManager::handleInitializeFromASCIIFiles: could not open chan.prune file %s.\n", nameString);
+              CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open chan.prune file %s.\n", nameString);
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -3196,6 +3196,7 @@ double FileManager::breakDigitalDam(int element, int dammedElement, double lengt
 {
   double slope;             // The slope downward from dammedElement to the point where the digital dam is broken, unitless.
   int    downstreamElement; // An element or boundary condition code downstream of element.
+  double distanceLowered;   // The distance in meters by which an element is lowered to break a digital dam.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   CkAssert(0 <= element && element < globalNumberOfChannelElements && 0 <= dammedElement && dammedElement < globalNumberOfChannelElements && 0.0 < length &&
@@ -3211,10 +3212,15 @@ double FileManager::breakDigitalDam(int element, int dammedElement, double lengt
   else if (WATERBODY == channelChannelType[element])
     {
       // element is a waterbody, which is allowed to be dammed, so lower it to the level of dammedElement.
-      CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
-              channelElementZBed[element] - channelElementZBed[dammedElement], channelElementZBed[element], channelElementZBed[dammedElement]);
+      distanceLowered = channelElementZBed[element] - channelElementZBed[dammedElement];
       
-      channelElementZBank[element] -= channelElementZBed[element] - channelElementZBed[dammedElement];
+      if ((2 <= ADHydro::verbosityLevel && 10.0 < distanceLowered) || 3 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+                  distanceLowered, channelElementZBed[element], channelElementZBed[dammedElement]);
+        }
+      
+      channelElementZBank[element] -= distanceLowered;
       channelElementZBed[element]   = channelElementZBed[dammedElement];
       slope                         = 0.0;
     }
@@ -3227,13 +3233,21 @@ double FileManager::breakDigitalDam(int element, int dammedElement, double lengt
           // element has an outflow boundary or no downstream connections at all.  Lower it to the level of dammedElement.
           if (OUTFLOW != downstreamElement)
             {
-              CkError("WARNING in FileManager::breakDigitalDam: channel element %d has no downstream connections.\n", element);
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::breakDigitalDam: channel element %d has no downstream connections.\n", element);
+                }
             }
           
-          CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
-                  channelElementZBed[element] - channelElementZBed[dammedElement], channelElementZBed[element], channelElementZBed[dammedElement]);
+          distanceLowered = channelElementZBed[element] - channelElementZBed[dammedElement];
           
-          channelElementZBank[element] -= channelElementZBed[element] - channelElementZBed[dammedElement];
+          if ((2 <= ADHydro::verbosityLevel && 10.0 < distanceLowered) || 3 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+                      distanceLowered, channelElementZBed[element], channelElementZBed[dammedElement]);
+            }
+          
+          channelElementZBank[element] -= distanceLowered;
           channelElementZBed[element]   = channelElementZBed[dammedElement];
           slope                         = 0.0;
         }
@@ -3242,12 +3256,16 @@ double FileManager::breakDigitalDam(int element, int dammedElement, double lengt
           // Continue to search downstream, and when the search returns lower element to a straight line slope down from the dammed element.
           slope = breakDigitalDam(downstreamElement, dammedElement, length + channelElementLength[element]);
           
-          CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
-                  channelElementZBed[element] - (channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element])),
-                  channelElementZBed[element],   channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]));
+          distanceLowered = channelElementZBed[element] - (channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]));
           
-          channelElementZBank[element] -= channelElementZBed[element] -      (channelElementZBed[dammedElement] -
-                                                                              slope * (length + 0.5 * channelElementLength[element]));
+          if ((2 <= ADHydro::verbosityLevel && 10.0 < distanceLowered) || 3 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in FileManager::breakDigitalDam: breaking digital dam by lowering channel element %d by %lf meters from %lf to %lf.\n", element,
+                      distanceLowered, channelElementZBed[element],
+                      channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]));
+            }
+          
+          channelElementZBank[element] -= distanceLowered;
           channelElementZBed[element]   = channelElementZBed[dammedElement] - slope * (length + 0.5 * channelElementLength[element]);
         }
     }
@@ -3277,8 +3295,11 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
   
   if (NOFLOW != neighbor)
     {
-      CkError("WARNING in FileManager::connectMeshElementToChannelElementByReachCode: breaking digital dam by connecting mesh element %d to channel element "
-              "%d.\n", element, neighbor);
+      if (3 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in FileManager::connectMeshElementToChannelElementByReachCode: breaking digital dam by connecting mesh element %d to channel "
+                  "element %d.\n", element, neighbor);
+        }
       
       // Place the elements in each other's neighbor lists.
       ii = 0;
@@ -3445,7 +3466,10 @@ void FileManager::meshMassage()
               
               if (isBoundary(downstreamElement))
                 {
-                  CkError("WARNING in FileManager::meshMassage: channel element %d has no downstream connections.\n", ii);
+                  if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("WARNING in FileManager::meshMassage: channel element %d has no downstream connections.\n", ii);
+                    }
                 }
               else
                 {
@@ -3481,7 +3505,10 @@ void FileManager::meshMassage()
           
           if (!hasLowerNeighbor)
             {
-              CkError("WARNING in FileManager::meshMassage: channel element %d is still a digital dam after all digital dams were broken.\n", ii);
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassage: channel element %d is still a digital dam after all digital dams were broken.\n", ii);
+                }
             }
         }
     } // End check that all digital dams in the channel network are broken.
@@ -3584,8 +3611,11 @@ void FileManager::meshMassage()
 
           if (NOFLOW == neighbor)
             {
-              CkError("WARNING in FileManager::meshMassage: mesh element %d is a digital dam, but there is no channel element in catchment %d to connect it "
-                      "to.\n", ii, meshCatchment[ii]);
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassage: mesh element %d is a digital dam, but there is no channel element in catchment %d to connect "
+                          "it to.\n", ii, meshCatchment[ii]);
+                }
             }
         }
     } // End break digital dams in the mesh.
@@ -7426,8 +7456,11 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
         }
       else
         {
-          CkError("WARNING in FileManager::handleReadForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will be "
-                  "loaded after this no matter how long the simulation runs.\n");
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in FileManager::handleReadForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will "
+                      "be loaded after this no matter how long the simulation runs.\n");
+            }
           
           nextForcingDataDate = INFINITY;
         }

@@ -1,4 +1,5 @@
 #include "channel_element.h"
+#include "adhydro.h"
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
