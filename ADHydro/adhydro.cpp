@@ -229,8 +229,8 @@ void ADHydro::checkForcingData()
   
   printMessage = false;
   
-  if (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
-      fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0))
+  if (endTime > currentTime && (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
+                                fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0)))
     {
       if (1 <= verbosityLevel)
         {
@@ -284,12 +284,12 @@ void ADHydro::forcingDataDone()
   long   simulationMinute;  // For calculating Gregorian date from Julian date.
   double simulationSecond;  // For calculating Gregorian date from Julian date.
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  
   if (printMessage && 1 <= verbosityLevel)
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
       julianToGregorian(fileManagerProxy.ckLocalBranch()->forcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
                         &forcingDataMinute, &forcingDataSecond);
       julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
