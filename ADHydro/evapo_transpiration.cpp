@@ -25,7 +25,8 @@
 
 extern "C" void READ_MP_VEG_PARAMETERS(const char* landUse, const char* mpTableFile, size_t landUseSize, size_t mpTableFileSize);
 extern "C" void SOIL_VEG_GEN_PARM(const char* landUse, const char* soil, const char* vegParmFile, const char* soilParmFile, const char* genParmFile,
-                                  size_t landUseSize, size_t soilSize, size_t vegParmFileSize, size_t soilParmFileSize, size_t genParmFileSize);
+                                  int* verbosityLevel, size_t landUseSize, size_t soilSize, size_t vegParmFileSize, size_t soilParmFileSize,
+                                  size_t genParmFileSize);
 extern "C" void NOAHMP_OPTIONS(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf, int* optRad, int* optAlb, int* optSnf,
                                int* optTbot, int* optStc);
 extern "C" void NOAHMP_OPTIONS_GLACIER(int* dveg, int* optCrs, int* optBtr, int* optRun, int* optSfc, int* optFrz, int* optInf, int* optRad, int* optAlb,
@@ -56,15 +57,17 @@ extern float NOAHMP_POROSITY;
 
 bool evapoTranspirationInit(const char* directory)
 {
-  bool        error        = false;  // Error flag.
-  const char* landUse      = "USGS"; // Land use data set.
-  const char* soil         = "STAS"; // Soil type data set.
-  char*       mpTableFile  = NULL;   // File name for MPTABLE.TBL file.
-  char*       vegParmFile  = NULL;   // File name for VEGPARM.TBL file.
-  char*       soilParmFile = NULL;   // File name for SOILPARM.TBL file.
-  char*       genParmFile  = NULL;   // File name for GENPARM.TBL file.
-  size_t      fileStringSize;        // Size of buffer allocated for file name strings.
-  size_t      numPrinted;            // Used to check that snprintf printed the correct number of characters.
+  bool        error          = false;                   // Error flag.
+  const char* landUse        = "USGS";                  // Land use data set.
+  const char* soil           = "STAS";                  // Soil type data set.
+  char*       mpTableFile    = NULL;                    // File name for MPTABLE.TBL file.
+  char*       vegParmFile    = NULL;                    // File name for VEGPARM.TBL file.
+  char*       soilParmFile   = NULL;                    // File name for SOILPARM.TBL file.
+  char*       genParmFile    = NULL;                    // File name for GENPARM.TBL file.
+  size_t      fileStringSize;                           // Size of buffer allocated for file name strings.
+  size_t      numPrinted;                               // Used to check that snprintf printed the correct number of characters.
+  int         verbosityLevel = ADHydro::verbosityLevel; // For passing verbosity level into Noah.  I'm not comfortable passing a class static variable by
+                                                        // reference into foreign code.
   
   // =====================================options for different schemes================================
   // From module_sf_noahmplsm.F
@@ -220,8 +223,8 @@ bool evapoTranspirationInit(const char* directory)
   if (!error)
     {
       READ_MP_VEG_PARAMETERS(landUse, mpTableFile, strlen(landUse), strlen(mpTableFile));
-      SOIL_VEG_GEN_PARM(landUse, soil, vegParmFile, soilParmFile, genParmFile, strlen(landUse), strlen(soil), strlen(vegParmFile), strlen(soilParmFile),
-                        strlen(genParmFile));
+      SOIL_VEG_GEN_PARM(landUse, soil, vegParmFile, soilParmFile, genParmFile, &verbosityLevel, strlen(landUse), strlen(soil), strlen(vegParmFile),
+                        strlen(soilParmFile), strlen(genParmFile));
       NOAHMP_OPTIONS(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot, &optStc);
       NOAHMP_OPTIONS_GLACIER(&dveg, &optCrs, &optBtr, &optRun, &optSfc, &optFrz, &optInf, &optRad, &optAlb, &optSnf, &optTbot, &optStc);
     }

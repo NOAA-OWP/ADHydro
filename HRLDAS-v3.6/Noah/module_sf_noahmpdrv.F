@@ -962,7 +962,7 @@ end if
     !
     IF ( allowed_to_read ) THEN
        CALL wrf_message( 'INITIALIZE THREE Noah LSM RELATED TABLES' )
-       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL" )
+       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL", 3)
     ENDIF
 
     IF( .NOT. restart ) THEN
@@ -1504,13 +1504,14 @@ END  SUBROUTINE EQSMOISTURE
 !------------------------------------------------------------------------------------------
 !
 !-----------------------------------------------------------------
-        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE)
+        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE, VERBOSITY_LEVEL)
 !-----------------------------------------------------------------
 
 !        USE module_wrf_error
         IMPLICIT NONE
 
         CHARACTER(LEN=*), INTENT(IN) :: MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE
+        INTEGER, INTENT(IN) :: VERBOSITY_LEVEL
         integer :: LUMATCH, IINDEX, LC, NUM_SLOPE
         integer :: ierr
         INTEGER , PARAMETER :: OPEN_OK = 0
@@ -1561,8 +1562,10 @@ END  SUBROUTINE EQSMOISTURE
            READ (19,*)LUCATS,IINDEX
 
            IF(LUTYPE.EQ.MMINLU)THEN
-              WRITE( mess , * ) 'LANDUSE TYPE = ' // TRIM ( LUTYPE ) // ' FOUND', LUCATS,' CATEGORIES'
-              CALL wrf_message( mess )
+              IF(3.LE.VERBOSITY_LEVEL)THEN
+                 WRITE( mess , * ) 'LANDUSE TYPE = ' // TRIM ( LUTYPE ) // ' FOUND', LUCATS,' CATEGORIES'
+                 CALL wrf_message( mess )
+              ENDIF
               LUMATCH=1
            ELSE
               call wrf_message ( "Skipping over LUTYPE = " // TRIM ( LUTYPE ) )
@@ -1664,8 +1667,10 @@ END  SUBROUTINE EQSMOISTURE
           CALL wrf_error_fatal ( message )
         END IF
 
-        WRITE(mess,*) 'INPUT SOIL TEXTURE CLASSIFICATION = ', TRIM ( MMINSL )
-        CALL wrf_message( mess )
+        IF(3.LE.VERBOSITY_LEVEL)THEN
+           WRITE(mess,*) 'INPUT SOIL TEXTURE CLASSIFICATION = ', TRIM ( MMINSL )
+           CALL wrf_message( mess )
+        ENDIF
 
         LUMATCH=0
 
@@ -1674,9 +1679,11 @@ END  SUBROUTINE EQSMOISTURE
  2000   FORMAT (A4)
         READ (19,*)SLCATS,IINDEX
         IF(SLTYPE.EQ.MMINSL)THEN
-            WRITE( mess , * ) 'SOIL TEXTURE CLASSIFICATION = ', TRIM ( SLTYPE ) , ' FOUND', &
-                  SLCATS,' CATEGORIES'
-            CALL wrf_message ( mess )
+            IF(3.LE.VERBOSITY_LEVEL)THEN
+               WRITE( mess , * ) 'SOIL TEXTURE CLASSIFICATION = ', TRIM ( SLTYPE ) , ' FOUND', &
+                     SLCATS,' CATEGORIES'
+               CALL wrf_message ( mess )
+            ENDIF
           LUMATCH=1
         ENDIF
 ! prevent possible array overwrite, Bill Bovermann, IBM, May 6, 2008

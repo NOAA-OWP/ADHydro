@@ -844,7 +844,7 @@ module module_NoahMP_hrldas_driver
      STEPWTD = max(STEPWTD,1)
 
      call read_mp_veg_parameters(trim(LLANDUSE), "MPTABLE.TBL")
-     CALL  SOIL_VEG_GEN_PARM( LLANDUSE, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL" )
+     CALL  SOIL_VEG_GEN_PARM( LLANDUSE, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL", 3)
 
   else
 

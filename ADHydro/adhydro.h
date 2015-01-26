@@ -73,8 +73,9 @@ public:
   // 0 - Error messages only.
   // 1 - Messages about general simulation progress.
   // 2 - Warning messages about situations that are probably a problem.
-  // 3 - Warning messages about situations that may be a problem, but just
-  //     create too many messages for level two.
+  // 3 - Messages about general simulation progress or warning messages about
+  //     situations that may be a problem that just create too many messages
+  //     for levels one and two.
   // 4 - Warning messages about situations that are probably ok.
   static int verbosityLevel;
   
