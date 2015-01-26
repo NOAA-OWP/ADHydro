@@ -4,13 +4,15 @@ import pandas as pd
 import numpy as np
 import glob
 from math import acos, cos
-from qgis.core import * #VERY BAD PRACTICE...SHOULD IMPORT QGIS.CORE AND FIND ALL REFERENCES AND PREPEND QGIS.CORE.*
 #import cython #Maybe try to cythonize some functions for better performance???
 #To run this scrip outside of the Qgis Console, make sure you run
 
+# This script is set up to run from the command line and not from inside the QGIS python console.
+# You need to add your QGIS python directory to the PYTHONPATH environment variable as shown below.
+#
 #$export PYTHONPATH=/opt/share/qgis/python:$PYTHONPATH
-#From the command line in the terminal you will run python in #TODO can do this programatically in the script if needed...
 #Qgis setup, here so GLOBALS get setup right
+from qgis.core import * #VERY BAD PRACTICE...SHOULD FIND ALL REFERENCES AND PREPEND QGIS.CORE. RATHER THAN IMPORTING ALL OF QGIS.CORE
 qgishome = '/opt'
 app = QgsApplication([], True)
 QgsApplication.setPrefixPath(qgishome, True)
@@ -596,3 +598,4 @@ if __name__ == '__main__':
     getSoilTypDRV()
     #Qgis finalize
     QgsApplication.exitQgis()
+
