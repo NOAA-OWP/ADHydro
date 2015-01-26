@@ -19,17 +19,35 @@ QgsApplication.initQgis()
 #GLOBALS
 #These are reused each time getMUKEY is called, so create them once and save the overhead
 #Can even put into an init function if the need arises
-input_SSURGO_file  = "/share/CI-WATER Third Party Files/SSURGO/index.shp"
+input_SSURGO_file  = "/share/CI-WATER_Third_Party_Files/SSURGO/index.shp"
 SSURGO_layer       = QgsVectorLayer(input_SSURGO_file, "SSURGO",  "ogr")
 SSURGO_provider    = SSURGO_layer.dataProvider()
 SSURGO_AreaSymInd = SSURGO_provider.fieldNameIndex("AREASYMBOL")
 
-input_STATSGO_file  = "/share/CI-WATER Third Party Files/STATSGO/all.shp"
+input_STATSGO_file  = "/share/CI-WATER_Third_Party_Files/STATSGO/all.shp"
 STATSGO_layer     = QgsVectorLayer(input_STATSGO_file, "STATSGO",  "ogr")
 STATSGO_provider  = STATSGO_layer.dataProvider()
 STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
 STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
+
+# This script will read the NLCD data form this directory
+input_NLCD_directory_path = "/share/CI-WATER Third Party Files/NLCD/all_projected/"
+
+# This script will read the mesh geometry from this directory
+# the files it will read are:
+#
+# input_directory_path/mesh.1.ele
+# input_directory_path/mesh.1.node
+input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh"
+
+# This script will write its output to this directory
+# the files it will write are:
+#
+# output_directory_path/mesh.1.soilType
+# output_directory_path/mesh.1.LandCover
+# output_directory_path/element_data.csv
+output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -93,12 +111,11 @@ def getSoilTypDRV():
 #  ELEfilepath         -> element file path and name
 #  NODEfilepath        -> node file path and name
 #  output_SoilTyp_file -> output: soil type file path and name
-   sufixPath             = os.path.join(os.path.join(os.path.split(os.getcwd())[0],'input'), 'small_green_mesh')
-   ELEfilepath           = os.path.join(sufixPath, 'mesh.1.ele')
-   NODEfilepath          = os.path.join(sufixPath, 'mesh.1.node')
-   output_SoilTyp_file   = os.path.join(sufixPath, 'mesh.1.soilType')
-   output_VegTyp_file    = os.path.join(sufixPath, 'mesh.1.LandCover')
-   output_element_data_file = os.path.join(sufixPath, 'element_data.csv')
+   ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
+   NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
+   output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
+   output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.LandCover')
+   output_element_data_file = os.path.join(output_directory_path, 'element_data.csv')
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
    
    elements['V1'] = elements['V1'].astype(int)
@@ -491,9 +508,9 @@ def getVegParm(s):
    AreaSym = s['AreaSym']
    if AreaSym not in veg_parm_dict:
       if s['inSSURGO']:
-         input_NLCDfile =  "/share/CI-WATER Third Party Files/NLCD/all_projected/" + AreaSym[0].lower() + AreaSym[1].lower() + ".tif"
+         input_NLCDfile =  input_NLCD_directory_path + AreaSym[0].lower() + AreaSym[1].lower() + ".tif"
       else:
-         input_NLCDfile =  "/share/CI-WATER Third Party Files/NLCD/all_projected/" + AreaSym.lower() + ".tif"
+         input_NLCDfile =  input_NLCD_directory_path + AreaSym.lower() + ".tif"
       veg_parm_dict[AreaSym] = QgsRasterLayer(input_NLCDfile)
    
    layer = veg_parm_dict[AreaSym]
