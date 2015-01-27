@@ -197,8 +197,6 @@ void ADHydro::fileManagerInitialized()
     }
   
   startingIteration    = iteration;
-  writeGeometry        = true;
-  writeParameter       = true;
   needToCheckInvariant = true;
   
   // Create mesh and channels.
@@ -225,10 +223,18 @@ void ADHydro::fileManagerInitialized()
   
   if (appendToInputFiles)
     {
+      // Do not need to write the geometry and parameter files when appending to input files.
+      writeGeometry  = false;
+      writeParameter = false;
+      
       checkForcingData();
     }
   else
     {
+      // Need to write the geometry and parameter files when creating new output files.
+      writeGeometry  = true;
+      writeParameter = true;
+      
       // Set the callback to write output files after they are created.
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
 

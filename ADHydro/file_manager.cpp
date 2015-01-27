@@ -3882,6 +3882,15 @@ void FileManager::calculateDerivedValues()
             meshConductivity[ii] = 4.66E-5;
             meshPorosity[ii]     = 0.339;
             break;
+          default:
+            if (2 <= ADHydro::verbosityLevel)
+              {
+                CkError("WARNING in FileManager::calculateDerivedValues: unknown soil type %d. using default values of conductivity and porosity for sand\n",
+                        meshSoilType[ii]);
+              }
+            meshConductivity[ii] = 4.66E-5;
+            meshPorosity[ii]     = 0.339;
+            break;
           } // End of switch.
         } // End of element loop.
     } // End of assigning meshConductivity and meshPorosity.
@@ -3898,48 +3907,62 @@ void FileManager::calculateDerivedValues()
         {
           switch (meshVegetationType[ii])
           {
-            case 16: // open water
+            case 16: // USGS 16 Water Bodies,                   NLCD 11 open water
                    meshManningsN[ii] = 0.02;
                    break;
-            case 24: //  ice/snow
+            case 24: // USGS 24 Snow or Ice,                    NLCD 12 ice/snow
                    meshManningsN[ii] = 0.022;
-                   break; 
-            case 1: //  Urban and Built-Up Land
+                   break;
+            case 1:  // USGS 1  Urban and Built-Up Land,        NLCD 21 developed open space
+                     //                                         NLCD 22 developed low intensity
+                     //                                         NLCD 23 developed medium intensity
+                     //                                         NLCD 24 developed high intensity
                    meshManningsN[ii] = 0.12;
                    break;
-            case 19: //  barren land
+            case 19: // USGS 19 Barren or Sparsely Vegetated,   NLCD 31 barren land
                    meshManningsN[ii] = 0.04;
                    break;
-            case 11: //  deciduous forest
+            case 11: // USGS 11 Deciduous Broadleaf Forest,     NLCD 41 deciduous forest
                    meshManningsN[ii] = 0.16;
                    break;
-            case 13: //  evergreen forest
+            case 13: // USGS 13 Evergreen Broadleaf Forest,     NLCD 42 evergreen forest
                    meshManningsN[ii] = 0.18;
                    break;
-            case 15: //  mixed forest
+            case 15: // USGS 15 Mixed Forest,                   NLCD 43 mixed forest
                    meshManningsN[ii] = 0.17;
                    break;
-            case 22: //  'Mixed Tundra' Alaska only, use n = 0.05.
+            case 22: // USGS 22 Mixed Tundra,                   NLCD 51 dwarf scrub-Alaska only
+                     //                                         NLCD 72 sedge/herbaceous-Alaska only
+                     //                                         NLCD 73 Lichens-Alaska only
+                     //                                         NLCD 74 Moss-Alaska only
                    meshManningsN[ii] = 0.05;
                    break;
-            case 8: //   'Shrubland'
+            case 8:  // USGS 8  Shrubland,                      NLCD 52 shrub
                    meshManningsN[ii] = 0.07;
                    break;
-            case 7: //   'Grassland'
+            case 7:  // USGS 7  Grassland,                      NLCD 71 grassland
                    meshManningsN[ii] = 0.035;
                    break;
-            case 2: //  'Dryland Cropland and Pasture'
+            case 2:  // USGS 2  Dryland Cropland and Pasture,   NLCD 81 Pasture
                    meshManningsN[ii] = 0.033;
                    break;
-            case 3: //  'Irrigated Cropland and Pasture' 
+            case 3:  // USGS 3  Irrigated Cropland and Pasture, NLCD 82 cultivated crops
                    meshManningsN[ii] = 0.04;
                    break;
-            case 18: //   'Wooded Wetland' 
+            case 18: // USGS 18  Wooded Wetland,                NLCD 90 woody wetland
                    meshManningsN[ii] = 0.14;
                    break;
-            case 17: //  'Herbaceous Wetland' 
+            case 17: // USGS 17 Herbaceous Wetland,             NLCD 95 herbaceous wetland
                    meshManningsN[ii] = 0.035;
-                   break;            
+                   break;
+            default:
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::calculateDerivedValues: unknown vegetation type %d. using default value of Manning's N for mixed forest\n",
+                          meshVegetationType[ii]);
+                }
+              meshManningsN[ii] = 0.17;
+              break;
           } // End of switch meshVegetationType[ii].
         } // End of element loop.
     } // End of assigning meshManningsN.

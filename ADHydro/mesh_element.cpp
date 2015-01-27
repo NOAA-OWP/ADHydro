@@ -2252,6 +2252,11 @@ void MeshElement::checkGroundwaterFlowRates(size_t iterationThisMessage)
           groundwaterAvailable = (groundwaterHead - elementZBedrock) * elementArea * porosity;
         }
       
+      if (0.0 < groundwaterRecharge)
+        {
+          groundwaterAvailable += groundwaterRecharge;
+        }
+      
       if (groundwaterAvailable < totalOutwardFlowRate * dt)
         {
           outwardFlowRateFraction = groundwaterAvailable / (totalOutwardFlowRate * dt);
