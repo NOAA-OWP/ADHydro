@@ -45,15 +45,6 @@ module channel_element
         }
       }
       
-      // Then the element must receive one forcing data message as part of initialization.
-      when forcingDataMessage()
-      {
-        serial
-        {
-          handleForcingDataMessage();
-        }
-      }
-      
       while (true)
       {
         case
@@ -62,8 +53,8 @@ module channel_element
           // the reciprocal links are checked.  We need this here to handle that case.  The case is A thinks B is his neighbor, but B doesn't think A is his
           // neighbor.  A sends an initialize neighbor message to B and waits for an initialize neighbor message from B.  If B receives A's message he will
           // report an error, but B can receive messages from everyone he thinks are his neighbors and exit the initialize neighbor loop before receiving A's
-          // message.  In this case, B will never receive A's message to report an error, and A will never contribute to the forcing data done reduction and
-          // the program will hang with no error message.  Having this here will allow B to receive A's message and report an error.
+          // message.  In this case, B will never receive A's message to report an error, and A will never proceed, and the program will hang with no error
+          // message.  Having this here will allow B to receive A's message and report an error.
           when initializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborZBank, double neighborZBed,
                                          double neighborLength, ChannelTypeEnum neighborChannelType, double neighborBaseWidth,
                                          double neighborSideSlope, double neighborManningsN)
@@ -88,12 +79,19 @@ module channel_element
             }
           }
           
-          // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
-          when forcingDataMessage()
+          // A new forcing data message can optionally arrive befor a timestep.
+          when forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
+                                  float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
+                                  float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
+                                  float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
+                                  float planetaryBoundaryLayerHeightNew)
           {
             serial
             {
-              handleForcingDataMessage();
+              handleForcingDataMessage(atmosphereLayerThicknessNew, shadedFractionNew, shadedFractionMaximumNew, surfaceTemperatureNew, surfacePressureNew,
+                                       atomsphereLayerPressureNew, eastWindSpeedNew, northWindSpeedNew, atmosphereLayerMixingRatioNew, cloudMixingRatioNew,
+                                       shortWaveRadiationDownNew, longWaveRadiationDownNew, precipitationRateNew, soilBottomTemperatureNew,
+                                       planetaryBoundaryLayerHeightNew);
             }
           }
           
@@ -578,7 +576,11 @@ module channel_element
     entry void initializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
                                       double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
                                       double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
-    entry void forcingDataMessage();
+    entry void forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
+                                  float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
+                                  float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,
+                                  float longWaveRadiationDownNew, float precipitationRateNew, float soilBottomTemperatureNew,
+                                  float planetaryBoundaryLayerHeightNew);
     entry void doTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep);
     entry void meshGroundwaterStateMessage(size_t iterationThisMessage, int edge, double neighborSurfacewaterDepth, double neighborGroundwaterHead);
     entry void meshGroundwaterFlowRateMessage(size_t iterationThisMessage, int edge, double edgeGroundwaterFlowRate);

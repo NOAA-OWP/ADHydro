@@ -1,6 +1,6 @@
 # Use these values for Mt Moran.
 
-#CHARMDIR   := /project/CI-WATER/tools/build/charm-6.6.0
+#CHARMDIR   := /project/CI-WATER/tools/build/charm
 #HDF5DIR    := /apps/HDF5-mpi/intel/15.0.0/1.8.13
 #NETCDFDIR  := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
 #METISDIR   := /project/CI-WATER/tools

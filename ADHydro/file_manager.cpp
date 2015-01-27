@@ -7568,7 +7568,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
 
       for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
         {
-          channelProxy[ii].forcingDataMessage();
+          channelProxy[ii].forcingDataMessage(20.0f, 0.0f, 0.0f, 0.0f, 101300.0f, 101300.0f - 120.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 200.0f);
         }
       
       deleteArrayIfNonNull(&vegFra);

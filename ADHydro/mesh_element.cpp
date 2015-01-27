@@ -1010,7 +1010,22 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
     }
   // End of gar_domain initialization.
     
-  // Forcing data will be initialized when the sdag code forces the object to receive a forcing data message before processing any timesteps.
+  // Forcing data will be initialized when the object receives a forcing data message.  Set to default values here.
+  atmosphereLayerThickness     = 20.0f;
+  shadedFraction               = 0.0f;
+  shadedFractionMaximum        = 0.0f;
+  surfaceTemperature           = 0.0f;
+  surfacePressure              = 101300.0f;
+  atomsphereLayerPressure      = 101300.0f - 120.0f;
+  eastWindSpeed                = 0.0f;
+  northWindSpeed               = 0.0f;
+  atmosphereLayerMixingRatio   = 0.0f;
+  cloudMixingRatio             = 0.0f;
+  shortWaveRadiationDown       = 0.0f;
+  longWaveRadiationDown        = 0.0f;
+  precipitationRate            = 0.0f;
+  soilBottomTemperature        = 0.0f;
+  planetaryBoundaryLayerHeight = 200.0f;
   
   if (!error)
     {
@@ -1307,25 +1322,180 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
                                            float shortWaveRadiationDownNew, float longWaveRadiationDownNew, float precipitationRateNew,
                                            float soilBottomTemperatureNew, float planetaryBoundaryLayerHeightNew)
 {
-  // FIXME error checking on inputs.
+  bool error = false; // Error flag.
   
-  atmosphereLayerThickness     = atmosphereLayerThicknessNew;
-  shadedFraction               = shadedFractionNew;
-  shadedFractionMaximum        = shadedFractionMaximumNew;
-  surfaceTemperature           = surfaceTemperatureNew;
-  surfacePressure              = surfacePressureNew;
-  atomsphereLayerPressure      = atomsphereLayerPressureNew;
-  eastWindSpeed                = eastWindSpeedNew;
-  northWindSpeed               = northWindSpeedNew;
-  atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
-  cloudMixingRatio             = cloudMixingRatioNew;
-  shortWaveRadiationDown       = shortWaveRadiationDownNew;
-  longWaveRadiationDown        = longWaveRadiationDownNew;
-  precipitationRate            = precipitationRateNew;
-  soilBottomTemperature        = soilBottomTemperatureNew;
-  planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0f < atmosphereLayerThicknessNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atmosphereLayerThicknessNew must be greater than zero.\n", thisIndex);
+      error = true;
+    }
   
-  contribute();
+  if (!(0.0f <= shadedFractionNew && 1.0f >= shadedFractionNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: shadedFractionNew must be greater than or equal to zero and less than or equal "
+              "to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFractionMaximumNew && 1.0f >= shadedFractionMaximumNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: shadedFractionMaximumNew must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperatureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-60.0f <= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -60 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(60.0f >= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 60 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: surfacePressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfacePressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: magnitude of eastWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: magnitude of northWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatioNew && 1.0f >= atmosphereLayerMixingRatioNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atmosphereLayerMixingRatioNew must be greater than or equal to zero and less "
+              "than or equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatioNew && 1.0f >= cloudMixingRatioNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: cloudMixingRatioNew must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDownNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: shortWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDownNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: longWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRateNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: precipitationRateNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperatureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-60.0f <= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -60 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(60.0f >= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 60 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeightNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: planetaryBoundaryLayerHeightNew must be greater than or equal to zero.\n",
+              thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      atmosphereLayerThickness     = atmosphereLayerThicknessNew;
+      shadedFraction               = shadedFractionNew;
+      shadedFractionMaximum        = shadedFractionMaximumNew;
+      surfaceTemperature           = surfaceTemperatureNew;
+      surfacePressure              = surfacePressureNew;
+      atomsphereLayerPressure      = atomsphereLayerPressureNew;
+      eastWindSpeed                = eastWindSpeedNew;
+      northWindSpeed               = northWindSpeedNew;
+      atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
+      cloudMixingRatio             = cloudMixingRatioNew;
+      shortWaveRadiationDown       = shortWaveRadiationDownNew;
+      longWaveRadiationDown        = longWaveRadiationDownNew;
+      precipitationRate            = precipitationRateNew;
+      soilBottomTemperature        = soilBottomTemperatureNew;
+      planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+    }
+
+  if (error)
+    {
+      CkExit();
+    }
+  else
+    {
+      contribute();
+    }
 }
 
 // Suppress warning enum value not handled in switch.
@@ -2931,7 +3101,146 @@ void MeshElement::handleCheckInvariant()
     }
   
   // FIXME check invariant on GARTO data
-  // FIXME check invariant on forcing data
+  
+  if (!(0.0f < atmosphereLayerThickness))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atmosphereLayerThickness must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFraction && 1.0f >= shadedFraction))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: shadedFraction must be greater than or equal to zero and less than or equal to "
+              "one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFractionMaximum && 1.0f >= shadedFractionMaximum))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: shadedFractionMaximum must be greater than or equal to zero and less than or equal "
+              "to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperature))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-60.0f <= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -60 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(60.0f >= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 60 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressure))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacePressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfacePressure below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressure))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atomsphereLayerPressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: atomsphereLayerPressure below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: magnitude of eastWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: magnitude of northWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatio && 1.0f >= atmosphereLayerMixingRatio))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atmosphereLayerMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatio && 1.0f >= cloudMixingRatio))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: cloudMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDown))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: shortWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDown))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: longWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRate))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: precipitationRate must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperature))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-60.0f <= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -60 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(60.0f >= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 60 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeight))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: planetaryBoundaryLayerHeight must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
   
   if (!groundwaterDone)
     {
