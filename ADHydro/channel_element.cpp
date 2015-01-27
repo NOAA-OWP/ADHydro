@@ -130,7 +130,7 @@ bool ChannelElement::allInvariantChecked()
 void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit)
 {
   bool         error                  = false;                                                        // Error flag.
-  int          ii, edge;                                                                              // Loop counters.
+  int          ii, edge, edge2;                                                                       // Loop counters.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                         // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localChannelElementStart; // Index of this element in file manager arrays.
   
@@ -893,10 +893,31 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                 }
               else if (0 <= channelNeighbors[edge] && channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
                 {
-                  channelNeighborsInitialized[edge] = false;
+                  // Self-neighbors and duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  if (thisIndex == channelNeighbors[edge])
+                    {
+                      CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: channelNeighbors has an element as its own neighbor.\n",
+                              thisIndex, edge);
+                      error = true;
+                    }
                   
-                  thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
-                                                                              baseWidth, sideSlope, manningsN);
+                  for (edge2 = 0; edge2 < edge; edge2++)
+                    {
+                      if (channelNeighbors[edge2] == channelNeighbors[edge])
+                        {
+                          CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      channelNeighborsInitialized[edge] = false;
+
+                      thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
+                                                                                  baseWidth, sideSlope, manningsN);
+                    }
                 }
               else
                 {
@@ -945,10 +966,24 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                 }
               else if (0 <= meshNeighbors[edge] && meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
                 {
-                  meshNeighborsInitialized[edge] = false;
-                  
-                  meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, channelType,
-                                                                           baseWidth, sideSlope, bedConductivity, bedThickness);
+                  // Duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  for (edge2 = 0; edge2 < edge; edge2++)
+                    {
+                      if (meshNeighbors[edge2] == meshNeighbors[edge])
+                        {
+                          CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      meshNeighborsInitialized[edge] = false;
+
+                      meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, channelType,
+                                                                               baseWidth, sideSlope, bedConductivity, bedThickness);
+                    }
                 }
               else
                 {
@@ -2216,7 +2251,7 @@ void ChannelElement::calculateSurfacewaterDepthFromArea(double area)
 void ChannelElement::handleCheckInvariant()
 {
   bool error = false; // Error flag.
-  int  edge;          // Loop counter.
+  int  edge, edge2;   // Loop counters.
   
   if (!(elementZBank >= elementZBed))
     {
@@ -2565,6 +2600,23 @@ void ChannelElement::handleCheckInvariant()
     {
       for (edge = 0; edge < channelNeighborsSize; edge++)
         {
+          if (thisIndex == channelNeighbors[edge])
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has an element as its own neighbor.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+          
+          for (edge2 = 0; edge2 < edge; edge2++)
+            {
+              if (channelNeighbors[edge2] == channelNeighbors[edge])
+                {
+                  CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                          edge);
+                  error = true;
+                }
+            }
+          
           if (isBoundary(channelNeighbors[edge]))
             {
               channelNeighborsInvariantChecked[edge] = true;
@@ -2583,6 +2635,16 @@ void ChannelElement::handleCheckInvariant()
       
       for (edge = 0; edge < meshNeighborsSize; edge++)
         {
+          for (edge2 = 0; edge2 < edge; edge2++)
+            {
+              if (meshNeighbors[edge2] == meshNeighbors[edge])
+                {
+                  CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                          edge);
+                  error = true;
+                }
+            }
+          
           if (isBoundary(meshNeighbors[edge]))
             {
               meshNeighborsInvariantChecked[edge] = true;
