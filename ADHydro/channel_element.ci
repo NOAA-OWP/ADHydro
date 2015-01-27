@@ -79,7 +79,7 @@ module channel_element
             }
           }
           
-          // A new forcing data message can optionally arrive befor a timestep.
+          // A new forcing data message can optionally arrive before a timestep.
           when forcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew, float surfaceTemperatureNew,
                                   float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew, float northWindSpeedNew,
                                   float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew, float shortWaveRadiationDownNew,

@@ -3,6 +3,9 @@
 #include "all.h"
 #include <netcdf_par.h>
 
+// Temporary variable to help SDAG parse C++ code.
+bool FileManager::needToCreateFiles;
+
 int FileManager::home(int item, int globalNumberOfItems)
 {
   int numPes              = CkNumPes();                           // Number of processors.

@@ -65,6 +65,9 @@ class FileManager : public CBase_FileManager
   
 public:
 
+  // Temporary variable to help SDAG parse C++ code.
+  static bool needToCreateFiles;
+  
   // Calculate which file manager owns a given item.  The first
   // (globalNumberOfItems % CkNumPes()) file managers each have
   // (globalNumberOfItems / CkNumPes() + 1) items.  The remaining file managers
