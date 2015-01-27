@@ -3428,29 +3428,29 @@ void MeshElement::handleCheckInvariant()
     {
       for (edge = 0; edge < meshNeighborsSize; edge++)
         {
-          if (thisIndex == meshNeighbors[edge])
-            {
-              CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has an element as its own neighbor.\n",
-                      thisIndex, edge);
-              error = true;
-            }
-          
-          for (edge2 = 0; edge2 < edge; edge2++)
-            {
-              if (meshNeighbors[edge2] == meshNeighbors[edge])
-                {
-                  CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
-                          edge);
-                  error = true;
-                }
-            }
-          
           if (isBoundary(meshNeighbors[edge]))
             {
               meshNeighborsInvariantChecked[edge] = true;
             }
           else
             {
+              if (thisIndex == meshNeighbors[edge])
+                {
+                  CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has an element as its own neighbor.\n",
+                          thisIndex, edge);
+                  error = true;
+                }
+              
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (meshNeighbors[edge2] == meshNeighbors[edge])
+                    {
+                      CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               meshNeighborsInvariantChecked[edge] = false;
               
               thisProxy[meshNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, meshNeighborsReciprocalEdge[edge], edge, meshNeighborsChannelEdge[edge],
@@ -3465,22 +3465,22 @@ void MeshElement::handleCheckInvariant()
       
       for (edge = 0; edge < channelNeighborsSize; edge++)
         {
-          for (edge2 = 0; edge2 < edge; edge2++)
-            {
-              if (channelNeighbors[edge2] == channelNeighbors[edge])
-                {
-                  CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
-                          edge);
-                  error = true;
-                }
-            }
-          
           if (isBoundary(channelNeighbors[edge]))
             {
               channelNeighborsInvariantChecked[edge] = true;
             }
           else
             {
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (channelNeighbors[edge2] == channelNeighbors[edge])
+                    {
+                      CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               channelNeighborsInvariantChecked[edge] = false;
               
               channelProxy[channelNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, channelNeighborsReciprocalEdge[edge], edge,
