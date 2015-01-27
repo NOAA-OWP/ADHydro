@@ -1,4 +1,6 @@
 inputDirectory           = /share/CI-WATER_Simulation_Data/small_green_mesh
+; appendToInputFiles       = false     ; If appendToInputFiles is true the simulation will append its output to the files in inputDirectory and outputDirectory
+                                       ; will be ignored.  If appendToInputFiles is not in the superfile it defaults to false.
 outputDirectory          = /localstore/output
 ; initializeFromASCIIFiles = false     ; If initializeFromASCIIFiles is not in the superfile it defaults to false and the simulation will initialize from
                                        ; NetCDF files.

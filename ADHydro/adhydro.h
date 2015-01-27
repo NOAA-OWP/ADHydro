@@ -58,6 +58,10 @@ class ADHydro : public CBase_ADHydro
   
 public:
   
+  // Global read-only variable specifies whether to append simulation output to
+  // the input files.
+  static bool appendToInputFiles;
+  
   // Global read-only variable specifies whether to run the simulation in drain
   // down mode.  In this mode, there will be no precipitation, and water level
   // in the channels will be capped.

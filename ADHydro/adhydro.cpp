@@ -3,6 +3,7 @@
 #include "INIReader.h"
 
 // Read-only global variables.
+bool ADHydro::appendToInputFiles;
 bool ADHydro::drainDownMode;
 bool ADHydro::doMeshMassage;
 int  ADHydro::verbosityLevel;
@@ -45,12 +46,23 @@ ADHydro::ADHydro(CkArgMsg* msg)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
   // Get initialization values from the superfile.
-  inputDirectory  = superfile.Get("", "inputDirectory", "");
-  outputDirectory = superfile.Get("", "outputDirectory", "");
-  referenceDate   = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian
-                                                                 // date in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
-                                                                 // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
-                                                                 // will be taken from the input NetCDF files.
+  inputDirectory     = superfile.Get("", "inputDirectory", "");
+  appendToInputFiles = superfile.GetBoolean("", "appendToInputFiles", false); // If appendToInputFiles is not in the superfile it defaults to false and new
+                                                                              // output files will be created in outputDirectory.
+  
+  if (appendToInputFiles)
+    {
+      outputDirectory = inputDirectory;
+    }
+  else
+    {
+      outputDirectory = superfile.Get("", "outputDirectory", "");
+    }
+  
+  referenceDate = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian date
+                                                               // in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
+                                                               // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
+                                                               // will be taken from the input NetCDF files.
   
   // If there is no referenceDate read a Gregorian date and convert to julian date.
   if (isnan(referenceDate))
@@ -145,7 +157,18 @@ void ADHydro::fileManagerInitialized()
 {
   if (1 <= verbosityLevel)
     {
-      CkPrintf("Finished reading input files.\nWriting output files.\n");
+      CkPrintf("Finished reading input files.\n");
+      
+      if (appendToInputFiles)
+        {
+          printMessage = false;
+        }
+      else
+        {
+          CkPrintf("Writing output files.\n");
+          
+          printMessage = true;
+        }
     }
   
   // Initialize member variables.
@@ -177,7 +200,6 @@ void ADHydro::fileManagerInitialized()
   writeGeometry        = true;
   writeParameter       = true;
   needToCheckInvariant = true;
-  printMessage         = true;
   
   // Create mesh and channels.
   if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -201,11 +223,18 @@ void ADHydro::fileManagerInitialized()
       channelProxy.initialize(meshProxy, fileManagerProxy);
     }
   
-  // Set the callback to write output files after they are created.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
-  
-  // Have the file manager create output files.
-  fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
+  if (appendToInputFiles)
+    {
+      checkForcingData();
+    }
+  else
+    {
+      // Set the callback to write output files after they are created.
+      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
+
+      // Have the file manager create output files.
+      fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
+    }
 }
 
 void ADHydro::writeFiles()
@@ -222,12 +251,12 @@ void ADHydro::writeFiles()
 
 void ADHydro::checkForcingData()
 {
-  if (printMessage && 1 <= verbosityLevel)
+  if (printMessage)
     {
       CkPrintf("Finished writing output files.\n");
+      
+      printMessage = false;
     }
-  
-  printMessage = false;
   
   if (endTime > currentTime && (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
                                 fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0)))
@@ -235,9 +264,9 @@ void ADHydro::checkForcingData()
       if (1 <= verbosityLevel)
         {
           CkPrintf("Reading forcing data.\n");
+          
+          printMessage = true;
         }
-      
-      printMessage = true;
       
       // Set callback.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -284,7 +313,7 @@ void ADHydro::forcingDataDone()
   long   simulationMinute;  // For calculating Gregorian date from Julian date.
   double simulationSecond;  // For calculating Gregorian date from Julian date.
   
-  if (printMessage && 1 <= verbosityLevel)
+  if (printMessage)
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
@@ -298,9 +327,9 @@ void ADHydro::forcingDataDone()
       CkPrintf("Finished reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
                forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
                simulationHour, simulationMinute, simulationSecond);
+      
+      printMessage = false;
     }
-  
-  printMessage = false;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   // If debug level is set to internal invariants check every timestep.
@@ -458,9 +487,9 @@ void ADHydro::timestepDone(double dtNew)
       if (1 <= verbosityLevel)
         {
           CkPrintf("Writing output files.\n");
+          
+          printMessage = true;
         }
-      
-      printMessage = true;
       
       if (0.0 < outputPeriod)
         {
