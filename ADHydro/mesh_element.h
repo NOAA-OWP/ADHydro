@@ -588,8 +588,8 @@ private:
   
   // Infiltration state variables. FIXME,need a destructor to deallocate gar_parameters and gar_domain.
   // See gar.h.
-  gar_parameters* garParameters;      // A gar_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GAR) domain.
-  gar_domain*     garDomain;          // A gar_domain struct stores all of the state of a single GAR domain.
+  //gar_parameters* garParameters;      // A gar_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GAR) domain.
+  //gar_domain*     garDomain;          // A gar_domain struct stores all of the state of a single GAR domain.
  
   // Forcing data.
   float atmosphereLayerThickness;     // Thickness in meters of lowest atmosphere layer in forcing data.  The following other variables are values from the

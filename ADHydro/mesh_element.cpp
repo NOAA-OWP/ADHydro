@@ -996,6 +996,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
+  /*
   // FIXME, wencong, initialize gar_domain here ?? Use some fake numbers for testing.
   if (!error)
     {
@@ -1009,6 +1010,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
     }
   // End of gar_domain initialization.
+   */
     
   // Forcing data will be initialized when the object receives a forcing data message.  Set to default values here.
   atmosphereLayerThickness     = 20.0f;
