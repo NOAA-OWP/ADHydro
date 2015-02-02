@@ -39,19 +39,19 @@ module file_manager
       {
         case
         {
-          when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface)
+          when meshVertexDataMessage(int node, double x, double y, double zSurface)
           {
             serial
             {
-              handleMeshVertexDataMessage(element, vertex, x, y, zSurface);
+              handleMeshVertexDataMessage(node, x, y, zSurface);
             }
           }
           
-          when channelVertexDataMessage(int element, int vertex, double x, double y, double zBank)
+          when channelVertexDataMessage(int node, double x, double y, double zBank)
           {
             serial
             {
-              handleChannelVertexDataMessage(element, vertex, x, y, zBank);
+              handleChannelVertexDataMessage(node, x, y, zBank);
             }
           }
         }
@@ -180,10 +180,10 @@ module file_manager
     entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize], size_t fileBasenameSize,
                                         const char fileBasename[fileBasenameSize]);
     entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
-    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
-    entry void getChannelVertexDataMessage(int requester, int element, int vertex, int node);
-    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface);
-    entry void channelVertexDataMessage(int element, int vertex, double x, double y, double zBank);
+    entry void getMeshVertexDataMessage(int requester, int node);
+    entry void getChannelVertexDataMessage(int requester, int node);
+    entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
+    entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void createFiles(size_t directorySize, const char directory[directorySize]);
     entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
     entry void readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,

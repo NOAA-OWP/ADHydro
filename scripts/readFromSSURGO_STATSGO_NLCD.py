@@ -33,8 +33,10 @@ STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
 STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
 
+#This script will read the SSURGO soil mukey files from this directory
+input_SSURGO_County_prefix = "/share/CI-WATER_Third_Party_Files/SSURGO/all/"
 # This script will read the NLCD data form this directory
-input_NLCD_directory_path = "/share/CI-WATER Third Party Files/NLCD/all_projected/"
+input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projected/"
 
 # This script will read the mesh geometry from this directory
 # the files it will read are:
@@ -75,17 +77,23 @@ veg_parm_dict={}
 
 #Write a line to the soil file, f, based on information passed in series, s
 def writeSoilFile(s, f, bugFix):
+    #Write element number 
     f.write('  '+str(s.name)+'  ')
     #isnull might be redundant, since the only thing not an array should be NaN
+    #Soil type is an array, if no soil types found, write -1 to indicate no array
     if isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']):
         f.write('-1')
     else:
-	f.write(str(len(s['SoilType']))+'  ')
-	#Write soiltype, horizon thinckness pairs (s,d)
-	if isinstance(s['HorizonThickness'], float):
-		f.write(str(s['SoilType'][0])+', -1')
-	else:
-	    for pair in zip(s['SoilType'], s['HorizonThickness']):
+        #Write the number of elements in the soil type array
+        f.write(str(len(s['SoilType']))+'  ')
+        #Write soiltype, horizon thinckness pairs (s,d)
+        if isinstance(s['HorizonThickness'], float):
+  	        #If the horizon thickness isn't an array (i.e. it is a float) then just write
+             #the first soil thickness and a -1 for horizon thickness
+            f.write(str(s['SoilType'][0])+', -1')
+        else:
+            #Write out the pairs of soil types and thicknesses
+            for pair in zip(s['SoilType'], s['HorizonThickness']):
                 f.write(str(pair[0])+','+str(pair[1])+'  ')
     f.write('\n')
 
@@ -141,18 +149,20 @@ def getSoilTypDRV():
    #Since initially nodes are indexed based on thier ID, when they get aligned with the proper element here
    #Their index is off, so when we try to add these values into elements, they must have a corresponding index (1-num_elements)
    v = nodes.loc[elements['V1']].reset_index()
-   v.index = range(1, num_elems+1)
+   v.index = range(0, num_elems)
+   #Note v index and elements index must be the same!!!
    
    elements['X_center'] = v.X - 20000000.0
    elements['Y_center'] = v.Y - 10000000.0
    
+   
    v = nodes.loc[elements['V2']].reset_index()
-   v.index = range(1, num_elems+1)
+   v.index = range(0, num_elems)
    elements['X_center'] = elements['X_center'] + v.X - 20000000.0
    elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
    
    v = nodes.loc[elements['V3']].reset_index()
-   v.index = range(1, num_elems+1)
+   v.index = range(0, num_elems)
    elements['X_center'] = elements['X_center'] + v.X - 20000000.0
    elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
    
@@ -265,7 +275,7 @@ def getMUKEY(s):
 
             #TODO Maybe load all these into memory initally then lookup from dict???
             if AreaSym not in SSURGO_county_dict:
-                input_SSURGOperCounty_file = "/share/CI-WATER Third Party Files/SSURGO/all/soilmu_a_"+ AreaSym.toLower() + ".shp"
+                input_SSURGOperCounty_file = input_SSURGO_County_prefix+"soilmu_a_"+ AreaSym.toLower() + ".shp"
                 SSURGO_perCounty_layer  = QgsVectorLayer(input_SSURGOperCounty_file, "SSURGOperCounty",  "ogr")
                 SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
                 SSURGO_county_dict[AreaSym] = SSURGO_perCounty_layer
@@ -319,15 +329,15 @@ def getMUKEY(s):
                 break
 
     if not found:
+        #TODO/FIXME If not found, must handle this differently because the 
+        #int cast won't handle nan!!!
         MUKEY = np.nan
         AreaSym = np.nan
         inSSURGO = np.nan
-
     #Return the input series with MUKEY, AreaSym, and inSSURGO added to the series
     s['MUKEY'] = int(MUKEY)
     s['AreaSym'] = str(AreaSym)
     s['inSSURGO'] = inSSURGO
-    return s
 
 def getCOKEY(s):
 # in:
