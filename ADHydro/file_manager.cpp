@@ -363,7 +363,7 @@ FileManager::~FileManager()
   deleteArrayIfNonNull(&channelElementUpdated);
 }
 
-void FileManager::getMeshVertexDataMessage(int requester, int element, int vertex, int node)
+void FileManager::getMeshVertexDataMessage(int requester, int node)
 {
   double x        = 0.0;
   double y        = 0.0;
@@ -373,20 +373,6 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
   if (!(0 <= requester && requester < CkNumPes()))
     {
       CkError("ERROR in FileManager::getMeshVertexDataMessage: requester must be greater than or equal to zero and less than CkNumPes().\n");
-      CkExit();
-    }
-
-  if (!(0 <= element && element < globalNumberOfMeshElements))
-    {
-      CkError("ERROR in FileManager::getMeshVertexDataMessage: element must be greater than or equal to zero and less than "
-              "globalNumberOfMeshElements.\n");
-      CkExit();
-    }
-
-  if (!(0 <= vertex && vertex < MeshElement::meshNeighborsSize))
-    {
-      CkError("ERROR in FileManager::getMeshVertexDataMessage: vertex must be greater than or equal to zero and less than "
-              "MeshElement::meshNeighborsSize.\n");
       CkExit();
     }
 
@@ -412,18 +398,10 @@ void FileManager::getMeshVertexDataMessage(int requester, int element, int verte
       zSurface = meshNodeZSurface[node - localMeshNodeStart];
     }
 
-  if (CkMyPe() == requester)
-    {
-      // The requester is me, no need to send a message.
-      handleMeshVertexDataMessage(element, vertex, x, y, zSurface);
-    }
-  else
-    {
-      thisProxy[requester].meshVertexDataMessage(element, vertex, x, y, zSurface);
-    }
+  thisProxy[requester].meshVertexDataMessage(node, x, y, zSurface);
 }
 
-void FileManager::getChannelVertexDataMessage(int requester, int element, int vertex, int node)
+void FileManager::getChannelVertexDataMessage(int requester, int node)
 {
   double x     = 0.0;
   double y     = 0.0;
@@ -433,20 +411,6 @@ void FileManager::getChannelVertexDataMessage(int requester, int element, int ve
   if (!(0 <= requester && requester < CkNumPes()))
     {
       CkError("ERROR in FileManager::getChannelVertexDataMessage: requester must be greater than or equal to zero and less than CkNumPes().\n");
-      CkExit();
-    }
-
-  if (!(0 <= element && element < globalNumberOfChannelElements))
-    {
-      CkError("ERROR in FileManager::getChannelVertexDataMessage: element must be greater than or equal to zero and less than "
-              "globalNumberOfChannelElements.\n");
-      CkExit();
-    }
-
-  if (!(0 <= vertex && vertex < ChannelElement::channelVerticesSize))
-    {
-      CkError("ERROR in FileManager::getChannelVertexDataMessage: vertex must be greater than or equal to zero and less than "
-              "ChannelElement::channelVerticesSize.\n");
       CkExit();
     }
 
@@ -471,16 +435,8 @@ void FileManager::getChannelVertexDataMessage(int requester, int element, int ve
     {
       zBank = channelNodeZBank[node - localChannelNodeStart];
     }
-
-  if (CkMyPe() == requester)
-    {
-      // The requester is me, no need to send a message.
-      handleChannelVertexDataMessage(element, vertex, x, y, zBank);
-    }
-  else
-    {
-      thisProxy[requester].channelVertexDataMessage(element, vertex, x, y, zBank);
-    }
+ 
+  thisProxy[requester].channelVertexDataMessage(node, x, y, zBank);
 }
 
 void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
@@ -2969,11 +2925,12 @@ void FileManager::handleInitializeFromNetCDFFiles(const char* directory)
 
 void FileManager::updateVertices()
 {
-  int  ii, jj;                             // Loop counters.
-  bool needToGetMeshVertexData    = false; // Whether we need to get any vertex data.
-  bool needToGetChannelVertexData = false; // Whether we need to get any vertex data.
-  int  node;                               // The node number of a vertex.
-
+  int                                                             ii, jj;                             // Loop counters.
+  bool                                                            needToGetMeshVertexData    = false; // Whether we need to get any vertex data.
+  bool                                                            needToGetChannelVertexData = false; // Whether we need to get any vertex data.
+  int                                                             node;                               // The node number of a vertex.
+  std::map< int, std::vector< std::pair< int, int > > >::iterator it;                                 // For accessing the elements of meshNodeLocation.
+  
   // Get vertex data from node data.
   if (NULL != meshElementVertices)
     {
@@ -3031,12 +2988,41 @@ void FileManager::updateVertices()
               if (localMeshNodeStart <= node && node < localMeshNodeStart + localNumberOfMeshNodes)
                 {
                   // The node belongs to me, no need to send a message.
-                  getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, node);
+                  if (NULL != meshNodeX)
+                      {
+                        meshVertexX[ii][jj] = meshNodeX[node - localMeshNodeStart];
+                      }
+
+                    if (NULL != meshNodeY)
+                      {
+                        meshVertexY[ii][jj] = meshNodeY[node - localMeshNodeStart];
+                      }
+
+                    if (NULL != meshNodeZSurface)
+                      {
+                        meshVertexZSurface[ii][jj] = meshNodeZSurface[node - localMeshNodeStart];
+                      }
+                    
+                    meshVertexUpdated[ii][jj] = true;
                 }
               else
                 {
-                  // FIXME improve efficiency.  Don't send duplicate messages for the same node.
-                  thisProxy[home(node, globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), ii + localMeshElementStart, jj, node);
+                  it = meshNodeLocation.find(node);
+
+                  if (it == meshNodeLocation.end()) // If key does not exist
+                    {
+                      // Send message.
+                      thisProxy[home(node, globalNumberOfMeshNodes)].getMeshVertexDataMessage(CkMyPe(), node);
+
+                      // Save mapping from node number to element and vertex numbers.
+                      meshNodeLocation.insert(std::pair< int, std::vector< std::pair< int, int > > >
+                                              (node, std::vector< std::pair< int, int > >(1, std::pair< int, int >(ii + localMeshElementStart, jj))));
+                    }
+                  else // The key does exist
+                    {
+                      // A message requesting this node has already been sent.  Save mapping from node number to element and vertex numbers.
+                      it->second.push_back(std::pair< int, int >(ii + localMeshElementStart, jj));
+                    }
                 }
             }
         }
@@ -3055,13 +3041,41 @@ void FileManager::updateVertices()
 
               if (localChannelNodeStart <= node && node < localChannelNodeStart + localNumberOfChannelNodes)
                 {
-                  // The node belongs to me, no need to send a message.
-                  getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, node);
+                  if (NULL != channelNodeX)
+                      {
+                      channelVertexX[ii][jj] = channelNodeX[node - localChannelNodeStart];
+                      }
+
+                    if (NULL != channelNodeY)
+                      {
+                        channelVertexY[ii][jj]  = channelNodeY[node - localChannelNodeStart];
+                      }
+
+                    if (NULL != channelNodeZBank)
+                      {
+                        channelVertexZBank[ii][jj] = channelNodeZBank[node - localChannelNodeStart];
+                      }
+                    
+                    channelVertexUpdated[ii][jj] = true;
                 }
               else
                 {
-                  // FIXME improve efficiency.  Don't send duplicate messages for the same node.
-                  thisProxy[home(node, globalNumberOfChannelNodes)].getChannelVertexDataMessage(CkMyPe(), ii + localChannelElementStart, jj, node);
+                  it = channelNodeLocation.find(node);
+
+                  if (it == channelNodeLocation.end()) // If key does not exist
+                    {
+                      // Send message.
+                      thisProxy[home(node, globalNumberOfChannelNodes)].getChannelVertexDataMessage(CkMyPe(), node);
+
+                      // Save mapping from node number to element and vertex numbers.
+                      channelNodeLocation.insert(std::pair< int, std::vector< std::pair< int, int > > >
+                      (node, std::vector< std::pair< int, int > >(1, std::pair< int, int >(ii + localChannelElementStart, jj))));
+                    }
+                  else // The key does exist
+                    {
+                      // A message requesting this node has already been sent.  Save mapping from node number to element and vertex numbers.
+                      it->second.push_back(std::pair< int, int >(ii + localChannelElementStart, jj));
+                    }// FIXME improve efficiency.  Don't send duplicate messages for the same node.
                 }
             }
         }
@@ -3098,74 +3112,100 @@ bool FileManager::allVerticesUpdated()
   return updated;
 }
 
-void FileManager::handleMeshVertexDataMessage(int element, int vertex, double x, double y, double zSurface)
+void FileManager::handleMeshVertexDataMessage(int node, double x, double y, double zSurface)
 {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(localMeshElementStart <= element && element < localMeshElementStart + localNumberOfMeshElements))
-    {
-      CkError("ERROR in FileManager::meshVertexDataMessage: element data not owned by this local branch.\n");
-      CkExit();
-    }
+  unsigned int                                                    ii;      // Loop counter.
+  int                                                             element; // Element that needs to be filled in with the node coordinates.
+  int                                                             vertex;  // Vertex that needs to be filled in with the node coordinates.
+  std::map< int, std::vector< std::pair< int, int > > >::iterator it;      // For accessing the elements of meshNodeLocation.
 
-  if (!(0 <= vertex && vertex < MeshElement::meshNeighborsSize))
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0 <= node && node < globalNumberOfMeshNodes))
     {
-      CkError("ERROR in FileManager::meshVertexDataMessage: vertex must be greater than or equal to zero and less than "
-              "MeshElement::meshNeighborsSize.\n");
+      CkError("ERROR in FileManager::meshVertexDataMessage: node index not valid.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  if (NULL != meshNodeX)
-    {
-      meshVertexX[element - localMeshElementStart][vertex] = x;
-    }
+  it = meshNodeLocation.find(node); 
 
-  if (NULL != meshNodeY)
-    {
-      meshVertexY[element - localMeshElementStart][vertex] = y;
-    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(it != meshNodeLocation.end());
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-  if (NULL != meshNodeZSurface)
+  // it->second refers to the vector member of the map which stores the elements and vertices where the node coordinates need to be filled in.
+  for (ii = 0; ii < it->second.size(); ii++)
     {
-      meshVertexZSurface[element - localMeshElementStart][vertex] = zSurface;
+      element = it->second[ii].first;
+      vertex  = it->second[ii].second;
+
+      if (NULL != meshNodeX)
+        {
+          meshVertexX[element - localMeshElementStart][vertex] = x;
+        }
+
+      if (NULL != meshNodeY)
+        {
+          meshVertexY[element - localMeshElementStart][vertex] = y;
+        }
+
+      if (NULL != meshNodeZSurface)
+        {
+          meshVertexZSurface[element - localMeshElementStart][vertex] = zSurface;
+        }
+
+      meshVertexUpdated[element - localMeshElementStart][vertex] = true;
     }
   
-  meshVertexUpdated[element - localMeshElementStart][vertex] = true;
+  meshNodeLocation.erase(it);
 }
 
-void FileManager::handleChannelVertexDataMessage(int element, int vertex, double x, double y, double zBank)
+void FileManager::handleChannelVertexDataMessage(int node, double x, double y, double zBank)
 {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(localChannelElementStart <= element && element < localChannelElementStart + localNumberOfChannelElements))
-    {
-      CkError("ERROR in FileManager::channelVertexDataMessage: element data not owned by this local branch.\n");
-      CkExit();
-    }
+  unsigned int                                                    ii;      // Loop counter.
+  int                                                             element; // Element that needs to be filled in with the node coordinates.
+  int                                                             vertex;  // Vertex that needs to be filled in with the node coordinates.
+  std::map< int, std::vector< std::pair< int, int > > >::iterator it;      // For accessing the elements of channelNodeLocation.
 
-  if (!(0 <= vertex && vertex < ChannelElement::channelVerticesSize))
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0 <= node && node < globalNumberOfMeshNodes))
     {
-      CkError("ERROR in FileManager::channelVertexDataMessage: vertex must be greater than or equal to zero and less than "
-              "ChannelElement::channelVerticesSize.\n");
+      CkError("ERROR in FileManager::channelVertexDataMessage: node index not valid.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  if (NULL != channelNodeX)
-    {
-      channelVertexX[element - localChannelElementStart][vertex] = x;
-    }
+  it = channelNodeLocation.find(node); 
 
-  if (NULL != channelNodeY)
-    {
-      channelVertexY[element - localChannelElementStart][vertex] = y;
-    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(it != channelNodeLocation.end());
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-  if (NULL != channelNodeZBank)
+  // it->second refers to the vector member of the map which stores the elements and vertices where the node coordinates need to be filled in.
+  for (ii = 0; ii < it->second.size(); ii++)
     {
-      channelVertexZBank[element - localChannelElementStart][vertex] = zBank;
+      element = it->second[ii].first;
+      vertex  = it->second[ii].second;
+
+      if (NULL != channelNodeX)
+        {
+          channelVertexX[element - localChannelElementStart][vertex] = x;
+        }
+
+      if (NULL != channelNodeY)
+        {
+          channelVertexY[element - localChannelElementStart][vertex] = y;
+        }
+
+      if (NULL != channelNodeZBank)
+        {
+          channelVertexZBank[element - localChannelElementStart][vertex] = zBank;
+        }
+
+      channelVertexUpdated[element - localChannelElementStart][vertex] = true;
     }
   
-  channelVertexUpdated[element - localChannelElementStart][vertex] = true;
+  channelNodeLocation.erase(it);
 }
 
 int FileManager::findDownstreamElement(int element)

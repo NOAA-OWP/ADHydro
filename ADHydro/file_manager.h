@@ -18,6 +18,8 @@ class CProxy_ChannelElement;
 #include "mesh_element.h"
 #include "channel_element.h"
 #include <netcdf.h>
+#include <map> // FIXME replace with unordered_map.  This required C++0x support, which we didn't want to mess with so we just used map.
+#include <vector>
 
 #define XDMF_SIZE (ChannelElement::channelVerticesSize + 2) // channelElementVertices must have two extra values of XDMF metadata.
 
@@ -93,20 +95,16 @@ public:
   // Parameters:
   //
   // requester - File manager requesting vertex coordinates.
-  // element   - Element that has vertex.
-  // vertex    - Vertex requesting coordinates for.
   // node      - Node index of vertex.
-  void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
+  void getMeshVertexDataMessage(int requester, int node);
   
   // Send requested vertex coordinates.
   //
   // Parameters:
   //
   // requester - File manager requesting vertex coordinates.
-  // element   - Element that has vertex.
-  // vertex    - Vertex requesting coordinates for.
   // node      - Node index of vertex.
-  void getChannelVertexDataMessage(int requester, int element, int vertex, int node);
+  void getChannelVertexDataMessage(int requester, int node);
   
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
@@ -556,23 +554,21 @@ private:
   //
   // Parameters:
   //
-  // element  - Element that has vertex.
-  // vertex   - Vertex that coordinates are for.
+  // node     - Node index of vertex.
   // x        - X coordinate of vertex.
   // y        - Y coordinate of vertex.
   // zSurface - Surface Z coordinate of vertex.
-  void handleMeshVertexDataMessage(int element, int vertex, double x, double y, double zSurface);
+  void handleMeshVertexDataMessage(int node, double x, double y, double zSurface);
   
   // Receive requested vertex coordinates.
   //
   // Parameters:
   //
-  // element - Element that has vertex.
-  // vertex  - Vertex that coordinates are for.
+  // node    - Node index of vertex.
   // x       - X coordinate of vertex.
   // y       - Y coordinate of vertex.
   // zBank   - Bank Z coordinate of vertex.
-  void handleChannelVertexDataMessage(int element, int vertex, double x, double y, double zBank);
+  void handleChannelVertexDataMessage(int node, double x, double y, double zBank);
   
   // Returns: An element immediately downstream of element, or OUTFLOW if
   // element has an outflow boundary, or NOFLOW if element has neither.  If
@@ -758,10 +754,12 @@ private:
                                  double* meshNeighborsGroundwaterFlowRate, double* meshNeighborsGroundwaterCumulativeFlow);
   
   // These arrays are used to record when vertex data and state update messages are received.
-  BoolArrayMMN* meshVertexUpdated;
-  BoolArrayCV*  channelVertexUpdated;
-  bool*         meshElementUpdated;
-  bool*         channelElementUpdated;
+  std::map< int, std::vector< std::pair< int, int > > > meshNodeLocation;
+  std::map< int, std::vector< std::pair< int, int > > > channelNodeLocation;
+  BoolArrayMMN*                                         meshVertexUpdated;
+  BoolArrayCV*                                          channelVertexUpdated;
+  bool*                                                 meshElementUpdated;
+  bool*                                                 channelElementUpdated;
 };
 
 #endif // __FILE_MANAGER_H__
