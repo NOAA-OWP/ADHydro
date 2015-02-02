@@ -435,7 +435,7 @@ void FileManager::getChannelVertexDataMessage(int requester, int node)
     {
       zBank = channelNodeZBank[node - localChannelNodeStart];
     }
- 
+
   thisProxy[requester].channelVertexDataMessage(node, x, y, zBank);
 }
 
@@ -3041,22 +3041,23 @@ void FileManager::updateVertices()
 
               if (localChannelNodeStart <= node && node < localChannelNodeStart + localNumberOfChannelNodes)
                 {
+                  // The node belongs to me, no need to send a message.
                   if (NULL != channelNodeX)
-                      {
+                    {
                       channelVertexX[ii][jj] = channelNodeX[node - localChannelNodeStart];
-                      }
+                    }
 
-                    if (NULL != channelNodeY)
-                      {
-                        channelVertexY[ii][jj]  = channelNodeY[node - localChannelNodeStart];
-                      }
+                  if (NULL != channelNodeY)
+                    {
+                      channelVertexY[ii][jj]  = channelNodeY[node - localChannelNodeStart];
+                    }
 
-                    if (NULL != channelNodeZBank)
-                      {
-                        channelVertexZBank[ii][jj] = channelNodeZBank[node - localChannelNodeStart];
-                      }
-                    
-                    channelVertexUpdated[ii][jj] = true;
+                  if (NULL != channelNodeZBank)
+                    {
+                      channelVertexZBank[ii][jj] = channelNodeZBank[node - localChannelNodeStart];
+                    }
+
+                  channelVertexUpdated[ii][jj] = true;
                 }
               else
                 {
@@ -3069,13 +3070,13 @@ void FileManager::updateVertices()
 
                       // Save mapping from node number to element and vertex numbers.
                       channelNodeLocation.insert(std::pair< int, std::vector< std::pair< int, int > > >
-                      (node, std::vector< std::pair< int, int > >(1, std::pair< int, int >(ii + localChannelElementStart, jj))));
+                                                 (node, std::vector< std::pair< int, int > >(1, std::pair< int, int >(ii + localChannelElementStart, jj))));
                     }
                   else // The key does exist
                     {
                       // A message requesting this node has already been sent.  Save mapping from node number to element and vertex numbers.
                       it->second.push_back(std::pair< int, int >(ii + localChannelElementStart, jj));
-                    }// FIXME improve efficiency.  Don't send duplicate messages for the same node.
+                    }
                 }
             }
         }
@@ -3122,7 +3123,7 @@ void FileManager::handleMeshVertexDataMessage(int node, double x, double y, doub
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= node && node < globalNumberOfMeshNodes))
     {
-      CkError("ERROR in FileManager::meshVertexDataMessage: node index not valid.\n");
+      CkError("ERROR in FileManager::handleMeshVertexDataMessage: node index not valid.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -3168,9 +3169,9 @@ void FileManager::handleChannelVertexDataMessage(int node, double x, double y, d
   std::map< int, std::vector< std::pair< int, int > > >::iterator it;      // For accessing the elements of channelNodeLocation.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(0 <= node && node < globalNumberOfMeshNodes))
+  if (!(0 <= node && node < globalNumberOfChannelNodes))
     {
-      CkError("ERROR in FileManager::channelVertexDataMessage: node index not valid.\n");
+      CkError("ERROR in FileManager::handleChannelVertexDataMessage: node index not valid.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -7697,9 +7698,10 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
 
       for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
         {
-          channelProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localChannelElementStart], maxVegFra[ii - localChannelElementStart], t2[ii - localChannelElementStart],
-                                              psfc[ii - localChannelElementStart], psfc[ii - localChannelElementStart] - 120.0f, u[ii - localChannelElementStart],
-                                              v[ii - localChannelElementStart], qVapor[ii - localChannelElementStart], qCloud[ii - localChannelElementStart],
+          channelProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localChannelElementStart], maxVegFra[ii - localChannelElementStart],
+                                              t2[ii - localChannelElementStart], psfc[ii - localChannelElementStart],
+                                              psfc[ii - localChannelElementStart] - 120.0f, u[ii - localChannelElementStart], v[ii - localChannelElementStart],
+                                              qVapor[ii - localChannelElementStart], qCloud[ii - localChannelElementStart],
                                               swDown[ii - localChannelElementStart], gLw[ii - localChannelElementStart], tPrec[ii - localChannelElementStart],
                                               tslb[ii - localChannelElementStart],  pblh[ii - localChannelElementStart]);
         }
