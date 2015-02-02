@@ -77,17 +77,23 @@ veg_parm_dict={}
 
 #Write a line to the soil file, f, based on information passed in series, s
 def writeSoilFile(s, f, bugFix):
+    #Write element number 
     f.write('  '+str(s.name)+'  ')
     #isnull might be redundant, since the only thing not an array should be NaN
+    #Soil type is an array, if no soil types found, write -1 to indicate no array
     if isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']):
         f.write('-1')
     else:
-	f.write(str(len(s['SoilType']))+'  ')
-	#Write soiltype, horizon thinckness pairs (s,d)
-	if isinstance(s['HorizonThickness'], float):
-		f.write(str(s['SoilType'][0])+', -1')
-	else:
-	    for pair in zip(s['SoilType'], s['HorizonThickness']):
+        #Write the number of elements in the soil type array
+        f.write(str(len(s['SoilType']))+'  ')
+        #Write soiltype, horizon thinckness pairs (s,d)
+        if isinstance(s['HorizonThickness'], float):
+  	        #If the horizon thickness isn't an array (i.e. it is a float) then just write
+             #the first soil thickness and a -1 for horizon thickness
+            f.write(str(s['SoilType'][0])+', -1')
+        else:
+            #Write out the pairs of soil types and thicknesses
+            for pair in zip(s['SoilType'], s['HorizonThickness']):
                 f.write(str(pair[0])+','+str(pair[1])+'  ')
     f.write('\n')
 
