@@ -7399,29 +7399,29 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
 void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy, double referenceDateNew,
                                         double currentTimeNew)
 {
-  bool   error    = false;  // Error flag.
-  int    ii;                // Loop counter.
-  int    ncErrorCode;       // Return value of NetCDF functions.
-  int    fileID;            // ID of NetCDF file.
-  bool   fileOpen = false;  // Whether fileID refers to an open file.
-  int    variableID;        // ID of variable in NetCDF file.
-  size_t numberOfInstances; // Size of instance dimension.
-  size_t instance;          // Instance index for file.
-  double currentDate;       // The date and time represented by referenceDateNew and currentTimeNew as a Julian date.
-  float* jultime   = NULL;  // Used to read Julian date.
-  float* t2        = NULL;  // Used to read air temperature at 2m height forcing.
-  float* vegFra    = NULL;  // Used to read vegetation fraction forcing.
-  float* maxVegFra = NULL;  // Used to read maximum vegetation fraction forcing.
-  float* psfc      = NULL;  // Used to read surface pressure forcing.
-  float* u         = NULL;  // Used to read wind speed U component forcing.
-  float* v         = NULL;  // Used to read wind speed V component forcing.
-  float* qVapor    = NULL;  // Used to read water vapor mixing ratio forcing.
-  float* qCloud    = NULL;  // Used to read cloud water mixing ratio forcing.
-  float* swDown    = NULL;  // Used to read downward shortwave flux forcing.
-  float* gLw       = NULL;  // Used to read downward longwave flux forcing.
-  float* tPrec     = NULL;  // Used to read total precipitation forcing.
-  float* tslb      = NULL;  // Used to read soil temperature at the deepest layer forcing.
-  float* pblh      = NULL;  // Used to read planetary boundary layer height forcing.
+  bool    error    = false;  // Error flag.
+  int     ii;                // Loop counter.
+  int     ncErrorCode;       // Return value of NetCDF functions.
+  int     fileID;            // ID of NetCDF file.
+  bool    fileOpen = false;  // Whether fileID refers to an open file.
+  int     variableID;        // ID of variable in NetCDF file.
+  size_t  numberOfInstances; // Size of instance dimension.
+  size_t  instance;          // Instance index for file.
+  double  currentDate;       // The date and time represented by referenceDateNew and currentTimeNew as a Julian date.
+  double* jultime   = NULL;  // Used to read Julian date.
+  float*  t2        = NULL;  // Used to read air temperature at 2m height forcing.
+  float*  vegFra    = NULL;  // Used to read vegetation fraction forcing.
+  float*  maxVegFra = NULL;  // Used to read maximum vegetation fraction forcing.
+  float*  psfc      = NULL;  // Used to read surface pressure forcing.
+  float*  u         = NULL;  // Used to read wind speed U component forcing.
+  float*  v         = NULL;  // Used to read wind speed V component forcing.
+  float*  qVapor    = NULL;  // Used to read water vapor mixing ratio forcing.
+  float*  qCloud    = NULL;  // Used to read cloud water mixing ratio forcing.
+  float*  swDown    = NULL;  // Used to read downward shortwave flux forcing.
+  float*  gLw       = NULL;  // Used to read downward longwave flux forcing.
+  float*  tPrec     = NULL;  // Used to read total precipitation forcing.
+  float*  tslb      = NULL;  // Used to read soil temperature at the deepest layer forcing.
+  float*  pblh      = NULL;  // Used to read planetary boundary layer height forcing.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -7474,7 +7474,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   
   if (!error)
     {
-      jultime = new float[numberOfInstances];
+      jultime = new double[numberOfInstances];
       
       // Get the variable data.
       ncErrorCode = nc_get_var(fileID, variableID, jultime);
@@ -7630,11 +7630,78 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   
   if (0 < localNumberOfChannelElements)
     {
-      // FIXME read forcing data for channels.
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "VEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &vegFra);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "MAXVEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &maxVegFra);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "T2_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &t2);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "PSFC_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &psfc);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "U_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &u);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "V_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &v);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "QVAPOR_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qVapor);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "QCLOUD_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qCloud);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "SWDOWN_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &swDown);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "GLW_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &gLw);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "TPREC_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "TSLB_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tslb);
+        }
+
+      if (!error)
+        {
+          error = readNetCDFVariable(fileID, "PBLH_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &pblh);
+        }
 
       for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
         {
-          channelProxy[ii].forcingDataMessage(20.0f, 0.0f, 0.0f, 0.0f, 101300.0f, 101300.0f - 120.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 200.0f);
+          channelProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localChannelElementStart], maxVegFra[ii - localChannelElementStart], t2[ii - localChannelElementStart],
+                                              psfc[ii - localChannelElementStart], psfc[ii - localChannelElementStart] - 120.0f, u[ii - localChannelElementStart],
+                                              v[ii - localChannelElementStart], qVapor[ii - localChannelElementStart], qCloud[ii - localChannelElementStart],
+                                              swDown[ii - localChannelElementStart], gLw[ii - localChannelElementStart], tPrec[ii - localChannelElementStart],
+                                              tslb[ii - localChannelElementStart],  pblh[ii - localChannelElementStart]);
         }
       
       deleteArrayIfNonNull(&vegFra);
