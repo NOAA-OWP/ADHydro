@@ -7588,7 +7588,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
           error = readNetCDFVariable(fileID, "GLW", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &gLw);
         }
       
-      if (!error)
+      if (!error && !ADHydro::drainDownMode)
         {
           error = readNetCDFVariable(fileID, "TPREC", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tPrec);
         }
@@ -7608,8 +7608,9 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
           meshProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localMeshElementStart], maxVegFra[ii - localMeshElementStart], t2[ii - localMeshElementStart],
                                            psfc[ii - localMeshElementStart], psfc[ii - localMeshElementStart] - 120.0f, u[ii - localMeshElementStart],
                                            v[ii - localMeshElementStart], qVapor[ii - localMeshElementStart], qCloud[ii - localMeshElementStart],
-                                           swDown[ii - localMeshElementStart], gLw[ii - localMeshElementStart], tPrec[ii - localMeshElementStart],
-                                           tslb[ii - localMeshElementStart],  pblh[ii - localMeshElementStart]);
+                                           swDown[ii - localMeshElementStart], gLw[ii - localMeshElementStart],
+                                           ADHydro::drainDownMode ? 0.0f : tPrec[ii - localMeshElementStart], tslb[ii - localMeshElementStart],
+                                           pblh[ii - localMeshElementStart]);
         }
       
       deleteArrayIfNonNull(&vegFra);
@@ -7679,7 +7680,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
           error = readNetCDFVariable(fileID, "GLW_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &gLw);
         }
 
-      if (!error)
+      if (!error && !ADHydro::drainDownMode)
         {
           error = readNetCDFVariable(fileID, "TPREC_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec);
         }
@@ -7700,8 +7701,9 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
                                               t2[ii - localChannelElementStart], psfc[ii - localChannelElementStart],
                                               psfc[ii - localChannelElementStart] - 120.0f, u[ii - localChannelElementStart], v[ii - localChannelElementStart],
                                               qVapor[ii - localChannelElementStart], qCloud[ii - localChannelElementStart],
-                                              swDown[ii - localChannelElementStart], gLw[ii - localChannelElementStart], tPrec[ii - localChannelElementStart],
-                                              tslb[ii - localChannelElementStart],  pblh[ii - localChannelElementStart]);
+                                              swDown[ii - localChannelElementStart], gLw[ii - localChannelElementStart],
+                                              ADHydro::drainDownMode ? 0.0f : tPrec[ii - localChannelElementStart], tslb[ii - localChannelElementStart],
+                                              pblh[ii - localChannelElementStart]);
         }
       
       deleteArrayIfNonNull(&vegFra);

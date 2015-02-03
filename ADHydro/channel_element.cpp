@@ -2208,7 +2208,13 @@ void ChannelElement::moveSurfacewater()
   
   // Convert cross sectional area back to water depth.
   calculateSurfacewaterDepthFromArea(area);
-  
+
+  // Cut off surface water to channel bank depth if in draindDownMode
+  if (ADHydro::drainDownMode && surfacewaterDepth > (elementZBank - elementZBed))
+    {
+      surfacewaterDepth =  (elementZBank-elementZBed);
+    }
+
   surfacewaterDone = true;
   
   // Perform min reduction on dtNew.  This also serves as a barrier at the end of the timestep.
