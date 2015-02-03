@@ -7490,23 +7490,21 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
-  // It is an error if the first forcing data instance is after the current date and time.
-  if (!error)
-    {
-      currentDate = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
-      
-      if (!(jultime[0] <= currentDate))
-        {
-          CkError("ERROR in FileManager::handleReadForcingData: Current time is before first forcing data instance in NetCDF forcing file.\n");
-          error = true;
-        }
-    }
-  
   // Search for the last instance that is before or equal to the current date and time.
   // FIXME to improve efficiency make this a binary search.
   if (!error)
     {
-      instance = 0;
+      instance    = 0;
+      currentDate = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
+      
+      if (!(jultime[0] <= currentDate))
+        {
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in FileManager::handleReadForcingData: All forcing data in the NetCDF forcing file is in the future.  Using the first forcing "
+                      "data instance.\n");
+            }
+        }
       
       while (instance + 1 < numberOfInstances && jultime[instance + 1] <= currentDate)
         {
