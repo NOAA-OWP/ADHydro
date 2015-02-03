@@ -25,7 +25,7 @@ delete pandas directory
 
 
 To use qgis outside of qgis console
-$export PYTHONPATH=/usr/opt/share/qgis/python:$PYTHONPATH
+$export PYTHONPATH=/opt/share/qgis/python:$PYTHONPATH
 then in python script
 from qgis.core import *
 

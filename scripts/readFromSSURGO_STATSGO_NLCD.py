@@ -105,6 +105,12 @@ def writeVegFile(s, f, bugFix):
 
 def getSoilTypDRV():
 # INPUT:
+# FIXME AAAAAAAARRRRRRRRRGGGGGGGGHHHHHHHHH!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# SOMEONE CHANGED THE FUNCTION AND DIDN'T UPDATE THE COMMENT!!!!!!!!!!!!!
+# DOES THIS FUNCTION TAKE AN ARGUMENT NAMED "layered"?  NO!!!!!!!!!!!!!!!
+# BUT THIS COMMENT SAYS THAT IT DOES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# CAN YOU TELL HOW MUCH I AM UPSET BY THIS POOR CODING PRACTICE?!?!?!?!?!
+#               vvvvvvv
 # bool variable layered - True if the information requested is for all soil horizons
 #                       - False if the information requested is only for the top layer.
 # Output:
@@ -126,16 +132,21 @@ def getSoilTypDRV():
    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
    output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.LandCover')
    output_element_data_file = os.path.join(output_directory_path, 'element_data.csv')
+
+   print 'Reading element file.'
+
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
    
    elements['V1'] = elements['V1'].astype(int)
+
+   print 'Reading node file.'
 
    nodes = pd.read_csv(NODEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'X', 'Y', 'Z'], index_col=0, engine='c').dropna()
 
    num_elems = len(elements.index)
    num_nodes = len(nodes.index)
    
-  
+   print 'Calculating element centers.'
    
    ele=1
    num_verticies=3
@@ -197,22 +208,37 @@ def getSoilTypDRV():
    """
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
    
+   print 'Finding MUKEY.'
+
    #find the MUKEY for each element, this adds the following columns to elements:
    #MUKEY, AreaSym, inSSURGO
    elements = elements.apply(getMUKEY, axis=1)
+
+   print 'Finding COKEY.'
+
    #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
    #COKEY, compname
    elements = elements.apply(getCOKEY, axis=1)
+
+   print 'Finding soil type.'
+
    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
    #SoilType
    elements = elements.apply(getSoilContent, axis=1)
-   #print elements
+
+   print 'Finding vegetation type.'
+
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
    #VegParm
    elements = elements.apply(getVegParm, axis=1)
    
+   print 'Writing element data file.'
+
+   #print elements
    elements.to_csv(output_element_data_file, na_rep='NaN')
    
+   print 'Writing soil file.'
+
    SoilFile = open(output_SoilTyp_file, 'wb')
    #Write soil file header information
    SoilFile.write(str(num_elems))
@@ -223,6 +249,8 @@ def getSoilTypDRV():
    elements.apply(writeSoilFile, axis=1, args=(SoilFile, None))
    SoilFile.close()
    
+   print 'Writing vegetation file.'
+
    VegFile = open(output_VegTyp_file, 'wb')
    #Write veg file header information
    VegFile.write(str(num_elems)+'  1\n')
