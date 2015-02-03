@@ -2209,10 +2209,10 @@ void ChannelElement::moveSurfacewater()
   // Convert cross sectional area back to water depth.
   calculateSurfacewaterDepthFromArea(area);
 
-  // Cut off surface water to channel bank depth if in draindDownMode
+  // Cut off surface water to channel bank depth if in drainDownMode
   if (ADHydro::drainDownMode && surfacewaterDepth > (elementZBank - elementZBed))
     {
-      surfacewaterDepth =  (elementZBank-elementZBed);
+      surfacewaterDepth = (elementZBank - elementZBed);
     }
 
   surfacewaterDone = true;
