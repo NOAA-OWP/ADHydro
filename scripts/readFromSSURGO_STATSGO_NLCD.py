@@ -5,7 +5,6 @@ import numpy as np
 import glob
 from math import acos, cos
 #import cython #Maybe try to cythonize some functions for better performance???
-#To run this scrip outside of the Qgis Console, make sure you run
 
 # This script is set up to run from the command line and not from inside the QGIS python console.
 # You need to add your QGIS python directory to the PYTHONPATH environment variable as shown below.
@@ -21,12 +20,18 @@ QgsApplication.initQgis()
 #GLOBALS
 #These are reused each time getMUKEY is called, so create them once and save the overhead
 #Can even put into an init function if the need arises
-input_SSURGO_file  = "/share/CI-WATER_Third_Party_Files/SSURGO/index.shp"
+input_SSURGO_prefix = "/share/CI-WATER_Third_Party_Files/SSURGO"
+#Directory where extracted data files exist
+input_SSURGO_unzipped = os.path.join(input_SSURGO_prefix, "unzipped")
+input_SSURGO_file  = os.path.join(input_SSURGO_prefix, "index.shp")
 SSURGO_layer       = QgsVectorLayer(input_SSURGO_file, "SSURGO",  "ogr")
 SSURGO_provider    = SSURGO_layer.dataProvider()
 SSURGO_AreaSymInd = SSURGO_provider.fieldNameIndex("AREASYMBOL")
 
-input_STATSGO_file  = "/share/CI-WATER_Third_Party_Files/STATSGO/all.shp"
+input_STATSGO_prefix = "/share/CI-WATER_Third_Party_Files/STATSGO"
+#Directory where extracted data files exist
+input_STATSGO_unzipped = os.path.join(input_STATSGO_prefix, "unzipped")
+input_STATSGO_file  = os.path.join(input_STATSGO_prefix, "all.shp")
 STATSGO_layer     = QgsVectorLayer(input_STATSGO_file, "STATSGO",  "ogr")
 STATSGO_provider  = STATSGO_layer.dataProvider()
 STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
@@ -34,7 +39,7 @@ STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
 
 #This script will read the SSURGO soil mukey files from this directory
-input_SSURGO_County_prefix = "/share/CI-WATER_Third_Party_Files/SSURGO/all/"
+input_SSURGO_County_prefix = os.path.join(input_SSURGO_prefix, "all")
 # This script will read the NLCD data form this directory
 input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projected/"
 
@@ -75,8 +80,17 @@ horizon_table_names = ['hzname', 'desgndisc', 'desgnmaster', 'desgnmasterprime',
 #Dictionary to hold QgsVector layers for vegitation data
 veg_parm_dict={}
 
-#Write a line to the soil file, f, based on information passed in series, s
 def writeSoilFile(s, f, bugFix):
+    """
+      This function writes a line to the soil output file for each element.
+      It is desgned to work the the pandas data frame apply function, which used along the first axis
+      of a data frame, this function writes information from each row in the dataframe to an output file.
+
+      Required Arguements:
+        s -- pandas series containing element information, including SoilType and HorizonThickness (provided by the apply function)
+        f -- file handle to the desired output file
+        bugFix -- need to pass a third parameter to bypass a weird file not open for reading bug that appears if s and f are the only args, simply pass None for this arg
+    """
     #Write element number 
     f.write('  '+str(s.name)+'  ')
     #isnull might be redundant, since the only thing not an array should be NaN
@@ -101,32 +115,30 @@ def writeSoilFile(s, f, bugFix):
 #Note bugFix is here just to bypass a weird file not open for reading bug that appears
 #if s and f are the only args
 def writeVegFile(s, f, bugFix):
-    f.write('  '+str(s.name)+'  '+str(s['VegParm'])+'\n')
+  """
+    This function writes a line to the vegitation output file for each element.
+    It is desgned to work the the pandas data frame apply function, which used along the first axis
+    of a data frame, this function writes information from each row in the dataframe to an output file.
+
+    Required Arguements:
+      s -- pandas series containing element information, including VegParm (provided by the apply function)
+      f -- file handle to the desired output file
+      bugFix -- need to pass a third parameter to bypass a weird file not open for reading bug that appears if s and f are the only args, simply pass None for this arg
+
+  """
+  f.write('  '+str(s.name)+'  '+str(s['VegParm'])+'\n')
 
 def getSoilTypDRV():
-# INPUT:
-# FIXME AAAAAAAARRRRRRRRRGGGGGGGGHHHHHHHHH!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# SOMEONE CHANGED THE FUNCTION AND DIDN'T UPDATE THE COMMENT!!!!!!!!!!!!!
-# DOES THIS FUNCTION TAKE AN ARGUMENT NAMED "layered"?  NO!!!!!!!!!!!!!!!
-# BUT THIS COMMENT SAYS THAT IT DOES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# CAN YOU TELL HOW MUCH I AM UPSET BY THIS POOR CODING PRACTICE?!?!?!?!?!
-#               vvvvvvv
-# bool variable layered - True if the information requested is for all soil horizons
-#                       - False if the information requested is only for the top layer.
-# Output:
-#  If layered = False:
-#     A file mesh.1.soil with the soil type for each element of mesh.1.ele. 
-#  If layered = True:
-#     A file mesh.1.soil with the soil type for each horizon of each element of mesh.1.ele.
-#     Horizons are in order of depth of top to the surface. 
-#  *********************************
-#  ****** IMPORTANT ****************
-#  *********************************
-#  If needed, change the variables:
-#  sufixPath           -> location of the ADHydro repository
-#  ELEfilepath         -> element file path and name
-#  NODEfilepath        -> node file path and name
-#  output_SoilTyp_file -> output: soil type file path and name
+   """
+     This is the user entry point to process the mesh, lookup the soil and vegitation information, and write the output files.
+     This process includes reading the element and node files of the mesh and calculating each elements center, ADhydro, and lat/long coordinates.
+     
+     getSoilTypDRV utilizes pandas data frames to hold this information, and then applies several functions to the data frame to lookup the nessicary information.
+     Once all this information is found and added to the dataframe, this function creates the output files specified by these variables:
+       output_SoilTyp_file -- structured output file storing the layers of the soil horizon for each element
+       output_VegTyp_file -- structured output file storing each element's vegitation type
+       output_element_data_file -- a comma seperated value file containing all of the computed and looked up information for each element
+   """
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
    NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
@@ -191,9 +203,6 @@ def getSoilTypDRV():
    elements['lat_center'] = (elements['lat_center'] + origin)*(180/pi)
    elements['long_center'] = elements['long_center']*180/pi
    
-   #TODO remove, for debugging only
-   #elements = elements.head()
-   
    #elements now contains coordinates for the center of each element in three different coordinates:
    #  X, Y sinusoidal projection X_center, Y_center
    #  AdHydro Coordinates AD_X, AD_Y
@@ -233,12 +242,13 @@ def getSoilTypDRV():
    elements = elements.apply(getVegParm, axis=1)
    
    print 'Writing element data file.'
-
-   #print elements
+   
+   #Write the element data csv file, usising the string NaN for missing data representation
    elements.to_csv(output_element_data_file, na_rep='NaN')
    
    print 'Writing soil file.'
-
+   
+   #Get the output file handle for the soil file
    SoilFile = open(output_SoilTyp_file, 'wb')
    #Write soil file header information
    SoilFile.write(str(num_elems))
@@ -250,7 +260,8 @@ def getSoilTypDRV():
    SoilFile.close()
    
    print 'Writing vegetation file.'
-
+   
+   #Get the vegitation output file handle
    VegFile = open(output_VegTyp_file, 'wb')
    #Write veg file header information
    VegFile.write(str(num_elems)+'  1\n')
@@ -262,31 +273,57 @@ def getSoilTypDRV():
 #TODO If really need to specify which dataset to search( SSURGO or STATSGO ) then make two functions, one for each
 #Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results    
 def getMUKEY(s):
-# in:
-# s series containing information for the given element (identifiable by s['ID'])
-# out: 
-# Series containtining all the previous element information given in s plus the following
-    # MUKEY    - int scalar found for the given coordinate
-    # AreaSym  - string with area symbol for the given coordinate
-    # inSSURGO - Flag: True if MUKEY was found in SSURGO files, False if found in STATSGO file
-    # reports values as NaN (np.nan) for missing data
-# *************** IMPORTANT ******************
-# 1- The variables input_SSURGO_file, input_SSURGOperCounty_file, and input_STATSGO_file
-# must be CHANGED according to users directory paths for the shape files
-# 2- For this program, index.shp is the delineation file, containing the border's shape from 
-# SSURGO of the region we have data.
+    """
+      This function searches SSURGO and STATSGO data files for an element's MUKEY using pyQGIS functions.
+
+      This function will attempt to find the MUKEY in SSURGO first, and if it cannot find one it will then repeat
+      the processing using STATSGO.
+
+      Since many of these data files get read repeatedly in different calls to getMUKEY, the data is only read
+      from the files once and is stored in dictionaries so it can be quickly looked up again in another call needing
+      to read the same information.
+
+      It is designed to work with the pandas data frame's apply function, which, when used along axis=1,
+      will apply this function to each row of a dataframe, passing the row's information in the series argument.
+      This dataframe should have columns for the following variables:
+        lat_center
+        long_center
+  
+      These series objects should all have an ID column (s['ID']) which can be used to identify the specific element.
+    
+      When finished, this function adds the following columns to the series object which is returned to the caller:
+        MUKEY    - int scalar found for the given coordinate
+        AreaSym  - string with area symbol for the given coordinate
+        inSSURGO - Flag: True if MUKEY was found in SSURGO files, False if found in STATSGO file
+      
+      This function represents missing data using NaN (np.nan)
+
+      Required Args:
+        s -- pandas series object containing the forementioned variables
+      
+      Additional Notes:
+        1 - The variables input_SSURGO_file, input_SSURGOperCounty_file, and input_STATSGO_file
+        must be CHANGED according to users directory paths for the shape files
+        2- For this program, index.shp is the delineation file, containing the border's shape from 
+        SSURGO of the region we have data.
+    """
+    #Get the elements center coordinates
     x = s['lat_center']
-    y = s['long_center']
+    y = s['long_center'] 
+    #Get setup for building the spatial index, and initialize the booleans used to indicate if
+    #a MUKEY was found in SSURGO or not
     feature  = QgsFeature()
     inSSURGO = False
     found = False
     SSURGO_provider.select([SSURGO_AreaSymInd])
 
     index = QgsSpatialIndex()
+    #Populate the spatial index with each feature in the SSURGO provided
     while SSURGO_provider.nextFeature(feature):
         index.insertFeature(feature)
     point = QgsPoint(x, y)
     pointBox = QgsRectangle(point, point)
+    #Use the spatial index to find features that intersect with the point box build from the elements coordiantes
     ids = index.intersects(pointBox)
     
     #Intersects returns a list of features intesecting the point
@@ -303,7 +340,7 @@ def getMUKEY(s):
 
             #TODO Maybe load all these into memory initally then lookup from dict???
             if AreaSym not in SSURGO_county_dict:
-                input_SSURGOperCounty_file = input_SSURGO_County_prefix+"soilmu_a_"+ AreaSym.toLower() + ".shp"
+                input_SSURGOperCounty_file = os.path.join(input_SSURGO_County_prefix, "soilmu_a_") + AreaSym.toLower() + ".shp"
                 SSURGO_perCounty_layer  = QgsVectorLayer(input_SSURGOperCounty_file, "SSURGOperCounty",  "ogr")
                 SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
                 SSURGO_county_dict[AreaSym] = SSURGO_perCounty_layer
@@ -366,24 +403,44 @@ def getMUKEY(s):
     s['MUKEY'] = int(MUKEY)
     s['AreaSym'] = str(AreaSym)
     s['inSSURGO'] = inSSURGO
+    return s
 
 def getCOKEY(s):
-# in:
-# series containing data for givin element (s['ID']) with the following values accessible by s['<key>']
-    # MUKEY       - int scalar found in getMUKEY()
-    # AreaSym     - Qstring with area symbol found in getMUKEY()
-    # inSSURGO    - Flag: True if MUKEY was found in SSURGO files, False if found in STATSGO file
-# out:
-#series containing element information plus
-    # COKEY       - scalor with the dominant COKEY for the given MUKEY
-    # compname    - descriptor
-    # reports np.nan for missing data
-# NOTE: Component dominance chosen by relative percentage content in map Unit
-#       Colum 2 (colum index 1) from SSURGO/STASGO Metadata
-# tmpCompDesc - Component description: forth colum (index 3) of comp.txt. 
-# In case of water or bed rock there is no horizon and getSoilContent (...) takes care of it.
-# NOTE: All indices are taken from the SSURGO metadata rows and colums commented file.
-#
+   """
+    This function searches SSURGO and STATSGO data files for an element's COKEY using pyQGIS functions.
+
+    The series, s, should contain a boolean entery s['inSSURGO'] indicating whether or not to look in SSURGO or STATSGO.
+    This value is set in the getMUKEY function based on where the MUKEY was found.
+
+    Since many of these data files get read repeatedly in different calls to getCOKEY, the data is only read
+    from the files once and is stored in dictionaries so it can be quickly looked up again in another call needing
+    to read the same information.
+
+    It is designed to work with the pandas data frame's apply function, which, when used along axis=1,
+    will apply this function to each row of a dataframe, passing the row's information in the series argument.
+    This dataframe should have columns for the following variables that are set in getMUKEY:
+      MUKEY
+      AreaSym
+      inSSURGO
+
+    These series objects should all have an ID column (s['ID']) which can be used to identify the specific element.
+    
+    When finished, this function adds the following columns to the series object which is returned to the caller:
+      COKEY       - scalor with the dominant COKEY for the given MUKEY
+      compname    - descriptor
+      
+    This function represents missing data using NaN (np.nan)
+
+    Required Args:
+      s -- pandas series object containing the forementioned variables
+
+    Additional Notes:
+      1 - Component dominance chosen by relative percentage content in map Unit
+          Colum 2 (colum index 1) from SSURGO/STASGO Metadata
+      2 - tmpCompDesc - Component description: forth colum (index 3) of comp.txt. 
+      3 - In case of water or bed rock there is no horizon and getSoilContent (...) takes care of it.
+      4 - All indices are taken from the SSURGO metadata rows and colums commented file.
+   """
 
    MUKEY = s['MUKEY']
    AreaSym = s['AreaSym']
@@ -393,7 +450,7 @@ def getCOKEY(s):
    if (inSSURGO == True):
    #  Find the path for the comp file in SSURGO
       if AreaSym not in SSURGO_comp_dict:
-         Compfile = "/share/CI-WATER Third Party Files/SSURGO/unzipped/wss_SSA_" + str(AreaSym) + "*" 
+         Compfile = os.path.join(input_SSURGO_unzipped, "wss_SSA_") + str(AreaSym) + "*"
          Compfile_path =  glob.glob(Compfile)                                                        
          # gol.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
          Compfile = Compfile_path[0] +'/tabular/comp.txt'
@@ -403,7 +460,7 @@ def getCOKEY(s):
    else:
       if AreaSym not in STATSGO_comp_dict:
          #Find the path for the comp file in STATSGO
-         Compfile = "/share/CI-WATER Third Party Files/STATSGO/unzipped/wss_gsmsoil_" + str(AreaSym) + "*" 
+         Compfile = os.path.join(input_STATSO_unzipped, "wss_gsmsoil_") + str(AreaSym) + "*" 
          Compfile_path =  glob.glob(Compfile)                                                        
          #gol.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
          Compfile = Compfile_path[0] +'/tabular/comp.txt'
@@ -424,6 +481,15 @@ def getCOKEY(s):
 
 #Helper function to modify totals if rel_percent is not 100
 def rel_percent_mod(s):
+    """
+        This function is a helper function for getSoilContent
+        
+        When applied to a pandas dataframe containing all of the soil type information,
+        this function modifies the totals if the the relative percent is not 100.
+        
+        Required Arguments:
+            s -- pandas series containing sandtotal_r, silttatal_r, claytotal_r, and rel_percent
+    """
     if s['rel_percent'] != 100.0:
         s['sandtotal_r'] = s['sandtotal_r']*100/s['rel_percent']
         s['silttotal_r'] = s['silttotal_r']*100/s['rel_percent']
@@ -431,20 +497,32 @@ def rel_percent_mod(s):
     return s
   
 def getSoilContent(s):
-# in:
-# s series containing element information such as MUKEY, COKEY, AreaSym, InSSURGO, and coordinates
-    # COKEY[]   - Vector with all the COKEYs for the given MUKEY found in getCOKEY()
-    # AreaSym   - Qstring with area symbol found in getMUKEY()
-    # inSSURGO  - Flag: True if MUKEY was found in SSURGO files, False if found in STATSGO file
-# out:
-# series containing previous data plus an array of soil types for each layer in the chorizon file, listed in order
-#        of the layer's appearence
-# Each line represents a CHorizon key for each COKEY found previously.
-# largerRep is the largest number of CHKEYS between all the COKEYS.
-# Note: Line one (index 0, all colums) of CHKEY contains the CHKEYs for the first COKEY found.
-#       Because the metadata files are organized in crescent order of MUKEYs, COKEYs, and
-#       CHKEYS, the first COKEY is the smallest in value.            
-# AreaSym is of type Qstring and will be need as type str
+   """
+       This function reads SSURGO or STATSGO files to identify an elements soil conent,
+       calculate the relative percentage of the soils, and find the soil type and horizon thickness
+       for each layer of soil found.
+       
+       This function is desgned to work with pandas series objects, and assumes that the passed series
+       contains the following columns:
+           COKEY - Vector with all the COKEYs for the given MUKEY found in getCOKEY()
+           AreaSym   - Qstring with area symbol found in getMUKEY()
+           inSSURGO  - Flag: True if MUKEY was found in SSURGO files, False if found in STATSGO file
+       
+       When finished, this function returns the input series with the addition of an array of soil types for each
+       layer in the chorizon file, listed in order of the layer's appearence.
+       
+       Each line represents a CHorizon key for each COKEY found previously.
+       largerRep is the largest number of CHKEYS between all the COKEYS.
+       
+       Required Arguements:
+           s - pandas series object with the forementioned columns
+           
+       Additional Notes:
+          Line one (index 0, all colums) of CHKEY contains the CHKEYs for the first COKEY found.
+          Because the metadata files are organized in crescent order of MUKEYs, COKEYs, and
+          CHKEYS, the first COKEY is the smallest in value.
+   """
+
    inSSURGO = s['inSSURGO']
    AreaSym = s['AreaSym']
    COKEY = s['COKEY']
@@ -462,7 +540,7 @@ def getSoilContent(s):
    if (inSSURGO == True):
       if AreaSym not in SSURGO_horizon_dict:
          #Find the path for the chorizon file in SSURGO
-         Horizonfile = "/share/CI-WATER Third Party Files/SSURGO/unzipped/wss_SSA_" + AreaSym + "*"
+         Horizonfile = os.path.join(input_SSURGO_unzipped, "wss_SSA_") + AreaSym + "*"
          Horizonfile_path =  glob.glob(Horizonfile)
          Horizonfile = Horizonfile_path[0] +'/tabular/chorizon.txt'
          SSURGO_horizon_dict[AreaSym] = pd.read_csv(Horizonfile, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
@@ -470,7 +548,7 @@ def getSoilContent(s):
    else:
       if AreaSym not in STATSGO_horizon_dict:
          #Find the path for the chorizon file in STATSGO
-         Horizonfile = "/share/CI-WATER Third Party Files/STATSGO/unzipped/wss_gsmsoil_" + AreaSym + "*" 
+         Horizonfile = os.path.join(input_STATSGO_unzipped, "wss_gsmsoil_") + AreaSym + "*" 
          Horizonfile_path =  glob.glob(Horizonfile)
          Horizonfile = Horizonfile_path[0] +'/tabular/chorizon.txt'
          STATSGO_horizon_dict[AreaSym] = pd.read_csv(Horizonfile, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
@@ -478,7 +556,7 @@ def getSoilContent(s):
    
    #Get all rows with matching COKEY
    co_key_rows = Hrz_metadata[Hrz_metadata['cokey'] == COKEY]
-   #Make sure we got at least one row
+   #Make sure we got at least one row, and sort it based on horizon depth
    if not co_key_rows.empty:
       co_key_rows = co_key_rows.sort('hzdept_r', axis=0)
    else:
@@ -496,11 +574,19 @@ def getSoilContent(s):
    return s
 
 def getSoilTyp(s):
-# Inputs:
-# s -> a series containing soil types for a row from the horizon table
-# Output:
-# int -> Soil type referenced from SOILPARM.TBL from NoahMP
-# Program converted from https://prod.nrcs.usda.gov/Internet/FSE_DOCUMENTS/nrcs142p2_053196.xls
+   """
+       This is a helper function for getSoilContent.
+       
+       This function maps soil content to a soil type.
+       It returns this soil type to the caller.
+       
+       Required Arguments:
+           s -- A pandas series containing the soil content values for an element (sandtotal_r, silttotal_r, claytotal_r)
+           
+       Additional Notes:
+           Returned soil type referenced from SOILPARM.TBL from NoahMP,
+           program converted from https://prod.nrcs.usda.gov/Internet/FSE_DOCUMENTS/nrcs142p2_053196.xls
+   """
 
    sand = s['sandtotal_r']
    silt = s['silttotal_r']
@@ -534,15 +620,21 @@ def getSoilTyp(s):
       return 12 # 'Clay'
 
 def getVegParm(s):
-# in:
-# takes a series with nessicary data to look up vegitation parameters, must contain
-    #AD_X
-    #AD_Y
-    #AreaSym
-# out:
-# series containing the additional vegitation data or np.nan if not found
-# the adhydro coordinates of the given element and its area sym (found in getMUKEY)
-    #  Find the path for the chorizon file in STATSGO
+   """
+       This function reads the National Land Cover Database (NLCD) to assign a vegitation
+       type to each element.
+
+       When finished, this function will add a column to s, VegParm, and return s to the caller.
+       
+       Missing data is represened as NaN (np.nan)
+       
+       Required Arguements:
+           s -- pandas series object containing the following columns:
+               AD_X
+               AD_Y
+               AreaSym
+   """
+   #  Find the path for the chorizon file in STATSGO
    x = s['AD_X']
    y = s['AD_Y']
    AreaSym = s['AreaSym']
@@ -627,12 +719,7 @@ def getVegParm(s):
    return s  
 
 if __name__ == '__main__':
-    import cProfile
-    import timeit
-    #cProfile.run('getSoilTypDRV()', sort='time')
-    #numRuns = 10
-    #print "New Code Average Time Over "+str(numRuns)+" Runs:"
-    #print(timeit.timeit("getSoilTypDRV()", setup="from __main__ import getSoilTypDRV", number = numRuns))
+    #Run the getSoilTypDRV function
     getSoilTypDRV()
     #Qgis finalize
     QgsApplication.exitQgis()
