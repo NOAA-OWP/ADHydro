@@ -109,7 +109,7 @@ def writeSoilFile(s, f, bugFix):
             #Write out the pairs of soil types and thicknesses
             for pair in zip(s['SoilType'], s['HorizonThickness']):
                 if  !np.isnan(pair[0]):
-                    f.write(str(pair[0])+','+str(pair[1])+'  ')
+                    f.write(str(int(pair[0]))+','+str(pair[1])+'  ')
                 else:
                     f.write(str(-1)+','+str(pair[1])+'  ')
     f.write('\n')

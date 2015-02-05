@@ -912,10 +912,10 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   // Read header.
   if (!error)
     {
-      numScanned = fscanf(landCoverFile, "%d %d", &numberCheck, &dimension);
+      numScanned = fscanf(landCoverFile, "%d", &numberCheck);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(2 == numScanned))
+      if (!(1 == numScanned))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from landCover file.\n");
           error = true;
@@ -923,7 +923,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(globalNumberOfMeshElements == numberCheck && 1 == dimension))
+      if (!(globalNumberOfMeshElements == numberCheck))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in landCover file.\n");
           error = true;
