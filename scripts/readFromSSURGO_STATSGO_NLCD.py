@@ -93,22 +93,23 @@ def writeSoilFile(s, f, bugFix):
     """
     #Write element number 
     f.write('  '+str(s.name)+'  ')
+    #Soil type is either an array of soil layers or a scalar float with the value NaN.  If it is NaN write zero to indicate no soil layers
     #isnull might be redundant, since the only thing not an array should be NaN
-    #Soil type is an array, if no soil types found, write 0 to indicate no soil information
-    #14 => water. All our mesh elements should not be water. Therefore, we treat as no soil information
-    if (isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']) ) or (s['SoilType']  == 14):
+    if isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']):
         f.write('0')
     else:
-        #Write the number of elements in the soil type array
-        f.write(str(len(s['SoilType']))+'  ')
         #Write soiltype, horizon thinckness pairs (s,d)
-        if (s['SoilType'] == 15):
-  	     #If the soil type is 15 meaning bedrock, the soil thickness is 0.0
-            f.write(str(s['SoilType'][0])+', 0.0')
+        if isinstance(s['HorizonThickness'], float):
+            #Write one to indicate one soil layer.
+            f.write('1  ')
+            #If the horizon thickness isn't an array (i.e. it is a float) then just write the first soil type and a 0.0 for horizon thickness
+            f.write(str(int(s['SoilType'][0]))+',0.0')
         else:
+            #Write the number of elements in the soil type array
+            f.write(str(len(s['SoilType']))+'  ')
             #Write out the pairs of soil types and thicknesses
             for pair in zip(s['SoilType'], s['HorizonThickness']):
-                if  not np.isnan(pair[0]):
+                if not np.isnan(pair[0]):
                     f.write(str(int(pair[0]))+','+str(pair[1])+'  ')
                 else:
                     f.write(str(-1)+','+str(pair[1])+'  ')

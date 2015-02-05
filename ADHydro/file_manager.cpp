@@ -3584,12 +3584,15 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
 
 void FileManager::meshMassage()
 {
-  int    ii, jj, kk;         // Loop counters.
-  bool   hasLowerNeighbor;   // Whether an element has a lower neighbor.
-  bool   hasChannelNeighbor; // Whether an element has a channel neighbor.
-  int    downstreamElement;  // An element or boundary condition code downstream of an element.
-  int    neighbor;           // A neighbor of an element.
-  double edgeZSurface;       // The surface Z coordinate of the center of a mesh edge.
+  int    ii, jj, kk;                                      // Loop counters.
+  bool   hasLowerNeighbor;                                // Whether an element has a lower neighbor.
+  bool   hasChannelNeighbor;                              // Whether an element has a channel neighbor.
+  int    downstreamElement;                               // An element or boundary condition code downstream of an element.
+  bool   done;                                            // Loop end condition.
+  int    oldNumberOfRemainingElementsWithInvalidSoilType; // Number of elements with invalid soil type from the last pass.
+  int    newNumberOfRemainingElementsWithInvalidSoilType; // Number of elements with invalid soil type from the current pass.
+  int    neighbor;                                        // A neighbor of an element.
+  double edgeZSurface;                                    // The surface Z coordinate of the center of a mesh edge.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(1 == CkNumPes()))
@@ -3753,6 +3756,55 @@ void FileManager::meshMassage()
         }
     } // End check that all digital dams in the channel network are broken.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  
+  // For mesh elements that have no soil type (-1) or a soil type of water (14) get soil type and depth from a neighbor.
+  done                                            = false;
+  oldNumberOfRemainingElementsWithInvalidSoilType = globalNumberOfMeshElements;
+  
+  while (!done)
+    {
+      newNumberOfRemainingElementsWithInvalidSoilType = 0;
+
+      for (ii = 0; ii < globalNumberOfMeshElements; ii++)
+        {
+          // If element ii has an invalid soil type try to get it from a neighbor.  This might not succeed if no neighbor has a valid soil type.
+          // The outer most loop handles this case by repeating this fix until the number of elements with invalid soil type goes to zero or stops going down.
+          jj = 0;
+
+          while (jj < MeshElement::meshNeighborsSize && (-1 == meshSoilType[ii] || 14 == meshSoilType[ii]))
+            {
+              neighbor = meshMeshNeighbors[ii][jj];
+
+              if (!isBoundary(neighbor) && !(-1 == meshSoilType[neighbor] || 14 == meshSoilType[neighbor]))
+                {
+                  if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("WARNING in FileManager::meshMassage: getting soil type and depth for element %d from neighbor %d.\n", ii, neighbor);
+                    }
+
+                  meshSoilType[ii]         = meshSoilType[neighbor];
+                  meshElementSoilDepth[ii] = meshElementSoilDepth[neighbor];
+                  meshElementZBedrock[ii]  = meshElementZSurface[ii] - meshElementSoilDepth[ii];
+                }
+
+              jj++;
+            }
+
+          if (-1 == meshSoilType[ii] || 14 == meshSoilType[ii])
+            {
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassage: mesh element %d has invalid soil type and no neighbor with valid soil type.\n", ii);
+                }
+
+              newNumberOfRemainingElementsWithInvalidSoilType++;
+            }
+        }
+      
+      done                                            = (0 == newNumberOfRemainingElementsWithInvalidSoilType ||
+                                                         newNumberOfRemainingElementsWithInvalidSoilType >= oldNumberOfRemainingElementsWithInvalidSoilType);
+      oldNumberOfRemainingElementsWithInvalidSoilType = newNumberOfRemainingElementsWithInvalidSoilType;
+    }
   
   // Place a NOFLOW boundary between neighboring mesh elements that are in different catchments and separated by a ridge.
   for (ii = 0; ii < globalNumberOfMeshElements; ii++)
