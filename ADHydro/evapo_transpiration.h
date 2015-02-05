@@ -130,7 +130,7 @@ bool evapoTranspirationInit(const char* directory);
 //                           second at the top of the canopy.
 // tBot                    - Boundary condition for soil temperature in Kelvin
 //                           at the bottom of the lowest soil layer.
-// plbh                    - Planetary boundary layer height in meters.
+// pblh                    - Planetary boundary layer height in meters.
 // sh2o                    - Liquid water content of each soil layer, unitless.
 // smc                     - Total water content, liquid and solid, of each
 //                           soil layer, unitless.
@@ -234,7 +234,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 //                           second at the top of the canopy.
 // tBot                    - Boundary condition for soil temperature in Kelvin
 //                           at the bottom of the lowest soil layer.
-// plbh                    - Planetary boundary layer height in meters.
+// pblh                    - Planetary boundary layer height in meters.
 // wsLake                  - Water stored in lakes in millimeters of water.
 // evapoTranspirationState - State that is simulated by the evapo-transpiration
 //                           module passed by reference.  Must be initialized
@@ -294,7 +294,6 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 //                           middle of lowest atmosphere layer in forcing data.
 // q2                      - Water vapor mixing ratio at middle of lowest
 //                           atmosphere layer in forcing data, unitless.
-// qc                      - Liquid water mixing ratio in clouds, unitless.
 // solDn                   - Downward short wave radiation in Watts per square
 //                           meter at the top of the canopy.
 // lwDn                    - Downward long wave radiation in Watts per square
