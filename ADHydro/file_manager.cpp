@@ -8016,8 +8016,32 @@ void FileManager::handleMeshStateMessage(int element, double surfacewaterDepth, 
       CkError("ERROR in FileManager::handleMeshStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
       CkExit();
     }
-  // FIXME error check other inputs
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: precipitation must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: precipitationCumulative must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= surfacewaterInfiltration))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: surfacewaterInfiltration must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 
   meshSurfacewaterDepth[element - localMeshElementStart]        = surfacewaterDepth;
   meshSurfacewaterError[element - localMeshElementStart]        = surfacewaterError;
@@ -8120,8 +8144,26 @@ void FileManager::handleChannelStateMessage(int element, double surfacewaterDept
       CkError("ERROR in FileManager::handleChannelStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
       CkExit();
     }
-  // FIXME error check other inputs
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in FileManager::handleChannelStateMessage, element %d: precipitation must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in FileManager::handleChannelStateMessage, element %d: precipitationCumulative must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 
   channelSurfacewaterDepth[element - localChannelElementStart]       = surfacewaterDepth;
   channelSurfacewaterError[element - localChannelElementStart]       = surfacewaterError;
