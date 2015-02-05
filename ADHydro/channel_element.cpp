@@ -1130,17 +1130,10 @@ void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew,
       error = true;
     }
   
-  if (!(0.0f <= shadedFractionNew && 1.0f >= shadedFractionNew))
+  if (!(0.0f <= shadedFractionNew && shadedFractionNew <= shadedFractionMaximumNew && 1.0f >= shadedFractionMaximumNew))
     {
       CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: shadedFractionNew must be greater than or equal to zero and less than or equal "
-              "to one.\n", thisIndex);
-      error = true;
-    }
-  
-  if (!(0.0f <= shadedFractionMaximumNew && 1.0f >= shadedFractionMaximumNew))
-    {
-      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: shadedFractionMaximumNew must be greater than or equal to zero and less than or "
-              "equal to one.\n", thisIndex);
+              "to shadedFractionMaximumNew.  shadedFractionMaximumNew must be less than or equal to one.\n", thisIndex);
       error = true;
     }
 
@@ -2348,17 +2341,10 @@ void ChannelElement::handleCheckInvariant()
       error = true;
     }
   
-  if (!(0.0f <= shadedFraction && 1.0f >= shadedFraction))
+  if (!(0.0f <= shadedFraction && shadedFraction <= shadedFractionMaximum && 1.0f >= shadedFractionMaximum))
     {
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: shadedFraction must be greater than or equal to zero and less than or equal to "
-              "one.\n", thisIndex);
-      error = true;
-    }
-  
-  if (!(0.0f <= shadedFractionMaximum && 1.0f >= shadedFractionMaximum))
-    {
-      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: shadedFractionMaximum must be greater than or equal to zero and less than or equal "
-              "to one.\n", thisIndex);
+              "shadedFractionMaximum.  shadedFractionMaximum must be less than or equal to one.\n", thisIndex);
       error = true;
     }
 

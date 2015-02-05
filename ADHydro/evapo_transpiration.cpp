@@ -343,34 +343,32 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float fpIce    = NAN; // Fraction of precipitation that is frozen, unitless.
   
   // Derived output variables.
-  float canIceOriginal = evapoTranspirationState->canIce; // Quantity of canopy ice before timestep in millimeters of water equivalent.
-  float changeInCanopyIce;                                // Change in canopy ice during timestep in millimeters of water equivalent.  Positive means the
-                                                          // amount of canopy ice increased.
-  float canLiqOriginal = evapoTranspirationState->canLiq; // Quantity of canopy liquid before timestep in millimeters of water.
-  float changeInCanopyLiquid;                             // Change in canopy liquid during timestep in millimeters of water.  Positive means the
-                                                          // amount of canopy liquid increased.
-  int   iSnowOriginal  = evapoTranspirationState->iSnow;  // Actual number of snow layers before timestep.
-  float evaporationFromSurface;                           // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water
-                                                          // evaporated off of the surface.  Negative means water condensed on to the surface.
-                                                          // Surface evaporation sometimes comes from snow and is taken out by Noah-MP, but if there is not
-                                                          // enough snow we have to take the evaporation from the water in the ADHydro state variables.
-  float snowfallAboveCanopy;                              // Quantity of snowfall above the canopy in millimeters of water equivalent.  Must be non-negative.
-  float snowfallInterceptedByCanopy;                      // Quantity of snowfall intercepted by the canopy in millimeters of water equivalent.
-                                                          // Can be negative if snow is falling off of the canopy.
-  float snowfallBelowCanopy;                              // Quantity of snowfall below the canopy in millimeters of water equivalent.  Must be non-negative.
-  float snowmeltOnGround;                                 // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be
-                                                          // non-negative.
-  float rainfallAboveCanopy;                              // Quantity of rainfall above the canopy in millimeters of water.  Must be non-negative.
-  float rainfallInterceptedByCanopy;                      // Quantity of rainfall intercepted by the canopy in millimeters of water.
-                                                          // Can be negative if rain is dripping from the canopy.
-  float rainfallBelowCanopy;                              // Quantity of rainfall below the canopy in millimeters of water.  Must be non-negative.
-  float rainfallInterceptedBySnow;                        // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
-  float rainfallOnGround;                                 // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
-  float snEqvOriginal = evapoTranspirationState->snEqv;   // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO
-                                                          // is not always set to this value after the timestep.
-  float snEqvShouldBe;                                    // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to
-                                                          // 2000.0.  We don't want this behavior so in this variable we calculate what snEqv should be and set
-                                                          // it back.  If snEqv is not changed this instead performs a mass balance check.
+  float canIceOriginal;              // Quantity of canopy ice before timestep in millimeters of water equivalent.
+  float changeInCanopyIce;           // Change in canopy ice during timestep in millimeters of water equivalent.  Positive means the amount of canopy ice
+                                     // increased.
+  float canLiqOriginal;              // Quantity of canopy liquid before timestep in millimeters of water.
+  float changeInCanopyLiquid;        // Change in canopy liquid during timestep in millimeters of water.  Positive means the amount of canopy liquid increased.
+  int   iSnowOriginal;               // Actual number of snow layers before timestep.
+  float evaporationFromSurface;      // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water evaporated off of
+                                     // the surface.  Negative means water condensed on to the surface.  Surface evaporation sometimes comes from snow and is
+                                     // taken out by Noah-MP, but if there is not enough snow we have to take the evaporation from the water in the ADHydro
+                                     // state variables.
+  float snowfallAboveCanopy;         // Quantity of snowfall above the canopy in millimeters of water equivalent.  Must be non-negative.
+  float snowfallInterceptedByCanopy; // Quantity of snowfall intercepted by the canopy in millimeters of water equivalent.  Can be negative if snow is falling
+                                     // off of the canopy.
+  float snowfallBelowCanopy;         // Quantity of snowfall below the canopy in millimeters of water equivalent.  Must be non-negative.
+  float snowmeltOnGround;            // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be non-negative.
+  float rainfallAboveCanopy;         // Quantity of rainfall above the canopy in millimeters of water.  Must be non-negative.
+  float rainfallInterceptedByCanopy; // Quantity of rainfall intercepted by the canopy in millimeters of water.  Can be negative if rain is dripping from the
+                                     // canopy.
+  float rainfallBelowCanopy;         // Quantity of rainfall below the canopy in millimeters of water.  Must be non-negative.
+  float rainfallInterceptedBySnow;   // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
+  float rainfallOnGround;            // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
+  float snEqvOriginal;               // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO is not always set to
+                                     // this value after the timestep.
+  float snEqvShouldBe;               // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't
+                                     // want this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
+                                     // instead performs a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -393,8 +391,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   int   iceOriginal          = ice;
   int   istOriginal          = ist;
   int   iscOriginal          = isc;
-  float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]
-                             = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
+  float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
   int   iz0tlndOriginal      = iz0tlnd;
   float sfcTmpOriginal       = sfcTmp;
   float sfcPrsOriginal       = sfcPrs;
@@ -410,8 +407,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float co2AirOriginal       = co2Air;
   float o2AirOriginal        = o2Air;
   float folNOriginal         = folN;
-  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
   float pblhOriginal         = pblh;
   float zLvlOriginal         = zLvl;
   float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
@@ -424,19 +420,310 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       CkError("ERROR in evapoTranspirationSoil: USGS vegetation type must be greater than or equal to 1 and less than or equal to 27.\n");
       error = true;
     }
-  
+
+  if (16 == vegType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: vegetation type is 'Water Bodies'.  Call evapoTranspirationWater instead.\n");
+        }
+    }
+
+  if (24 == vegType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: vegetation type is 'Snow or Ice'.  Call evapoTranspirationGlacier instead.\n");
+        }
+    }
+
   if (!(1 <= soilType && 19 >= soilType))
     {
       CkError("ERROR in evapoTranspirationSoil: STAS soil type must be greater than or equal to 1 and less than or equal to 19.\n");
       error = true;
     }
+
+  if (14 == soilType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: soil type is 'WATER'.  Call evapoTranspirationWater instead.\n");
+        }
+    }
+
+  if (16 == soilType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: soil type is 'OTHER(land-ice)'.  Call evapoTranspirationGlacier instead.\n");
+        }
+    }
+  
+  if (!(-M_PI / 2.0f <= lat && M_PI / 2.0f >= lat))
+    {
+      CkError("ERROR in evapoTranspirationSoil: lat must be greater than or equal to -pi/2 and less than or equal to pi/2.\n");
+      error = true;
+    }
+  
+  if (!(365 == yearLen || 366 == yearLen))
+    {
+      CkError("ERROR in evapoTranspirationSoil: yearLen must be 365 or 366.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= julian && julian <= yearLen))
+    {
+      CkError("ERROR in evapoTranspirationSoil: julian must be greater than or equal to zero and less than or equal to yearLen.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= cosZ && 1.0f >= cosZ))
+    {
+      CkError("ERROR in evapoTranspirationSoil: cosZ must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dt))
+    {
+      CkError("ERROR in evapoTranspirationSoil: dt must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dx))
+    {
+      CkError("ERROR in evapoTranspirationSoil: dx must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dz8w))
+    {
+      CkError("ERROR in evapoTranspirationSoil: dz8w must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= shdFac && shdFac <= shdMax && 1.0f >= shdMax))
+    {
+      CkError("ERROR in evapoTranspirationSoil: shdFac must be greater than or equal to zero and less than or equal to shdMax.  shdMax must be less than or "
+              "equal to one.\n");
+      error = true;
+    }
+
+  if (!(NULL != smcEq))
+    {
+      CkError("ERROR in evapoTranspirationSoil: smcEq must not be NULL.\n");
+      error = true;
+    }
+  
+  // Values of smcEq will be error checked later.  They need to be compared against NOAHMP_POROSITY, which is not set until after we call REDPRM.
+
+  if (!(0.0f <= sfcTmp))
+    {
+      CkError("ERROR in evapoTranspirationSoil: sfcTmp must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: sfcTmp below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: sfcTmp above 60 degrees C.\n");
+        }
+    }
+
+  if (!(0.0f <= sfcPrs))
+    {
+      CkError("ERROR in evapoTranspirationSoil: sfcPrs must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(35000.0f <= sfcPrs))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: sfcPrs below 35 kPa.\n");
+        }
+    }
+
+  if (!(0.0f <= psfc))
+    {
+      CkError("ERROR in evapoTranspirationSoil: psfc must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(35000.0f <= psfc))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: psfc below 35 kPa.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(uu)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: magnitude of uu greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(vv)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: magnitude of vv greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(0.0f <= q2 && 1.0f >= q2))
+    {
+      CkError("ERROR in evapoTranspirationSoil: q2 must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= qc && 1.0f >= qc))
+    {
+      CkError("ERROR in evapoTranspirationSoil: qc must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= solDn))
+    {
+      CkError("ERROR in evapoTranspirationSoil: solDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= lwDn))
+    {
+      CkError("ERROR in evapoTranspirationSoil: lwDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= prcp))
+    {
+      CkError("ERROR in evapoTranspirationSoil: prcp must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= tBot))
+    {
+      CkError("ERROR in evapoTranspirationSoil: tBot must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: tBot below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationSoil: tBot above 60 degrees C.\n");
+        }
+    }
+
+  if (!(0.0f <= pblh))
+    {
+      CkError("ERROR in evapoTranspirationSoil: pblh must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(NULL != sh2o))
+    {
+      CkError("ERROR in evapoTranspirationSoil: sh2o must not be NULL.\n");
+      error = true;
+    }
+  
+  // Values of sh2o will be error checked later.  They need to be compared against NOAHMP_POROSITY, which is not set until after we call REDPRM.
+  
+  if (!(NULL != smc))
+    {
+      CkError("ERROR in evapoTranspirationSoil: smc must not be NULL.\n");
+      error = true;
+    }
+  
+  // Values of smc will be error checked later.  They need to be compared against NOAHMP_POROSITY, which is not set until after we call REDPRM.
+
+  if (!(0.0f <= zwt))
+    {
+      CkError("ERROR in evapoTranspirationSoil: zwt must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  // smcwtd will be error checked later.  It needs to be compared against NOAHMP_POROSITY, which is not set until after we call REDPRM.
   
   if (!(NULL != evapoTranspirationState))
     {
       CkError("ERROR in evapoTranspirationSoil: evapoTranspirationState must not be NULL.\n");
       error = true;
     }
+
+  if (!(NULL != surfacewaterAdd))
+    {
+      CkError("ERROR in evapoTranspirationSoil: surfacewaterAdd must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *surfacewaterAdd = 0.0f;
+    }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromCanopy))
+    {
+      CkError("ERROR in evapoTranspirationSoil: evaporationFromCanopy must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromCanopy = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromSnow))
+    {
+      CkError("ERROR in evapoTranspirationSoil: evaporationFromSnow must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromSnow = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromGround))
+    {
+      CkError("ERROR in evapoTranspirationSoil: evaporationFromGround must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromGround = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != transpiration))
+    {
+      CkError("ERROR in evapoTranspirationSoil: transpiration must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *transpiration = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != waterError))
     {
       CkError("ERROR in evapoTranspirationSoil: waterError must not be NULL.\n");
@@ -448,10 +735,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       *waterError = 0.0f;
     }
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME do other checks on inputs.
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   if (!error)
     {
@@ -461,6 +744,24 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 
   if (!error)
     {
+      // Set variables that require error checking of pointers first.
+      canIceOriginal = evapoTranspirationState->canIce;
+      canLiqOriginal = evapoTranspirationState->canLiq;
+      iSnowOriginal  = evapoTranspirationState->iSnow;
+      snEqvOriginal  = evapoTranspirationState->snEqv;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+        {
+          smcEqOriginal[ii] = smcEq[ii];
+        }
+      
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+        {
+          fIceOldOriginal[ii] = evapoTranspirationState->fIceOld[ii];
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
       // Set zSoil from zSnso.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -529,7 +830,35 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       soilMoistureOriginal += wa;
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
-      // FIXME error check that none of the soil moisture variables are greater than NOAHMP_POROSITY.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      // Error check that none of the soil moisture variables are greater than NOAHMP_POROSITY.
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+        {
+          if (!(0.0f <= smcEq[ii] && smcEq[ii] <= NOAHMP_POROSITY))
+            {
+              CkError("ERROR in evapoTranspirationSoil: smcEq must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+              error = true;
+            }
+          
+          if (!(0.0f <= smc[ii] && smc[ii] <= NOAHMP_POROSITY))
+            {
+              CkError("ERROR in evapoTranspirationSoil: smc must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+              error = true;
+            }
+          
+          if (!(0.0f <= sh2o[ii] && sh2o[ii] <= smc[ii]))
+            {
+              CkError("ERROR in evapoTranspirationSoil: sh2o must be greater than or equal to zero and less than or equal to smc[ii].\n");
+              error = true;
+            }
+        }
+      
+      if (!(0.0f <= smcwtd && smcwtd <= NOAHMP_POROSITY))
+        {
+          CkError("ERROR in evapoTranspirationSoil: smcwtd must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
       
       // Run Noah-MP.
       NOAHMP_SFLX(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType, &isUrban, &ice, &ist, &isc,
@@ -625,7 +954,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           // mass conservation it results in a negative value for rainfallBelowCanopy.  It's also possible for rainfallBelowCanopy to be negative at other
           // times due to round off error.  That is not a mass balance bug.  My first thought was to take the missing water back from snowfallBelowCanopy and
           // evaporationFromCanopy.  However, the mass balance check for the snow pack only works with the unaltered value of snowfallBelowCanopy so I would
-          // have to take the missing water back form the snowpack too.  And what if the snowpack happened to disappear as well during the exact same timestep
+          // have to take the missing water back from the snowpack too.  And what if the snowpack happened to disappear as well during the exact same timestep
           // as the canopy emptying.  It started to get complicated so I have decided to just create the water and record it in waterError.  The canopy
           // completely emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only created 0.1 micron of
           // water.
@@ -959,22 +1288,21 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float fpIce    = NAN; // Fraction of precipitation that is frozen, unitless.
   
   // Derived output variables.
-  int   iSnowOriginal  = evapoTranspirationState->iSnow; // Actual number of snow layers before timestep.
-  float evaporationFromSurface;                          // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water
-                                                         // evaporated off of the surface.  Negative means water condensed on to the surface.
-                                                         // Surface evaporation sometimes comes from snow and is taken out by Noah-MP, but if there is not
-                                                         // enough snow we have to take the evaporation from the water in the ADHydro state variables.
-  float snowfall;                                        // Quantity of snowfall in millimeters of water equivalent.  Must be non-negative.
-  float snowmeltOnGround;                                 // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be
-                                                          // non-negative.
-  float rainfall;                                        // Quantity of rainfall in millimeters of water.  Must be non-negative.
-  float rainfallInterceptedBySnow;                        // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
-  float rainfallOnGround;                                 // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
-  float snEqvOriginal = evapoTranspirationState->snEqv;   // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO
-                                                          // is not always set to this value after the timestep.
-  float snEqvShouldBe;                                    // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to
-                                                          // 2000.0.  We don't want this behavior so in this variable we calculate what snEqv should be and set
-                                                          // it back.  If snEqv is not changed this instead performs a mass balance check.
+  int   iSnowOriginal;             // Actual number of snow layers before timestep.
+  float evaporationFromSurface;    // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water evaporated off of the
+                                   // surface.  Negative means water condensed on to the surface.  Surface evaporation sometimes comes from snow and is taken
+                                   // out by Noah-MP, but if there is not enough snow we have to take the evaporation from the water in the ADHydro state
+                                   // variables.
+  float snowfall;                  // Quantity of snowfall in millimeters of water equivalent.  Must be non-negative.
+  float snowmeltOnGround;          // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be non-negative.
+  float rainfall;                  // Quantity of rainfall in millimeters of water.  Must be non-negative.
+  float rainfallInterceptedBySnow; // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
+  float rainfallOnGround;          // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
+  float snEqvOriginal;             // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO is not always set to
+                                   // this value after the timestep.
+  float snEqvShouldBe;             // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't want
+                                   // this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
+                                   // instead performs a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -997,8 +1325,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   int   iceOriginal          = ice;
   int   istOriginal          = ist;
   int   iscOriginal          = isc;
-  float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]
-                             = {smcEq[0], smcEq[1], smcEq[2], smcEq[3]};
+  float smcEqOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
   int   iz0tlndOriginal      = iz0tlnd;
   float sfcTmpOriginal       = sfcTmp;
   float sfcPrsOriginal       = sfcPrs;
@@ -1014,8 +1341,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float co2AirOriginal       = co2Air;
   float o2AirOriginal        = o2Air;
   float folNOriginal         = folN;
-  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
   float pblhOriginal         = pblh;
   float zLvlOriginal         = zLvl;
   float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
@@ -1023,6 +1349,172 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(-M_PI / 2.0f <= lat && M_PI / 2.0f >= lat))
+    {
+      CkError("ERROR in evapoTranspirationWater: lat must be greater than or equal to -pi/2 and less than or equal to pi/2.\n");
+      error = true;
+    }
+  
+  if (!(365 == yearLen || 366 == yearLen))
+    {
+      CkError("ERROR in evapoTranspirationWater: yearLen must be 365 or 366.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= julian && julian <= yearLen))
+    {
+      CkError("ERROR in evapoTranspirationWater: julian must be greater than or equal to zero and less than or equal to yearLen.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= cosZ && 1.0f >= cosZ))
+    {
+      CkError("ERROR in evapoTranspirationWater: cosZ must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dt))
+    {
+      CkError("ERROR in evapoTranspirationWater: dt must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dx))
+    {
+      CkError("ERROR in evapoTranspirationWater: dx must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dz8w))
+    {
+      CkError("ERROR in evapoTranspirationWater: dz8w must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= sfcTmp))
+    {
+      CkError("ERROR in evapoTranspirationWater: sfcTmp must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: sfcTmp below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: sfcTmp above 60 degrees C.\n");
+        }
+    }
+
+  if (!(0.0f <= sfcPrs))
+    {
+      CkError("ERROR in evapoTranspirationWater: sfcPrs must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(35000.0f <= sfcPrs))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: sfcPrs below 35 kPa.\n");
+        }
+    }
+
+  if (!(0.0f <= psfc))
+    {
+      CkError("ERROR in evapoTranspirationWater: psfc must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(35000.0f <= psfc))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: psfc below 35 kPa.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(uu)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: magnitude of uu greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(vv)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: magnitude of vv greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(0.0f <= q2 && 1.0f >= q2))
+    {
+      CkError("ERROR in evapoTranspirationWater: q2 must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= qc && 1.0f >= qc))
+    {
+      CkError("ERROR in evapoTranspirationWater: qc must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= solDn))
+    {
+      CkError("ERROR in evapoTranspirationWater: solDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= lwDn))
+    {
+      CkError("ERROR in evapoTranspirationWater: lwDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= prcp))
+    {
+      CkError("ERROR in evapoTranspirationWater: prcp must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= tBot))
+    {
+      CkError("ERROR in evapoTranspirationWater: tBot must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: tBot below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationWater: tBot above 60 degrees C.\n");
+        }
+    }
+
+  if (!(0.0f <= pblh))
+    {
+      CkError("ERROR in evapoTranspirationWater: pblh must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= wsLake))
+    {
+      CkError("ERROR in evapoTranspirationWater: wsLake must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
   if (!(NULL != evapoTranspirationState))
     {
       CkError("ERROR in evapoTranspirationWater: evapoTranspirationState must not be NULL.\n");
@@ -1042,7 +1534,43 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           error = true;
         }
     }
+
+  if (!(NULL != surfacewaterAdd))
+    {
+      CkError("ERROR in evapoTranspirationWater: surfacewaterAdd must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *surfacewaterAdd = 0.0f;
+    }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromSnow))
+    {
+      CkError("ERROR in evapoTranspirationWater: evaporationFromSnow must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromSnow = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromGround))
+    {
+      CkError("ERROR in evapoTranspirationWater: evaporationFromGround must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromGround = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != waterError))
     {
       CkError("ERROR in evapoTranspirationWater: waterError must not be NULL.\n");
@@ -1054,10 +1582,6 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       *waterError = 0.0f;
     }
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME do other checks on inputs.
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   if (!error)
     {
@@ -1067,6 +1591,17 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 
   if (!error)
     {
+      // Set variables that require error checking of pointers first.
+      iSnowOriginal  = evapoTranspirationState->iSnow;
+      snEqvOriginal  = evapoTranspirationState->snEqv;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+        {
+          fIceOldOriginal[ii] = evapoTranspirationState->fIceOld[ii];
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
       // Set zSoil from zSnso.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -1103,6 +1638,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           smc[ii]   = NOAHMP_POROSITY;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          smcEqOriginal[ii] = smcEq[ii];
+          
           // Calculate soil moisture at the beginning of the timestep.
           if (0 == ii)
             {
@@ -1366,22 +1903,21 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
   float ch2b     = NAN; // Unused.
   
   // Derived output variables.
-  int   iSnowOriginal  = evapoTranspirationState->iSnow; // Actual number of snow layers before timestep.
-  float evaporationFromSurface;                          // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water
-                                                         // evaporated off of the surface.  Negative means water condensed on to the surface.
-                                                         // Surface evaporation sometimes comes from snow and is taken out by Noah-MP, but if there is not
-                                                         // enough snow we have to take the evaporation from the water in the ADHydro state variables.
-  float snowfall;                                        // Quantity of snowfall in millimeters of water equivalent.  Must be non-negative.
-  float snowmeltOnGround;                                 // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be
-                                                          // non-negative.
-  float rainfall;                                        // Quantity of rainfall in millimeters of water.  Must be non-negative.
-  float rainfallInterceptedBySnow;                        // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
-  float rainfallOnGround;                                 // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
-  float snEqvOriginal = evapoTranspirationState->snEqv;   // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO
-                                                          // is not always set to this value after the timestep.
-  float snEqvShouldBe;                                    // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to
-                                                          // 2000.0.  We don't want this behavior so in this variable we calculate what snEqv should be and set
-                                                          // it back.  If snEqv is not changed this instead performs a mass balance check.
+  int   iSnowOriginal;             // Actual number of snow layers before timestep.
+  float evaporationFromSurface;    // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water evaporated off of the
+                                   // surface.  Negative means water condensed on to the surface.  Surface evaporation sometimes comes from snow and is taken
+                                   // out by Noah-MP, but if there is not enough snow we have to take the evaporation from the water in the ADHydro state
+                                   // variables.
+  float snowfall;                  // Quantity of snowfall in millimeters of water equivalent.  Must be non-negative.
+  float snowmeltOnGround;          // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be non-negative.
+  float rainfall;                  // Quantity of rainfall in millimeters of water.  Must be non-negative.
+  float rainfallInterceptedBySnow; // Quantity of rainfall intercepted by the snow layer in millimeters of water.  Must be non-negative.
+  float rainfallOnGround;          // Quantity of rainfall that reaches the ground in millimeters of water.  Must be non-negative.
+  float snEqvOriginal;             // Quantity of water in the snow layer(s) before timestep in millimeters of water equivalent.  snEqvO is not always set to
+                                   // this value after the timestep.
+  float snEqvShouldBe;             // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't want
+                                   // this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
+                                   // instead performs a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -1401,14 +1937,124 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
   float lwDnOriginal         = lwDn;
   float tBotOriginal         = tBot;
   float zLvlOriginal         = zLvl;
-  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]
-                             = {evapoTranspirationState->fIceOld[0], evapoTranspirationState->fIceOld[1], evapoTranspirationState->fIceOld[2]};
+  float fIceOldOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS];
   float zSoilOriginal[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];
   float soilMoistureOriginal = 0.0f; // Total soil moisture before timestep in millimeters of water.
   float soilMoistureNew      = 0.0f; // Total soil moisture after timestep in millimeters of water.
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                                                     
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0f <= cosZ && 1.0f >= cosZ))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: cosZ must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < dt))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: dt must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= sfcTmp))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: sfcTmp must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: sfcTmp below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: sfcTmp above 60 degrees C.\n");
+        }
+    }
+
+  if (!(0.0f <= sfcPrs))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: sfcPrs must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(35000.0f <= sfcPrs))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: sfcPrs below 35 kPa.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(uu)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: magnitude of uu greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(100.0f >= fabs(vv)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: magnitude of vv greater than 100 m/s.\n");
+        }
+    }
+  
+  if (!(0.0f <= q2 && 1.0f >= q2))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: q2 must be greater than or equal to zero and less than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(0.0f <= solDn))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: solDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= lwDn))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: lwDn must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= prcp))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: prcp must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(0.0f <= tBot))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: tBot must be greater than or equal to zero.\n");
+      error = true;
+    }
+  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: tBot below -60 degrees C.\n");
+        }
+    }
+  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in evapoTranspirationGlacier: tBot above 60 degrees C.\n");
+        }
+    }
+  
+  if (!(0.0f < zLvl))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: zLvl must be greater than zero.\n");
+      error = true;
+    }
+
   if (!(NULL != evapoTranspirationState))
     {
       CkError("ERROR in evapoTranspirationGlacier: evapoTranspirationState must not be NULL.\n");
@@ -1429,6 +2075,42 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
         }
     }
   
+  if (!(NULL != surfacewaterAdd))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: surfacewaterAdd must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *surfacewaterAdd = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromSnow))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: evaporationFromSnow must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromSnow = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != evaporationFromGround))
+    {
+      CkError("ERROR in evapoTranspirationGlacier: evaporationFromGround must not be NULL.\n");
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+      *evaporationFromGround = 0.0f;
+    }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != waterError))
     {
       CkError("ERROR in evapoTranspirationGlacier: water error must not be NULL.\n");
@@ -1440,10 +2122,6 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
       *waterError = 0.0;
     }
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME do other checks on inputs.
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   if (!error)
     {
@@ -1453,6 +2131,17 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
 
   if (!error)
     {
+      // Set variables that require error checking of pointers first.
+      iSnowOriginal  = evapoTranspirationState->iSnow;
+      snEqvOriginal  = evapoTranspirationState->snEqv;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
+        {
+          fIceOldOriginal[ii] = evapoTranspirationState->fIceOld[ii];
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
       // Set zSoil from zSnso.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
