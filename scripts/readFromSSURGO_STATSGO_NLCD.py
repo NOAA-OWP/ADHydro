@@ -94,21 +94,24 @@ def writeSoilFile(s, f, bugFix):
     #Write element number 
     f.write('  '+str(s.name)+'  ')
     #isnull might be redundant, since the only thing not an array should be NaN
-    #Soil type is an array, if no soil types found, write -1 to indicate no array
-    if isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']):
-        f.write('-1')
+    #Soil type is an array, if no soil types found, write 0 to indicate no soil information
+    #14 => water. All our mesh elements should not be water. Therefore, we treat as no soil information
+    if (isinstance(s['SoilType'], float) and pd.isnull(s['SoilType']) ) or (s['SoilType']  == 14):
+        f.write('0')
     else:
         #Write the number of elements in the soil type array
         f.write(str(len(s['SoilType']))+'  ')
         #Write soiltype, horizon thinckness pairs (s,d)
-        if isinstance(s['HorizonThickness'], float):
-  	        #If the horizon thickness isn't an array (i.e. it is a float) then just write
-             #the first soil thickness and a -1 for horizon thickness
-            f.write(str(s['SoilType'][0])+', -1')
+        if (s['SoilType'] == 15):
+  	     #If the soil type is 15 meaning bedrock, the soil thickness is 0.0
+            f.write(str(s['SoilType'][0])+', 0.0')
         else:
             #Write out the pairs of soil types and thicknesses
             for pair in zip(s['SoilType'], s['HorizonThickness']):
-                f.write(str(pair[0])+','+str(pair[1])+'  ')
+                if  !np.isnan(pair[0]):
+                    f.write(str(pair[0])+','+str(pair[1])+'  ')
+                else:
+                    f.write(str(-1)+','+str(pair[1])+'  ')
     f.write('\n')
 
 #Write a line to the veg file, f, based on information passed in series, s
@@ -142,7 +145,7 @@ def getSoilTypDRV():
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
    NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
-   output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.LandCover')
+   output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
    output_element_data_file = os.path.join(output_directory_path, 'element_data.csv')
 
    print 'Reading element file.'
@@ -252,8 +255,6 @@ def getSoilTypDRV():
    SoilFile = open(output_SoilTyp_file, 'wb')
    #Write soil file header information
    SoilFile.write(str(num_elems))
-   SoilFile.write('  ')
-   
    SoilFile.write('\n')
    #Write each element
    elements.apply(writeSoilFile, axis=1, args=(SoilFile, None))
@@ -264,7 +265,8 @@ def getSoilTypDRV():
    #Get the vegitation output file handle
    VegFile = open(output_VegTyp_file, 'wb')
    #Write veg file header information
-   VegFile.write(str(num_elems)+'  1\n')
+   VegFile.write(str(num_elems))
+   VegFile.write('\n')
    #Write each element
    elements.apply(writeVegFile, axis=1, args=(VegFile, None))
    VegFile.close()
