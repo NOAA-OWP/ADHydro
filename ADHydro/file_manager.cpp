@@ -3765,7 +3765,7 @@ void FileManager::meshMassage()
           if (ii < neighbor && meshCatchment[ii] != meshCatchment[neighbor])
             {
               // Get the height of the center of the edge separating the neighbors.  If it is higher than both neighbors it is considered a ridge.
-              // FIXME this could be replaced with checking if both elements slope away form the edge.
+              // FIXME this could be replaced with checking if both elements slope away from the edge.
               edgeZSurface = 0.5 * (meshVertexZSurface[ii][(jj + 1) % MeshElement::meshNeighborsSize] +
                                     meshVertexZSurface[ii][(jj + 2) % MeshElement::meshNeighborsSize]);
               
@@ -4980,8 +4980,6 @@ void FileManager::calculateDerivedValues()
           channelElementZBed[ii] = channelElementZBank[ii] - channelElementBankFullDepth[ii];
         }
     }
-  
-  // FIXME how do we calculate channelBaseWidth, channelSideSlope, channelBedConductivity, channelBedThickness, channelManningsN
   
   // If not already specified channelSurfacewaterDepth defaults to zero.
   if (NULL == channelSurfacewaterDepth)

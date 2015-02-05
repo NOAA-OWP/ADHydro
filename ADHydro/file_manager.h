@@ -376,8 +376,18 @@ private:
   // directory    - The directory from which to read the files.
   // fileBasename - The basename not including the directory path of the files
   //                to read.  handleInitializeFromASCIIFiles will read the
-  //                following files: directory/fileBasename.node, FIXME finish
-  //                list of files.
+  //                following files:
+  //                directory/fileBasename.node
+  //                directory/fileBasename.z
+  //                directory/fileBasename.ele
+  //                directory/fileBasename.neigh
+  //                directory/fileBasename.landCover
+  //                directory/fileBasename.soilType
+  //                directory/fileBasename.edge
+  //                directory/fileBasename.chan.node
+  //                directory/fileBasename.chan.z
+  //                directory/fileBasename.chan.ele
+  //                directory/fileBasename.chan.prune
   void handleInitializeFromASCIIFiles(const char* directory, const char* fileBasename);
   
   // Open or create a NetCDF file.

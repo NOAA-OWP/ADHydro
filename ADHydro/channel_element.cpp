@@ -2495,12 +2495,18 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      // FIXME add check that all channel neighbors have to be packed to the front of the array.
       if (!(isBoundary(channelNeighbors[edge]) || (0 <= channelNeighbors[edge] &&
                                                    channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid array "
                   "index.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
@@ -2536,12 +2542,18 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      // FIXME add check that all mesh neighbors have to be packed to the front of the array.
       if (!(NOFLOW == meshNeighbors[edge] || (0 <= meshNeighbors[edge] &&
                                               meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != meshNeighbors[edge - 1] || NOFLOW == meshNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       

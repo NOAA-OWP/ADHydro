@@ -2497,6 +2497,8 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // Set the flow rate state for this timestep to not ready.
       meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
       if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge]))
         {
           // Send my state to my neighbor.
@@ -2552,32 +2554,34 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
 
 void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(size_t iterationThisMessage)
 {
-  bool                  error = false; // Error flag.
-  int                   edge;          // Loop counter.
-  BoundaryConditionEnum boundary;      // Boundary condition code to pass to the function to calculate flow rate.
+  bool error = false; // Error flag.
+  int  edge;          // Loop counter.
+  int  neighbor;      // A neighboring element or boundary condition code.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge])
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
+      if (meshNeighborsChannelEdge[edge])
+        {
+          neighbor = NOFLOW;
+        }
+      else
+        {
+          neighbor = meshNeighbors[edge];
+        }
+      
+      if (isBoundary(neighbor))
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-          if (isBoundary(meshNeighbors[edge]))
-            {
-              boundary = (BoundaryConditionEnum)meshNeighbors[edge];
-            }
-          else
-            {
-              // Channel edge.  No direct flow to/from mesh neighbor on other side of channel.
-              boundary = NOFLOW;
-            }
-          
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, meshNeighborsEdgeLength[edge],
-                                                   meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor, 0.0, 0.0, 0.0,
+                                                   meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
+                                                   surfacewaterDepth);
           
           if (!error)
             {
@@ -3385,12 +3389,18 @@ void MeshElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      // FIXME add check that all channel neighbors have to be packed to the front of the array.
       if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] &&
                                                  channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
