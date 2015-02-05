@@ -222,7 +222,10 @@ def getSoilTypDRV():
    #find the MUKEY for each element, this adds the following columns to elements:
    #MUKEY, AreaSym, inSSURGO
    elements = elements.apply(getMUKEY, axis=1)
-
+   
+   #Write the element data csv file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
+   elements.to_csv(output_element_data_file, na_rep='NaN')
+   
    print 'Finding COKEY.'
 
    #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
@@ -460,7 +463,7 @@ def getCOKEY(s):
    else:
       if AreaSym not in STATSGO_comp_dict:
          #Find the path for the comp file in STATSGO
-         Compfile = os.path.join(input_STATSO_unzipped, "wss_gsmsoil_") + str(AreaSym) + "*" 
+         Compfile = os.path.join(input_STATSGO_unzipped, "wss_gsmsoil_") + str(AreaSym) + "*" 
          Compfile_path =  glob.glob(Compfile)                                                        
          #gol.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
          Compfile = Compfile_path[0] +'/tabular/comp.txt'
