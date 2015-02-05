@@ -730,13 +730,12 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   int                vertex1;                  // Used to read vertices from the files.
   int                vertex2;                  // Used to read vertices from the files.
   int                catchment;                // Used to read catchments from the files.
-  int                vegType;                  // Used to read vegetation type from the files.
-  int                numberSoilLayer;          // Used to read the number of soil layers from the files.
+  int                vegetationType;           // Used to read vegetation type from the files.
+  int                numberOfSoilLayers;       // Used to read the number of soil layers from the files.
   int                soilTypeReader;           // Used to read soil type from the files.
   int                soilType;                 // Used to store soil type of the top layer.
-  double             soilThicknessReader;      // Used to read each soil layers thickness.
-  double             soilThickness;            // Used to store the sum of each soil layers thickness.
-  char               commaReader;              // Used to read a comma pair separator from soil the file.
+  double             soilDepthReader;          // Used to read each soil layers thickness.
+  double             soilDepth;                // Used to store the sum of each soil layers thickness.
   int                neighbor0;                // Used to read neighbors from the files.
   int                neighbor1;                // Used to read neighbors from the files.
   int                neighbor2;                // Used to read neighbors from the files.
@@ -883,14 +882,14 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   // Create file name.
   if (!error)
     {
-      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.LandCover", directory, fileBasename);
+      numPrinted = snprintf(nameString, nameStringSize, "%s/%s.landCover", directory, fileBasename);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".LandCover") == numPrinted && numPrinted < nameStringSize))
+      if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".landCover") == numPrinted && numPrinted < nameStringSize))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating LandCover file name %s.  %d should be "
-              "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".LandCover"),
-              nameStringSize);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating landCover file name %s.  "
+                  "%d should be equal to %d and less than %d.\n", nameString, numPrinted,
+                  strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".landCover"), nameStringSize);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -904,7 +903,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != landCoverFile))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open LandCover file %s.\n", nameString);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: could not open landCover file %s.\n", nameString);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -913,20 +912,20 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   // Read header.
   if (!error)
     {
-      numScanned = fscanf(landCoverFile, "%d", &numberCheck);
+      numScanned = fscanf(landCoverFile, "%d %d", &numberCheck, &dimension);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(1 == numScanned))
+      if (!(2 == numScanned))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from LandCover file.\n");
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from landCover file.\n");
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(globalNumberOfMeshElements == numberCheck))
+      if (!(globalNumberOfMeshElements == numberCheck && 1 == dimension))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in LandCover file.\n");
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in landCover file.\n");
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -941,8 +940,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
       if (!(strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".soilType") == numPrinted && numPrinted < nameStringSize))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: incorrect return value of snprintf when generating soil file name %s.  %d should be "
-              "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".soilType"),
-              nameStringSize);
+                  "equal to %d and less than %d.\n", nameString, numPrinted, strlen(directory) + strlen("/") + strlen(fileBasename) + strlen(".soilType"),
+                  nameStringSize);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -989,8 +988,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
     {
       localStartAndNumber(&localMeshElementStart, &localNumberOfMeshElements, globalNumberOfMeshElements);
 
-      meshElementSoilDepth           = new double[localNumberOfMeshElements];
       meshElementVertices            = new int[localNumberOfMeshElements][MeshElement::meshNeighborsSize];
+      meshElementSoilDepth           = new double[localNumberOfMeshElements];
       meshCatchment                  = new int[localNumberOfMeshElements];
       meshVegetationType             = new int[localNumberOfMeshElements];
       meshSoilType                   = new int[localNumberOfMeshElements];
@@ -1003,6 +1002,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   // Read mesh elements.
   for (ii = 0; !error && ii < globalNumberOfMeshElements; ii++)
     {
+      // Read ele file.
       numScanned = fscanf(eleFile, "%d %d %d %d %d", &index, &vertex0, &vertex1, &vertex2, &catchment);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -1077,7 +1077,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
       // Read landCover file.
-      numScanned = fscanf(landCoverFile, "%d %d", &numberCheck, &vegType);
+      numScanned = fscanf(landCoverFile, "%d %d", &numberCheck, &vegetationType);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(2 == numScanned))
@@ -1094,15 +1094,16 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           error = true;
         }
 
-      if (!(0 < vegType))
+      if (!(1 <= vegetationType && 27 >= vegetationType))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: invalid vegetation type number %d in landCover file.\n", index, vegType);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: invalid vegetation type number %d in landCover file.\n", index,
+                  vegetationType);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
       // Read soil file.
-      numScanned = fscanf(soilFile, "%d %d", &numberCheck, &numberSoilLayer);
+      numScanned = fscanf(soilFile, "%d %d", &numberCheck, &numberOfSoilLayers);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(2 == numScanned))
@@ -1119,60 +1120,72 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           error = true;
         }
 
-      if (!(0 < numberSoilLayer))
+      if (!(0 <= numberOfSoilLayers))
         {
-          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: invalid number of soil layers %d in soil file.\n", index, numberSoilLayer);
+          CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: invalid number of soil layers %d in soil file.\n", index,
+                  numberOfSoilLayers);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
       if (!error)
         {
-          soilType      = -1;      // To identify that soilType variable has not yet been assigned a value as we only want to save the first layer's soilType.
-          soilThickness = 0.0;
+          soilType  = -1;  // If there are no soil layers soilType will be left as -1 as a flag for no soil data, and soilDepth will be left as zero.
+          soilDepth = 0.0; // That element will have to get soil type and depth from a neighbor in meshMassage.
 
-          // Loop through the # of soil layers of this element
-          for (jj = 0; jj < numberSoilLayer; jj++ )
+          // Loop through the soil layers of this element.
+          for (jj = 0; jj < numberOfSoilLayers; jj++)
             {
-              numScanned = fscanf(soilFile, "%d %c %d", &soilTypeReader, &commaReader, &soilThicknessReader);
+              numScanned = fscanf(soilFile, "%d,%lf", &soilTypeReader, &soilDepthReader);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              if (!(3 == numScanned))
+              if (!(2 == numScanned))
                 {
                   CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read entry %d soil layer %d from soil file.\n", ii, jj);
                   error = true;
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
-              // Only saves the first layer soilType or the first valid soilType.
-              if ( 0 > soilType )
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+              if (!((1 <= soilTypeReader && 19 >= soilTypeReader) || -1 == soilTypeReader))
                 {
-                  soilType   = soilTypeReader;
+                  CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: invalid soil type %s in soil file.\n", index,
+                          soilTypeReader);
+                  error = true;
                 }
 
-              // If there is no information about the soil thickness, the flag -1 is in the file.
-              // Values of soil thickness only added if they exist.
-              // If all soil layers have no information about their thickness, soilThickness = 0.
-              if(0 < soilThicknessReader)
+              if (!(0.0 <= soilDepthReader))
                 {
-                  soilThickness += soilThicknessReader;
+                  CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: mesh element %d: soilDepthReader must be greater than or equal to zero.\n",
+                          index);
+                  error = true;
                 }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+              // Only save the first valid soil type.
+              if (-1 == soilType)
+                {
+                  soilType = soilTypeReader;
+                }
+
+              // Save the sum of soil thicknesses.
+              soilDepth += soilDepthReader;
             }
         }
 
       // Save values.
       if (!error && localMeshElementStart <= index && index < localMeshElementStart + localNumberOfMeshElements)
         {
-          meshElementSoilDepth[index - localMeshElementStart]   = soilThickness;
-          meshElementVertices[index - localMeshElementStart][0] = vertex0;
-          meshElementVertices[index - localMeshElementStart][1] = vertex1;
-          meshElementVertices[index - localMeshElementStart][2] = vertex2;
-          meshCatchment[      index - localMeshElementStart]    = catchment;
-          meshVegetationType[ index - localMeshElementStart]    = vegType;
-          meshSoilType[ index - localMeshElementStart]          = soilType;
-          meshMeshNeighbors[  index - localMeshElementStart][0] = neighbor0;
-          meshMeshNeighbors[  index - localMeshElementStart][1] = neighbor1;
-          meshMeshNeighbors[  index - localMeshElementStart][2] = neighbor2;
+          meshElementVertices[ index - localMeshElementStart][0] = vertex0;
+          meshElementVertices[ index - localMeshElementStart][1] = vertex1;
+          meshElementVertices[ index - localMeshElementStart][2] = vertex2;
+          meshElementSoilDepth[index - localMeshElementStart]    = soilDepth;
+          meshCatchment[       index - localMeshElementStart]    = catchment;
+          meshVegetationType[  index - localMeshElementStart]    = vegetationType;
+          meshSoilType[        index - localMeshElementStart]    = soilType;
+          meshMeshNeighbors[   index - localMeshElementStart][0] = neighbor0;
+          meshMeshNeighbors[   index - localMeshElementStart][1] = neighbor1;
+          meshMeshNeighbors[   index - localMeshElementStart][2] = neighbor2;
 
           // Channel edges and neighbors are filled in later when we read the edge and channel files.  Initialize them here to no channels.
           for (jj = 0; jj < MeshElement::meshNeighborsSize; jj++)
@@ -1699,9 +1712,9 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
     }
 
   if (NULL != soilFile)
-      {
-        fclose(soilFile);
-      }
+    {
+      fclose(soilFile);
+    }
 
   if (NULL != edgeFile)
     {
