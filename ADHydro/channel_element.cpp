@@ -1316,7 +1316,8 @@ void ChannelElement::handleDoTimestep(size_t iterationThisTimestep, double date,
   // Initiate groundwater phase.
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      if (!isBoundary(meshNeighbors[edge]))
+      // If my mesh neighbor has bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+      if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge]))
         {
           // Set the flow rate state for this timestep to not ready.
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;

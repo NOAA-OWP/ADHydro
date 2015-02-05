@@ -1742,7 +1742,8 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
           // Set the flow rate state for this timestep to not ready.
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
 
-          if (!isBoundary(meshNeighbors[edge]))
+          // If either I or my neighbor have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+          if (!(isBoundary(meshNeighbors[edge]) || elementZSurface == elementZBedrock || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge]))
             {
               // Send my state to my neighbor.
               switch (meshNeighborsInteraction[edge])
@@ -1763,7 +1764,8 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
 
       for (edge = 0; edge < channelNeighborsSize; edge++)
         {
-          if (!isBoundary(channelNeighbors[edge]))
+          // If I have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+          if (!(isBoundary(channelNeighbors[edge]) || elementZSurface == elementZBedrock))
             {
               // Set the flow rate state for this timestep to not ready.
               channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
@@ -1807,19 +1809,30 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
 {
   bool error = false; // Error flag.
   int  edge;          // Loop counter.
+  int  neighbor;      // A neighboring element or boundary condition code.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]))
+      // If either I or my neighbor have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+      if (elementZSurface == elementZBedrock || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge])
+        {
+          neighbor = NOFLOW;
+        }
+      else
+        {
+          neighbor = meshNeighbors[edge];
+        }
+      
+      if (isBoundary(neighbor))
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
           // Calculate groundwater flow rate.
-          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)meshNeighbors[edge],
-                                                  meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
-                                                  elementZBedrock, elementArea, elementSlopeX, elementSlopeY, conductivity, groundwaterHead);
+          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)neighbor, meshNeighborsEdgeLength[edge],
+                                                  meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], elementZBedrock, elementArea, elementSlopeX,
+                                                  elementSlopeY, conductivity, groundwaterHead);
           
           if (!error)
             {
@@ -1840,8 +1853,16 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
     {
       // Calculate infiltration.  FIXME trivial infiltration, improve.
      
-      // Calculate the amount that infiltrates.
-      surfacewaterInfiltration = conductivity * dt; // Meters of water.
+      // Calculate the amount that infiltrates.  If I have bedrock at the surface there is no infiltration.
+      if (elementZSurface == elementZBedrock)
+        {
+          surfacewaterInfiltration = 0.0; // Meters of water.
+        }
+      else
+        {
+          surfacewaterInfiltration = conductivity * dt; // Meters of water.
+        }
+      
       if (surfacewaterInfiltration > surfacewaterDepth)
         {
           surfacewaterInfiltration = surfacewaterDepth;
