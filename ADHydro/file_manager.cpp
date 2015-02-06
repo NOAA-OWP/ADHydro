@@ -3405,91 +3405,132 @@ void FileManager::handleChannelVertexDataMessage(int node, double x, double y, d
   channelNodeLocation.erase(it);
 }
 
-void FileManager::meshMassageSoilType()
+void FileManager::meshMassageVegetationAndSoilType()
 {
-  int    ii, jj;                                          // Loop counters.
-  bool   done;                                            // Loop end condition.
-  int    oldNumberOfRemainingElementsWithInvalidSoilType; // Number of elements with invalid soil type from the last pass.
-  int    newNumberOfRemainingElementsWithInvalidSoilType; // Number of elements with invalid soil type from the current pass.
-  int    neighbor;                                        // A neighbor of an element.
+  int    ii, jj;                                                // Loop counters.
+  bool   done;                                                  // Loop end condition.
+  int    oldNumberOfRemainingElementsWithInvalidVegetationType; // Number of elements with invalid vegetation type from the last pass.
+  int    newNumberOfRemainingElementsWithInvalidVegetationType; // Number of elements with invalid vegetation type from the current pass.
+  int    oldNumberOfRemainingElementsWithInvalidSoilType;       // Number of elements with invalid soil type from the last pass.
+  int    newNumberOfRemainingElementsWithInvalidSoilType;       // Number of elements with invalid soil type from the current pass.
+  int    neighbor;                                              // A neighbor of an element.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(1 == CkNumPes()))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshMassageSoilType is not implemented for distributed operation.  It can only be run on one "
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMassageVegetationAndSoilType is not implemented for distributed operation.  It can only be run on one "
               "processor.\n");
       CkExit();
     }
   
   if (!(NULL != meshElementZSurface))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshElementZSurface must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementZSurface must not be NULL.\n");
       CkExit();
     }
   
   if (!(NULL != meshElementSoilDepth))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshElementSoilDepth must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementSoilDepth must not be NULL.\n");
       CkExit();
     }
   
   if (!(NULL != meshElementZBedrock))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshElementZBedrock must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementZBedrock must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshVegetationType))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshVegetationType must not be NULL.\n");
       CkExit();
     }
   
   if (!(NULL != meshSoilType))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshSoilType must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshSoilType must not be NULL.\n");
       CkExit();
     }
   
   if (!(NULL != meshMeshNeighbors))
     {
-      CkError("ERROR in FileManager::meshMassageSoilType: meshMeshNeighbors must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMeshNeighbors must not be NULL.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  // For mesh elements that have no soil type (-1) or a soil type of water (14) get soil type and depth from a neighbor.
-  done                                            = false;
-  oldNumberOfRemainingElementsWithInvalidSoilType = globalNumberOfMeshElements;
+  // For mesh elements that have vegetation type of Water Bodies (16) or Snow or Ice (24) or no soil type (-1) or soil type of WATER (14) or OTHER(land-ice)
+  // (16) get values from a neighbor.
+  done                                                  = false;
+  oldNumberOfRemainingElementsWithInvalidVegetationType = globalNumberOfMeshElements;
+  oldNumberOfRemainingElementsWithInvalidSoilType       = globalNumberOfMeshElements;
   
   while (!done)
     {
-      newNumberOfRemainingElementsWithInvalidSoilType = 0;
+      newNumberOfRemainingElementsWithInvalidVegetationType = 0;
+      newNumberOfRemainingElementsWithInvalidSoilType       = 0;
 
       for (ii = 0; ii < globalNumberOfMeshElements; ii++)
         {
-          // If element ii has an invalid soil type try to get it from a neighbor.  This might not succeed if no neighbor has a valid soil type.
-          // The outer most loop handles this case by repeating this fix until the number of elements with invalid soil type goes to zero or stops going down.
+          // If element ii has invalid vegetation or soil type try to get it from a neighbor.  This might not succeed if no neighbor has a valid type.
+          // The outer most loop handles this case by repeating this fix until the number of elements with invalid type goes to zero or stops going down.
           jj = 0;
 
-          while (jj < MeshElement::meshNeighborsSize && (-1 == meshSoilType[ii] || 14 == meshSoilType[ii]))
+          while (jj < MeshElement::meshNeighborsSize && (16 == meshVegetationType[ii] || 24 == meshVegetationType[ii] ||
+                                                         -1 == meshSoilType[ii] || 14 == meshSoilType[ii] || 16 == meshSoilType[ii]))
             {
               neighbor = meshMeshNeighbors[ii][jj];
 
-              if (!isBoundary(neighbor) && !(-1 == meshSoilType[neighbor] || 14 == meshSoilType[neighbor]))
+              if (!isBoundary(neighbor))
                 {
-                  if (4 <= ADHydro::verbosityLevel)
+                  if ( (16 == meshVegetationType[ii]       || 24 == meshVegetationType[ii]) &&
+                      !(16 == meshVegetationType[neighbor] || 24 == meshVegetationType[neighbor]))
                     {
-                      CkError("WARNING in FileManager::meshMassage: getting soil type and depth for element %d from neighbor %d.\n", ii, neighbor);
-                    }
+                      if (4 <= ADHydro::verbosityLevel)
+                        {
+                          CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: getting vegetation type for element %d from neighbor %d.\n", ii,
+                                  neighbor);
+                        }
 
-                  meshSoilType[ii]         = meshSoilType[neighbor];
-                  meshElementSoilDepth[ii] = meshElementSoilDepth[neighbor];
-                  meshElementZBedrock[ii]  = meshElementZSurface[ii] - meshElementSoilDepth[ii];
+                      meshVegetationType[ii] = meshVegetationType[neighbor];
+                    }
+                  
+                  if ( (-1 == meshSoilType[ii]       || 14 == meshSoilType[ii]       || 16 == meshSoilType[ii]) &&
+                      !(-1 == meshSoilType[neighbor] || 14 == meshSoilType[neighbor] || 16 == meshSoilType[neighbor]))
+                    {
+                      if (4 <= ADHydro::verbosityLevel)
+                        {
+                          CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: getting soil type and depth for element %d from neighbor %d.\n",
+                                  ii, neighbor);
+                        }
+
+                      meshSoilType[ii]         = meshSoilType[neighbor];
+                      meshElementSoilDepth[ii] = meshElementSoilDepth[neighbor];
+                      meshElementZBedrock[ii]  = meshElementZSurface[ii] - meshElementSoilDepth[ii];
+                    }
                 }
 
               jj++;
             }
 
-          if (-1 == meshSoilType[ii] || 14 == meshSoilType[ii])
+          if (16 == meshVegetationType[ii] || 24 == meshVegetationType[ii])
             {
               if (4 <= ADHydro::verbosityLevel)
                 {
-                  CkError("WARNING in FileManager::meshMassage: mesh element %d has invalid soil type and no neighbor with valid soil type.\n", ii);
+                  CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: mesh element %d has invalid vegetation type and no neighbor with valid "
+                          "vegetation type.\n", ii);
+                }
+
+              newNumberOfRemainingElementsWithInvalidVegetationType++;
+            }
+
+          if (-1 == meshSoilType[ii] || 14 == meshSoilType[ii] || 16 == meshSoilType[ii])
+            {
+              if (4 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: mesh element %d has invalid soil type and no neighbor with valid soil "
+                          "type.\n", ii);
                 }
 
               newNumberOfRemainingElementsWithInvalidSoilType++;
@@ -3498,12 +3539,17 @@ void FileManager::meshMassageSoilType()
       
       if (1 <= ADHydro::verbosityLevel)
         {
-          CkPrintf("Remaining elements with invalid soil type: %d.\n", newNumberOfRemainingElementsWithInvalidSoilType);
+          CkPrintf("Remaining elements with invalid vegetation type: %d.  Remaining elements with invalid soil type: %d.\n",
+                   newNumberOfRemainingElementsWithInvalidVegetationType, newNumberOfRemainingElementsWithInvalidSoilType);
         }
       
-      done                                            = (0 == newNumberOfRemainingElementsWithInvalidSoilType ||
-                                                         newNumberOfRemainingElementsWithInvalidSoilType >= oldNumberOfRemainingElementsWithInvalidSoilType);
-      oldNumberOfRemainingElementsWithInvalidSoilType = newNumberOfRemainingElementsWithInvalidSoilType;
+      done = ((0 == newNumberOfRemainingElementsWithInvalidSoilType ||
+               newNumberOfRemainingElementsWithInvalidSoilType >= oldNumberOfRemainingElementsWithInvalidSoilType) &&
+              (0 == newNumberOfRemainingElementsWithInvalidVegetationType ||
+               newNumberOfRemainingElementsWithInvalidVegetationType >= oldNumberOfRemainingElementsWithInvalidVegetationType));
+      
+      oldNumberOfRemainingElementsWithInvalidVegetationType = newNumberOfRemainingElementsWithInvalidVegetationType;
+      oldNumberOfRemainingElementsWithInvalidSoilType       = newNumberOfRemainingElementsWithInvalidSoilType;
     }
 }
 
@@ -4128,10 +4174,10 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // Fix elements with invalid soil type.
+  // Fix elements with invalid vegetation or soil type.
   if (ADHydro::doMeshMassage)
     {
-      meshMassageSoilType();
+      meshMassageVegetationAndSoilType();
     }
   
   // MeshConductivity and meshPorosity are taken from 19-category SOILPARM.TBL of Noah-MP.
@@ -6685,7 +6731,8 @@ void FileManager::handleCreateFiles(const char* directory)
     }
 }
 
-void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState)
+void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, double referenceDateNew,
+                                   double currentTimeNew, double dtNew, size_t iterationNew)
 {
   bool   error    = false;  // Error flag.
   int    ncErrorCode;       // Return value of NetCDF functions.
@@ -6701,11 +6748,23 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       CkError("ERROR in FileManager::handleWriteFiles: directory must not be null.\n");
       error = true;
     }
+
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in FileManager::handleUpdateState: dtNew must be greater than zero.\n");
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Open the geometry file.
   if (!error)
     {
+      // Save reference date, current time, dt, and iteration.
+      referenceDate = referenceDateNew;
+      currentTime   = currentTimeNew;
+      dt            = dtNew;
+      iteration     = iterationNew;
+      
+      // Open the geometry file.
       error = openNetCDFFile(directory, "geometry.nc", false, true, &fileID);
       
       if (!error)
@@ -7734,9 +7793,13 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Open the forcing file.
   if (!error)
     {
+      // Save reference date and current time.
+      referenceDate = referenceDateNew;
+      currentTime   = currentTimeNew;
+      
+      // Open the forcing file.
       error = openNetCDFFile(directory, "forcing.nc", false, false, &fileID);
       
       if (!error)
@@ -7797,7 +7860,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   if (!error)
     {
       instance    = 0;
-      currentDate = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
+      currentDate = referenceDate + currentTime / (24.0 * 3600.0);
       
       if (!(jultime[0] <= currentDate))
         {
@@ -8044,22 +8107,9 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
     }
 }
 
-void FileManager::handleUpdateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
+void FileManager::handleUpdateState()
 {
   int ii; // Loop counter.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(0.0 < dtNew))
-    {
-      CkError("ERROR in FileManager::updateState: dtNew must be greater than zero.\n");
-      CkExit();
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-  referenceDate = referenceDateNew;
-  currentTime   = currentTimeNew;
-  dt            = dtNew;
-  iteration     = iterationNew;
   
   if (NULL != meshElementUpdated)
     {

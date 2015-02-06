@@ -248,7 +248,8 @@ void ADHydro::writeFiles()
   // Set the callback to check forcing data when files are written.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
   
-  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true);
+  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true, referenceDate, currentTime, dt,
+                              iteration);
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
@@ -507,7 +508,7 @@ void ADHydro::timestepDone(double dtNew)
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
 
       // Start the output phase.
-      fileManagerProxy.updateState(referenceDate, currentTime, dt, iteration);
+      fileManagerProxy.updateState();
       
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {

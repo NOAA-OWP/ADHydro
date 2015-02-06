@@ -580,11 +580,11 @@ private:
   // zBank   - Bank Z coordinate of vertex.
   void handleChannelVertexDataMessage(int node, double x, double y, double zBank);
   
-  // Fix problems with mesh elements having invalid soil type.  This is a
-  // different function from meshMassage because it has to be called further up
-  // in calculateDerivedValues before conductivity and porosity are determined
-  // from soil type.
-  void meshMassageSoilType();
+  // Fix problems with mesh elements having invalid vegetation or soil type.
+  // This is a different function from meshMassage because it has to be called
+  // further up in calculateDerivedValues before conductivity, porosity, and
+  // Mannings's N are determined from vegetation and soil type.
+  void meshMassageVegetationAndSoilType();
   
   // Returns: An element immediately downstream of element, or OUTFLOW if
   // element has an outflow boundary, or NOFLOW if element has neither.  If
@@ -664,17 +664,22 @@ private:
   //
   // Parameters:
   //
-  // directory      - The directory in which to write the files.
-  // writeGeometry  - Whether to write a new instance into the geometry file.
-  //                  If false, the last exsisting instance is used as the
-  //                  instance to write into the state file and it is an error
-  //                  if no instance exists.
-  // writeParameter - Whether to write a new instance into the parameter file.
-  //                  If false, the last exsisting instance is used as the
-  //                  instance to write into the state file and it is an error
-  //                  if no instance exists.
-  // writeState     - Whether to write a new instance into the state file.
-  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
+  // directory        - The directory in which to write the files.
+  // writeGeometry    - Whether to write a new instance into the geometry file.
+  //                    If false, the last exsisting instance is used as the
+  //                    instance to write into the state file and it is an
+  //                    error if no instance exists.
+  // writeParameter   - Whether to write a new instance into the parameter
+  //                    file.  If false, the last exsisting instance is used as
+  //                    the instance to write into the state file and it is an
+  //                    error if no instance exists.
+  // writeState       - Whether to write a new instance into the state file.
+  // referenceDateNew - The updated Julian date when currentTimeNew is zero.
+  // currentTimeNew   - The updated time step in seconds.
+  // dtNew            - The updated simulation timestep duration in seconds.
+  // iterationNew     - The updated simulation iteration number.
+  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, double referenceDateNew,
+                        double currentTimeNew, double dtNew, size_t iterationNew);
   
   // Read forcing data from file and send to mesh and channel elements.  Each
   // file manager reads the data for the elements it owns and sends it on to
@@ -696,14 +701,7 @@ private:
   // This function does not contribute to a reduction, but after receiving
   // state messages from all mesh and channel elements the SDAG code
   // contributes to an empty reduction.
-  //
-  // Parameters:
-  //
-  // referenceDateNew - The updated Julian date when currentTimeNew is zero.
-  // currentTimeNew   - The updated time step in seconds.
-  // dtNew            - The updated simulation timestep duration in seconds.
-  // iterationNew     - The updated simulation iteration number.
-  void handleUpdateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
+  void handleUpdateState();
   
   // Returns: true if all element information is updated, false otherwise.
   bool allElementsUpdated();

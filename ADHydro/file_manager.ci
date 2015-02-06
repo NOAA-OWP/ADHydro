@@ -80,11 +80,12 @@ module file_manager
           }
         }
         
-        when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
+        when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                        double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
         {
           serial
           {
-            handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
+            handleWriteFiles(directory, writeGeometry, writeParameter, writeState, referenceDateNew, currentTimeNew, dtNew, iterationNew);
           }
         }
       }
@@ -95,20 +96,20 @@ module file_manager
         {
           // A new forcing data message can optionally arrive before a timestep.
           when readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
-                               double referenceDate, double currentTime)
+                               double referenceDateNew, double currentTimeNew)
           {
             serial
             {
-              handleReadForcingData(directory, meshProxy, channelProxy, referenceDate, currentTime);
+              handleReadForcingData(directory, meshProxy, channelProxy, referenceDateNew, currentTimeNew);
             }
           }
           
           // Update state messages can also optionally arrive between timesteps.
-          when updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
+          when updateState()
           {
             serial
             {
-              handleUpdateState(referenceDateNew, currentTimeNew, dtNew, iterationNew);
+              handleUpdateState();
             }
             
             while (!allElementsUpdated())
@@ -165,11 +166,12 @@ module file_manager
             }
             
             // Updating state must always be followed by writing that state into the output files.
-            when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
+            when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                            double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
             {
               serial
               {
-                handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
+                handleWriteFiles(directory, writeGeometry, writeParameter, writeState, referenceDateNew, currentTimeNew, dtNew, iterationNew);
               }
             }
           } // End when updateState.
@@ -185,10 +187,11 @@ module file_manager
     entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
     entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void createFiles(size_t directorySize, const char directory[directorySize]);
-    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
+    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                          double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
     entry void readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
-                               double referenceDate, double currentTime);
-    entry void updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
+                               double referenceDateNew, double currentTimeNew);
+    entry void updateState();
     entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
                                 double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
                                 double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
