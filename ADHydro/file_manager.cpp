@@ -4182,7 +4182,7 @@ void FileManager::calculateDerivedValues()
     }
   
   // MeshConductivity and meshPorosity are taken from 19-category SOILPARM.TBL of Noah-MP.
-  if ((NULL == meshConductivity || NULL == meshPorosity) && NULL != meshSoilType)
+  if ((NULL == meshConductivity || NULL == meshPorosity) && NULL != meshSoilType && NULL != meshVegetationType)
     {
       if (NULL == meshConductivity)
         {
@@ -4284,6 +4284,12 @@ void FileManager::calculateDerivedValues()
             meshPorosity[ii]     = 0.339;
             break;
           } // End of switch.
+          
+          // If the vegetation type is Urban and Built-Up Land (1) then Noah-MP sets porosity to 0.45 regardless of soil type.
+          if (1 == meshVegetationType[ii])
+            {
+              meshPorosity[ii] = 0.45;
+            }
         } // End of element loop.
     } // End of assigning meshConductivity and meshPorosity.
   
