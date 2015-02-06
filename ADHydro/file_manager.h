@@ -580,6 +580,12 @@ private:
   // zBank   - Bank Z coordinate of vertex.
   void handleChannelVertexDataMessage(int node, double x, double y, double zBank);
   
+  // Fix problems with mesh elements having invalid soil type.  This is a
+  // different function from meshMassage because it has to be called further up
+  // in calculateDerivedValues before conductivity and porosity are determined
+  // from soil type.
+  void meshMassageSoilType();
+  
   // Returns: An element immediately downstream of element, or OUTFLOW if
   // element has an outflow boundary, or NOFLOW if element has neither.  If
   // element has more than one qualifying downstream element or a downstream
