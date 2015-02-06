@@ -2576,9 +2576,9 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
 
   for (ii = EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
     {
-      if (!(evapoTranspirationState->zSnso[ii - 1] >= evapoTranspirationState->zSnso[ii]))
+      if (!(evapoTranspirationState->zSnso[ii - 1] > evapoTranspirationState->zSnso[ii]))
         {
-          CkError("ERROR in checkEvapoTranspirationStateStructInvariant, soil layer %d: zSnso must be less than or equal to the layer above it.\n",
+          CkError("ERROR in checkEvapoTranspirationStateStructInvariant, soil layer %d: zSnso must be less than the layer above it.\n",
                   ii - EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS);
           error = true;
         }

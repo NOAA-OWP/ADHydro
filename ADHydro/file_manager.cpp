@@ -4011,17 +4011,18 @@ void FileManager::meshMassage()
 
 void FileManager::calculateDerivedValues()
 {
-  int    ii, jj;         // Loop counters.
-  double value;          // For calculating derived values.
-  double lengthSoFar;    // For traversing vertices.  The length traversed so far.
-  double nextLength;     // For traversing vertices.  The length to the next vertex.
-  double lengthFraction; // For traversing vertices.  The fraction of the distance from the current vertex to the next of the point of interest.
-  double minX;           // For finding the bounding box of vertices.
-  double maxX;           // For finding the bounding box of vertices.
-  double minY;           // For finding the bounding box of vertices.
-  double maxY;           // For finding the bounding box of vertices.
-  double minZBank;       // For finding the bounding box of vertices.
-  double maxZBank;       // For finding the bounding box of vertices.
+  int    ii, jj;           // Loop counters.
+  double value;            // For calculating derived values.
+  double nominalSoilDepth; // Noah-MP cannot handle zero soil depth.  For setting depth of one meter instead.
+  double lengthSoFar;      // For traversing vertices.  The length traversed so far.
+  double nextLength;       // For traversing vertices.  The length to the next vertex.
+  double lengthFraction;   // For traversing vertices.  The fraction of the distance from the current vertex to the next of the point of interest.
+  double minX;             // For finding the bounding box of vertices.
+  double maxX;             // For finding the bounding box of vertices.
+  double minY;             // For finding the bounding box of vertices.
+  double maxY;             // For finding the bounding box of vertices.
+  double minZBank;         // For finding the bounding box of vertices.
+  double maxZBank;         // For finding the bounding box of vertices.
 
   // Delete vertex updated arrays that are no longer needed.
   deleteArrayIfNonNull(&meshVertexUpdated);
@@ -4620,13 +4621,23 @@ void FileManager::calculateDerivedValues()
       
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
+          // Noah-MP cannot handle zero soil depth.  Use one meter instead.
+          if (0.0 == meshElementSoilDepth[ii])
+            {
+              nominalSoilDepth = 1.0;
+            }
+          else
+            {
+              nominalSoilDepth = meshElementSoilDepth[ii];
+            }
+          
           meshZSnso[ii][0] = 0.0f;
           meshZSnso[ii][1] = 0.0f;
           meshZSnso[ii][2] = 0.0f;
-          meshZSnso[ii][3] = (float)(-0.05 * meshElementSoilDepth[ii]);
-          meshZSnso[ii][4] = (float)(-0.2  * meshElementSoilDepth[ii]);
-          meshZSnso[ii][5] = (float)(-0.5  * meshElementSoilDepth[ii]);
-          meshZSnso[ii][6] = (float)(-1.0  * meshElementSoilDepth[ii]);
+          meshZSnso[ii][3] = (float)(-0.05 * nominalSoilDepth);
+          meshZSnso[ii][4] = (float)(-0.2  * nominalSoilDepth);
+          meshZSnso[ii][5] = (float)(-0.5  * nominalSoilDepth);
+          meshZSnso[ii][6] = (float)(-1.0  * nominalSoilDepth);
         }
     }
   
