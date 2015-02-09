@@ -1143,18 +1143,18 @@ void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew,
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperatureNew))
+  else if (!(-70.0f <= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperatureNew))
+  else if (!(70.0f >= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -1238,18 +1238,18 @@ void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew,
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperatureNew))
+  else if (!(-70.0f <= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperatureNew))
+  else if (!(70.0f >= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -2354,18 +2354,18 @@ void ChannelElement::handleCheckInvariant()
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperature))
+  else if (!(-70.0f <= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperature))
+  else if (!(70.0f >= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -2448,18 +2448,18 @@ void ChannelElement::handleCheckInvariant()
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperature))
+  else if (!(-70.0f <= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperature))
+  else if (!(70.0f >= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
         }
     }
   

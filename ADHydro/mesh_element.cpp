@@ -1381,18 +1381,18 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperatureNew))
+  else if (!(-70.0f <= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperatureNew))
+  else if (!(70.0f >= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -1476,18 +1476,18 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperatureNew))
+  else if (!(-70.0f <= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperatureNew))
+  else if (!(70.0f >= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -1621,7 +1621,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
         {
           cosZ = 0.0f;
         }
-      
+
       // FIXME get real values for soil moisture from infiltration state.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -1629,7 +1629,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
                                     evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]); // Depth as a negative number.
           distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
 
-          if (0.1 > distanceAboveWaterTable)
+          if (0.1 >= distanceAboveWaterTable)
             {
               relativeSaturation = 1.0;
             }
@@ -1637,9 +1637,9 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
             {
               relativeSaturation = 1.0 - (log10(distanceAboveWaterTable) + 1.0) * 0.3;
 
-              if (0.0 > relativeSaturation)
+              if (0.01 > relativeSaturation)
                 {
-                  relativeSaturation = 0.0;
+                  relativeSaturation = 0.01;
                 }
             }
 
@@ -1647,7 +1647,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
           sh2o[ii]  = porosity * relativeSaturation;
           smc[ii]   = porosity * relativeSaturation;
         }
-
+      
       error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), atmosphereLayerThickness,
                                      shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN, surfacePressure,
                                      atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
@@ -3180,18 +3180,18 @@ void MeshElement::handleCheckInvariant()
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperature))
+  else if (!(-70.0f <= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperature))
+  else if (!(70.0f >= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -3274,18 +3274,18 @@ void MeshElement::handleCheckInvariant()
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperature))
+  else if (!(-70.0f <= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperature))
+  else if (!(70.0f >= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
         }
     }
   
