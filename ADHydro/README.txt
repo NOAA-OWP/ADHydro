@@ -46,3 +46,5 @@ SOILPARM.TBL
 VEGPARM.TBL
 
 The input files all need to be in the same directory.  The output files will all be put in the same directory.  The output directory must be different than the input directory because the output files have the same names as the input files.  The exception to this is if you are appending your output to your input files.  In that case, ADHydro will use the input directory as the output directory regardless of what is specified for output directory in the superfile.
+
+
