@@ -2579,11 +2579,23 @@ void ChannelElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!(0.0 < meshNeighborsEdgeLength[edge]))
+      if (NOFLOW == meshNeighbors[edge])
         {
-          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero.\n",
-                  thisIndex, edge);
-          error = true;
+          if (!(0.0 == meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be zero for a NOFLOW edge.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+        }
+      else
+        {
+          if (!(0.0 < meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero for a non-NOFLOW "
+                      "edge.\n", thisIndex, edge);
+              error = true;
+            }
         }
       
       if (!(FLOW_RATE_LIMITING_CHECK_DONE == meshNeighborsSurfacewaterFlowRateReady[edge]))

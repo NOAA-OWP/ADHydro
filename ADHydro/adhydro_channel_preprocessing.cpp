@@ -5546,7 +5546,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement::meshNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 1.0);
+                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 0.0);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))

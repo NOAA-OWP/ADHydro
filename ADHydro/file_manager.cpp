@@ -1196,7 +1196,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
             {
               meshChannelNeighbors[          index - localMeshElementStart][jj] = NOFLOW;
-              meshChannelNeighborsEdgeLength[index - localMeshElementStart][jj] = 1.0;
+              meshChannelNeighborsEdgeLength[index - localMeshElementStart][jj] = 0.0;
             }
         }
     } // End read mesh elements.
@@ -1611,7 +1611,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           for (jj = numberOfMeshNeighbors; jj < ChannelElement::meshNeighborsSize; jj++)
             {
               channelMeshNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
-              channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 1.0;
+              channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 0.0;
             }
         }
     } // End read channel elements.
@@ -3666,9 +3666,11 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
   int    ii;                // Loop counter.
   int    neighbor = NOFLOW; // A neighbor of element.
   double neighborZBank;     // The bank Z coordinate of neighbor.
+  double edgeLength;        // The edge length to use for the new connection.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(0 <= element && element < globalNumberOfMeshElements && NULL != meshChannelNeighbors && NULL != channelElementZBank && NULL != channelChannelType &&
+  CkAssert(0 <= element && element < globalNumberOfMeshElements && NULL != meshVertexZSurface && NULL != meshMeshNeighborsEdgeLength &&
+           NULL != meshChannelNeighbors && NULL != channelElementZBank && NULL != channelElementLength && NULL != channelChannelType &&
            NULL != channelReachCode && NULL != channelMeshNeighbors);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
@@ -3689,6 +3691,29 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
                   "element %d.\n", element, neighbor);
         }
       
+      // Calculate the edge length of the connection as the minimum of the length of the lowest edge of the mesh element or the length of the channel element.
+      if (meshVertexZSurface[element][1] + meshVertexZSurface[element][2] < meshVertexZSurface[element][2] + meshVertexZSurface[element][0] &&
+          meshVertexZSurface[element][1] + meshVertexZSurface[element][2] < meshVertexZSurface[element][0] + meshVertexZSurface[element][1])
+        {
+          // Edge zero is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][0];
+        }
+      else if (meshVertexZSurface[element][2] + meshVertexZSurface[element][0] < meshVertexZSurface[element][0] + meshVertexZSurface[element][1])
+        {
+          // Edge one is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][1];
+        }
+      else
+        {
+          // Edge two is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][2];
+        }
+      
+      if (edgeLength > channelElementLength[neighbor])
+        {
+          edgeLength = channelElementLength[neighbor];
+        }
+      
       // Place the elements in each other's neighbor lists.
       ii = 0;
       
@@ -3699,7 +3724,8 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
       
       if (ii < MeshElement::channelNeighborsSize)
         {
-          meshChannelNeighbors[element][ii] = neighbor;
+          meshChannelNeighbors[          element][ii] = neighbor;
+          meshChannelNeighborsEdgeLength[element][ii] = edgeLength;
         }
       else
         {
@@ -3717,7 +3743,8 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
       
       if (ii < ChannelElement::meshNeighborsSize)
         {
-          channelMeshNeighbors[neighbor][ii] = element;
+          channelMeshNeighbors[          neighbor][ii] = element;
+          channelMeshNeighborsEdgeLength[neighbor][ii] = edgeLength;
         }
       else
         {
@@ -3767,6 +3794,12 @@ void FileManager::meshMassage()
   if (!(NULL != meshMeshNeighbors))
     {
       CkError("ERROR in FileManager::meshMassage: meshMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshMeshNeighborsEdgeLength))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshMeshNeighborsEdgeLength must not be NULL.\n");
       CkExit();
     }
   
@@ -3835,14 +3868,16 @@ void FileManager::meshMassage()
 
           for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
             {
-              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+              neighbor = channelChannelNeighbors[ii][jj];
+              
+              if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
                 }
-              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+              else if (OUTFLOW == neighbor)
                 {
                   hasLowerNeighbor = true;
                 }
@@ -3878,14 +3913,16 @@ void FileManager::meshMassage()
 
           for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
             {
-              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+              neighbor = channelChannelNeighbors[ii][jj];
+              
+              if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
                 }
-              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+              else if (OUTFLOW == neighbor)
                 {
                   hasLowerNeighbor = true;
                 }
@@ -3954,14 +3991,16 @@ void FileManager::meshMassage()
       
       for (jj = 0; !hasLowerNeighbor && jj < MeshElement::meshNeighborsSize; jj++)
         {
-          if (!isBoundary(meshMeshNeighbors[ii][jj]))
+          neighbor = meshMeshNeighbors[ii][jj];
+          
+          if (!isBoundary(neighbor))
             {
-              if (meshElementZSurface[ii] > meshElementZSurface[meshMeshNeighbors[ii][jj]])
+              if (meshElementZSurface[ii] > meshElementZSurface[neighbor])
                 {
                   hasLowerNeighbor = true;
                 }
             }
-          else if (OUTFLOW == meshMeshNeighbors[ii][jj])
+          else if (OUTFLOW == neighbor)
             {
               hasLowerNeighbor = true;
             }
@@ -3969,8 +4008,10 @@ void FileManager::meshMassage()
       
       for (jj = 0; !hasChannelNeighbor && jj < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[ii][jj]; jj++)
         {
+          neighbor = meshChannelNeighbors[ii][jj];
+          
           // Don't count icemasses because an icemass could be higher than the mesh element.
-          if (ICEMASS != channelChannelType[meshChannelNeighbors[ii][jj]])
+          if (ICEMASS != channelChannelType[neighbor])
             {
               hasChannelNeighbor = true;
             }
