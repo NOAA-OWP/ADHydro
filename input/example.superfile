@@ -2,9 +2,11 @@ inputDirectory           = /share/CI-WATER_Simulation_Data/small_green_mesh
 outputDirectory          = /localstore/output
 
 ;appendToInputFiles       = false     ; If appendToInputFiles is true the simulation will append its output to the files in inputDirectory and outputDirectory
-                                      ; will be ignored.  If appendToInputFiles is not in the superfile it defaults to false.
+                                      ; will be ignored.  If appendToInputFiles is not in the superfile it defaults to false.  appendToInputFiles is mutually
+                                      ; exclusive with initializeFromASCIIFiles.  We cannot place output in the ASCII file format.
 ;initializeFromASCIIFiles = false     ; If initializeFromASCIIFiles is not in the superfile it defaults to false and the simulation will initialize from
-                                      ; NetCDF files.
+                                      ; NetCDF files.  initializeFromASCIIFiles is mutually exclusive with appendToInputFiles.  We cannot place output in the
+                                      ; ASCII file format.
 ;asciiFileBasename        = mesh.1    ; The basename of the ASCII files if initializing from ASCII files.
 ;referenceDate            = 2457013.0 ; If referenceDate is not in the superfile it will first attempt to convert the Gregorian date in referenceDateYear,
 ;referenceDateYear        = 2000      ; referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute, and referenceDateSecond to a Julian

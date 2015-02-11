@@ -106,6 +106,13 @@ ADHydro::ADHydro(CkArgMsg* msg)
   // Initialize the file manager.
   if (superfile.GetBoolean("", "initializeFromASCIIFiles", false))
     {
+      if (appendToInputFiles)
+        {
+          CkError("ERROR in ADHydro::ADHydro: superfile options appendToInputFiles and initializeFromASCIIFiles are mutually exclusive.  We cannot place "
+                  "output in the ASCII file format.\n");
+          CkExit();
+        }
+      
       asciiFileBasename = superfile.Get("", "asciiFileBasename", "");
       
       fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), asciiFileBasename.length() + 1,
