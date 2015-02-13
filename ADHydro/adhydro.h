@@ -58,10 +58,30 @@ class ADHydro : public CBase_ADHydro
   
 public:
   
+  // Global read-only variable specifies whether to append simulation output to
+  // the input files.
+  static bool appendToInputFiles;
+  
   // Global read-only variable specifies whether to run the simulation in drain
   // down mode.  In this mode, there will be no precipitation, and water level
   // in the channels will be capped.
   static bool drainDownMode;
+  
+  // Global read-only variable specifies whether to run mesh massage to fix
+  // digital dams and similar problems.
+  static bool doMeshMassage;
+  
+  // Global read-only variable specifies how much to print to the display.
+  // Current verbosity levels are:
+  //
+  // 0 - Error messages only.
+  // 1 - Messages about general simulation progress.
+  // 2 - Warning messages about situations that are probably a problem.
+  // 3 - Messages about general simulation progress or warning messages about
+  //     situations that may be a problem that just create too many messages
+  //     for levels one and two.
+  // 4 - Warning messages about situations that are probably ok.
+  static int verbosityLevel;
   
   // Set the load balancing mode to manual.  We need to wait for a few
   // timesteps to generate load statistics, and then we need to load balance
@@ -148,9 +168,10 @@ private:
   size_t startingIteration;  // Iteration number of the first timestep in this run.  Used to decide when to load balance.
   
   // Flags.
-  bool writeGeometry;           // Flag to indicate whether the geometry has changed and needs to be outputted.
-  bool writeParameter;          // Flag to indicate whether the parameters have changed and need to be outputted.
-  bool needToCheckInvariant;    // Flag to indicate whether the invariant needs to be checked.
+  bool writeGeometry;        // Flag to indicate whether the geometry has changed and needs to be outputted.
+  bool writeParameter;       // Flag to indicate whether the parameters have changed and need to be outputted.
+  bool needToCheckInvariant; // Flag to indicate whether the invariant needs to be checked.
+  bool printMessage;         // Flag to indicate whether you need to print a message after a callback.
 };
 
 #endif // __ADHYDRO_H__

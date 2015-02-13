@@ -17,7 +17,7 @@ class CProxy_MeshElement;
 
 #include "all.h"
 #include "channel_element.decl.h"
-#include "mesh_element.decl.h"
+#include "mesh_element.h"
 
 // A ChannelElement object represents one link in the simulation channel
 // network.  A chare array of ChannelElement objects represents the entire
@@ -27,6 +27,10 @@ class ChannelElement : public CBase_ChannelElement
   ChannelElement_SDAG_CODE
   
 public:
+  
+  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+  static const int channelNeighborsSize = 18; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
   
   // Constructor.  All the constructor does is start the runForever function in
   // the SDAG code.  The constructor does not initialize or perform an
@@ -47,10 +51,6 @@ public:
   //
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
-  
-  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-  static const int channelNeighborsSize = 18; // Maximum number of channel neighbors.
-  static const int meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
   
 private:
   
@@ -92,19 +92,67 @@ private:
   //
   // neighbor               - Array index of neighbor element in chare array.
   // neighborReciprocalEdge - Array index of me in neighbor's neighbor list.
+  // neighborVertexX        - Array of X coordinates of neighbor vertices.
+  // neighborVertexY        - Array of Y coordinates of neighbor vertices.
   // neighborX              - X coordinate of neighbor.
   // neighborY              - Y coordinate of neighbor.
   // neighborZSurface       - Surface Z coordinate of neighbor.
   // neighborZBedrock       - Bedrock Z coordinate of neighbor.
   // neighborSlopeX         - Surface slope of neighbor in X direction.
   // neighborSlopeY         - Surface slope of neighbor in Y direction.
-  void handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                    double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
+  void handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                    double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                    double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY);
   
   // Receive a message with new forcing data.  Store this data in member
   // variables for future use.  When complete, all of the elements will
   // contribute to an empty reduction.
-  void handleForcingDataMessage();
+  //
+  // Parameters:
+  //
+  // atmosphereLayerThicknessNew     - New value for thickness in meters of
+  //                                   lowest atmosphere layer.
+  // shadedFractionNew               - New value for fraction of land area
+  //                                   shaded by vegetation, 0.0 to 1.0.
+  // shadedFractionMaximumNew        - New value for yearly maximum fraction of
+  //                                   land area shaded by vegetation, 0.0 to
+  //                                   1.0.
+  // surfaceTemperatureNew           - New value for air temperature in Celsius
+  //                                   at surface.
+  // surfacePressureNew              - New value for air pressure in Pascal at
+  //                                   surface.
+  // atomsphereLayerPressureNew      - New value for air pressure in Pascal at
+  //                                   middle of lowest atmosphere layer.
+  // eastWindSpeedNew                - New value for eastward wind speed in
+  //                                   meters per second at middle of lowest
+  //                                   atmosphere layer.
+  // northWindSpeedNew               - New value for northward wind speed in
+  //                                   meters per second at middle of lowest
+  //                                   atmosphere layer.
+  // atmosphereLayerMixingRatioNew   - New value for water vapor mixing ratio
+  //                                   at middle of lowest atmosphere layer,
+  //                                   unitless.
+  // cloudMixingRatioNew             - New value for liquid water mixing ratio
+  //                                   in clouds, unitless.
+  // shortWaveRadiationDownNew       - New value for downward short wave
+  //                                   radiation in Watts per square meter at
+  //                                   the top of the canopy.
+  // longWaveRadiationDownNew        - New value for downward long wave
+  //                                   radiation in Watts per square meter at
+  //                                   the top of the canopy.
+  // precipitationRateNew            - New value for precipitation rate in
+  //                                   meters of water per second at the top of
+  //                                   the canopy.
+  // soilBottomTemperatureNew        - New value for Boundary condition for
+  //                                   soil temperature in Celsius at the
+  //                                   bottom of the lowest soil layer.
+  // planetaryBoundaryLayerHeightNew - New value for Planetary boundary layer
+  //                                   height in meters.
+  void handleForcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew,
+                                float surfaceTemperatureNew, float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew,
+                                float northWindSpeedNew, float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew,
+                                float shortWaveRadiationDownNew, float longWaveRadiationDownNew, float precipitationRateNew,
+                                float soilBottomTemperatureNew, float planetaryBoundaryLayerHeightNew);
   
   // Step forward one timestep.  Performs point processes and starts the
   // groundwater and surfacewater phases.  When the timestep is done all of the
@@ -392,7 +440,7 @@ private:
   
   // Identification parameters.
   ChannelTypeEnum channelType;   // What type of channel is this.
-  int             permanentCode; // Permanent code of link that element came from.
+  long long       reachCode;     // For waterbodies, reach code.  For streams, original link number that element came from.
   
   // Hydraulic parameters.
   double baseWidth;       // Width of channel base in meters.
@@ -419,6 +467,25 @@ private:
   
   // Evapo-transpiration state variables.
   EvapoTranspirationStateStruct evapoTranspirationState; // state variables that are simulated by the evapo-transpiration module.
+  
+  // Forcing data.
+  float atmosphereLayerThickness;     // Thickness in meters of lowest atmosphere layer in forcing data.  The following other variables are values from the
+                                       // middle of the lowest atmosphere layer, i.e. half of this height: atomsphereLayerPressure, eastWindSpeed,
+                                       // northWindSpeed, atmosphereLayerMixingRatio.
+  float shadedFraction;               // Fraction of land area shaded by vegetation, 0.0 to 1.0.
+  float shadedFractionMaximum;        // Yearly maximum fraction of land area shaded by vegetation, 0.0 to 1.0.
+  float surfaceTemperature;           // Air temperature in Celsius at surface.
+  float surfacePressure;              // Air pressure in Pascal at surface.
+  float atomsphereLayerPressure;      // Air pressure in Pascal at middle of lowest atmosphere layer in forcing data.
+  float eastWindSpeed;                // Eastward wind speed in meters per second at middle of lowest atmosphere layer in forcing data.
+  float northWindSpeed;               // Northward wind speed in meters per second at middle of lowest atmosphere layer in forcing data.
+  float atmosphereLayerMixingRatio;   // Water vapor mixing ratio at middle of lowest atmosphere layer in forcing data, unitless.
+  float cloudMixingRatio;             // Liquid water mixing ratio in clouds, unitless.
+  float shortWaveRadiationDown;       // Downward short wave radiation in Watts per square meter at the top of the canopy.
+  float longWaveRadiationDown;        // Downward long wave radiation in Watts per square meter at the top of the canopy.
+  float precipitationRate;            // Precipitation rate in meters of water per second at the top of the canopy.
+  float soilBottomTemperature;        // Boundary condition for soil temperature in Celsius at the bottom of the lowest soil layer.
+  float planetaryBoundaryLayerHeight; // Planetary boundary layer height in meters.
   
   // Sequencing and timestep information.
   bool   groundwaterDone;  // Flag indicating when the groundwater phase is done.

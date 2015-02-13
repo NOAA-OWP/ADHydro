@@ -368,6 +368,7 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // FIXME can't link non-charm programs with CkError and CkAssert
+  // FIXME make error? verbosity level?
   //if (1 > year)
   //  {
   //    CkError("WARNING in julianToGregorian: date conversion does not work properly for years before 1 CE.\n");
@@ -424,6 +425,67 @@ template <typename T> inline void deleteArrayIfNonNull(T** pointer)
       
       *pointer = NULL;
     }
+}
+
+// Utility functions for geometric calculations.
+
+// Calculate whether two line segments intersect, and if they do calculate the
+// intersection point.  If the two line segments are parallel this function
+// always returns no intersection even if the line segments are collinear and
+// overlapping.  This is fine for us because we are using it to detect the
+// intersection between an edge of a mesh element and a line segment from the
+// center of that mesh element to its neighbor.  The center of the mesh element
+// can never lie on one if its edges so the line segments cannot be collinear.
+//
+// This code is taken from:
+//
+// http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+//
+// I changed floats to doubles, made it inline, and added comments, but I
+// haven't cleaned up other aspects that don't fit our code conventions.
+//
+// Returns: 1 if the line segments intersect, otherwise 0.
+//
+// Parameters:
+//
+// p0_x - The X coordinate of the first  endpoint of the first  line segment.
+// p0_y - The Y coordinate of the first  endpoint of the first  line segment.
+// p1_x - The X coordinate of the second endpoint of the first  line segment.
+// p1_y - The Y coordinate of the second endpoint of the first  line segment.
+// p2_x - The X coordinate of the first  endpoint of the second line segment.
+// p2_y - The Y coordinate of the first  endpoint of the second line segment.
+// p3_x - The X coordinate of the second endpoint of the second line segment.
+// p3_y - The Y coordinate of the second endpoint of the second line segment.
+// i_x  - Scalar passed by reference.  If the line segments intersect this will
+//        be filled in with the X coordinate of the intersection point.
+//        Otherwise it will be unmodified.  Or, it can be passed in as NULL,
+//        in which case it will be ignored.
+// i_y  - Scalar passed by reference.  If the line segments intersect this will
+//        be filled in with the Y coordinate of the intersection point.
+//        Otherwise it will be unmodified.  Or, it can be passed in as NULL,
+//        in which case it will be ignored.
+inline char get_line_intersection(double p0_x, double p0_y, double p1_x, double p1_y,
+    double p2_x, double p2_y, double p3_x, double p3_y, double *i_x, double *i_y)
+{
+    double s1_x, s1_y, s2_x, s2_y;
+    s1_x = p1_x - p0_x;     s1_y = p1_y - p0_y;
+    s2_x = p3_x - p2_x;     s2_y = p3_y - p2_y;
+
+    double s, t;
+    s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+    t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+    {
+        // Collision detected
+        if (i_x != NULL)
+            *i_x = p0_x + (t * s1_x);
+        if (i_y != NULL)
+            *i_y = p0_y + (t * s1_y);
+        return 1;
+    }
+
+    return 0; // No collision
 }
 
 #endif // __ALL_H__

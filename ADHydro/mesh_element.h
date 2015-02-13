@@ -28,6 +28,55 @@ class MeshElement : public CBase_MeshElement
   
 public:
   
+  static const int meshNeighborsSize    = 3;  // Maximum number of mesh neighbors.
+  static const int channelNeighborsSize = 8; // Maximum number of channel neighbors.
+  
+  // We were getting large Z coordinate differences between mesh elements and
+  // neighboring channel elements because the Z coordinate at the center of the
+  // mesh element may not be representative of the Z coordinate at the edge of
+  // the mesh element where it connects to the neighboring channel element.
+  // Depending on how the mesh element is sloped this can even result in the
+  // channel element being higher than the mesh element even though water should
+  // be flowing from the mesh element into the channel element.
+  //
+  // To solve this, we calculate a Z offset by following the slope of the mesh
+  // element to the point where it connects to the channel element.  This point
+  // can be the center of the channel element or the point on the edge of the
+  // mesh element in the direction of the center of the channel element.
+  //
+  // If the channel element is still higher than the mesh element after
+  // applying the offset we raise the offset to make them level.  We do not do
+  // this for icemasses because there are often real situations where a glacier
+  // on a slope is higher than its neighboring mesh elements.
+  //
+  // The Z offset should be added to the Z coordinate of the mesh element
+  // center for all of its interactions with this channel neighbor.
+  //
+  // Returns: The Z coordinate offset in meters.
+  //
+  // Parameters:
+  //
+  // meshElement         - Element number of mesh element.
+  // meshVertexX         - Array of X coordinates in meters of mesh element
+  //                       vertices.
+  // meshVertexY         - Array of Y coordinates in meters of mesh element
+  //                       vertices.
+  // meshElementX        - X coordinate in meters of center of mesh element.
+  // meshElementY        - Y coordinate in meters of center of mesh element.
+  // meshElementZSurface - Surface Z coordinate in meters of center of mesh
+  //                       element.
+  // meshElementSlopeX   - Slope of mesh element in X direction, unitless.
+  // meshElementSlopeY   - Slope of mesh element in Y direction, unitless.
+  // channelElement      - Element number of channel element.
+  // channelElementX     - X coordinate in meters of center of channel element.
+  // channelElementY     - Y coordinate in meters of center of channel element.
+  // channelElementZBank - Bank Z coordinate in meters of center of channel
+  //                       element.
+  // channelType         - Channel type of channel element.
+  static double calculateZOffset(int meshElement, double meshVertexX[meshNeighborsSize], double meshVertexY[meshNeighborsSize], double meshElementX,
+                                 double meshElementY, double meshElementZSurface, double meshElementSlopeX, double meshElementSlopeY, int channelElement,
+                                 double channelElementX, double channelElementY, double channelElementZBank, ChannelTypeEnum channelType);
+  
   // Constructor.  All the constructor does is start the runForever function in
   // the SDAG code.  The constructor does not initialize or perform an
   // invariant check on the object.  The calling program should send a
@@ -47,9 +96,6 @@ public:
   //
   // p - Pack/unpack processing object.
   void pup(PUP::er &p);
-  
-  static const int meshNeighborsSize    = 3;  // Maximum number of mesh neighbors.
-  static const int channelNeighborsSize = 16; // Maximum number of channel neighbors.
   
 private:
   
@@ -94,13 +140,14 @@ private:
   // neighborY               - Y coordinate of neighbor.
   // neighborZBank           - Bank Z coordinate of neighbor.
   // neighborZBed            - Bed Z coordinate of neighbor.
+  // neighborChannelType     - Channel type of neighbor.
   // neighborBaseWidth       - Base width of neighbor.
   // neighborSideSlope       - Side slope of neighbor.
   // neighborBedConductivity - Conductivity of neighbor's channel bed.
   // neighborBedThickness    - Thickness of neighbor's channel bed.
   void handleInitializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                       double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                       double neighborBedThickness);
+                                       double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                       double neighborBedConductivity, double neighborBedThickness);
 
   // Receive a message with new forcing data.  Store this data in member
   // variables for future use.  When complete, all of the elements will
@@ -491,13 +538,15 @@ private:
   CProxy_FileManager    fileManagerProxy; // Group of file managers for I/O.
   
   // Geometric coordinates.
-  double elementX;        // Meters.
-  double elementY;        // Meters.
-  double elementZSurface; // Meters.
-  double elementZBedrock; // Meters.
-  double elementArea;     // Square meters.
-  double elementSlopeX;   // Surface slope in X direction, unitless.
-  double elementSlopeY;   // Surface slope in Y direction, unitless.
+  double vertexX[meshNeighborsSize]; // Meters
+  double vertexY[meshNeighborsSize]; // Meters
+  double elementX;                   // Meters.
+  double elementY;                   // Meters.
+  double elementZSurface;            // Meters.
+  double elementZBedrock;            // Meters.
+  double elementArea;                // Square meters.
+  double elementSlopeX;              // Surface slope in X direction, unitless.
+  double elementSlopeY;              // Surface slope in Y direction, unitless.
   
   // Identification parameters.
   int catchment;      // Catchment ID number that this element belongs to.
@@ -539,8 +588,8 @@ private:
   
   // Infiltration state variables. FIXME,need a destructor to deallocate gar_parameters and gar_domain.
   // See gar.h.
-  gar_parameters* garParameters;      // A gar_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GAR) domain.
-  gar_domain*     garDomain;          // A gar_domain struct stores all of the state of a single GAR domain.
+  //gar_parameters* garParameters;      // A gar_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GAR) domain.
+  //gar_domain*     garDomain;          // A gar_domain struct stores all of the state of a single GAR domain.
  
   // Forcing data.
   float atmosphereLayerThickness;     // Thickness in meters of lowest atmosphere layer in forcing data.  The following other variables are values from the

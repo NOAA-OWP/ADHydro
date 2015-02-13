@@ -10,6 +10,15 @@ module file_manager
       // The file manager must receive exactly one type of initialization message first.
       case
       {
+        when initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize], size_t fileBasenameSize,
+                                      const char fileBasename[fileBasenameSize])
+        {
+          serial
+          {
+            handleInitializeFromASCIIFiles(directory, fileBasename);
+          }
+        }
+        
         when initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize])
         {
           serial
@@ -30,19 +39,19 @@ module file_manager
       {
         case
         {
-          when meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface)
+          when meshVertexDataMessage(int node, double x, double y, double zSurface)
           {
             serial
             {
-              handleMeshVertexDataMessage(element, vertex, x, y, zSurface);
+              handleMeshVertexDataMessage(node, x, y, zSurface);
             }
           }
           
-          when channelVertexDataMessage(int element, int vertex, double x, double y, double zBank)
+          when channelVertexDataMessage(int node, double x, double y, double zBank)
           {
             serial
             {
-              handleChannelVertexDataMessage(element, vertex, x, y, zBank);
+              handleChannelVertexDataMessage(node, x, y, zBank);
             }
           }
         }
@@ -52,33 +61,32 @@ module file_manager
       serial
       {
         calculateDerivedValues();
+        
+        // "SDAG also supports conditional execution of statements and blocks with if statements. The syntax of SDAG if statements matches that of C and C++.
+        //  However, if one encounters a syntax error on correct-looking code in a loop or conditional statement, try assigning the condition expression to a
+        //  boolean variable in a serial block preceding the statement and then testing that boolean's value. This can be necessary because of the complexity
+        //  of parsing C++ code." - The Charm++ Parallel Programming System Manual section 5.
+        needToCreateFiles = !ADHydro::appendToInputFiles;
       }
       
-      // Then the file manager must create the output files.
-      when createFiles(size_t directorySize, const char directory[directorySize])
+      // Then if we are not appending to input files the file manager must create and write the initial state into the output files.
+      if (needToCreateFiles)
       {
-        serial
+        when createFiles(size_t directorySize, const char directory[directorySize])
         {
-          handleCreateFiles(directory);
+          serial
+          {
+            handleCreateFiles(directory);
+          }
         }
-      }
-      
-      // Then the file manager must write the initial state into the output files.
-      when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
-      {
-        serial
+        
+        when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                        double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
         {
-          handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
-        }
-      }
-      
-      // Then the file manager must read forcing data as part of initialization.
-      when readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
-                           double referenceDate, double currentTime)
-      {
-        serial
-        {
-          handleReadForcingData(directory, meshProxy, channelProxy, referenceDate, currentTime);
+          serial
+          {
+            handleWriteFiles(directory, writeGeometry, writeParameter, writeState, referenceDateNew, currentTimeNew, dtNew, iterationNew);
+          }
         }
       }
       
@@ -86,22 +94,22 @@ module file_manager
       {
         case
         {
-          // After receiving an initial forcing data message new forcing data messages can optionally arrive between timesteps.
+          // A new forcing data message can optionally arrive before a timestep.
           when readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
-                               double referenceDate, double currentTime)
+                               double referenceDateNew, double currentTimeNew)
           {
             serial
             {
-              handleReadForcingData(directory, meshProxy, channelProxy, referenceDate, currentTime);
+              handleReadForcingData(directory, meshProxy, channelProxy, referenceDateNew, currentTimeNew);
             }
           }
           
           // Update state messages can also optionally arrive between timesteps.
-          when updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
+          when updateState()
           {
             serial
             {
-              handleUpdateState(referenceDateNew, currentTimeNew, dtNew, iterationNew);
+              handleUpdateState();
             }
             
             while (!allElementsUpdated())
@@ -158,11 +166,12 @@ module file_manager
             }
             
             // Updating state must always be followed by writing that state into the output files.
-            when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState)
+            when writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                            double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
             {
               serial
               {
-                handleWriteFiles(directory, writeGeometry, writeParameter, writeState);
+                handleWriteFiles(directory, writeGeometry, writeParameter, writeState, referenceDateNew, currentTimeNew, dtNew, iterationNew);
               }
             }
           } // End when updateState.
@@ -170,16 +179,19 @@ module file_manager
       } // End while (true).
     }; // End entry void runForever().
     
+    entry void initializeFromASCIIFiles(size_t directorySize, const char directory[directorySize], size_t fileBasenameSize,
+                                        const char fileBasename[fileBasenameSize]);
     entry void initializeFromNetCDFFiles(size_t directorySize, const char directory[directorySize]);
-    entry void getMeshVertexDataMessage(int requester, int element, int vertex, int node);
-    entry void getChannelVertexDataMessage(int requester, int element, int vertex, int node);
-    entry void meshVertexDataMessage(int element, int vertex, double x, double y, double zSurface);
-    entry void channelVertexDataMessage(int element, int vertex, double x, double y, double zBank);
+    entry void getMeshVertexDataMessage(int requester, int node);
+    entry void getChannelVertexDataMessage(int requester, int node);
+    entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
+    entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void createFiles(size_t directorySize, const char directory[directorySize]);
-    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState);
+    entry void writeFiles(size_t directorySize, const char directory[directorySize], bool writeGeometry, bool writeParameter, bool writeState,
+                          double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
     entry void readForcingData(size_t directorySize, const char directory[directorySize], CProxy_MeshElement meshProxy, CProxy_ChannelElement channelProxy,
-                               double referenceDate, double currentTime);
-    entry void updateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
+                               double referenceDateNew, double currentTimeNew);
+    entry void updateState();
     entry void meshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
                                 double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
                                 double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,

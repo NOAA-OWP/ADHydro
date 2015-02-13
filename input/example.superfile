@@ -1,19 +1,30 @@
 inputDirectory           = /share/CI-WATER_Simulation_Data/small_green_mesh
 outputDirectory          = /localstore/output
-; initializeFromASCIIFiles = false     ; If initializeFromASCIIFiles is not in the superfile it defaults to false and the simulation will initialize from
-                                       ; NetCDF files.
-; referenceDate            = 2457013.0 ; If referenceDate is not in the superfile it will first attempt to convert the Gregorian date in referenceDateYear,
-; referenceDateYear        = 2000      ; referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute, and referenceDateSecond to a Julian
-; referenceDateMonth       = 1         ; date.  If that is unsuccessful it will be taken from the input NetCDF files.
-; referenceDateDay         = 1
-; referenceDateHour        = 0
-; referenceDateMinute      = 0
-; referenceDateSecond      = 0.0
-; currentTime              = 0.0       ; If currentTime is not in the superfile it will be taken from the input NetCDF files.
-simulationDuration       = 10.0       ; If simulationDuration is not in the superfile it defaults to zero and the simulation will not run any timesteps.
-; dt                       = 1.0       ; If dt is not in the superfile it will be taken from the input NetCDF files.
-; outputPeriod             = 0.0       ; If outputPeriod is not in the superfile it defaults to zero and the simulation will output every timestep.
-; iteration                = 1         ; If iteration is not in the superfile it will be taken from the input NetCDF files.
-; drainDownMode            = false     ; If drainDownMode is true the simulation will operate in a special mode to generate a groundwater initial condition.
-                                       ; In this mode, there will be no precipitation, and water level in the channels will be capped.
-                                       ; If drainDownMode is not in the superfile it defaults to false.
+
+;appendToInputFiles       = false     ; If appendToInputFiles is true the simulation will append its output to the files in inputDirectory and outputDirectory
+                                      ; will be ignored.  If appendToInputFiles is not in the superfile it defaults to false.  appendToInputFiles is mutually
+                                      ; exclusive with initializeFromASCIIFiles.  We cannot place output in the ASCII file format.
+;initializeFromASCIIFiles = false     ; If initializeFromASCIIFiles is not in the superfile it defaults to false and the simulation will initialize from
+                                      ; NetCDF files.  initializeFromASCIIFiles is mutually exclusive with appendToInputFiles.  We cannot place output in the
+                                      ; ASCII file format.
+;asciiFileBasename        = mesh.1    ; The basename of the ASCII files if initializing from ASCII files.
+;referenceDate            = 2457013.0 ; If referenceDate is not in the superfile it will first attempt to convert the Gregorian date in referenceDateYear,
+;referenceDateYear        = 2000      ; referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute, and referenceDateSecond to a Julian
+;referenceDateMonth       = 1         ; date.  If that is unsuccessful referenceDate will be taken from the input NetCDF files.
+;referenceDateDay         = 1
+;referenceDateHour        = 0
+;referenceDateMinute      = 0
+;referenceDateSecond      = 0.0
+;currentTime              = 0.0       ; If currentTime is not in the superfile it will be taken from the input NetCDF files.
+;simulationDuration       = 0.0       ; If simulationDuration is not in the superfile it defaults to zero and the simulation will run zero timesteps.
+                                      ; Running zero timesteps can be useful for initially reading in the mesh from ASCII files and outputting to NetCDF.
+;dt                       = 1.0       ; If dt is not in the superfile it will be taken from the input NetCDF files.
+;outputPeriod             = 0.0       ; If outputPeriod is not in the superfile it defaults to zero and the simulation will output every timestep.
+;iteration                = 1         ; If iteration is not in the superfile it will be taken from the input NetCDF files.
+;drainDownMode            = false     ; If drainDownMode is true the simulation will operate in a special mode to generate a groundwater initial condition.
+                                      ; In this mode, there will be no precipitation, and water level in the channels will be capped at zBank.
+                                      ; If drainDownMode is not in the superfile it defaults to false.
+;doMeshMassage            = false     ; If doMeshMassage is true the simulation will run mesh massage to fix digital pits and similar problems.
+                                      ; If doMeshMassage is not in the superfile it defaults to false.
+;verbosityLevel           = 2         ; Controls how much is printed to the display.  Least verbose is zero.  Most verbose is four.
+                                      ; If verbosityLevel is not in the superfile it defaults to two.

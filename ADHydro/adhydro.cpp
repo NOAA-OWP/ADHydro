@@ -2,7 +2,11 @@
 #include "file_manager.h"
 #include "INIReader.h"
 
+// Read-only global variables.
+bool ADHydro::appendToInputFiles;
 bool ADHydro::drainDownMode;
+bool ADHydro::doMeshMassage;
+int  ADHydro::verbosityLevel;
 
 void ADHydro::setLoadBalancingToManual()
 {
@@ -20,6 +24,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
   long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
   double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
+  std::string asciiFileBasename;                                       // The basename of the ASCII files if initializing from ASCII files.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // If the superfile cannot be read print usage message and exit.
@@ -41,12 +46,23 @@ ADHydro::ADHydro(CkArgMsg* msg)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
   // Get initialization values from the superfile.
-  inputDirectory  = superfile.Get("", "inputDirectory", "");
-  outputDirectory = superfile.Get("", "outputDirectory", "");
-  referenceDate   = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian
-                                                                 // date in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
-                                                                 // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
-                                                                 // will be taken from the input NetCDF files.
+  inputDirectory     = superfile.Get("", "inputDirectory", "");
+  appendToInputFiles = superfile.GetBoolean("", "appendToInputFiles", false); // If appendToInputFiles is not in the superfile it defaults to false and new
+                                                                              // output files will be created in outputDirectory.
+  
+  if (appendToInputFiles)
+    {
+      outputDirectory = inputDirectory;
+    }
+  else
+    {
+      outputDirectory = superfile.Get("", "outputDirectory", "");
+    }
+  
+  referenceDate = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian date
+                                                               // in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
+                                                               // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
+                                                               // will be taken from the input NetCDF files.
   
   // If there is no referenceDate read a Gregorian date and convert to julian date.
   if (isnan(referenceDate))
@@ -59,8 +75,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
       referenceDateSecond = superfile.GetReal("", "referenceDateSecond", -1.0);
       
       if (1 <= referenceDateYear && 1 <= referenceDateMonth && 12 >= referenceDateMonth && 1 <= referenceDateDay && 31 >= referenceDateDay &&
-          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0 <= referenceDateSecond &&
-          60 > referenceDateSecond)
+          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0.0 <= referenceDateSecond &&
+          60.0 > referenceDateSecond)
         {
           referenceDate = gregorianToJulian(referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute,
                                             referenceDateSecond);
@@ -77,6 +93,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
                                                                          // will run in normal mode.
+  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // If doMeshMassage is not in the superfile it defaults to false and mesh massage will
+                                                                         // not be run.
+  verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);    // If verbosityLevel is not in the superfile it defaults to two.
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();
@@ -87,16 +106,28 @@ ADHydro::ADHydro(CkArgMsg* msg)
   // Initialize the file manager.
   if (superfile.GetBoolean("", "initializeFromASCIIFiles", false))
     {
-      // FIXME implement initializeFromASCIIFiles
-      //fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), strlen("mesh.1") + 1, "mesh.1");
-      CkError("ERROR in ADHydro::ADHydro: initializeFromASCIIFiles not yet implemented.\n");
-      CkExit();
+      if (appendToInputFiles)
+        {
+          CkError("ERROR in ADHydro::ADHydro: superfile options appendToInputFiles and initializeFromASCIIFiles are mutually exclusive.  We cannot place "
+                  "output in the ASCII file format.\n");
+          CkExit();
+        }
+      
+      asciiFileBasename = superfile.Get("", "asciiFileBasename", "");
+      
+      fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), asciiFileBasename.length() + 1,
+                                                asciiFileBasename.c_str());
     }
   else
     {
       // FIXME send a std::string in the message instead of a C string and length?
       // FIXME or make inputDirectory and outputDirectory read only variables?
       fileManagerProxy.initializeFromNetCDFFiles(inputDirectory.length() + 1, inputDirectory.c_str());
+    }
+  
+  if (1 <= verbosityLevel)
+    {
+      CkPrintf("Reading input files.\n");
     }
 }
 
@@ -126,10 +157,27 @@ void ADHydro::pup(PUP::er &p)
   p | writeGeometry;
   p | writeParameter;
   p | needToCheckInvariant;
+  p | printMessage;
 }
 
 void ADHydro::fileManagerInitialized()
 {
+  if (1 <= verbosityLevel)
+    {
+      CkPrintf("Finished reading input files.\n");
+      
+      if (appendToInputFiles)
+        {
+          printMessage = false;
+        }
+      else
+        {
+          CkPrintf("Writing output files.\n");
+          
+          printMessage = true;
+        }
+    }
+  
   // Initialize member variables.
   if (isnan(referenceDate))
     {
@@ -156,8 +204,6 @@ void ADHydro::fileManagerInitialized()
     }
   
   startingIteration    = iteration;
-  writeGeometry        = true;
-  writeParameter       = true;
   needToCheckInvariant = true;
   
   // Create mesh and channels.
@@ -182,11 +228,26 @@ void ADHydro::fileManagerInitialized()
       channelProxy.initialize(meshProxy, fileManagerProxy);
     }
   
-  // Set the callback to write output files after they are created.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
-  
-  // Have the file manager create output files.
-  fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
+  if (appendToInputFiles)
+    {
+      // Do not need to write the geometry and parameter files when appending to input files.
+      writeGeometry  = false;
+      writeParameter = false;
+      
+      checkForcingData();
+    }
+  else
+    {
+      // Need to write the geometry and parameter files when creating new output files.
+      writeGeometry  = true;
+      writeParameter = true;
+      
+      // Set the callback to write output files after they are created.
+      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
+
+      // Have the file manager create output files.
+      fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
+    }
 }
 
 void ADHydro::writeFiles()
@@ -194,7 +255,8 @@ void ADHydro::writeFiles()
   // Set the callback to check forcing data when files are written.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
   
-  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true);
+  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true, referenceDate, currentTime, dt,
+                              iteration);
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
@@ -203,9 +265,23 @@ void ADHydro::writeFiles()
 
 void ADHydro::checkForcingData()
 {
-  if (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
-      fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0))
+  if (printMessage)
     {
+      CkPrintf("Finished writing output files.\n");
+      
+      printMessage = false;
+    }
+  
+  if (endTime > currentTime && (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
+                                fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0)))
+    {
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("Reading forcing data.\n");
+          
+          printMessage = true;
+        }
+      
       // Set callback.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
@@ -238,6 +314,37 @@ void ADHydro::checkForcingData()
 
 void ADHydro::forcingDataDone()
 {
+  long   forcingDataYear;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMonth;  // For calculating Gregorian date from Julian date.
+  long   forcingDataDay;    // For calculating Gregorian date from Julian date.
+  long   forcingDataHour;   // For calculating Gregorian date from Julian date.
+  long   forcingDataMinute; // For calculating Gregorian date from Julian date.
+  double forcingDataSecond; // For calculating Gregorian date from Julian date.
+  long   simulationYear;    // For calculating Gregorian date from Julian date.
+  long   simulationMonth;   // For calculating Gregorian date from Julian date.
+  long   simulationDay;     // For calculating Gregorian date from Julian date.
+  long   simulationHour;    // For calculating Gregorian date from Julian date.
+  long   simulationMinute;  // For calculating Gregorian date from Julian date.
+  double simulationSecond;  // For calculating Gregorian date from Julian date.
+  
+  if (printMessage)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+      julianToGregorian(fileManagerProxy.ckLocalBranch()->forcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
+                        &forcingDataMinute, &forcingDataSecond);
+      julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                        &simulationMinute, &simulationSecond);
+      
+      CkPrintf("Finished reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
+               forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
+               simulationHour, simulationMinute, simulationSecond);
+      
+      printMessage = false;
+    }
+  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   // If debug level is set to internal invariants check every timestep.
   checkInvariant();
@@ -323,7 +430,10 @@ void ADHydro::doTimestep()
         }
 
       // Print at beginning of timestep.
-      CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu\n", currentTime, dt, iteration);
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu.\n", currentTime, dt, iteration);
+        }
 
       // Set callbacks and start timestep.
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
@@ -350,7 +460,11 @@ void ADHydro::doTimestep()
     }
   else
     {
-      CkPrintf("currentTime = %lf, simulation finished\n", currentTime);
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("currentTime = %lf, simulation finished.\n", currentTime);
+        }
+      
       CkExit();
     }
 }
@@ -373,12 +487,24 @@ void ADHydro::timestepDone(double dtNew)
   // Load balance once after waiting a few iterations to generate load statistics.
   if (startingIteration + 5 == iteration && 1 < CkNumPes())
     {
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("Starting load balancing.\n");
+        }
+      
       CkStartLB();
     }
 
   // Check if it is time to output to file.
   if (currentTime >= nextOutputTime || currentTime >= endTime)
     {
+      if (1 <= verbosityLevel)
+        {
+          CkPrintf("Writing output files.\n");
+          
+          printMessage = true;
+        }
+      
       if (0.0 < outputPeriod)
         {
           // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.
@@ -389,7 +515,7 @@ void ADHydro::timestepDone(double dtNew)
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
 
       // Start the output phase.
-      fileManagerProxy.updateState(referenceDate, currentTime, dt, iteration);
+      fileManagerProxy.updateState();
       
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {

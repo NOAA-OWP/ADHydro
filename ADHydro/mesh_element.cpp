@@ -1,4 +1,5 @@
 #include "mesh_element.h"
+#include "adhydro.h"
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
@@ -8,8 +9,45 @@
 // How to make it send the high priority messages out first?  We want all the messages going to other nodes to go out as soon as possible.
 // Will it send out one MPI message per mesh edge rather than all of the ghost node information in a single message?  Yes, I believe so.
 // As elements migrate to different nodes update interaction in a way that guarantees both sides agree on the interaction.
-// Scale channel dx w/ bankfull depth?
 // Think about implications of file manager files being open or closed when checkpointing.
+
+double MeshElement::calculateZOffset(int meshElement, double meshVertexX[meshNeighborsSize], double meshVertexY[meshNeighborsSize], double meshElementX,
+                                     double meshElementY, double meshElementZSurface, double meshElementSlopeX, double meshElementSlopeY, int channelElement,
+                                     double channelElementX, double channelElementY, double channelElementZBank, ChannelTypeEnum channelType)
+{
+  int    ii;                        // Loop counter.
+  bool   foundIntersection = false; // Whether the line segment from the center of the mesh element to the center of the channel element intersects any edges
+                                    // of the mesh element.
+  double zOffset;                   // The Z coordinate offset that is being calculated.
+  
+  // If the center of the channel element is not inside the mesh element only follow the slope of the mesh element to the edge of the mesh element.  We do this
+  // by finding whether the line segment from the center of the mesh element to the center of the channel element intersects any of the mesh edges, and if it
+  // does use the intersection point instead of the center of the channel element.
+  for (ii = 0; !foundIntersection && ii < meshNeighborsSize; ii++)
+    {
+      foundIntersection = get_line_intersection(meshElementX, meshElementY, channelElementX, channelElementY, meshVertexX[ii], meshVertexY[ii],
+                                                meshVertexX[(ii + 1) % meshNeighborsSize], meshVertexY[(ii + 1) % meshNeighborsSize], &channelElementX,
+                                                &channelElementY);
+    }
+  
+  zOffset = (channelElementX - meshElementX) * meshElementSlopeX + (channelElementY - meshElementY) * meshElementSlopeY;
+  
+  // If the channel element is still higher than the mesh element after applying the offset we raise the offset to make them level.  We do not do this for
+  // icemasses because there are often real situations where a glacier on a slope is higher than its neighboring mesh elements.
+  if (ICEMASS != channelType && zOffset < channelElementZBank - meshElementZSurface)
+    {
+      if ((2 <= ADHydro::verbosityLevel && 100.0 < channelElementZBank - meshElementZSurface - zOffset) ||
+          (3 <= ADHydro::verbosityLevel &&  10.0 < channelElementZBank - meshElementZSurface - zOffset) || 4 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::calculateZOffset: mesh element %d is lower than neighboring channel element %d by %lf meters.  Raising zOffset to "
+                  "make them level.\n", meshElement, channelElement, channelElementZBank - meshElementZSurface - zOffset);
+        }
+      
+      zOffset = channelElementZBank - meshElementZSurface;
+    }
+  
+  return zOffset;
+}
 
 MeshElement::MeshElement()
 {
@@ -28,6 +66,8 @@ void MeshElement::pup(PUP::er &p)
   __sdag_pup(p);
   p | channelProxy;
   p | fileManagerProxy;
+  PUParray(p, vertexX, meshNeighborsSize);
+  PUParray(p, vertexY, meshNeighborsSize);
   p | elementX;
   p | elementY;
   p | elementZSurface;
@@ -155,7 +195,7 @@ bool MeshElement::allInvariantChecked()
 void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProxy_FileManager fileManagerProxyInit)
 {
   bool         error                  = false;                                                     // Error flag.
-  int          ii, edge;                                                                           // Loop counters.
+  int          ii, edge, edge2;                                                                    // Loop counters.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                      // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localMeshElementStart; // Index of this element in file manager arrays.
   
@@ -172,6 +212,44 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       channelProxy     = channelProxyInit;
       fileManagerProxy = fileManagerProxyInit;
       
+      if (NULL != fileManagerLocalBranch->meshVertexX)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              vertexX[edge] = fileManagerLocalBranch->meshVertexX[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: vertexX initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
+      if (NULL != fileManagerLocalBranch->meshVertexY)
+        {
+          for (edge = 0; edge < meshNeighborsSize; edge++)
+            {
+              vertexY[edge] = fileManagerLocalBranch->meshVertexY[fileManagerLocalIndex][edge];
+            }
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      else
+        {
+          CkError("ERROR in MeshElement::handleInitialize, element %d: vertexY initialization information not available from local file manager.\n",
+                  thisIndex);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  
+  if (!error)
+    {
       if (NULL != fileManagerLocalBranch->meshElementX)
         {
           elementX = fileManagerLocalBranch->meshElementX[fileManagerLocalIndex];
@@ -918,6 +996,7 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
+  /*
   // FIXME, wencong, initialize gar_domain here ?? Use some fake numbers for testing.
   if (!error)
     {
@@ -928,11 +1007,29 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   if (!error)
     {
       // gar_domain_alloc(&domain, parameters, layer_top_depth, layer_bottom_depth, yes_groundwater, initial_water_content, yes_groundwater, water_table);
-      error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
+      // error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
+      // gar_domain_alloc can't have layer thickness of zero, and now we have some of those in the mesh.
+      error = gar_domain_alloc(&garDomain, garParameters, 0.0, 1.0, true, 0.2, true, elementZSurface - groundwaterHead);
     }
   // End of gar_domain initialization.
+   */
     
-  // Forcing data will be initialized when the sdag code forces the object to receive a forcing data message before processing any timesteps.
+  // Forcing data will be initialized when the object receives a forcing data message.  Set to default values here.
+  atmosphereLayerThickness     = 20.0f;
+  shadedFraction               = 0.0f;
+  shadedFractionMaximum        = 0.0f;
+  surfaceTemperature           = 0.0f;
+  surfacePressure              = 101300.0f;
+  atomsphereLayerPressure      = 101300.0f - 120.0f;
+  eastWindSpeed                = 0.0f;
+  northWindSpeed               = 0.0f;
+  atmosphereLayerMixingRatio   = 0.0f;
+  cloudMixingRatio             = 0.0f;
+  shortWaveRadiationDown       = 0.0f;
+  longWaveRadiationDown        = 0.0f;
+  precipitationRate            = 0.0f;
+  soilBottomTemperature        = 0.0f;
+  planetaryBoundaryLayerHeight = 200.0f;
   
   if (!error)
     {
@@ -973,10 +1070,31 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                 }
               else if (0 <= meshNeighbors[edge] && meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
                 {
-                  meshNeighborsInitialized[edge] = false;
+                  // Self-neighbors and duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  if (thisIndex == meshNeighbors[edge])
+                    {
+                      CkError("ERROR in MeshElement::handleInitialize, element %d, edge %d: meshNeighbors has an element as its own neighbor.\n",
+                              thisIndex, edge);
+                      error = true;
+                    }
                   
-                  thisProxy[meshNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock, elementArea,
-                                                                        conductivity, manningsN);
+                  for (edge2 = 0; !error && edge2 < edge; edge2++)
+                    {
+                      if (meshNeighbors[edge2] == meshNeighbors[edge])
+                        {
+                          CkError("ERROR in MeshElement::handleInitialize, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      meshNeighborsInitialized[edge] = false;
+
+                      thisProxy[meshNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock, elementArea,
+                                                                            conductivity, manningsN);
+                    }
                 }
               else
                 {
@@ -1086,10 +1204,24 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
                 }
               else if (0 <= channelNeighbors[edge] && channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
                 {
-                  channelNeighborsInitialized[edge] = false;
-                  
-                  channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, elementX, elementY, elementZSurface, elementZBedrock,
-                                                                              elementSlopeX, elementSlopeY);
+                  // Duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  for (edge2 = 0; !error && edge2 < edge; edge2++)
+                    {
+                      if (channelNeighbors[edge2] == channelNeighbors[edge])
+                        {
+                          CkError("ERROR in MeshElement::handleInitialize, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      channelNeighborsInitialized[edge] = false;
+
+                      channelProxy[channelNeighbors[edge]].initializeMeshNeighbor(thisIndex, edge, vertexX, vertexY, elementX, elementY, elementZSurface,
+                                                                                  elementZBedrock, elementSlopeX, elementSlopeY);
+                    }
                 }
               else
                 {
@@ -1180,8 +1312,8 @@ void MeshElement::handleInitializeMeshNeighbor(int neighbor, int neighborRecipro
 }
 
 void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZBank,
-                                                  double neighborZBed, double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
-                                                  double neighborBedThickness)
+                                                  double neighborZBed, ChannelTypeEnum neighborChannelType, double neighborBaseWidth, double neighborSideSlope,
+                                                  double neighborBedConductivity, double neighborBedThickness)
 {
   bool error = false; // Error flag.
   int  edge  = 0;     // Loop counter.
@@ -1207,7 +1339,8 @@ void MeshElement::handleInitializeChannelNeighbor(int neighbor, int neighborReci
       channelNeighborsInteraction[edge]     = BOTH_CALCULATE_FLOW_RATE;
       channelNeighborsZBank[edge]           = neighborZBank;
       channelNeighborsZBed[edge]            = neighborZBed;
-      channelNeighborsZOffset[edge]         = (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY;
+      channelNeighborsZOffset[edge]         = calculateZOffset(thisIndex, vertexX, vertexY, elementX, elementY, elementZSurface, elementSlopeX, elementSlopeY,
+                                                               neighbor, neighborX, neighborY, neighborZBank, neighborChannelType);
       channelNeighborsBaseWidth[edge]       = neighborBaseWidth;
       channelNeighborsSideSlope[edge]       = neighborSideSlope;
       channelNeighborsBedConductivity[edge] = neighborBedConductivity;
@@ -1228,25 +1361,173 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
                                            float shortWaveRadiationDownNew, float longWaveRadiationDownNew, float precipitationRateNew,
                                            float soilBottomTemperatureNew, float planetaryBoundaryLayerHeightNew)
 {
-  // FIXME error checking on inputs.
+  bool error = false; // Error flag.
   
-  atmosphereLayerThickness     = atmosphereLayerThicknessNew;
-  shadedFraction               = shadedFractionNew;
-  shadedFractionMaximum        = shadedFractionMaximumNew;
-  surfaceTemperature           = surfaceTemperatureNew;
-  surfacePressure              = surfacePressureNew;
-  atomsphereLayerPressure      = atomsphereLayerPressureNew;
-  eastWindSpeed                = eastWindSpeedNew;
-  northWindSpeed               = northWindSpeedNew;
-  atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
-  cloudMixingRatio             = cloudMixingRatioNew;
-  shortWaveRadiationDown       = shortWaveRadiationDownNew;
-  longWaveRadiationDown        = longWaveRadiationDownNew;
-  precipitationRate            = precipitationRateNew;
-  soilBottomTemperature        = soilBottomTemperatureNew;
-  planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0f < atmosphereLayerThicknessNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atmosphereLayerThicknessNew must be greater than zero.\n", thisIndex);
+      error = true;
+    }
   
-  contribute();
+  if (!(0.0f <= shadedFractionNew && shadedFractionNew <= shadedFractionMaximumNew && 1.0f >= shadedFractionMaximumNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: shadedFractionNew must be greater than or equal to zero and less than or equal "
+              "to shadedFractionMaximumNew.  shadedFractionMaximumNew must be less than or equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperatureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: surfacePressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfacePressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: magnitude of eastWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: magnitude of northWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatioNew && 1.0f >= atmosphereLayerMixingRatioNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: atmosphereLayerMixingRatioNew must be greater than or equal to zero and less "
+              "than or equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatioNew && 1.0f >= cloudMixingRatioNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: cloudMixingRatioNew must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDownNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: shortWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDownNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: longWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRateNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: precipitationRateNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperatureNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeightNew))
+    {
+      CkError("ERROR in MeshElement::handleForcingDataMessage, element %d: planetaryBoundaryLayerHeightNew must be greater than or equal to zero.\n",
+              thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      atmosphereLayerThickness     = atmosphereLayerThicknessNew;
+      shadedFraction               = shadedFractionNew;
+      shadedFractionMaximum        = shadedFractionMaximumNew;
+      surfaceTemperature           = surfaceTemperatureNew;
+      surfacePressure              = surfacePressureNew;
+      atomsphereLayerPressure      = atomsphereLayerPressureNew;
+      eastWindSpeed                = eastWindSpeedNew;
+      northWindSpeed               = northWindSpeedNew;
+      atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
+      cloudMixingRatio             = cloudMixingRatioNew;
+      shortWaveRadiationDown       = shortWaveRadiationDownNew;
+      longWaveRadiationDown        = longWaveRadiationDownNew;
+      precipitationRate            = precipitationRateNew;
+      soilBottomTemperature        = soilBottomTemperatureNew;
+      planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+    }
+
+  if (error)
+    {
+      CkExit();
+    }
+  else
+    {
+      contribute();
+    }
 }
 
 // Suppress warning enum value not handled in switch.
@@ -1342,7 +1623,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
         {
           cosZ = 0.0f;
         }
-      
+
       // FIXME get real values for soil moisture from infiltration state.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -1350,7 +1631,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
                                     evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]); // Depth as a negative number.
           distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
 
-          if (0.1 > distanceAboveWaterTable)
+          if (0.1 >= distanceAboveWaterTable)
             {
               relativeSaturation = 1.0;
             }
@@ -1358,9 +1639,9 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
             {
               relativeSaturation = 1.0 - (log10(distanceAboveWaterTable) + 1.0) * 0.3;
 
-              if (0.0 > relativeSaturation)
+              if (0.01 > relativeSaturation)
                 {
-                  relativeSaturation = 0.0;
+                  relativeSaturation = 0.01;
                 }
             }
 
@@ -1368,7 +1649,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
           sh2o[ii]  = porosity * relativeSaturation;
           smc[ii]   = porosity * relativeSaturation;
         }
-
+      
       error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), atmosphereLayerThickness,
                                      shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN, surfacePressure,
                                      atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
@@ -1410,13 +1691,16 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
               evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
               groundwaterHead        = elementZBedrock;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %le meters.\n",
-                      thisIndex, unsatisfiedEvaporation);
+              if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied evaporation from ground of %le meters.\n", thisIndex,
+                          unsatisfiedEvaporation);
+                }
             }
         }
       
-      // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater
-      // print a warning and reduce the quantity of transpiration.
+      // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater print a
+      // warning and reduce the quantity of transpiration.
       unsatisfiedEvaporation = transpiration / 1000.0;
       
       if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
@@ -1441,7 +1725,11 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
               evaporation            -= surfacewaterDepth;
               surfacewaterDepth       = 0.0;
               
-              CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %le meters.\n", thisIndex, unsatisfiedEvaporation);
+              if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in MeshElement::handleDoTimestep, element %d: unsatisfied transpiration of %le meters.\n", thisIndex,
+                          unsatisfiedEvaporation);
+                }
             }
         }
       
@@ -1456,7 +1744,8 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
           // Set the flow rate state for this timestep to not ready.
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
 
-          if (!isBoundary(meshNeighbors[edge]))
+          // If either I or my neighbor have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+          if (!(isBoundary(meshNeighbors[edge]) || elementZSurface == elementZBedrock || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge]))
             {
               // Send my state to my neighbor.
               switch (meshNeighborsInteraction[edge])
@@ -1477,7 +1766,8 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
 
       for (edge = 0; edge < channelNeighborsSize; edge++)
         {
-          if (!isBoundary(channelNeighbors[edge]))
+          // If I have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+          if (!(isBoundary(channelNeighbors[edge]) || elementZSurface == elementZBedrock))
             {
               // Set the flow rate state for this timestep to not ready.
               channelNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
@@ -1521,19 +1811,30 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
 {
   bool error = false; // Error flag.
   int  edge;          // Loop counter.
+  int  neighbor;      // A neighboring element or boundary condition code.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]))
+      // If either I or my neighbor have bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+      if (elementZSurface == elementZBedrock || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge])
+        {
+          neighbor = NOFLOW;
+        }
+      else
+        {
+          neighbor = meshNeighbors[edge];
+        }
+      
+      if (isBoundary(neighbor))
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsGroundwaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
           // Calculate groundwater flow rate.
-          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)meshNeighbors[edge],
-                                                  meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
-                                                  elementZBedrock, elementArea, elementSlopeX, elementSlopeY, conductivity, groundwaterHead);
+          error = groundwaterMeshBoundaryFlowRate(&meshNeighborsGroundwaterFlowRate[edge], (BoundaryConditionEnum)neighbor, meshNeighborsEdgeLength[edge],
+                                                  meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], elementZBedrock, elementArea, elementSlopeX,
+                                                  elementSlopeY, conductivity, groundwaterHead);
           
           if (!error)
             {
@@ -1554,8 +1855,16 @@ void MeshElement::handleCalculateGroundwaterBoundaryConditionsMessage(size_t ite
     {
       // Calculate infiltration.  FIXME trivial infiltration, improve.
      
-      // Calculate the amount that infiltrates.
-      surfacewaterInfiltration = conductivity * dt; // Meters of water.
+      // Calculate the amount that infiltrates.  If I have bedrock at the surface there is no infiltration.
+      if (elementZSurface == elementZBedrock)
+        {
+          surfacewaterInfiltration = 0.0; // Meters of water.
+        }
+      else
+        {
+          surfacewaterInfiltration = conductivity * dt; // Meters of water.
+        }
+      
       if (surfacewaterInfiltration > surfacewaterDepth)
         {
           surfacewaterInfiltration = surfacewaterDepth;
@@ -1961,6 +2270,11 @@ void MeshElement::checkGroundwaterFlowRates(size_t iterationThisMessage)
           groundwaterAvailable = (groundwaterHead - elementZBedrock) * elementArea * porosity;
         }
       
+      if (0.0 < groundwaterRecharge)
+        {
+          groundwaterAvailable += groundwaterRecharge;
+        }
+      
       if (groundwaterAvailable < totalOutwardFlowRate * dt)
         {
           outwardFlowRateFraction = groundwaterAvailable / (totalOutwardFlowRate * dt);
@@ -2185,6 +2499,8 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // Set the flow rate state for this timestep to not ready.
       meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
       if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge]))
         {
           // Send my state to my neighbor.
@@ -2240,32 +2556,34 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
 
 void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(size_t iterationThisMessage)
 {
-  bool                  error = false; // Error flag.
-  int                   edge;          // Loop counter.
-  BoundaryConditionEnum boundary;      // Boundary condition code to pass to the function to calculate flow rate.
+  bool error = false; // Error flag.
+  int  edge;          // Loop counter.
+  int  neighbor;      // A neighboring element or boundary condition code.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge])
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
+      if (meshNeighborsChannelEdge[edge])
+        {
+          neighbor = NOFLOW;
+        }
+      else
+        {
+          neighbor = meshNeighbors[edge];
+        }
+      
+      if (isBoundary(neighbor))
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-          if (isBoundary(meshNeighbors[edge]))
-            {
-              boundary = (BoundaryConditionEnum)meshNeighbors[edge];
-            }
-          else
-            {
-              // Channel edge.  No direct flow to/from mesh neighbor on other side of channel.
-              boundary = NOFLOW;
-            }
-          
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, meshNeighborsEdgeLength[edge],
-                                                   meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor, 0.0, 0.0, 0.0,
+                                                   meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
+                                                   surfacewaterDepth);
           
           if (!error)
             {
@@ -2763,7 +3081,7 @@ void MeshElement::moveSurfacewater()
 void MeshElement::handleCheckInvariant()
 {
   bool error = false; // Error flag.
-  int  edge;          // Loop counter.
+  int  edge, edge2;   // Loop counters.
   
   if (!(elementZSurface >= elementZBedrock))
     {
@@ -2845,7 +3163,139 @@ void MeshElement::handleCheckInvariant()
     }
   
   // FIXME check invariant on GARTO data
-  // FIXME check invariant on forcing data
+  
+  if (!(0.0f < atmosphereLayerThickness))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atmosphereLayerThickness must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFraction && shadedFraction <= shadedFractionMaximum && 1.0f >= shadedFractionMaximum))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: shadedFraction must be greater than or equal to zero and less than or equal to "
+              "shadedFractionMaximum.  shadedFractionMaximum must be less than or equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperature))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressure))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacePressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfacePressure below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressure))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atomsphereLayerPressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: atomsphereLayerPressure below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: magnitude of eastWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: magnitude of northWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatio && 1.0f >= atmosphereLayerMixingRatio))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: atmosphereLayerMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatio && 1.0f >= cloudMixingRatio))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: cloudMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDown))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: shortWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDown))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: longWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRate))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: precipitationRate must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperature))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeight))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: planetaryBoundaryLayerHeight must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
   
   if (!groundwaterDone)
     {
@@ -2949,6 +3399,13 @@ void MeshElement::handleCheckInvariant()
           error = true;
         }
       
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
+          error = true;
+        }
+      
       if (!(0 <= channelNeighborsReciprocalEdge[edge] && channelNeighborsReciprocalEdge[edge] < ChannelElement::meshNeighborsSize))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsReciprocalEdge must be a valid array index.\n",
@@ -2971,11 +3428,23 @@ void MeshElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!(0.0 < channelNeighborsEdgeLength[edge]))
+      if (NOFLOW == channelNeighbors[edge])
         {
-          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be greater than zero.\n",
-                  thisIndex, edge);
-          error = true;
+          if (!(0.0 == channelNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be zero for a NOFLOW edge.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+        }
+      else
+        {
+          if (!(0.0 < channelNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be greater than zero for a non-NOFLOW "
+                      "edge.\n", thisIndex, edge);
+              error = true;
+            }
         }
       
       if (!(FLOW_RATE_LIMITING_CHECK_DONE == channelNeighborsSurfacewaterFlowRateReady[edge]))
@@ -3003,6 +3472,23 @@ void MeshElement::handleCheckInvariant()
             }
           else
             {
+              if (thisIndex == meshNeighbors[edge])
+                {
+                  CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has an element as its own neighbor.\n",
+                          thisIndex, edge);
+                  error = true;
+                }
+              
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (meshNeighbors[edge2] == meshNeighbors[edge])
+                    {
+                      CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               meshNeighborsInvariantChecked[edge] = false;
               
               thisProxy[meshNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, meshNeighborsReciprocalEdge[edge], edge, meshNeighborsChannelEdge[edge],
@@ -3023,6 +3509,16 @@ void MeshElement::handleCheckInvariant()
             }
           else
             {
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (channelNeighbors[edge2] == channelNeighbors[edge])
+                    {
+                      CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               channelNeighborsInvariantChecked[edge] = false;
               
               channelProxy[channelNeighbors[edge]].checkMeshNeighborInvariant(thisIndex, channelNeighborsReciprocalEdge[edge], edge,
@@ -3225,8 +3721,7 @@ void MeshElement::handleCheckChannelNeighborInvariant(int neighbor, int edge, in
       error = true;
     }
   
-  if (!(neighborZOffset == channelNeighborsZOffset[edge] &&
-        (neighborX - elementX) * elementSlopeX + (neighborY - elementY) * elementSlopeY == channelNeighborsZOffset[edge]))
+  if (!(neighborZOffset == channelNeighborsZOffset[edge]))
     {
       CkError("ERROR in MeshElement::handleCheckChannelNeighborInvariant, element %d, edge %d: channelNeighborsZOffset is incorrect.\n", thisIndex, edge);
       error = true;

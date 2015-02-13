@@ -1,6 +1,6 @@
 # Use these values for Mt Moran.
 
-#CHARMDIR   := /project/CI-WATER/tools/build/charm-6.6.0
+#CHARMDIR   := /project/CI-WATER/tools/build/charm
 #HDF5DIR    := /apps/HDF5-mpi/intel/15.0.0/1.8.13
 #NETCDFDIR  := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
 #METISDIR   := /project/CI-WATER/tools
@@ -101,11 +101,13 @@ adhydro_channel_preprocessing: $(ADHYDRO_CHANNEL_PREPROCESSING_OBJS)
 	$(CXX) $^ -o $@ -lshp -g -Wall
 
 adhydro_channel_preprocessing.o: adhydro_channel_preprocessing.cpp \
+                                 mesh_element.h                    \
                                  mesh_element.decl.h               \
                                  channel_element.h                 \
                                  channel_element.decl.h            \
                                  file_manager.decl.h               \
                                  evapo_transpiration.h             \
+                                 gar.h                             \
                                  all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
@@ -140,6 +142,8 @@ mesh_element.o: mesh_element.cpp       \
                 mesh_element.h         \
                 mesh_element.decl.h    \
                 mesh_element.def.h     \
+                adhydro.h              \
+                adhydro.decl.h         \
                 channel_element.h      \
                 channel_element.decl.h \
                 file_manager.h         \
@@ -159,6 +163,8 @@ channel_element.o: channel_element.cpp    \
                    channel_element.h      \
                    channel_element.decl.h \
                    channel_element.def.h  \
+                   adhydro.h              \
+                   adhydro.decl.h         \
                    mesh_element.h         \
                    mesh_element.decl.h    \
                    file_manager.h         \
@@ -178,6 +184,8 @@ file_manager.o: file_manager.cpp       \
                 file_manager.h         \
                 file_manager.decl.h    \
                 file_manager.def.h     \
+                adhydro.h              \
+                adhydro.decl.h         \
                 mesh_element.h         \
                 mesh_element.decl.h    \
                 channel_element.h      \
@@ -191,18 +199,26 @@ file_manager.decl.h \
 file_manager.def.h: file_manager.ci
 	$(CHARMC) $<
 
-surfacewater.o: surfacewater.cpp \
-                surfacewater.h   \
+surfacewater.o: surfacewater.cpp      \
+                surfacewater.h        \
+                adhydro.h             \
+                adhydro.decl.h        \
+                evapo_transpiration.h \
                 all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
-groundwater.o: groundwater.cpp \
-               groundwater.h   \
+groundwater.o: groundwater.cpp       \
+               groundwater.h         \
+               adhydro.h             \
+               adhydro.decl.h        \
+               evapo_transpiration.h \
                all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
+                       adhydro.h               \
+                       adhydro.decl.h          \
                        all.h
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 	

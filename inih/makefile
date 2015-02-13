@@ -1,4 +1,4 @@
-CPPFLAGS := -Icpp -fdiagnostics-show-option -g -Wall
+CPPFLAGS := -Icpp -fdiagnostics-show-option -g -Wall -DINI_ALLOW_MULTILINE=0
 
 VPATH := cpp
 

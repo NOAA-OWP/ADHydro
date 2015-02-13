@@ -1,4 +1,5 @@
 #include "groundwater.h"
+#include "adhydro.h"
 
 bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double edgeLength, double edgeNormalX, double edgeNormalY,
                                      double elementZBedrock, double elementArea, double elementSlopeX, double elementSlopeY, double conductivity,
@@ -58,12 +59,20 @@ bool groundwaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bou
       // Force flow rate to have the correct sign.
       if (INFLOW == boundary && 0.0 < *flowRate)
         {
-          CkError("WARNING in groundwaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in groundwaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+            }
+          
           *flowRate = 0.0;
         }
       else if (OUTFLOW == boundary && 0.0 > *flowRate)
         {
-          CkError("WARNING in groundwaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in groundwaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+            }
+          
           *flowRate = 0.0;
         }
     }

@@ -680,10 +680,10 @@ fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%llu
 fprintf(ChannelOut,"            <DataItem DataType=\"Int\" Dimensions=\"%zu %d\" Format=\"HDF\">parameter.nc:/channelChannelType</DataItem>\n",numInstances_geo,nChannelEle);
 fprintf(ChannelOut,"          </DataItem>\n");
 fprintf(ChannelOut,"        </Attribute>\n");
-fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelPermanentCode\">\n");
+fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelReachCode\">\n");
 fprintf(ChannelOut,"          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n",nChannelEle);   
 fprintf(ChannelOut,"            <DataItem Dimensions=\"3 2\" Format=\"XML\">%llu 0 1 1 1 %d</DataItem>\n",Inst_par,nChannelEle);
-fprintf(ChannelOut,"            <DataItem DataType=\"Int\" Dimensions=\"%zu %d\" Format=\"HDF\">parameter.nc:/channelPermanentCode</DataItem>\n",numInstances_par,nChannelEle);
+fprintf(ChannelOut,"            <DataItem DataType=\"Int\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">parameter.nc:/channelReachCode</DataItem>\n",numInstances_par,nChannelEle);
 fprintf(ChannelOut,"          </DataItem>\n");
 fprintf(ChannelOut,"        </Attribute>\n");
 fprintf(ChannelOut,"        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"channelBaseWidth\">\n");

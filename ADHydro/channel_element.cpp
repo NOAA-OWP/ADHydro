@@ -1,4 +1,5 @@
 #include "channel_element.h"
+#include "adhydro.h"
 #include "file_manager.h"
 #include "surfacewater.h"
 #include "groundwater.h"
@@ -26,7 +27,7 @@ void ChannelElement::pup(PUP::er &p)
   p | elementZBed;
   p | elementLength;
   p | channelType;
-  p | permanentCode;
+  p | reachCode;
   p | baseWidth;
   p | sideSlope;
   p | bedConductivity;
@@ -39,6 +40,21 @@ void ChannelElement::pup(PUP::er &p)
   p | evaporation;
   p | evaporationCumulative;
   p | evapoTranspirationState;
+  p | atmosphereLayerThickness;
+  p | shadedFraction;
+  p | shadedFractionMaximum;
+  p | surfaceTemperature;
+  p | surfacePressure;
+  p | atomsphereLayerPressure;
+  p | eastWindSpeed;
+  p | northWindSpeed;
+  p | atmosphereLayerMixingRatio;
+  p | cloudMixingRatio;
+  p | shortWaveRadiationDown;
+  p | longWaveRadiationDown;
+  p | precipitationRate;
+  p | soilBottomTemperature;
+  p | planetaryBoundaryLayerHeight;
   p | groundwaterDone;
   p | surfacewaterDone;
   p | dt;
@@ -114,7 +130,7 @@ bool ChannelElement::allInvariantChecked()
 void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_FileManager fileManagerProxyInit)
 {
   bool         error                  = false;                                                        // Error flag.
-  int          ii, edge;                                                                              // Loop counters.
+  int          ii, edge, edge2;                                                                       // Loop counters.
   FileManager* fileManagerLocalBranch = fileManagerProxyInit.ckLocalBranch();                         // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localChannelElementStart; // Index of this element in file manager arrays.
   
@@ -227,14 +243,14 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
   
   if (!error)
     {
-      if (NULL != fileManagerLocalBranch->channelPermanentCode)
+      if (NULL != fileManagerLocalBranch->channelReachCode)
         {
-          permanentCode = fileManagerLocalBranch->channelPermanentCode[fileManagerLocalIndex];
+          reachCode = fileManagerLocalBranch->channelReachCode[fileManagerLocalIndex];
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       else
         {
-          CkError("ERROR in ChannelElement::handleInitialize, element %d: permanentCode initialization information not available from local file manager.\n",
+          CkError("ERROR in ChannelElement::handleInitialize, element %d: reachCode initialization information not available from local file manager.\n",
                   thisIndex);
           error = true;
         }
@@ -826,6 +842,23 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
+  // Forcing data will be initialized when the object receives a forcing data message.  Set to default values here.
+  atmosphereLayerThickness     = 20.0f;
+  shadedFraction               = 0.0f;
+  shadedFractionMaximum        = 0.0f;
+  surfaceTemperature           = 0.0f;
+  surfacePressure              = 101300.0f;
+  atomsphereLayerPressure      = 101300.0f - 120.0f;
+  eastWindSpeed                = 0.0f;
+  northWindSpeed               = 0.0f;
+  atmosphereLayerMixingRatio   = 0.0f;
+  cloudMixingRatio             = 0.0f;
+  shortWaveRadiationDown       = 0.0f;
+  longWaveRadiationDown        = 0.0f;
+  precipitationRate            = 0.0f;
+  soilBottomTemperature        = 0.0f;
+  planetaryBoundaryLayerHeight = 200.0f;
+  
   if (!error)
     {
       groundwaterDone          = true;
@@ -860,10 +893,31 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                 }
               else if (0 <= channelNeighbors[edge] && channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
                 {
-                  channelNeighborsInitialized[edge] = false;
+                  // Self-neighbors and duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  if (thisIndex == channelNeighbors[edge])
+                    {
+                      CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: channelNeighbors has an element as its own neighbor.\n",
+                              thisIndex, edge);
+                      error = true;
+                    }
                   
-                  thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
-                                                                              baseWidth, sideSlope, manningsN);
+                  for (edge2 = 0; edge2 < edge; edge2++)
+                    {
+                      if (channelNeighbors[edge2] == channelNeighbors[edge])
+                        {
+                          CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      channelNeighborsInitialized[edge] = false;
+
+                      thisProxy[channelNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementZBank, elementZBed, elementLength, channelType,
+                                                                                  baseWidth, sideSlope, manningsN);
+                    }
                 }
               else
                 {
@@ -912,10 +966,24 @@ void ChannelElement::handleInitialize(CProxy_MeshElement meshProxyInit, CProxy_F
                 }
               else if (0 <= meshNeighbors[edge] && meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
                 {
-                  meshNeighborsInitialized[edge] = false;
-                  
-                  meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, baseWidth,
-                                                                           sideSlope, bedConductivity, bedThickness);
+                  // Duplicate neighbors can cause the sim to hang before checking the invariant so we need to check this here.
+                  for (edge2 = 0; edge2 < edge; edge2++)
+                    {
+                      if (meshNeighbors[edge2] == meshNeighbors[edge])
+                        {
+                          CkError("ERROR in ChannelElement::handleInitialize, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                                  edge);
+                          error = true;
+                        }
+                    }
+
+                  if (!error)
+                    {
+                      meshNeighborsInitialized[edge] = false;
+
+                      meshProxy[meshNeighbors[edge]].initializeChannelNeighbor(thisIndex, edge, elementX, elementY, elementZBank, elementZBed, channelType,
+                                                                               baseWidth, sideSlope, bedConductivity, bedThickness);
+                    }
                 }
               else
                 {
@@ -1006,8 +1074,9 @@ void ChannelElement::handleInitializeChannelNeighbor(int neighbor, int neighborR
     }
 }
 
-void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborX, double neighborY, double neighborZSurface,
-                                                  double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
+void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReciprocalEdge, double neighborVertexX[MeshElement::meshNeighborsSize],
+                                                  double neighborVertexY[MeshElement::meshNeighborsSize], double neighborX, double neighborY,
+                                                  double neighborZSurface, double neighborZBedrock, double neighborSlopeX, double neighborSlopeY)
 {
   bool error = false; // Error flag.
   int  edge  = 0;     // Loop counter.
@@ -1033,7 +1102,9 @@ void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReci
       meshNeighborsInteraction[edge]    = BOTH_CALCULATE_FLOW_RATE;
       meshNeighborsZSurface[edge]       = neighborZSurface;
       meshNeighborsZBedrock[edge]       = neighborZBedrock;
-      meshNeighborsZOffset[edge]        = (elementX - neighborX) * neighborSlopeX + (elementY - neighborY) * neighborSlopeY;
+      meshNeighborsZOffset[edge]        = MeshElement::calculateZOffset(neighbor, neighborVertexX, neighborVertexY, neighborX, neighborY, neighborZSurface,
+                                                                        neighborSlopeX, neighborSlopeY, thisIndex, elementX, elementY, elementZBank,
+                                                                        channelType);
     }
   
   // Error checking of initialization values is done in the invariant.
@@ -1044,11 +1115,179 @@ void ChannelElement::handleInitializeMeshNeighbor(int neighbor, int neighborReci
     }
 }
 
-void ChannelElement::handleForcingDataMessage()
+void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, float shadedFractionNew, float shadedFractionMaximumNew,
+                                              float surfaceTemperatureNew, float surfacePressureNew, float atomsphereLayerPressureNew, float eastWindSpeedNew,
+                                              float northWindSpeedNew, float atmosphereLayerMixingRatioNew, float cloudMixingRatioNew,
+                                              float shortWaveRadiationDownNew, float longWaveRadiationDownNew, float precipitationRateNew,
+                                              float soilBottomTemperatureNew, float planetaryBoundaryLayerHeightNew)
 {
-  // FIXME add forcing data for channels.
+  bool error = false; // Error flag.
   
-  contribute();
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0f < atmosphereLayerThicknessNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: atmosphereLayerThicknessNew must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFractionNew && shadedFractionNew <= shadedFractionMaximumNew && 1.0f >= shadedFractionMaximumNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: shadedFractionNew must be greater than or equal to zero and less than or equal "
+              "to shadedFractionMaximumNew.  shadedFractionMaximumNew must be less than or equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperatureNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= surfaceTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressureNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: surfacePressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfacePressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressureNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: atomsphereLayerPressureNew below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: magnitude of eastWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeedNew)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: magnitude of northWindSpeedNew greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatioNew && 1.0f >= atmosphereLayerMixingRatioNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: atmosphereLayerMixingRatioNew must be greater than or equal to zero and less "
+              "than or equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatioNew && 1.0f >= cloudMixingRatioNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: cloudMixingRatioNew must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDownNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: shortWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDownNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: longWaveRadiationDownNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRateNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: precipitationRateNew must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperatureNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew must be greater than or equal to zero Kelvin.\n",
+              thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= soilBottomTemperatureNew))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeightNew))
+    {
+      CkError("ERROR in ChannelElement::handleForcingDataMessage, element %d: planetaryBoundaryLayerHeightNew must be greater than or equal to zero.\n",
+              thisIndex);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  if (!error)
+    {
+      atmosphereLayerThickness     = atmosphereLayerThicknessNew;
+      shadedFraction               = shadedFractionNew;
+      shadedFractionMaximum        = shadedFractionMaximumNew;
+      surfaceTemperature           = surfaceTemperatureNew;
+      surfacePressure              = surfacePressureNew;
+      atomsphereLayerPressure      = atomsphereLayerPressureNew;
+      eastWindSpeed                = eastWindSpeedNew;
+      northWindSpeed               = northWindSpeedNew;
+      atmosphereLayerMixingRatio   = atmosphereLayerMixingRatioNew;
+      cloudMixingRatio             = cloudMixingRatioNew;
+      shortWaveRadiationDown       = shortWaveRadiationDownNew;
+      longWaveRadiationDown        = longWaveRadiationDownNew;
+      precipitationRate            = precipitationRateNew;
+      soilBottomTemperature        = soilBottomTemperatureNew;
+      planetaryBoundaryLayerHeight = planetaryBoundaryLayerHeightNew;
+    }
+
+  if (error)
+    {
+      CkExit();
+    }
+  else
+    {
+      contribute();
+    }
 }
 
 // Suppress warning enum value not handled in switch.
@@ -1077,7 +1316,8 @@ void ChannelElement::handleDoTimestep(size_t iterationThisTimestep, double date,
   // Initiate groundwater phase.
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      if (!isBoundary(meshNeighbors[edge]))
+      // If my mesh neighbor has bedrock at the surface treat it as a NOFLOW boundary for groundwater.
+      if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsZSurface[edge] == meshNeighborsZBedrock[edge]))
         {
           // Set the flow rate state for this timestep to not ready.
           meshNeighborsGroundwaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
@@ -1962,7 +2202,13 @@ void ChannelElement::moveSurfacewater()
   
   // Convert cross sectional area back to water depth.
   calculateSurfacewaterDepthFromArea(area);
-  
+
+  // Cut off surface water to channel bank depth if in drainDownMode
+  if (ADHydro::drainDownMode && surfacewaterDepth > (elementZBank - elementZBed))
+    {
+      surfacewaterDepth = (elementZBank - elementZBed);
+    }
+
   surfacewaterDone = true;
   
   // Perform min reduction on dtNew.  This also serves as a barrier at the end of the timestep.
@@ -2005,7 +2251,7 @@ void ChannelElement::calculateSurfacewaterDepthFromArea(double area)
 void ChannelElement::handleCheckInvariant()
 {
   bool error = false; // Error flag.
-  int  edge;          // Loop counter.
+  int  edge, edge2;   // Loop counters.
   
   if (!(elementZBank >= elementZBed))
     {
@@ -2025,9 +2271,9 @@ void ChannelElement::handleCheckInvariant()
       error = true;
     }
   
-  if (!(0 < permanentCode))
+  if (!(0 < reachCode))
     {
-      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: permanentCode must be greater than zero.\n", thisIndex);
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: reachCode must be greater than zero.\n", thisIndex);
       error = true;
     }
   
@@ -2090,6 +2336,139 @@ void ChannelElement::handleCheckInvariant()
       error = true;
     }
   
+  if (!(0.0f < atmosphereLayerThickness))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: atmosphereLayerThickness must be greater than zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= shadedFraction && shadedFraction <= shadedFractionMaximum && 1.0f >= shadedFractionMaximum))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: shadedFraction must be greater than or equal to zero and less than or equal to "
+              "shadedFractionMaximum.  shadedFractionMaximum must be less than or equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= surfaceTemperature))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= surfaceTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= surfacePressure))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: surfacePressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= surfacePressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfacePressure below 35 kPa.\n", thisIndex);
+        }
+    }
+
+  if (!(0.0f <= atomsphereLayerPressure))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: atomsphereLayerPressure must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  else if (!(35000.0f <= atomsphereLayerPressure))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: atomsphereLayerPressure below 35 kPa.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(eastWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: magnitude of eastWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(100.0f >= fabs(northWindSpeed)))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: magnitude of northWindSpeed greater than 100 m/s.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= atmosphereLayerMixingRatio && 1.0f >= atmosphereLayerMixingRatio))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: atmosphereLayerMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0f <= cloudMixingRatio && 1.0f >= cloudMixingRatio))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: cloudMixingRatio must be greater than or equal to zero and less than or "
+              "equal to one.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= shortWaveRadiationDown))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: shortWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= longWaveRadiationDown))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: longWaveRadiationDown must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(0.0f <= precipitationRate))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: precipitationRate must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+
+  if (!(-ZERO_C_IN_KELVIN <= soilBottomTemperature))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
+      error = true;
+    }
+  else if (!(-70.0f <= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
+        }
+    }
+  else if (!(70.0f >= soilBottomTemperature))
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
+        }
+    }
+  
+  if (!(0.0f <= planetaryBoundaryLayerHeight))
+    {
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: planetaryBoundaryLayerHeight must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
   if (!groundwaterDone)
     {
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: groundwaterDone must be true when not processing a timestep.\n", thisIndex);
@@ -2121,6 +2500,13 @@ void ChannelElement::handleCheckInvariant()
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid array "
                   "index.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
@@ -2164,6 +2550,13 @@ void ChannelElement::handleCheckInvariant()
           error = true;
         }
       
+      if (0 < edge && !(NOFLOW != meshNeighbors[edge - 1] || NOFLOW == meshNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
+          error = true;
+        }
+      
       if (!(0 <= meshNeighborsReciprocalEdge[edge] && meshNeighborsReciprocalEdge[edge] < MeshElement::channelNeighborsSize))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsReciprocalEdge must be a valid array index.\n",
@@ -2186,11 +2579,23 @@ void ChannelElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!(0.0 < meshNeighborsEdgeLength[edge]))
+      if (NOFLOW == meshNeighbors[edge])
         {
-          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero.\n",
-                  thisIndex, edge);
-          error = true;
+          if (!(0.0 == meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be zero for a NOFLOW edge.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+        }
+      else
+        {
+          if (!(0.0 < meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero for a non-NOFLOW "
+                      "edge.\n", thisIndex, edge);
+              error = true;
+            }
         }
       
       if (!(FLOW_RATE_LIMITING_CHECK_DONE == meshNeighborsSurfacewaterFlowRateReady[edge]))
@@ -2218,6 +2623,23 @@ void ChannelElement::handleCheckInvariant()
             }
           else
             {
+              if (thisIndex == channelNeighbors[edge])
+                {
+                  CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has an element as its own neighbor.\n",
+                          thisIndex, edge);
+                  error = true;
+                }
+              
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (channelNeighbors[edge2] == channelNeighbors[edge])
+                    {
+                      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               channelNeighborsInvariantChecked[edge] = false;
               
               thisProxy[channelNeighbors[edge]].checkChannelNeighborInvariant(thisIndex, channelNeighborsReciprocalEdge[edge], edge,
@@ -2236,6 +2658,16 @@ void ChannelElement::handleCheckInvariant()
             }
           else
             {
+              for (edge2 = 0; edge2 < edge; edge2++)
+                {
+                  if (meshNeighbors[edge2] == meshNeighbors[edge])
+                    {
+                      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors has a duplicate neighbor.\n", thisIndex,
+                              edge);
+                      error = true;
+                    }
+                }
+              
               meshNeighborsInvariantChecked[edge] = false;
               
               meshProxy[meshNeighbors[edge]].checkChannelNeighborInvariant(thisIndex, meshNeighborsReciprocalEdge[edge], edge, meshNeighborsInteraction[edge],
@@ -2400,8 +2832,7 @@ void ChannelElement::handleCheckMeshNeighborInvariant(int neighbor, int edge, in
       error = true;
     }
   
-  if (!(neighborZOffset == meshNeighborsZOffset[edge] &&
-        (elementX - neighborX) * neighborSlopeX + (elementY - neighborY) * neighborSlopeY == meshNeighborsZOffset[edge]))
+  if (!(neighborZOffset == meshNeighborsZOffset[edge]))
     {
       CkError("ERROR in ChannelElement::handleCheckMeshNeighborInvariant, element %d, edge %d: meshNeighborsZOffset is incorrect.\n", thisIndex, edge);
       error = true;
@@ -2459,5 +2890,7 @@ void ChannelElement::handleCheckMeshNeighborInvariant(int neighbor, int edge, in
 
 // Suppress warnings in the The Charm++ autogenerated code.
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wsign-compare"
 #include "channel_element.def.h"
+#pragma GCC diagnostic warning "-Wsign-compare"
 #pragma GCC diagnostic warning "-Wunused-variable"

@@ -18,6 +18,15 @@
 #define UPSTREAM_SIZE   (13) // Size of array of upstream links in ChannelLinkStruct.
 #define DOWNSTREAM_SIZE (5)  // Size of array of downstream links in ChannelLinkStruct.
 
+// Used for the return value of upstreamDownstream.
+typedef enum
+{
+  COINCIDENT, // The two intersections are at the same location.
+  UPSTREAM,   // intersection2 is upstream   of intersection1.
+  DOWNSTREAM, // intersection2 is downstream of intersection1.
+  UNRELATED,  // Neither is upstream or downstream of the other.
+} UpstreamDownstreamEnum;
+
 // A linkElementStruct represents a section of a stream link.  The section
 // goes from prev->endLocation to endLocation along the 1D length of the link
 // or from zero to endLocation if prev is NULL.  For the last unmoved element
@@ -34,6 +43,10 @@
 // in edge.  If the other link is a stream the 1D location of the intersection
 // along the stream is stored in endLocation, and whether the stream is
 // upstream or downstream of the waterbody is stored in movedTo.
+//
+// These structures are also used in waterbody link to store lists of mesh
+// edges the waterbody is connected to.  In this case, the mesh edge number is
+// stored in edge, endLocation is 0.0, and movedTo is -1.
 typedef struct LinkElementStruct LinkElementStruct;
 struct LinkElementStruct
 {
@@ -94,6 +107,619 @@ double beginLocation(LinkElementStruct* element)
   return location;
 }
 
+// As we construct the channel network it goes through some transitions when it doesn't quite pass the strictest form of the invariant.  These flags allow
+// those conditions to pass the invariant temporarily.
+bool allowNotUsedToHaveReachCode;
+bool allowStreamToHaveZeroLength;
+bool allowNonReciprocalUpstreamDownstreamLinks;
+bool allowLastLinkElementLengthNotEqualToLinkLength;
+bool allowLinkElementEndLocationsNotMonotonicallyIncreasing;
+
+// Check the invariant on the channel network.
+//
+// Returns: true if the invariant is violated, false otherwise.
+//
+// Parameters:
+//
+// channels - The channel network as a 1D array of ChannelLinkStruct.
+// size     - The number of elements in channels.
+bool channelNetworkCheckInvariant(ChannelLinkStruct* channels, int size)
+{
+  bool               error = false;  // Error flag.
+  int                ii, jj, kk;     // Loop counters.
+  bool               foundCondition; // Used as a flag for various detected conditions.
+  LinkElementStruct* tempElement;    // For looping through the link element linked list.
+  LinkElementStruct* laggardElement; // Used to check for cycles.
+  bool               advanceLaggard; // Toggled to advance laggardElement one for every two of tempElement.
+  
+  if (!(NULL != channels))
+    {
+      fprintf(stderr, "ERROR in channelNetworkCheckInvariant: channels must not be NULL.\n");
+      error = true;
+    }
+  
+  if (!(0 <= size))
+    {
+      fprintf(stderr, "ERROR in channelNetworkCheckInvariant: size must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!error)
+    {
+      // Check all links.
+      for (ii = 0; ii < size; ii++)
+        {
+          if (NOT_USED == channels[ii].type)
+            {
+              if (!((-1 == channels[ii].reachCode || (allowNotUsedToHaveReachCode && 0 <= channels[ii].reachCode)) && 0.0 == channels[ii].length &&
+                    0.0 == channels[ii].upstreamContributingArea && 0.0 == channels[ii].downstreamContributingArea && 0 == channels[ii].streamOrder &&
+                    NULL == channels[ii].firstElement && NULL == channels[ii].lastElement && 0 <= channels[ii].elementStart &&
+                    0 == channels[ii].numberOfElements))
+                {
+                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unused link has invalid value(s).\n", ii);
+                  error = true;
+                }
+              
+              for (jj = 0; jj < SHAPES_SIZE; jj++)
+                {
+                  if (!(NULL == channels[ii].shapes[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unused link shapes must be NULL.\n", ii);
+                      error = true;
+                    }
+                }
+              
+              for (jj = 0; jj < UPSTREAM_SIZE; jj++)
+                {
+                  if (!(NOFLOW == channels[ii].upstream[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unused link upstream must be NOFLOW.\n", ii);
+                      error = true;
+                    }
+                }
+              
+              for (jj = 0; jj < DOWNSTREAM_SIZE; jj++)
+                {
+                  if (!(NOFLOW == channels[ii].downstream[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unused link downstream must be NOFLOW.\n", ii);
+                      error = true;
+                    }
+                }
+            }
+          else if (STREAM == channels[ii].type || PRUNED_STREAM == channels[ii].type)
+            {
+              if (!(0 <= channels[ii].reachCode && channels[ii].reachCode < size))
+                {
+                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid value(s).\n", ii);
+                  error = true;
+                }
+              
+              if (ii == channels[ii].reachCode)
+                {
+                  if (!(NULL != channels[ii].shapes[0] && 0.0 < channels[ii].upstreamContributingArea && 0.0 < channels[ii].downstreamContributingArea &&
+                        0 < channels[ii].streamOrder))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unmoved stream link has invalid value(s).\n", ii);
+                      error = true;
+                    }
+                  
+                  for (jj = 1; jj < SHAPES_SIZE; jj++)
+                    {
+                      if (!(NULL == channels[ii].shapes[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: unmoved stream link must have only one shape.\n", ii);
+                          error = true;
+                        }
+                    }
+                }
+              else
+                {
+                  if (!((STREAM == channels[channels[ii].reachCode].type || PRUNED_STREAM == channels[channels[ii].reachCode].type) &&
+                        0.0 == channels[ii].upstreamContributingArea && 0.0 == channels[ii].downstreamContributingArea && 0 == channels[ii].streamOrder))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: moved stream link has invalid value(s).\n", ii);
+                      error = true;
+                    }
+                  
+                  for (jj = 0; jj < SHAPES_SIZE; jj++)
+                    {
+                      if (!(NULL == channels[ii].shapes[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: moved stream link shapes must be NULL.\n", ii);
+                          error = true;
+                        }
+                    }
+                }
+              
+              if (STREAM == channels[ii].type)
+                {
+                  if (!((0.0 < channels[ii].length || (allowStreamToHaveZeroLength && 0.0 == channels[ii].length)) && 0 <= channels[ii].elementStart &&
+                        0 <= channels[ii].numberOfElements))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid value(s).\n", ii);
+                      error = true;
+                    }
+                  
+                  for (jj = 0; jj < UPSTREAM_SIZE; jj++)
+                    {
+                      if (0 < jj && !(NOFLOW != channels[ii].upstream[jj - 1] || NOFLOW == channels[ii].upstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: upstream links must be compacted to the front of the array.\n",
+                                  ii);
+                          error = true;
+                        }
+                      
+                      if (isBoundary(channels[ii].upstream[jj]))
+                        {
+                          if (!(OUTFLOW != channels[ii].upstream[jj]))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link upstream must not be OUTFLOW.\n", ii);
+                              error = true;
+                            }
+                        }
+                      else
+                        {
+                          if (!(0 <= channels[ii].upstream[jj] && channels[ii].upstream[jj] < size &&
+                                (STREAM == channels[channels[ii].upstream[jj]].type || WATERBODY == channels[channels[ii].upstream[jj]].type ||
+                                 ICEMASS == channels[channels[ii].upstream[jj]].type)))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link upstream must be valid linkNo.\n", ii);
+                              error = true;
+                            }
+                          else if (!allowNonReciprocalUpstreamDownstreamLinks)
+                            {
+                              foundCondition = false;
+
+                              for (kk = 0; !foundCondition && kk < DOWNSTREAM_SIZE; kk++)
+                                {
+                                  foundCondition = (ii == channels[channels[ii].upstream[jj]].downstream[kk]);
+                                }
+                              
+                              if (!foundCondition)
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link upstream must have reciprocal downstream "
+                                          "link.\n", ii);
+                                  error = true;
+                                }
+                            }
+                        }
+                    }
+                  
+                  for (jj = 0; jj < DOWNSTREAM_SIZE; jj++)
+                    {
+                      if (0 < jj && !(NOFLOW != channels[ii].downstream[jj - 1] || NOFLOW == channels[ii].downstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: downstream links must be compacted to the front of the array.\n",
+                                  ii);
+                          error = true;
+                        }
+                      
+                      if (isBoundary(channels[ii].downstream[jj]))
+                        {
+                          if (!(INFLOW != channels[ii].downstream[jj]))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link downstream must not be INFLOW.\n", ii);
+                              error = true;
+                            }
+                        }
+                      else
+                        {
+                          if (!(0 <= channels[ii].downstream[jj] && channels[ii].downstream[jj] < size &&
+                                (STREAM == channels[channels[ii].downstream[jj]].type || WATERBODY == channels[channels[ii].downstream[jj]].type ||
+                                 ICEMASS == channels[channels[ii].downstream[jj]].type)))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link downstream must be valid linkNo.\n", ii);
+                              error = true;
+                            }
+                          else if (!allowNonReciprocalUpstreamDownstreamLinks)
+                            {
+                              foundCondition = false;
+
+                              for (kk = 0; !foundCondition && kk < UPSTREAM_SIZE; kk++)
+                                {
+                                  foundCondition = (ii == channels[channels[ii].downstream[jj]].upstream[kk]);
+                                }
+                              
+                              if (!foundCondition)
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link downstream must have reciprocal upstream "
+                                          "link.\n", ii);
+                                  error = true;
+                                }
+                            }
+                        }
+                    }
+                } // End if (STREAM == channels[ii].type)
+              else // if (PRUNED_STREAM == channels[ii].type)
+                {
+                  if (!(0.0 <= channels[ii].length && 0 <= channels[ii].elementStart && 0 == channels[ii].numberOfElements))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link has invalid value(s).\n", ii);
+                      error = true;
+                    }
+                  
+                  for (jj = 0; jj < UPSTREAM_SIZE; jj++)
+                    {
+                      if (!(NOFLOW == channels[ii].upstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link upstream must be NOFLOW.\n", ii);
+                          error = true;
+                        }
+                    }
+                  
+                  for (jj = 0; jj < DOWNSTREAM_SIZE; jj++)
+                    {
+                      if (0 < jj && !(NOFLOW != channels[ii].downstream[jj - 1] || NOFLOW == channels[ii].downstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: downstream links must be compacted to the front of the array.\n",
+                                  ii);
+                          error = true;
+                        }
+                      
+                      if (isBoundary(channels[ii].downstream[jj]))
+                        {
+                          if (!(INFLOW != channels[ii].downstream[jj]))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link downstream must not be INFLOW.\n", ii);
+                              error = true;
+                            }
+                        }
+                      else
+                        {
+                          if (!(0 <= channels[ii].downstream[jj] && channels[ii].downstream[jj] < size &&
+                                (STREAM == channels[channels[ii].downstream[jj]].type || WATERBODY == channels[channels[ii].downstream[jj]].type ||
+                                 ICEMASS == channels[channels[ii].downstream[jj]].type || PRUNED_STREAM == channels[channels[ii].downstream[jj]].type)))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link downstream must be valid linkNo.\n", ii);
+                              error = true;
+                            }
+                          else
+                            {
+                              foundCondition = false;
+
+                              for (kk = 0; !foundCondition && kk < UPSTREAM_SIZE; kk++)
+                                {
+                                  foundCondition = (ii == channels[channels[ii].downstream[jj]].upstream[kk]);
+                                }
+                              
+                              if (foundCondition)
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link downstream must not have reciprocal "
+                                          "upstream link.\n", ii);
+                                  error = true;
+                                }
+                            }
+                        }
+                    }
+                } // End if (PRUNED_STREAM == channels[ii].type)
+              
+              if (!(NULL != channels[ii].firstElement && NULL == channels[ii].firstElement->prev))
+                {
+                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid link element list.\n", ii);
+                  error = true;
+                }
+              else
+                {
+                  tempElement    = channels[ii].firstElement; // For looping through the link element linked list.
+                  laggardElement = channels[ii].firstElement; // Used to check for cycles.
+                  advanceLaggard = false;                     // Toggled to advance laggardElement one for every two of tempElement.
+                  foundCondition = false;                     // Turns true when we find our first moved link.
+
+                  while (!error && NULL != tempElement)
+                    {
+                      if (!(beginLocation(tempElement) < tempElement->endLocation || allowLinkElementEndLocationsNotMonotonicallyIncreasing ||
+                            (0.0 == channels[ii].length && tempElement == channels[ii].firstElement && 0.0 == tempElement->endLocation)))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list end locations must be monotonically "
+                                  "increasing.\n", ii);
+                          error = true;
+                        }
+                      
+                      if (!foundCondition)
+                        {
+                          // We are not yet into the moved links.
+                          if (-1 == tempElement->movedTo)
+                            {
+                              if (NULL == tempElement->next)
+                                {
+                                  // If this is the last element its end location must be the length of the stream.
+                                  if (!(tempElement->endLocation == channels[ii].length || allowLastLinkElementLengthNotEqualToLinkLength))
+                                    {
+                                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list end location of last "
+                                              "unmoved element must be the length of the stream.\n", ii);
+                                      error = true;
+                                    }
+                                }
+                              
+                              if (STREAM == channels[ii].type)
+                                {
+                                  if (!(-1 <= tempElement->edge))
+                                    {
+                                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list edge must be a valid mesh "
+                                              "edge.\n", ii);
+                                      error = true;
+                                    }
+                                }
+                              else // if (PRUNED_STREAM == channels[ii].type)
+                                {
+                                  if (!(-1 == tempElement->edge))
+                                    {
+                                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: pruned stream link element list edge must be "
+                                              "unassociated.\n", ii);
+                                      error = true;
+                                    }
+                                }
+                            }
+                          else
+                            {
+                              // This is the first moved link.
+                              foundCondition = true;
+                              
+                              // Its begin location must be the length of the stream.
+                              if (!(beginLocation(tempElement) == channels[ii].length || allowLastLinkElementLengthNotEqualToLinkLength))
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list end location of last unmoved "
+                                          "element must be the length of the stream.\n", ii);
+                                  error = true;
+                                }
+                              
+                              if (!(-1 == tempElement->edge))
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved element edge must be "
+                                          "unassociated.\n", ii);
+                                  error = true;
+                                }
+                              
+                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size &&
+                                    (STREAM == channels[channels[ii].downstream[jj]].type || PRUNED_STREAM == channels[channels[ii].downstream[jj]].type)))
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved to element must be valid "
+                                          "linkNo.\n", ii);
+                                  error = true;
+                                }
+                            }
+                        } // End if (!foundCondition)
+                      else
+                        {
+                          // We are into the moved links.
+                          if (-1 == tempElement->movedTo)
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved links must come after all "
+                                      "unmoved links.\n", ii);
+                              error = true;
+                            }
+                          else
+                            {
+                              if (!(-1 == tempElement->edge))
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved element edge must be "
+                                          "unassociated.\n", ii);
+                                  error = true;
+                                }
+                              
+                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size &&
+                                    (STREAM == channels[channels[ii].downstream[jj]].type || PRUNED_STREAM == channels[channels[ii].downstream[jj]].type)))
+                                {
+                                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved to element must be valid "
+                                          "linkNo.\n", ii);
+                                  error = true;
+                                }
+                            }
+                        }
+
+                      if (NULL == tempElement->next)
+                        {
+                          if (!(tempElement == channels[ii].lastElement))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid link element list.\n", ii);
+                              error = true;
+                            }
+                        }
+                      else // if (NULL != tempElement->next)
+                        {
+                          if (!(tempElement == tempElement->next->prev))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid link element list.\n", ii);
+                              error = true;
+                            }
+                        }
+
+                      tempElement = tempElement->next;
+
+                      if (advanceLaggard)
+                        {
+                          laggardElement = laggardElement->next;
+                        }
+
+                      advanceLaggard = !advanceLaggard;
+
+                      if (tempElement == laggardElement)
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has cycle in link element list.\n", ii);
+                          error = true;
+                        }
+                    } // End while (!error && NULL != tempElement)
+                } // End if (!(NULL != channels[ii].firstElement && NULL == channels[ii].firstElement->prev))
+            } // End else if (STREAM == channels[ii].type || PRUNED_STREAM == channels[ii].type)
+          else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
+            {
+              if (!(0 < channels[ii].reachCode && NULL != channels[ii].shapes[0] && 0.0 <= channels[ii].length &&
+                    0.0 == channels[ii].upstreamContributingArea && 0.0 == channels[ii].downstreamContributingArea && 0 == channels[ii].streamOrder &&
+                    0 <= channels[ii].elementStart && (0 == channels[ii].numberOfElements || 1 == channels[ii].numberOfElements)))
+                {
+                  fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link has invalid value(s).\n", ii);
+                  error = true;
+                }
+              
+              for (jj = 1; jj < SHAPES_SIZE; jj++)
+                {
+                  if (!(NULL != channels[ii].shapes[jj - 1] || NULL == channels[ii].shapes[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link shapes must all be at the front of the array.\n", ii);
+                      error = true;
+                    }
+                }
+              
+              for (jj = 0; jj < UPSTREAM_SIZE; jj++)
+                {
+                  if (0 < jj && !(NOFLOW != channels[ii].upstream[jj - 1] || NOFLOW == channels[ii].upstream[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: upstream links must be compacted to the front of the array.\n",
+                              ii);
+                      error = true;
+                    }
+                  
+                  if (isBoundary(channels[ii].upstream[jj]))
+                    {
+                      if (!(OUTFLOW != channels[ii].upstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link upstream must not be OUTFLOW.\n", ii);
+                          error = true;
+                        }
+                    }
+                  else
+                    {
+                      if (!(0 <= channels[ii].upstream[jj] && channels[ii].upstream[jj] < size &&
+                            (STREAM == channels[channels[ii].upstream[jj]].type || WATERBODY == channels[channels[ii].upstream[jj]].type ||
+                             ICEMASS == channels[channels[ii].upstream[jj]].type)))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link upstream must be valid linkNo.\n", ii);
+                          error = true;
+                        }
+                      else if (!allowNonReciprocalUpstreamDownstreamLinks)
+                        {
+                          foundCondition = false;
+
+                          for (kk = 0; !foundCondition && kk < DOWNSTREAM_SIZE; kk++)
+                            {
+                              foundCondition = (ii == channels[channels[ii].upstream[jj]].downstream[kk]);
+                            }
+                          
+                          if (!foundCondition)
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link upstream must have reciprocal downstream "
+                                      "link.\n", ii);
+                              error = true;
+                            }
+                        }
+                    }
+                }
+              
+              for (jj = 0; jj < DOWNSTREAM_SIZE; jj++)
+                {
+                  if (0 < jj && !(NOFLOW != channels[ii].downstream[jj - 1] || NOFLOW == channels[ii].downstream[jj]))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: downstream links must be compacted to the front of the array.\n",
+                              ii);
+                      error = true;
+                    }
+                  
+                  if (isBoundary(channels[ii].downstream[jj]))
+                    {
+                      if (!(INFLOW != channels[ii].downstream[jj]))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link downstream must not be INFLOW.\n", ii);
+                          error = true;
+                        }
+                    }
+                  else
+                    {
+                      if (!(0 <= channels[ii].downstream[jj] && channels[ii].downstream[jj] < size &&
+                            (STREAM == channels[channels[ii].downstream[jj]].type || WATERBODY == channels[channels[ii].downstream[jj]].type ||
+                             ICEMASS == channels[channels[ii].downstream[jj]].type)))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link downstream must be valid linkNo.\n", ii);
+                          error = true;
+                        }
+                      else if (!allowNonReciprocalUpstreamDownstreamLinks)
+                        {
+                          foundCondition = false;
+
+                          for (kk = 0; !foundCondition && kk < UPSTREAM_SIZE; kk++)
+                            {
+                              foundCondition = (ii == channels[channels[ii].downstream[jj]].upstream[kk]);
+                            }
+                          
+                          if (!foundCondition)
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link downstream must have reciprocal upstream "
+                                      "link.\n", ii);
+                              error = true;
+                            }
+                        }
+                    }
+                }
+              
+              if (NULL == channels[ii].firstElement)
+                {
+                  if (!(NULL == channels[ii].lastElement))
+                    {
+                      fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link has invalid link element list.\n", ii);
+                      error = true;
+                    }
+                }
+              else
+                {
+                  tempElement    = channels[ii].firstElement; // For looping through the link element linked list.
+                  laggardElement = channels[ii].firstElement; // Used to check for cycles.
+                  advanceLaggard = false;                     // Toggled to advance laggardElement one for every two of tempElement.
+
+                  while (!error && NULL != tempElement)
+                    {
+                      if (!(0 <= tempElement->edge && 0.0 <= tempElement->endLocation &&
+                            (COINCIDENT == tempElement->movedTo || UPSTREAM == tempElement->movedTo || DOWNSTREAM == tempElement->movedTo ||
+                             UNRELATED == tempElement->movedTo)))
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: waterbody link element has invalid value(s).\n", ii);
+                          error = true;
+                        }
+
+                      if (NULL == tempElement->next)
+                        {
+                          if (!(tempElement == channels[ii].lastElement))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid link element list.\n", ii);
+                              error = true;
+                            }
+                        }
+                      else // if (NULL != tempElement->next)
+                        {
+                          if (!(tempElement == tempElement->next->prev))
+                            {
+                              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has invalid link element list.\n", ii);
+                              error = true;
+                            }
+                        }
+
+                      tempElement = tempElement->next;
+
+                      if (advanceLaggard)
+                        {
+                          laggardElement = laggardElement->next;
+                        }
+
+                      advanceLaggard = !advanceLaggard;
+
+                      if (tempElement == laggardElement)
+                        {
+                          fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link has cycle in link element list.\n", ii);
+                          error = true;
+                        }
+                    } // End while (!error && NULL != tempElement)
+                } // End if (NULL == channels[ii].firstElement)
+            } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
+          else
+            {
+              fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: type must be a valid enum value.\n", ii);
+              error = true;
+            }
+        } // End check all links.
+    } // End if (!error).
+  
+  return error;
+}
+
 // Create a new LinkElementStruct in the channel network in the given link
 // number.  The LinkElementStruct is placed after prevLinkElement in the linked
 // list or at the head of the linked list if prevLinkElement is NULL.
@@ -150,6 +776,10 @@ void createLinkElementAfter(ChannelLinkStruct* channels, int size, int linkNo, L
         }
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
 
   // Allocate the new LinkElementStruct.
   newLinkElement = new LinkElementStruct;
@@ -202,6 +832,10 @@ void killLinkElement(ChannelLinkStruct* channels, int size, int linkNo, LinkElem
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 <= linkNo && linkNo < size && NULL != linkElementToKill);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // Remove from the list.
   if (NULL == linkElementToKill->prev)
@@ -343,6 +977,10 @@ bool addUpstreamConnection(ChannelLinkStruct* channels, int size, int upstreamLi
          (isBoundary(downstreamLinkNo) || (0 <= downstreamLinkNo && downstreamLinkNo < size)));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   if (!isBoundary(downstreamLinkNo))
     {
       // Find an empty slot in the upstream connection list of downstreamLinkNo.
@@ -388,6 +1026,10 @@ void removeUpstreamConnection(ChannelLinkStruct* channels, int size, int upstrea
   assert(NULL != channels && 0 < size && (isBoundary(upstreamLinkNo) || (0 <= upstreamLinkNo && upstreamLinkNo < size)) &&
          (isBoundary(downstreamLinkNo) || (0 <= downstreamLinkNo && downstreamLinkNo < size)));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   if (!isBoundary(downstreamLinkNo))
     {
@@ -439,6 +1081,10 @@ bool addDownstreamConnection(ChannelLinkStruct* channels, int size, int upstream
          (isBoundary(downstreamLinkNo) || (0 <= downstreamLinkNo && downstreamLinkNo < size)));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   if (!isBoundary(upstreamLinkNo))
     {
       // Find an empty slot in the downstream connection list of upstreamLinkNo.
@@ -485,6 +1131,10 @@ void removeDownstreamConnection(ChannelLinkStruct* channels, int size, int upstr
          (isBoundary(downstreamLinkNo) || (0 <= downstreamLinkNo && downstreamLinkNo < size)));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   if (!isBoundary(upstreamLinkNo))
     {
       // Find downstreamLinkNo in the downstream connection list of upstreamLinkNo.
@@ -530,10 +1180,15 @@ bool addUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, int 
 {
   bool error = false; // Error flag.
   
+  // Assertions on inputs not done because they will be done immediately in called functions.
+  
   error = addUpstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
   
   if (!error)
     {
+      // When adding an upstream/downstream connection we have to add one first and then the invariant will fail on the arguments to the function to add the other.
+      allowNonReciprocalUpstreamDownstreamLinks = true;
+      
       error = addDownstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
       
       if (error)
@@ -541,6 +1196,9 @@ bool addUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, int 
           // Must remove upstream connection to enforce guarantee that on error no connections are modified.
           removeUpstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
         }
+      
+      // When adding an upstream/downstream connection we have to add one first and then the invariant will fail on the arguments to the function to add the other.
+      allowNonReciprocalUpstreamDownstreamLinks = false;
     }
   
   return error;
@@ -559,8 +1217,17 @@ bool addUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, int 
 //                    disconnected from upstreamLinkNo.
 void removeUpstreamDownstreamConnection(ChannelLinkStruct* channels, int size, int upstreamLinkNo, int downstreamLinkNo)
 {
+  // Assertions on inputs not done because they will be done immediately in called functions.
+  
   removeUpstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
+  
+  // When adding an upstream/downstream connection we have to add one first and then the invariant will fail on the arguments to the function to add the other.
+  allowNonReciprocalUpstreamDownstreamLinks = true;
+  
   removeDownstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
+  
+  // When adding an upstream/downstream connection we have to add one first and then the invariant will fail on the arguments to the function to add the other.
+  allowNonReciprocalUpstreamDownstreamLinks = false;
 }
 
 // Prune linkNo if it is unneeded.  If linkNo is pruned, recursively prune
@@ -577,11 +1244,14 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
   int                ii;      // Loop counter.
   bool               prune;   // Whether to prune.
   LinkElementStruct* element; // For checking if elements are unassociated.
-  int                linkNo2; // For storing a link that must be connected to.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 <= linkNo && linkNo < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // Prune streams if there are no upstream links and all elements are unassociated.
   if (STREAM == channels[linkNo].type && NOFLOW == channels[linkNo].upstream[0])
@@ -602,16 +1272,62 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 
       if (prune)
         {
-          for (ii = 0; DOWNSTREAM_SIZE > ii && NOFLOW != channels[linkNo].downstream[ii]; ii++)
+          for (ii = 0; ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo].downstream[ii]; ii++)
             {
-              linkNo2 = channels[linkNo].downstream[ii];
-              removeUpstreamDownstreamConnection(channels, size, linkNo, linkNo2);
-              tryToPruneLink(channels, size, linkNo2);
+              // We have to detach all downstream links before we can set the type to PRUNED_STREAM, but that will temporarily leave a non-pruned stream with
+              // non-reciprocal links.  Set this repeatedly inside the loop because the called tryToPruneLink might set it to false.
+              allowNonReciprocalUpstreamDownstreamLinks = true;
+              
+              removeUpstreamConnection(channels, size, linkNo, channels[linkNo].downstream[ii]);
+              tryToPruneLink(channels, size, channels[linkNo].downstream[ii]);
             }
           
-          channels[linkNo].type = PRUNED_STREAM;
+          // We have to detach all downstream links before we can set the type to PRUNED_STREAM, but that will temporarily leave a non-pruned stream with
+          // non-reciprocal links.
+          allowNonReciprocalUpstreamDownstreamLinks = false;
+          channels[linkNo].type                     = PRUNED_STREAM;
         }
     }
+}
+
+// This function actually implements isCoincidentOrDownstream.  See that
+// function's comment for details.  This one does not check the invariant.
+// Checking that invariant inside a recursive depth first search that doesn't
+// modify channels is too insane even for the most extreme debug level.
+bool isCoincidentOrDownstreamRecurse(ChannelLinkStruct* channels, int size, int linkNo1, int linkNo2, int hopCount, int numberOfLinks,
+                                    bool* coincidentOrDownstream)
+{
+  bool error = false; // Error flag.
+  int  ii;            // Loop counter.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(NULL != channels && 0 <= linkNo1 && linkNo1 < size && 0 <= linkNo2 && linkNo2 < size && 0 <= hopCount &&
+         0 <= numberOfLinks && numberOfLinks <= size && NULL != coincidentOrDownstream);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (hopCount > numberOfLinks)
+    {
+      fprintf(stderr, "ERROR in isCoincidenOrDownstreamRecurse: Detected cycle in channel network in link %d.\n", linkNo1);
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+  *coincidentOrDownstream = (linkNo1 == linkNo2); // Initialize coincidentOrDownstream to a value even if there is an error.
+  
+  // Search all downstream links of LinkNo1.
+  if (!error)
+    {
+      for (ii = 0; !*coincidentOrDownstream && ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo1].downstream[ii]; ii++)
+        {
+          if (!isBoundary(channels[linkNo1].downstream[ii]))
+            {
+              isCoincidentOrDownstreamRecurse(channels, size, channels[linkNo1].downstream[ii], linkNo2, hopCount + 1, numberOfLinks, coincidentOrDownstream);
+            }
+        }
+    }
+  
+  return error;
 }
 
 // Calculate whether linkNo2 is the same link as or downstream of linkNo1.
@@ -639,128 +1355,99 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
 //                          of linkNo1, false otherwise.
 bool isCoincidentOrDownstream(ChannelLinkStruct* channels, int size, int linkNo1, int linkNo2, int hopCount, int numberOfLinks, bool* coincidentOrDownstream)
 {
-  bool error = false; // Error flag.
-  int  ii;            // Loop counter.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  assert(NULL != channels && 0 <= linkNo1 && linkNo1 < size && 0 <= linkNo2 && linkNo2 < size && 0 <= hopCount &&
-         0 <= numberOfLinks && numberOfLinks <= size && NULL != coincidentOrDownstream);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (hopCount > numberOfLinks)
-    {
-      fprintf(stderr, "ERROR in isCoincidentOrDownstream: Detected cycle in channel network in link %d.\n", linkNo1);
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-
-  *coincidentOrDownstream = (linkNo1 == linkNo2); // Initialize coincidentOrDownstream to a value even if there is an error.
-  
-  // Search all downstream links of LinkNo1.
-  if (!error)
-    {
-      for (ii = 0; !*coincidentOrDownstream && ii < DOWNSTREAM_SIZE && NOFLOW != channels[linkNo1].downstream[ii]; ii++)
-        {
-          if (!isBoundary(channels[linkNo1].downstream[ii]))
-            {
-              isCoincidentOrDownstream(channels, size, channels[linkNo1].downstream[ii], linkNo2, hopCount + 1, numberOfLinks, coincidentOrDownstream);
-            }
-        }
-    }
-  
-  return error;
+  // This function is actually implemented in isCoincidenOrDownstreamRecurse, but that function does not check the invariant.  This way the invariant gets
+  // checked once for the entire search, not once per step of the search.
+  return isCoincidentOrDownstreamRecurse(channels, size, linkNo1, linkNo2, hopCount, numberOfLinks, coincidentOrDownstream);
 }
 
-// Used for the return value of upstreamDownstream.
-typedef enum
-{
-  COINCIDENT, // The two intersections are at the same location.
-  UPSTREAM,   // intersection2 is upstream   of intersection1.
-  DOWNSTREAM, // intersection2 is downstream of intersection1.
-  UNRELATED,  // Neither is upstream or downstream of the other.
-} UpstreamDownstreamEnum;
-
-// Return the upstream/downstream relationship between two intersections.
-// This function assumes that each stream link has at most one downstream
-// connection and no cycles, which is true before linking waterbodies to
-// streams, which is where this is run in the code.
+// Determine the upstream/downstream relationship between two intersections.
+//
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //
-// channels      - The channel network as a 1D array of ChannelLinkStruct.
-// size          - The number of elements in channels.
-// intersection1 - The first intersection.
-// intersection2 - The second intersection.
-UpstreamDownstreamEnum getUpstreamDownstream(ChannelLinkStruct* channels, int size, LinkElementStruct* intersection1, LinkElementStruct* intersection2)
+// channels           - The channel network as a 1D array of ChannelLinkStruct.
+// size               - The number of elements in channels.
+// intersection1      - The first intersection.
+// intersection2      - The second intersection.
+// upstreamDownstream - Scalar passed by reference will be filled in with the
+//                      upstream/downstream relationship between the two
+//                      intersections.
+bool getUpstreamDownstream(ChannelLinkStruct* channels, int size, LinkElementStruct* intersection1, LinkElementStruct* intersection2,
+                           UpstreamDownstreamEnum* upstreamDownstream)
 {
-  UpstreamDownstreamEnum returnValue = UNRELATED; // Used to store the return value of the function.
-  int                    linkNo;                  // Used to search upstream and downstream links.
+  bool error = false;          // Error flag.
+  bool coincidentOrDownstream; // Whether one link is downstream of another.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  assert(NULL != channels && 0 < size && NULL != intersection1 && NULL != intersection2);
+  assert(NULL != channels && 0 < size && NULL != intersection1 && NULL != intersection2 && NULL != upstreamDownstream);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANT)
-  assert(NULL != intersection1 && 0 <= intersection1->edge && intersection1->edge < size && STREAM == channels[intersection1->edge].type &&
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size) &&
+         0 <= intersection1->edge && intersection1->edge < size && STREAM == channels[intersection1->edge].type &&
          0.0 <= intersection1->endLocation && intersection1->endLocation <= channels[intersection1->edge].lastElement->endLocation &&
          (COINCIDENT == intersection1->movedTo || UPSTREAM == intersection1->movedTo || DOWNSTREAM == intersection1->movedTo ||
           UNRELATED == intersection1->movedTo) &&
-         NULL != intersection2 && 0 <= intersection2->edge && intersection2->edge < size && STREAM == channels[intersection2->edge].type &&
+         0 <= intersection2->edge && intersection2->edge < size && STREAM == channels[intersection2->edge].type &&
          0.0 <= intersection2->endLocation && intersection2->endLocation <= channels[intersection2->edge].lastElement->endLocation &&
          (COINCIDENT == intersection2->movedTo || UPSTREAM == intersection2->movedTo || DOWNSTREAM == intersection2->movedTo ||
           UNRELATED == intersection2->movedTo));
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANT)
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // If they are on the same link the 1D location determines the relationship.
   if (intersection1->edge == intersection2->edge)
     {
       if (intersection1->endLocation == intersection2->endLocation)
         {
-          returnValue = COINCIDENT;
+          *upstreamDownstream = COINCIDENT;
         }
       else if (intersection1->endLocation > intersection2->endLocation)
         {
-          returnValue = UPSTREAM;
+          *upstreamDownstream = UPSTREAM;
         }
       else // if (intersection1->endLocation < intersection2->endLocation)
         {
-          returnValue = DOWNSTREAM;
+          *upstreamDownstream = DOWNSTREAM;
         }
     }
   else
     {
-      // FIXME I could use isCoincidentOrDownstream here, but then getUpstreamDownstream would have to return an error in case it finds a cycle.  There should
-      // be no cycles in the TauDEM input, and the connections shouldn't have been modified yet, but maybe that would be a good check to do anyway.
-      
       // Search downstream of intersection2 to find intersection1.
-      linkNo = channels[intersection2->edge].downstream[0];
+      error = isCoincidentOrDownstream(channels, size, intersection2->edge, intersection1->edge, 0, size, &coincidentOrDownstream);
       
-      while (UNRELATED == returnValue && !isBoundary(linkNo))
+      if (!error)
         {
-          if (linkNo == intersection1->edge)
+          if (coincidentOrDownstream)
             {
-              returnValue = UPSTREAM;
+              *upstreamDownstream = UPSTREAM;
             }
-          
-          linkNo = channels[linkNo].downstream[0];
+          else
+            {
+              // Search downstream of intersection1 to find intersection2.
+              error = isCoincidentOrDownstream(channels, size, intersection1->edge, intersection2->edge, 0, size, &coincidentOrDownstream);
+
+              if (!error && coincidentOrDownstream)
+                {
+                  *upstreamDownstream = DOWNSTREAM;
+                }
+              else
+                {
+                  *upstreamDownstream = UNRELATED;
+                }
+            }
         }
-      
-      // Search downstream of intersection1 to find intersection2.
-      linkNo = channels[intersection1->edge].downstream[0];
-      
-      while (UNRELATED == returnValue && !isBoundary(linkNo))
+      else
         {
-          if (linkNo == intersection2->edge)
-            {
-              returnValue = DOWNSTREAM;
-            }
-          
-          linkNo = channels[linkNo].downstream[0];
+          *upstreamDownstream = UNRELATED;
         }
     }
   
-  return returnValue;
+  return error;
 }
 
 // Read a .link file and allocate and initialize an array of ChannelLinkStruct.
@@ -937,6 +1624,10 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size && NULL != fileBasename);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // Open the geometry and attribute files.
   shpFile = SHPOpen(fileBasename, "rb");
@@ -1156,6 +1847,10 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
   assert(NULL != channels && 0 < size && NULL != fileBasename);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   // Open the geometry and attribute files.
   shpFile = SHPOpen(fileBasename, "rb");
   dbfFile = DBFOpen(fileBasename, "rb");
@@ -1273,8 +1968,6 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           // Fill in the ChannelLinkStruct.
-          // FIXME error check these values, maybe do it in invariant?  Must check length, both contributing areas, upstream/downstream relationships
-          // FIXME check that all non-NOFLOW upstream links are compacted to the front of the array.
           channels[linkNo].type                       = STREAM;
           channels[linkNo].shapes[0]                  = SHPReadObject(shpFile, ii);
           channels[linkNo].upstreamContributingArea   = DBFReadDoubleAttribute(dbfFile, ii, us_cont_arIndex);
@@ -1308,13 +2001,28 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
       if (!error)
         {
           getLengthAndLocation(channels[linkNo].shapes[0], 0.0, 0.0, &channels[linkNo].length, NULL);
-          createLinkElementAfter(channels, size, linkNo, NULL, channels[linkNo].length, -1, -1);
+          
+          // Create an initial LinkElementStruct.  Do not use createLinkElementAfter because we don't need the full generality of that function and at this
+          // moment the channel network might not pass the invariant, which might be checked in that function.
+          channels[linkNo].firstElement              = new LinkElementStruct;
+          channels[linkNo].lastElement               = channels[linkNo].firstElement;
+          channels[linkNo].firstElement->prev        = NULL;
+          channels[linkNo].firstElement->next        = NULL;
+          channels[linkNo].firstElement->endLocation = channels[linkNo].length;
+          channels[linkNo].firstElement->edge        = -1;
+          channels[linkNo].firstElement->movedTo     = -1;
         }
     } // End fill in the links.
   
+  // Use DEBUG_LEVEL_USER_INPUT_SIMPLE because here we are using the invariant to check simple conditions like link numbers within range.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
   // Eliminate links of zero length.
-  // FIXME can't call tryToPrune or removeUpstreamDownstreamConnection until we know that the upstream/downstream links pass the invariant, but can't call the
-  // invariant until we remove zero length links.
   for (ii = 0; !error && ii < size; ii++)
     {
       if (0.0 == channels[ii].length)
@@ -1401,6 +2109,10 @@ void addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
   assert(NULL != channels && 0 <= linkNo && linkNo < size && STREAM == channels[linkNo].type && 0.0 <= location1 && location1 <= channels[linkNo].length &&
          0.0 <= location2 && location2 <= channels[linkNo].length);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
 
   // Ensure that location1 is strictly less than location2.
   if (location1 > location2)
@@ -1980,6 +2692,10 @@ bool addAllStreamMeshEdges(ChannelLinkStruct* channels, int size, const char* no
   assert(NULL != channels && 0 < size && NULL != nodeFilename && NULL != edgeFilename);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   // Open the files.
   nodeFile = fopen(nodeFilename, "r");
   edgeFile = fopen(edgeFilename, "r");
@@ -2199,6 +2915,10 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size && NULL != fileBasename);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
 
   // Open the geometry and attribute files.
   shpFile = SHPOpen(fileBasename, "rb");
@@ -2340,13 +3060,13 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
   // marked DOWNSTREAM.  Otherwise, if the intersection has no other intersections in the list upstream of it, then the stream is connected upstream of the
   // waterbody and the intersection is marked UPSTREAM.  Otherwise, the intersection is ignored, and the intersection is marked UNRELATED.  Duplicate
   // intersections are also ignored and marked UNRELATED.
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
       if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
           intersection1 = channels[ii].firstElement;
           
-          while (NULL != intersection1)
+          while (!error && NULL != intersection1)
             {
               hasUpstream   = false;                     // Whether intersection1 has another intersection upstream of it.
               hasDownstream = false;                     // Whether intersection1 has another intersection downstream of it.
@@ -2354,45 +3074,51 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
               
               // For each intersection1, loop over all of the intersection2s.  If intersection1 will be ignored (hasUpstream && hasDownstream) then break out
               // of the loop.
-              while (NULL != intersection2 && !(hasUpstream && hasDownstream))
+              while (!error && NULL != intersection2 && !(hasUpstream && hasDownstream))
                 {
                   // Do not compare an intersection to itself.
                   if (intersection1 != intersection2)
                     {
                       // Get the upstream/downstream relationship between intersection1 and intersection2.
-                      upstreamDownstream = getUpstreamDownstream(channels, size, intersection1, intersection2);
+                      error = getUpstreamDownstream(channels, size, intersection1, intersection2, &upstreamDownstream);
 
-                      if (COINCIDENT == upstreamDownstream && COINCIDENT != intersection2->movedTo)
+                      if (!error)
                         {
-                          // If the two intersections are duplicates and intersection2 is already assigned a mark then set hasUpstream and hasDownstream to
-                          // force intersection1 to be ignored.
-                          hasUpstream   = true;
-                          hasDownstream = true;
-                        }
-                      else if (UPSTREAM == upstreamDownstream)
-                        {
-                          hasUpstream = true;
-                        }
-                      else if (DOWNSTREAM == upstreamDownstream)
-                        {
-                          hasDownstream = true;
+                          if (COINCIDENT == upstreamDownstream && COINCIDENT != intersection2->movedTo)
+                            {
+                              // If the two intersections are duplicates and intersection2 is already assigned a mark then set hasUpstream and hasDownstream to
+                              // force intersection1 to be ignored.
+                              hasUpstream   = true;
+                              hasDownstream = true;
+                            }
+                          else if (UPSTREAM == upstreamDownstream)
+                            {
+                              hasUpstream = true;
+                            }
+                          else if (DOWNSTREAM == upstreamDownstream)
+                            {
+                              hasDownstream = true;
+                            }
                         }
                     }
 
                   intersection2 = intersection2->next;
                 }
               
-              if (!hasDownstream)
+              if (!error)
                 {
-                  intersection1->movedTo = DOWNSTREAM;
-                }
-              else if (!hasUpstream)
-                {
-                  intersection1->movedTo = UPSTREAM;
-                }
-              else
-                {
-                  intersection1->movedTo = UNRELATED;
+                  if (!hasDownstream)
+                    {
+                      intersection1->movedTo = DOWNSTREAM;
+                    }
+                  else if (!hasUpstream)
+                    {
+                      intersection1->movedTo = UPSTREAM;
+                    }
+                  else
+                    {
+                      intersection1->movedTo = UNRELATED;
+                    }
                 }
 
               intersection1 = intersection1->next;
@@ -2440,6 +3166,10 @@ bool makeStreamFlowIntoWaterbody(ChannelLinkStruct* channels, int size, int stre
   assert(NULL != channels && 0 <= streamLinkNo && streamLinkNo < size && STREAM == channels[streamLinkNo].type &&
          0 <= waterbodyLinkNo && waterbodyLinkNo < size && (WATERBODY == channels[waterbodyLinkNo].type || ICEMASS == channels[waterbodyLinkNo].type));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // The following code requires at least two downstream links.
@@ -2545,6 +3275,10 @@ bool splitLink(ChannelLinkStruct* channels, int size, int linkNo, LinkElementStr
          location <= element->endLocation);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   // Get an unused link number.
   newLinkNo = 0;
   
@@ -2608,9 +3342,17 @@ bool splitLink(ChannelLinkStruct* channels, int size, int linkNo, LinkElementStr
 
       // Now element is the first element that will be moved and end_element is the last element that will be moved, and their locations are the correct values
       // for the new moved link.
+      
+      // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
+      allowLastLinkElementLengthNotEqualToLinkLength         = true;
+      allowLinkElementEndLocationsNotMonotonicallyIncreasing = true;
 
       // Create the movedTo element after endElement.
       createLinkElementAfter(channels, size, linkNo, endElement, channels[linkNo].length, -1, newLinkNo);
+      
+      // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
+      allowLastLinkElementLengthNotEqualToLinkLength         = false;
+      allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
   
       // Update struct values.
       channels[newLinkNo].type      = STREAM;
@@ -2698,6 +3440,10 @@ bool linkWaterbodyStreamIntersection(ChannelLinkStruct* channels, int size, int 
          0.0 <= location && location <= channels[streamLinkNo].lastElement->endLocation &&
          (UPSTREAM == streamUpstreamDownstream || DOWNSTREAM == streamUpstreamDownstream));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // Find the element of the stream that will be linked to the waterbody.
   while (NULL == element)
@@ -2848,6 +3594,10 @@ bool linkAllWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size)
   assert(NULL != channels && 0 < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   // Resolve all of the intersections.
   for (ii = 0; !error && ii < size; ii++)
     {
@@ -2889,6 +3639,10 @@ bool alreadyConnected(ChannelLinkStruct* channels, int size, int linkNo1, int li
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 <= linkNo1 && linkNo1 < size && 0 <= linkNo2 && linkNo2 < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   for (ii = 0; !connected && ii < UPSTREAM_SIZE && NOFLOW != channels[linkNo1].upstream[ii]; ii++)
     {
@@ -2947,6 +3701,10 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size && NULL != fileBasename);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   
   // We are using a brute force method to detect cycles in the channel network.  As we traverse downstream we keep a hop count and if the hop count exceeds
   // the total number of links we know we have visited at least one link more than once so there is a cycle.  Here we find the total number of links.
@@ -3213,6 +3971,10 @@ double locationOfMovedLink(ChannelLinkStruct* channels, int size, int linkNoToSe
   assert(NULL != channels && 0 <= linkNoToSearch && linkNoToSearch < size && 0 <= linkNoToFind && linkNoToFind < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   if (linkNoToSearch == linkNoToFind)
     {
       location = 0.0;
@@ -3318,20 +4080,28 @@ typedef enum
 //
 // First line: <# of elements>
 // Then for each element:
-// <element #> <element type> <reach code> <length> <top width> <bank full depth> <# of vertices> <# of channel neighbors> <# of mesh neighbors> <vertex> <vertex> ...<channel neighbor> <channel neighbor> ... <mesh neighbor> <mesh neighbor edge length> <mesh neighbor> <mesh neighbor edge length> ...
+// <element #> <element type> <reach code> <length> <top width> <bank full depth> <# of vertices> <# of channel neighbors> <# of mesh neighbors> <vertex> <vertex> ... <channel neighbor> <whether downstream> <channel neighbor> <whether downstream> ... <mesh neighbor> <mesh neighbor edge length in meters> <mesh neighbor> <mesh neighbor edge length in meters> ...
+//
+// The format of the .chan.prune file is:
+//
+// For each pruned stream:
+// <reach code of pruned stream> <reach code of unpruned link that pruned stream flows downstream into>
+//
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //
-// channels              - The channel network as a 1D array of
-//                         ChannelLinkStruct.
-// size                  - The number of elements in channels.
-// meshNodeFilename      - The name of the .node file to read.
-// meshElementFilename   - The name of the .ele file to read.
-// meshEdgeFilename      - The name of the .edge file to read.
-// channelNodeFilename   - The name of the .chan.node file to write.
-// chanelElementFilename - The name of the .chan.ele file to write.
+// channels               - The channel network as a 1D array of
+//                          ChannelLinkStruct.
+// size                   - The number of elements in channels.
+// meshNodeFilename       - The name of the .node file to read.
+// meshElementFilename    - The name of the .ele file to read.
+// meshEdgeFilename       - The name of the .edge file to read.
+// channelNodeFilename    - The name of the .chan.node file to write.
+// channelElementFilename - The name of the .chan.ele file to write.
+// channelPruneFilename   - The name of the .chan.prune file to write.
 bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* meshNodeFilename, const char* meshElementFilename, const char* meshEdgeFilename,
-                         const char* channelNodeFilename, const char* channelElementFilename)
+                         const char* channelNodeFilename, const char* channelElementFilename, const char* channelPruneFilename)
 {
   bool               error                   = false; // Error flag.
   int                ii, jj, kk, ll, mm;              // Loop counters.  Generally, ii is for links, jj is for elements or shapes, kk is for element vertices,
@@ -3404,6 +4174,10 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   assert(NULL != channels && 0 < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  assert(!channelNetworkCheckInvariant(channels, size));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
+  
   // Determine the number of elements of each link.
   for (ii = 0; ii < size; ii++)
     {
@@ -3462,6 +4236,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
           channelVertices[jj][kk] = -1;
         }
     }
+  
+  // Read in mesh node, element, and edge files to determine the edge length and mesh element neighbors of each channel edge.
   
   // FIXME this could be done in addAllStreamMeshEdges and saved for later.
   // Open the files.
@@ -3682,7 +4458,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               // of the waterbody.
               if (WATERBODY == channels[boundary].type || ICEMASS == channels[boundary].type)
                 {
-                  createLinkElementAfter(channels, size, boundary, NULL, 0.0, meshEdgeNumber, -1);
+                  createLinkElementAfter(channels, size, boundary, NULL, 0.0, meshEdgeNumber, COINCIDENT);
                 }
 
               // Find what mesh elements the edge connects to.  A mesh edge can connect to at most two mesh elements.
@@ -4134,7 +4910,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               channelVertices[channels[ii].elementStart][mm] = channelVertices[channels[ii].elementStart][kk - 1];
             }
         } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
-    } // End loop over all used links.  For each link loop over shapes filling in elementCenters and vertices and creating nodes as you go.
+    } // End loop over all links.  For each used link loop over its shapes creating channel nodes and filling in channel vertices as you go.
   
   // Open the channel node file.
   if (!error)
@@ -4370,7 +5146,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
               
               // Output fixed length per-element information.
-              numPrinted = fprintf(outputFile, "%d %d %llu %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
+              numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
                                    topWidth, bankFullDepth, ChannelElement::channelVerticesSize, ChannelElement::channelNeighborsSize,
                                    ChannelElement::meshNeighborsSize);
 
@@ -4413,12 +5189,12 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                               
                               if (isBoundary(channels[ii].upstream[mm]))
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[ii].upstream[mm]);
+                                  numPrinted = fprintf(outputFile, " %d 0", channels[ii].upstream[mm]);
                                 }
                               else
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", (channels[channels[ii].upstream[mm]].elementStart +
-                                                                           channels[channels[ii].upstream[mm]].numberOfElements - 1));
+                                  numPrinted = fprintf(outputFile, " %d 0", (channels[channels[ii].upstream[mm]].elementStart +
+                                                                             channels[channels[ii].upstream[mm]].numberOfElements - 1));
                                 }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -4446,7 +5222,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
                         {
                           numberOfNeighbors++;
-                          numPrinted = fprintf(outputFile, " %d", jj - 1);
+                          numPrinted = fprintf(outputFile, " %d 0", jj - 1);
                           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                           if (!(0 < numPrinted))
@@ -4482,11 +5258,11 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                               
                               if (isBoundary(channels[ii].downstream[mm]))
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[ii].downstream[mm]);
+                                  numPrinted = fprintf(outputFile, " %d 1", channels[ii].downstream[mm]);
                                 }
                               else
                                 {
-                                  numPrinted = fprintf(outputFile, " %d", channels[channels[ii].downstream[mm]].elementStart);
+                                  numPrinted = fprintf(outputFile, " %d 1", channels[channels[ii].downstream[mm]].elementStart);
                                 }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -4514,7 +5290,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
                         {
                           numberOfNeighbors++;
-                          numPrinted = fprintf(outputFile, " %d", jj + 1);
+                          numPrinted = fprintf(outputFile, " %d 1", jj + 1);
                           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                           if (!(0 < numPrinted))
@@ -4540,7 +5316,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement::channelNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d", NOFLOW);
+                  numPrinted = fprintf(outputFile, " %d 0", NOFLOW);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))
@@ -4770,7 +5546,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement::meshNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 1.0);
+                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 0.0);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))
@@ -4798,9 +5574,62 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
             } // End write out the elements of the link.
         } // End if (STREAM == channels[ii].type || WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
-    } // End write the elements into the element file.
+    } // End write the channel elements into the channel element file.
 
-  // Close the element file.
+  // Close the channel element file.
+  if (NULL != outputFile)
+    {
+      fclose(outputFile);
+      outputFile = NULL;
+    }
+  
+  // Open the channel prune file.
+  if (!error)
+    {
+      outputFile = fopen(channelPruneFilename, "w");
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != outputFile))
+        {
+          fprintf(stderr, "ERROR in writeChannelNetwork: Could not open channel prune file %s.\n", channelPruneFilename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Write the pruned links into the channel prune file.
+  for (ii = 0; ii < size; ii++)
+    {
+      if (PRUNED_STREAM == channels[ii].type)
+        {
+          jj = channels[ii].downstream[0];
+
+          while (!isBoundary(jj) && PRUNED_STREAM == channels[jj].type)
+            {
+              jj = channels[jj].downstream[0];
+            }
+
+          if (!isBoundary(jj))
+            {
+              numPrinted = fprintf(outputFile, "%lld %lld\n", channels[ii].reachCode, channels[jj].reachCode);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(0 < numPrinted))
+                {
+                  fprintf(stderr, "ERROR in writeChannelNetwork: incorrect return value %lu of snprintf when writing link %d in channel prune file.\n",
+                          numPrinted, ii);
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+          else
+            {
+              fprintf(stderr, "WARNING in main: pruned stream %d does not flows downstream into any unpruned link.\n", ii);
+            }
+        }
+    }
+
+  // Close the channel prune file.
   if (NULL != outputFile)
     {
       fclose(outputFile);
@@ -4867,6 +5696,8 @@ void channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
   assert(NULL != channels && NULL != *channels && NULL != size && 0 < *size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
+  // Don't check invariant because dealloc can be called after an error when the invariant will fail.
+  
   for (ii = 0; ii < *size; ii++)
     {
       for (jj = 0; jj < SHAPES_SIZE; jj++)
@@ -4877,14 +5708,23 @@ void channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
             }
         }
       
+      // Delete all LinkElementStructs.  Do not use killLinkElement because we don't need the full generality of that function and at this moment the channel
+      // network might not pass the invariant, which might be checked in that function.
       while (NULL != (*channels)[ii].firstElement)
         {
-          killLinkElement(*channels, *size, ii, (*channels)[ii].firstElement);
+          if (NULL != (*channels)[ii].firstElement->next)
+            {
+              (*channels)[ii].firstElement = (*channels)[ii].firstElement->next;
+              
+              delete (*channels)[ii].firstElement->prev;
+            }
+          else
+            {
+              delete (*channels)[ii].firstElement;
+              
+              (*channels)[ii].firstElement = NULL;
+            }
         }
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      assert(NULL == (*channels)[ii].lastElement);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
   delete[] *channels;
@@ -4901,17 +5741,66 @@ int main(void)
   ChannelLinkStruct* channels;      // The channel network.
   int                size;          // The number of elements in channels.
   
+  // Reach codes get set when reading the link file, but the types of those links get set in readWaterbodies and readTaudemStreamnet so temporarily there are
+  // reach codes in not used links.
+  allowNotUsedToHaveReachCode = true;
+  
+  // There can be zero length streams in the TauDEM input.  We prune them out in readTaudemStreamnet, but it checks the invariant before the pruning process so
+  // temporarily there are unpruned streams with zero length.
+  allowStreamToHaveZeroLength = true;
+  
+  // When adding an upstream/downstream connection we have to add one first and then the invariant will fail on the arguments to the function to add the other.
+  allowNonReciprocalUpstreamDownstreamLinks = false;
+  
+  // When adding a link element at the end of a link the length of the last unmoved element must temporarily be different than the link length.
+  allowLastLinkElementLengthNotEqualToLinkLength = false;
+  
+  // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
+  allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
+  
   error = readLink(&channels, &size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.link");
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   
   if (!error)
     {
       error = readWaterbodies(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies");
     }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  
   if (!error)
     {
       error = readTaudemStreamnet(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/projectednet");
     }
+  
+  // Reach codes get set when reading the link file, but the types of those links get set in readWaterbodies and readTaudemStreamnet so temporarily there are
+  // reach codes in not used links.
+  allowNotUsedToHaveReachCode = false;
+  
+  // There can be zero length streams in the TauDEM input.  We prune them out in readTaudemStreamnet, but it checks the invariant before the pruning process so
+  // temporarily there are unpruned streams with zero length.
+  allowStreamToHaveZeroLength = false;
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  
+  // When adding a link element at the end of a link the length of the last unmoved element must temporarily be different than the link length.
+  allowLastLinkElementLengthNotEqualToLinkLength = true;
   
   if (!error)
     {
@@ -4919,21 +5808,52 @@ int main(void)
                                     "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge");
     }
   
+  // When adding a link element at the end of a link the length of the last unmoved element must temporarily be different than the link length.
+  allowLastLinkElementLengthNotEqualToLinkLength = false;
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  
   if (!error)
     {
       error = readWaterbodyStreamIntersections(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_streams_intersections");
     }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   
   if (!error)
     {
       error = linkAllWaterbodyStreamIntersections(channels, size);
     }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  
   if (!error)
     {
       error = readAndLinkWaterbodyWaterbodyIntersections(channels, size,
                                                          "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_waterbodies_intersections");
     }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   
   if (!error)
     {
@@ -4943,14 +5863,34 @@ int main(void)
         }
     }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  
   if (!error)
     {
       error = writeChannelNetwork(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele");
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele",
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune");
     }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  assert(!allowNotUsedToHaveReachCode && !allowStreamToHaveZeroLength && !allowNonReciprocalUpstreamDownstreamLinks &&
+         !allowLastLinkElementLengthNotEqualToLinkLength && !allowLinkElementEndLocationsNotMonotonicallyIncreasing);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
 
   if (NULL != channels)
     {

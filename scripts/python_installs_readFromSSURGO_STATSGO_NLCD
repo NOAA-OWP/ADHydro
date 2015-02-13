@@ -1,25 +1,31 @@
-download numpy 1.8 source
-https://pypi.python.org/pypi/numpy
+download numpy source at least version 1.8 from https://pypi.python.org/pypi/numpy
 extract tarball
 cd to numpy folder and run
 $/usr/bin/python setup.py build
 $su
 root$/usr/bin/python setup.py install
+you may have to remove an old numpy egg from a previous version.  On our system we do this:
+mv /usr/lib64/python2.6/site-packages/numpy-1.4.1-py2.6.egg-info /usr/lib64/python2.6/site-packages/numpy-1.4.1-py2.6.egg-info.bak
+exit out of being root
+delete tarball
+delete numpy directory
 
-download pandas 0.14.1 source
-https://pypi.python.org/pypi/pandas#downloads
+download pandas source at least version 0.14.1 from https://pypi.python.org/pypi/pandas#downloads
 extract tarball
 cd to pandas directory and run
 $/usr/bin/python setup.py build
 $su
 root$/usr/bin/python setup.py install
+exit out of being root
+delete tarball
+delete pandas directory
 
 
 
 
 
 To use qgis outside of qgis console
-$export PYTHONPATH=/usr/opt/share/qgis/python:$PYTHONPATH
+$export PYTHONPATH=/opt/share/qgis/python:$PYTHONPATH
 then in python script
 from qgis.core import *
 
