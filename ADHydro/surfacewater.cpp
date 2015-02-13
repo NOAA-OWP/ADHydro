@@ -336,9 +336,7 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshSurfacewaterDepth, double channelZBank,
                                      double channelZBed, double channelSurfacewaterDepth)
 {
-  bool   error                          = false;                 // Error flag.
-  double effectiveMeshZSurface          = meshZSurface;          // The highest of meshZSurface, channelZBank, or channelZBed plus channelSurfacewaterDepth.
-  double effectiveMeshSurfacewaterDepth = meshSurfacewaterDepth; // The depth of water above effectiveMeshZSurface.
+  bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -381,21 +379,31 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double
 
   if (!error)
     {
-      if (effectiveMeshZSurface < channelZBank)
+      if (channelZBank < channelZBed + channelSurfacewaterDepth)
         {
-          effectiveMeshZSurface = channelZBank;
+          if (meshZSurface + meshSurfacewaterDepth < channelZBed + channelSurfacewaterDepth)
+            {
+              // Warn if channel surfacewater is above bank and above mesh surfacewater.
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in surfacewaterMeshChannelFlowRate: channel surfacewater above bank and above mesh surfacewater.  Flow from channels to "
+                          "mesh not implemented.\n");
+                }
+            }
+          
+          // Set channelZBank no lower than channel water surface.
+          channelZBank = channelZBed + channelSurfacewaterDepth;
         }
-
-      if (effectiveMeshZSurface < channelZBed + channelSurfacewaterDepth)
+      
+      if (meshZSurface < channelZBank)
         {
-          effectiveMeshZSurface = channelZBed + channelSurfacewaterDepth;
+          // Set meshSurfacewaterDepth as only the depth above the highest of the mesh element surface, channel element bank, or channel element water surface.
+          meshSurfacewaterDepth -= channelZBank - meshZSurface;
         }
-
-      effectiveMeshSurfacewaterDepth -= effectiveMeshZSurface - meshZSurface;
-
-      if (0.0 > effectiveMeshSurfacewaterDepth)
+      
+      if (0.0 > meshSurfacewaterDepth)
         {
-          effectiveMeshSurfacewaterDepth = 0.0;
+          meshSurfacewaterDepth = 0.0;
         }
 
       error =  surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);

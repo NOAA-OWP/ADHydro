@@ -121,7 +121,7 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 // channel element.  We calculate the flow rate as if it were a mesh outflow
 // boundary except that the water depth is taken as the depth above the highest
 // of the mesh element surface, channel element bank, or channel element water
-// height.
+// surface.
 //
 // Returns: true if there is an error, false otherwise.
 //
