@@ -11,7 +11,7 @@ require(ncdf4)
 
 outpath="/localstore/output/Run2/"   ## Path to read output data
 filen="state.nc"                # root name of a set of files to read in sequential order
-nout=c(1,2)                   # number of outputs to read
+nout=c(1,4,5,6)                   # number of outputs to read
 
 # Reads first file to determine dimensions
 ex.ncp = nc_open(paste(outpath, nout[1],filen, sep="")) # it opens the first file
