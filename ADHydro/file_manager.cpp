@@ -8722,15 +8722,15 @@ void FileManager::handleMeshStateMessage(int element, double surfacewaterDepth, 
       CkExit();
     }
   
-  if (!(0.0 <= transpiration))
+  if (!(0.0 >= transpiration))
     {
-      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpiration must be greater than or equal to zero.\n", element);
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpiration must be less than or equal to zero.\n", element);
       CkExit();
     }
   
-  if (!(0.0 <= transpirationCumulative))
+  if (!(0.0 >= transpirationCumulative))
     {
-      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpirationCumulative must be greater than or equal to zero.\n", element);
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpirationCumulative must be less than or equal to zero.\n", element);
       CkExit();
     }
   

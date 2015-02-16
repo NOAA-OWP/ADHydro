@@ -3158,15 +3158,15 @@ void MeshElement::handleCheckInvariant()
       error = true;
     }
   
-  if (!(0.0 <= transpiration))
+  if (!(0.0 >= transpiration))
     {
-      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpiration must be greater than or equal to zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpiration must be less than or equal to zero.\n", thisIndex);
       error = true;
     }
   
-  if (!(0.0 <= transpirationCumulative))
+  if (!(0.0 >= transpirationCumulative))
     {
-      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpirationCumulative must be greater than or equal to zero.\n", thisIndex);
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpirationCumulative must be less than or equal to zero.\n", thisIndex);
       error = true;
     }
   
