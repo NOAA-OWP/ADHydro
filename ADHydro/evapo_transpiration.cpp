@@ -78,7 +78,7 @@ bool evapoTranspirationInit(const char* directory)
   // 3 -> off (use table LAI; calculate FVEG)
   // 4 -> off (use table LAI; use maximum vegetation fraction)
 
-  int dveg = 4;
+  int dveg = 3;
 
   // options for canopy stomatal resistance
   // 1-> Ball-Berry; 2->Jarvis

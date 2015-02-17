@@ -384,8 +384,9 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double
           if (meshZSurface + meshSurfacewaterDepth < channelZBed + channelSurfacewaterDepth)
             {
               // Warn if channel surfacewater is above bank and above mesh surfacewater.
-              if (2 <= ADHydro::verbosityLevel)
+              if (3 <= ADHydro::verbosityLevel)
                 {
+                  // FIXME so implement it.
                   CkError("WARNING in surfacewaterMeshChannelFlowRate: channel surfacewater above bank and above mesh surfacewater.  Flow from channels to "
                           "mesh not implemented.\n");
                 }
