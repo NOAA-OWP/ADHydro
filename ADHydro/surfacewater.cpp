@@ -336,7 +336,11 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshSurfacewaterDepth, double channelZBank,
                                      double channelZBed, double channelSurfacewaterDepth)
 {
-  bool error = false; // Error flag.
+  bool   error                        = false;                                                       // Error flag.
+  double meshSurfacewaterElevation    = meshZSurface + meshSurfacewaterDepth;                        // The elevation in meters of the mesh surfacewater.
+  double channelSurfacewaterElevation = channelZBed + channelSurfacewaterDepth;                      // The elevation in meters of the channel surfacewater.
+  double weirElevation                = (meshZSurface > channelZBank) ? meshZSurface : channelZBank; // The elevation in meters of the thing that water has to
+                                                                                                     // flow over.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -379,35 +383,40 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double
 
   if (!error)
     {
-      if (channelZBank < channelZBed + channelSurfacewaterDepth)
+      if (meshSurfacewaterElevation > channelSurfacewaterElevation)
         {
-          if (meshZSurface + meshSurfacewaterDepth < channelZBed + channelSurfacewaterDepth)
+          // Flow from the mesh to the channel.  If the channel water is over bank set weirElevation no lower than channelSurfacewaterElevation.
+          if (weirElevation < channelSurfacewaterElevation)
             {
-              // Warn if channel surfacewater is above bank and above mesh surfacewater.
-              if (3 <= ADHydro::verbosityLevel)
-                {
-                  // FIXME so implement it.
-                  CkError("WARNING in surfacewaterMeshChannelFlowRate: channel surfacewater above bank and above mesh surfacewater.  Flow from channels to "
-                          "mesh not implemented.\n");
-                }
+              weirElevation = channelSurfacewaterElevation;
             }
           
-          // Set channelZBank no lower than channel water surface.
-          channelZBank = channelZBed + channelSurfacewaterDepth;
+          meshSurfacewaterDepth = meshSurfacewaterElevation - weirElevation;
+          
+          if (0.0 < meshSurfacewaterDepth)
+            {
+              error = surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);
+            }
         }
-      
-      if (meshZSurface < channelZBank)
+      else if (channelSurfacewaterElevation > meshSurfacewaterElevation)
         {
-          // Set meshSurfacewaterDepth as only the depth above the highest of the mesh element surface, channel element bank, or channel element water surface.
-          meshSurfacewaterDepth -= channelZBank - meshZSurface;
+          // Flow from the channel to the mesh.  If the mesh water is over bank set weirElevation no lower than meshSurfacewaterElevation.
+          if (weirElevation < meshSurfacewaterElevation)
+            {
+              weirElevation = meshSurfacewaterElevation;
+            }
+          
+          channelSurfacewaterDepth = channelSurfacewaterElevation - weirElevation;
+          
+          if (0.0 < channelSurfacewaterDepth)
+            {
+              error = surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, channelSurfacewaterDepth);
+              
+              // Flow from channel to mesh is negative.
+              *flowRate *= -1.0;
+            }
         }
-      
-      if (0.0 > meshSurfacewaterDepth)
-        {
-          meshSurfacewaterDepth = 0.0;
-        }
-
-      error =  surfacewaterMeshBoundaryFlowRate(flowRate, OUTFLOW, 0.0, 0.0, 0.0, edgeLength, 1.0, 0.0, meshSurfacewaterDepth);
+      // else water elevations equal, no flow.
     }
   
   return error;

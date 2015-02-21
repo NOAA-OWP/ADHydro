@@ -117,11 +117,16 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 // element into the channel element.  Negative means flow out of the channel
 // element into the mesh element.
 //
-// For now we are assuming flow is one way from the mesh element into the
-// channel element.  We calculate the flow rate as if it were a mesh outflow
-// boundary except that the water depth is taken as the depth above the highest
-// of the mesh element surface, channel element bank, or channel element water
-// surface.
+// FIXLATER For now we are calculating flow as if the higher of the mesh or
+// channel water levels were flowing over a broad crested weir.
+// surfacewaterMeshBoundaryFlowRate is used to calculate that flow rate.
+// The weir elevation is set at the highest of meshZSurface, channelZBank, or
+// the water level in the element that water is flowing in to.
+//
+// FIXLATER This calculation is correct if only one of the water levels is over
+// the higher of the mesh surface or channel bank, but if both are we should
+// really be using a different equation rather than assuming the higher water
+// level is flowing over a weir at the elevation of the lower water level.
 //
 // Returns: true if there is an error, false otherwise.
 //
