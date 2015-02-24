@@ -1364,34 +1364,36 @@ bool isCoincidentOrDownstream(ChannelLinkStruct* channels, int size, int linkNo1
   return isCoincidentOrDownstreamRecurse(channels, size, linkNo1, linkNo2, hopCount, numberOfLinks, coincidentOrDownstream);
 }
 
-// This function assumes that each stream link has at most one downstream
-// connection and no cycles, which is true before linking waterbodies to
-// streams, which is where this is run in the code.
+// Determine the upstream/downstream relationship between two intersections.
 //
-// Returns: The upstream/downstream relationship between two intersections.
+// Returns: true if there is an error, false otherwise.
 //
 // Parameters:
 //
-// channels      - The channel network as a 1D array of ChannelLinkStruct.
-// size          - The number of elements in channels.
-// intersection1 - The first intersection.
-// intersection2 - The second intersection.
-UpstreamDownstreamEnum getUpstreamDownstream(ChannelLinkStruct* channels, int size, LinkElementStruct* intersection1, LinkElementStruct* intersection2)
+// channels           - The channel network as a 1D array of ChannelLinkStruct.
+// size               - The number of elements in channels.
+// intersection1      - The first intersection.
+// intersection2      - The second intersection.
+// upstreamDownstream - Scalar passed by reference will be filled in with the
+//                      upstream/downstream relationship between the two
+//                      intersections.
+bool getUpstreamDownstream(ChannelLinkStruct* channels, int size, LinkElementStruct* intersection1, LinkElementStruct* intersection2,
+                           UpstreamDownstreamEnum* upstreamDownstream)
 {
-  UpstreamDownstreamEnum returnValue = UNRELATED; // Used to store the return value of the function.
-  int                    linkNo;                  // Used to search upstream and downstream links.
+  bool error = false;          // Error flag.
+  bool coincidentOrDownstream; // Whether one link is downstream of another.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  assert(NULL != channels && 0 < size && NULL != intersection1 && NULL != intersection2);
+  assert(NULL != channels && 0 < size && NULL != intersection1 && NULL != intersection2 && NULL != upstreamDownstream);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_INVARIANTS)
   assert(!channelNetworkCheckInvariant(channels, size) &&
-         NULL != intersection1 && 0 <= intersection1->edge && intersection1->edge < size && STREAM == channels[intersection1->edge].type &&
+         0 <= intersection1->edge && intersection1->edge < size && STREAM == channels[intersection1->edge].type &&
          0.0 <= intersection1->endLocation && intersection1->endLocation <= channels[intersection1->edge].lastElement->endLocation &&
          (COINCIDENT == intersection1->movedTo || UPSTREAM == intersection1->movedTo || DOWNSTREAM == intersection1->movedTo ||
           UNRELATED == intersection1->movedTo) &&
-         NULL != intersection2 && 0 <= intersection2->edge && intersection2->edge < size && STREAM == channels[intersection2->edge].type &&
+         0 <= intersection2->edge && intersection2->edge < size && STREAM == channels[intersection2->edge].type &&
          0.0 <= intersection2->endLocation && intersection2->endLocation <= channels[intersection2->edge].lastElement->endLocation &&
          (COINCIDENT == intersection2->movedTo || UPSTREAM == intersection2->movedTo || DOWNSTREAM == intersection2->movedTo ||
           UNRELATED == intersection2->movedTo));
@@ -1402,50 +1404,50 @@ UpstreamDownstreamEnum getUpstreamDownstream(ChannelLinkStruct* channels, int si
     {
       if (intersection1->endLocation == intersection2->endLocation)
         {
-          returnValue = COINCIDENT;
+          *upstreamDownstream = COINCIDENT;
         }
       else if (intersection1->endLocation > intersection2->endLocation)
         {
-          returnValue = UPSTREAM;
+          *upstreamDownstream = UPSTREAM;
         }
       else // if (intersection1->endLocation < intersection2->endLocation)
         {
-          returnValue = DOWNSTREAM;
+          *upstreamDownstream = DOWNSTREAM;
         }
     }
   else
     {
-      // FIXME I could use isCoincidentOrDownstream here, but then getUpstreamDownstream would have to return an error in case it finds a cycle.  There should
-      // be no cycles in the TauDEM input, and the connections shouldn't have been modified yet, but maybe that would be a good check to do anyway.
-      
       // Search downstream of intersection2 to find intersection1.
-      linkNo = channels[intersection2->edge].downstream[0];
+      error = isCoincidentOrDownstream(channels, size, intersection2->edge, intersection1->edge, 0, size, &coincidentOrDownstream);
       
-      while (UNRELATED == returnValue && !isBoundary(linkNo))
+      if (!error)
         {
-          if (linkNo == intersection1->edge)
+          if (coincidentOrDownstream)
             {
-              returnValue = UPSTREAM;
+              *upstreamDownstream = UPSTREAM;
             }
-          
-          linkNo = channels[linkNo].downstream[0];
+          else
+            {
+              // Search downstream of intersection1 to find intersection2.
+              error = isCoincidentOrDownstream(channels, size, intersection1->edge, intersection2->edge, 0, size, &coincidentOrDownstream);
+
+              if (!error && coincidentOrDownstream)
+                {
+                  *upstreamDownstream = DOWNSTREAM;
+                }
+              else
+                {
+                  *upstreamDownstream = UNRELATED;
+                }
+            }
         }
-      
-      // Search downstream of intersection1 to find intersection2.
-      linkNo = channels[intersection1->edge].downstream[0];
-      
-      while (UNRELATED == returnValue && !isBoundary(linkNo))
+      else
         {
-          if (linkNo == intersection2->edge)
-            {
-              returnValue = DOWNSTREAM;
-            }
-          
-          linkNo = channels[linkNo].downstream[0];
+          *upstreamDownstream = UNRELATED;
         }
     }
   
-  return returnValue;
+  return error;
 }
 
 // Read a .link file and allocate and initialize an array of ChannelLinkStruct.
@@ -3058,13 +3060,13 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
   // marked DOWNSTREAM.  Otherwise, if the intersection has no other intersections in the list upstream of it, then the stream is connected upstream of the
   // waterbody and the intersection is marked UPSTREAM.  Otherwise, the intersection is ignored, and the intersection is marked UNRELATED.  Duplicate
   // intersections are also ignored and marked UNRELATED.
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
       if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
           intersection1 = channels[ii].firstElement;
           
-          while (NULL != intersection1)
+          while (!error && NULL != intersection1)
             {
               hasUpstream   = false;                     // Whether intersection1 has another intersection upstream of it.
               hasDownstream = false;                     // Whether intersection1 has another intersection downstream of it.
@@ -3072,45 +3074,51 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
               
               // For each intersection1, loop over all of the intersection2s.  If intersection1 will be ignored (hasUpstream && hasDownstream) then break out
               // of the loop.
-              while (NULL != intersection2 && !(hasUpstream && hasDownstream))
+              while (!error && NULL != intersection2 && !(hasUpstream && hasDownstream))
                 {
                   // Do not compare an intersection to itself.
                   if (intersection1 != intersection2)
                     {
                       // Get the upstream/downstream relationship between intersection1 and intersection2.
-                      upstreamDownstream = getUpstreamDownstream(channels, size, intersection1, intersection2);
+                      error = getUpstreamDownstream(channels, size, intersection1, intersection2, &upstreamDownstream);
 
-                      if (COINCIDENT == upstreamDownstream && COINCIDENT != intersection2->movedTo)
+                      if (!error)
                         {
-                          // If the two intersections are duplicates and intersection2 is already assigned a mark then set hasUpstream and hasDownstream to
-                          // force intersection1 to be ignored.
-                          hasUpstream   = true;
-                          hasDownstream = true;
-                        }
-                      else if (UPSTREAM == upstreamDownstream)
-                        {
-                          hasUpstream = true;
-                        }
-                      else if (DOWNSTREAM == upstreamDownstream)
-                        {
-                          hasDownstream = true;
+                          if (COINCIDENT == upstreamDownstream && COINCIDENT != intersection2->movedTo)
+                            {
+                              // If the two intersections are duplicates and intersection2 is already assigned a mark then set hasUpstream and hasDownstream to
+                              // force intersection1 to be ignored.
+                              hasUpstream   = true;
+                              hasDownstream = true;
+                            }
+                          else if (UPSTREAM == upstreamDownstream)
+                            {
+                              hasUpstream = true;
+                            }
+                          else if (DOWNSTREAM == upstreamDownstream)
+                            {
+                              hasDownstream = true;
+                            }
                         }
                     }
 
                   intersection2 = intersection2->next;
                 }
               
-              if (!hasDownstream)
+              if (!error)
                 {
-                  intersection1->movedTo = DOWNSTREAM;
-                }
-              else if (!hasUpstream)
-                {
-                  intersection1->movedTo = UPSTREAM;
-                }
-              else
-                {
-                  intersection1->movedTo = UNRELATED;
+                  if (!hasDownstream)
+                    {
+                      intersection1->movedTo = DOWNSTREAM;
+                    }
+                  else if (!hasUpstream)
+                    {
+                      intersection1->movedTo = UPSTREAM;
+                    }
+                  else
+                    {
+                      intersection1->movedTo = UNRELATED;
+                    }
                 }
 
               intersection1 = intersection1->next;
@@ -5538,7 +5546,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement::meshNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 1.0);
+                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 0.0);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))

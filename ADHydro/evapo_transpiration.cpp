@@ -78,7 +78,7 @@ bool evapoTranspirationInit(const char* directory)
   // 3 -> off (use table LAI; calculate FVEG)
   // 4 -> off (use table LAI; use maximum vegetation fraction)
 
-  int dveg = 4;
+  int dveg = 3;
 
   // options for canopy stomatal resistance
   // 1-> Ball-Berry; 2->Jarvis
@@ -521,18 +521,18 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       CkError("ERROR in evapoTranspirationSoil: sfcTmp must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationSoil: sfcTmp below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationSoil: sfcTmp below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationSoil: sfcTmp above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationSoil: sfcTmp above 70 degrees C.\n");
         }
     }
 
@@ -613,18 +613,18 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       CkError("ERROR in evapoTranspirationSoil: tBot must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationSoil: tBot below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationSoil: tBot below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationSoil: tBot above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationSoil: tBot above 70 degrees C.\n");
         }
     }
 
@@ -834,28 +834,28 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // Error check that none of the soil moisture variables are greater than NOAHMP_POROSITY.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
-          if (!(0.0f <= smcEq[ii] && smcEq[ii] <= NOAHMP_POROSITY))
+          if (!(0.0f < smcEq[ii] && smcEq[ii] <= NOAHMP_POROSITY))
             {
-              CkError("ERROR in evapoTranspirationSoil: smcEq must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+              CkError("ERROR in evapoTranspirationSoil: smcEq must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
               error = true;
             }
           
-          if (!(0.0f <= smc[ii] && smc[ii] <= NOAHMP_POROSITY))
+          if (!(0.0f < smc[ii] && smc[ii] <= NOAHMP_POROSITY))
             {
-              CkError("ERROR in evapoTranspirationSoil: smc must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+              CkError("ERROR in evapoTranspirationSoil: smc must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
               error = true;
             }
           
-          if (!(0.0f <= sh2o[ii] && sh2o[ii] <= smc[ii]))
+          if (!(0.0f < sh2o[ii] && sh2o[ii] <= smc[ii]))
             {
-              CkError("ERROR in evapoTranspirationSoil: sh2o must be greater than or equal to zero and less than or equal to smc[ii].\n");
+              CkError("ERROR in evapoTranspirationSoil: sh2o must be greater than zero and less than or equal to smc[ii].\n");
               error = true;
             }
         }
       
-      if (!(0.0f <= smcwtd && smcwtd <= NOAHMP_POROSITY))
+      if (!(0.0f < smcwtd && smcwtd <= NOAHMP_POROSITY))
         {
-          CkError("ERROR in evapoTranspirationSoil: smcwtd must be greater than or equal to zero and less than or equal to NOAHMP_POROSITY.\n");
+          CkError("ERROR in evapoTranspirationSoil: smcwtd must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -1396,18 +1396,18 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       CkError("ERROR in evapoTranspirationWater: sfcTmp must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationWater: sfcTmp below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationWater: sfcTmp below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationWater: sfcTmp above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationWater: sfcTmp above 70 degrees C.\n");
         }
     }
 
@@ -1488,18 +1488,18 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       CkError("ERROR in evapoTranspirationWater: tBot must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationWater: tBot below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationWater: tBot below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationWater: tBot above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationWater: tBot above 70 degrees C.\n");
         }
     }
 
@@ -1961,18 +1961,18 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
       CkError("ERROR in evapoTranspirationGlacier: sfcTmp must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= sfcTmp))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationGlacier: sfcTmp below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationGlacier: sfcTmp below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= sfcTmp))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= sfcTmp))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationGlacier: sfcTmp above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationGlacier: sfcTmp above 70 degrees C.\n");
         }
     }
 
@@ -2034,18 +2034,18 @@ bool evapoTranspirationGlacier(float cosZ, float dt, float sfcTmp, float sfcPrs,
       CkError("ERROR in evapoTranspirationGlacier: tBot must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= tBot))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationGlacier: tBot below -60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationGlacier: tBot below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= tBot))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= tBot))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in evapoTranspirationGlacier: tBot above 60 degrees C.\n");
+          CkError("WARNING in evapoTranspirationGlacier: tBot above 70 degrees C.\n");
         }
     }
   
@@ -2406,18 +2406,18 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
               CkError("ERROR in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc must be greater than or equal to zero.\n", ii);
               error = true;
             }
-          else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->stc[ii]))
+          else if (!(-70.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->stc[ii]))
             {
               if (2 <= ADHydro::verbosityLevel)
                 {
-                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc below -60 degrees C.\n", ii);
+                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc below -70 degrees C.\n", ii);
                 }
             }
-          else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->stc[ii]))
+          else if (!(70.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->stc[ii]))
             {
               if (2 <= ADHydro::verbosityLevel)
                 {
-                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc above 60 degrees C.\n", ii);
+                  CkError("WARNING in checkEvapoTranspirationStateStructInvariant, snow/soil layer %d: stc above 70 degrees C.\n", ii);
                 }
             }
         }
@@ -2428,18 +2428,18 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tah must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tah))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tah))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah below -60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tah))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tah))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah above 60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tah above 70 degrees C.\n");
         }
     }
 
@@ -2472,18 +2472,18 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tv must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tv))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tv))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv below -60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tv))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tv))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv above 60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tv above 70 degrees C.\n");
         }
     }
 
@@ -2492,18 +2492,18 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: tg must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(-60.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tg))
+  else if (!(-70.0f + ZERO_C_IN_KELVIN <= evapoTranspirationState->tg))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg below -60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg below -70 degrees C.\n");
         }
     }
-  else if (!(60.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tg))
+  else if (!(70.0f + ZERO_C_IN_KELVIN >= evapoTranspirationState->tg))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg above 60 degrees C.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: tg above 70 degrees C.\n");
         }
     }
 

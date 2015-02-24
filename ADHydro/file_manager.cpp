@@ -80,6 +80,8 @@ FileManager::FileManager()
   meshPrecipitationCumulative                       = NULL;
   meshEvaporation                                   = NULL;
   meshEvaporationCumulative                         = NULL;
+  meshTranspiration                                 = NULL;
+  meshTranspirationCumulative                       = NULL;
   meshSurfacewaterInfiltration                      = NULL;
   meshGroundwaterRecharge                           = NULL;
   meshFIceOld                                       = NULL;
@@ -243,6 +245,8 @@ FileManager::~FileManager()
   deleteArrayIfNonNull(&meshPrecipitationCumulative);
   deleteArrayIfNonNull(&meshEvaporation);
   deleteArrayIfNonNull(&meshEvaporationCumulative);
+  deleteArrayIfNonNull(&meshTranspiration);
+  deleteArrayIfNonNull(&meshTranspirationCumulative);
   deleteArrayIfNonNull(&meshSurfacewaterInfiltration);
   deleteArrayIfNonNull(&meshGroundwaterRecharge);
   deleteArrayIfNonNull(&meshFIceOld);
@@ -912,10 +916,10 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
   // Read header.
   if (!error)
     {
-      numScanned = fscanf(landCoverFile, "%d %d", &numberCheck, &dimension);
+      numScanned = fscanf(landCoverFile, "%d", &numberCheck);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(2 == numScanned))
+      if (!(1 == numScanned))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: unable to read header from landCover file.\n");
           error = true;
@@ -923,7 +927,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(globalNumberOfMeshElements == numberCheck && 1 == dimension))
+      if (!(globalNumberOfMeshElements == numberCheck))
         {
           CkError("ERROR in FileManager::handleInitializeFromASCIIFiles: invalid header in landCover file.\n");
           error = true;
@@ -1196,7 +1200,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           for (jj = 0; jj < MeshElement::channelNeighborsSize; jj++)
             {
               meshChannelNeighbors[          index - localMeshElementStart][jj] = NOFLOW;
-              meshChannelNeighborsEdgeLength[index - localMeshElementStart][jj] = 1.0;
+              meshChannelNeighborsEdgeLength[index - localMeshElementStart][jj] = 0.0;
             }
         }
     } // End read mesh elements.
@@ -1611,7 +1615,7 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           for (jj = numberOfMeshNeighbors; jj < ChannelElement::meshNeighborsSize; jj++)
             {
               channelMeshNeighbors[          index - localChannelElementStart][jj] = NOFLOW;
-              channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 1.0;
+              channelMeshNeighborsEdgeLength[index - localChannelElementStart][jj] = 0.0;
             }
         }
     } // End read channel elements.
@@ -2707,8 +2711,8 @@ void FileManager::handleInitializeFromNetCDFFiles(const char* directory)
                                      false, &meshGroundwaterError);
         }
 
-      // Do not read precipitation, evaporation, and infiltration values.  Instantaneous values will be calculated before they are used.
-      // Cumulative values are reset to zero at every I/O event.
+      // Do not read precipitation, evaporation, transpiration, and infiltration values.  Instantaneous values will be calculated before they are used.
+      // Cumulative values are reset to zero at initialization.
       
       if (!error)
         {
@@ -3405,6 +3409,154 @@ void FileManager::handleChannelVertexDataMessage(int node, double x, double y, d
   channelNodeLocation.erase(it);
 }
 
+void FileManager::meshMassageVegetationAndSoilType()
+{
+  int    ii, jj;                                                // Loop counters.
+  bool   done;                                                  // Loop end condition.
+  int    oldNumberOfRemainingElementsWithInvalidVegetationType; // Number of elements with invalid vegetation type from the last pass.
+  int    newNumberOfRemainingElementsWithInvalidVegetationType; // Number of elements with invalid vegetation type from the current pass.
+  int    oldNumberOfRemainingElementsWithInvalidSoilType;       // Number of elements with invalid soil type from the last pass.
+  int    newNumberOfRemainingElementsWithInvalidSoilType;       // Number of elements with invalid soil type from the current pass.
+  int    neighbor;                                              // A neighbor of an element.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(1 == CkNumPes()))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMassageVegetationAndSoilType is not implemented for distributed operation.  It can only be run on one "
+              "processor.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshElementZSurface))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementZSurface must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshElementSoilDepth))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementSoilDepth must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshElementZBedrock))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshElementZBedrock must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshVegetationType))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshVegetationType must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshSoilType))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshSoilType must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshMeshNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  // For mesh elements that have vegetation type of Water Bodies (16) or Snow or Ice (24) or no soil type (-1) or soil type of WATER (14) or OTHER(land-ice)
+  // (16) get values from a neighbor.
+  done                                                  = false;
+  oldNumberOfRemainingElementsWithInvalidVegetationType = globalNumberOfMeshElements;
+  oldNumberOfRemainingElementsWithInvalidSoilType       = globalNumberOfMeshElements;
+  
+  while (!done)
+    {
+      newNumberOfRemainingElementsWithInvalidVegetationType = 0;
+      newNumberOfRemainingElementsWithInvalidSoilType       = 0;
+
+      for (ii = 0; ii < globalNumberOfMeshElements; ii++)
+        {
+          // If element ii has invalid vegetation or soil type try to get it from a neighbor.  This might not succeed if no neighbor has a valid type.
+          // The outer most loop handles this case by repeating this fix until the number of elements with invalid type goes to zero or stops going down.
+          jj = 0;
+
+          while (jj < MeshElement::meshNeighborsSize && (16 == meshVegetationType[ii] || 24 == meshVegetationType[ii] ||
+                                                         -1 == meshSoilType[ii] || 14 == meshSoilType[ii] || 16 == meshSoilType[ii]))
+            {
+              neighbor = meshMeshNeighbors[ii][jj];
+
+              if (!isBoundary(neighbor))
+                {
+                  if ( (16 == meshVegetationType[ii]       || 24 == meshVegetationType[ii]) &&
+                      !(16 == meshVegetationType[neighbor] || 24 == meshVegetationType[neighbor]))
+                    {
+                      if (4 <= ADHydro::verbosityLevel)
+                        {
+                          CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: getting vegetation type for element %d from neighbor %d.\n", ii,
+                                  neighbor);
+                        }
+
+                      meshVegetationType[ii] = meshVegetationType[neighbor];
+                    }
+                  
+                  if ( (-1 == meshSoilType[ii]       || 14 == meshSoilType[ii]       || 16 == meshSoilType[ii]) &&
+                      !(-1 == meshSoilType[neighbor] || 14 == meshSoilType[neighbor] || 16 == meshSoilType[neighbor]))
+                    {
+                      if (4 <= ADHydro::verbosityLevel)
+                        {
+                          CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: getting soil type and depth for element %d from neighbor %d.\n",
+                                  ii, neighbor);
+                        }
+
+                      meshSoilType[ii]         = meshSoilType[neighbor];
+                      meshElementSoilDepth[ii] = meshElementSoilDepth[neighbor];
+                      meshElementZBedrock[ii]  = meshElementZSurface[ii] - meshElementSoilDepth[ii];
+                    }
+                }
+
+              jj++;
+            }
+
+          if (16 == meshVegetationType[ii] || 24 == meshVegetationType[ii])
+            {
+              if (4 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: mesh element %d has invalid vegetation type and no neighbor with valid "
+                          "vegetation type.\n", ii);
+                }
+
+              newNumberOfRemainingElementsWithInvalidVegetationType++;
+            }
+
+          if (-1 == meshSoilType[ii] || 14 == meshSoilType[ii] || 16 == meshSoilType[ii])
+            {
+              if (4 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassageVegetationAndSoilType: mesh element %d has invalid soil type and no neighbor with valid soil "
+                          "type.\n", ii);
+                }
+
+              newNumberOfRemainingElementsWithInvalidSoilType++;
+            }
+        }
+      
+      if (1 <= ADHydro::verbosityLevel)
+        {
+          CkPrintf("Remaining elements with invalid vegetation type: %d.  Remaining elements with invalid soil type: %d.\n",
+                   newNumberOfRemainingElementsWithInvalidVegetationType, newNumberOfRemainingElementsWithInvalidSoilType);
+        }
+      
+      done = ((0 == newNumberOfRemainingElementsWithInvalidSoilType ||
+               newNumberOfRemainingElementsWithInvalidSoilType >= oldNumberOfRemainingElementsWithInvalidSoilType) &&
+              (0 == newNumberOfRemainingElementsWithInvalidVegetationType ||
+               newNumberOfRemainingElementsWithInvalidVegetationType >= oldNumberOfRemainingElementsWithInvalidVegetationType));
+      
+      oldNumberOfRemainingElementsWithInvalidVegetationType = newNumberOfRemainingElementsWithInvalidVegetationType;
+      oldNumberOfRemainingElementsWithInvalidSoilType       = newNumberOfRemainingElementsWithInvalidSoilType;
+    }
+}
+
 int FileManager::findDownstreamElement(int element)
 {
   int ii;                         // Loop counter.
@@ -3518,9 +3670,11 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
   int    ii;                // Loop counter.
   int    neighbor = NOFLOW; // A neighbor of element.
   double neighborZBank;     // The bank Z coordinate of neighbor.
+  double edgeLength;        // The edge length to use for the new connection.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(0 <= element && element < globalNumberOfMeshElements && NULL != meshChannelNeighbors && NULL != channelElementZBank && NULL != channelChannelType &&
+  CkAssert(0 <= element && element < globalNumberOfMeshElements && NULL != meshVertexZSurface && NULL != meshMeshNeighborsEdgeLength &&
+           NULL != meshChannelNeighbors && NULL != channelElementZBank && NULL != channelElementLength && NULL != channelChannelType &&
            NULL != channelReachCode && NULL != channelMeshNeighbors);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
@@ -3541,6 +3695,29 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
                   "element %d.\n", element, neighbor);
         }
       
+      // Calculate the edge length of the connection as the minimum of the length of the lowest edge of the mesh element or the length of the channel element.
+      if (meshVertexZSurface[element][1] + meshVertexZSurface[element][2] < meshVertexZSurface[element][2] + meshVertexZSurface[element][0] &&
+          meshVertexZSurface[element][1] + meshVertexZSurface[element][2] < meshVertexZSurface[element][0] + meshVertexZSurface[element][1])
+        {
+          // Edge zero is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][0];
+        }
+      else if (meshVertexZSurface[element][2] + meshVertexZSurface[element][0] < meshVertexZSurface[element][0] + meshVertexZSurface[element][1])
+        {
+          // Edge one is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][1];
+        }
+      else
+        {
+          // Edge two is the lowest.
+          edgeLength = meshMeshNeighborsEdgeLength[element][2];
+        }
+      
+      if (edgeLength > channelElementLength[neighbor])
+        {
+          edgeLength = channelElementLength[neighbor];
+        }
+      
       // Place the elements in each other's neighbor lists.
       ii = 0;
       
@@ -3551,7 +3728,8 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
       
       if (ii < MeshElement::channelNeighborsSize)
         {
-          meshChannelNeighbors[element][ii] = neighbor;
+          meshChannelNeighbors[          element][ii] = neighbor;
+          meshChannelNeighborsEdgeLength[element][ii] = edgeLength;
         }
       else
         {
@@ -3569,7 +3747,8 @@ int FileManager::connectMeshElementToChannelElementByReachCode(int element, long
       
       if (ii < ChannelElement::meshNeighborsSize)
         {
-          channelMeshNeighbors[neighbor][ii] = element;
+          channelMeshNeighbors[          neighbor][ii] = element;
+          channelMeshNeighborsEdgeLength[neighbor][ii] = edgeLength;
         }
       else
         {
@@ -3619,6 +3798,12 @@ void FileManager::meshMassage()
   if (!(NULL != meshMeshNeighbors))
     {
       CkError("ERROR in FileManager::meshMassage: meshMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != meshMeshNeighborsEdgeLength))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshMeshNeighborsEdgeLength must not be NULL.\n");
       CkExit();
     }
   
@@ -3687,14 +3872,16 @@ void FileManager::meshMassage()
 
           for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
             {
-              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+              neighbor = channelChannelNeighbors[ii][jj];
+              
+              if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
                 }
-              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+              else if (OUTFLOW == neighbor)
                 {
                   hasLowerNeighbor = true;
                 }
@@ -3730,14 +3917,16 @@ void FileManager::meshMassage()
 
           for (jj = 0; !hasLowerNeighbor && jj < ChannelElement::channelNeighborsSize && NOFLOW != channelChannelNeighbors[ii][jj]; jj++)
             {
-              if (!isBoundary(channelChannelNeighbors[ii][jj]))
+              neighbor = channelChannelNeighbors[ii][jj];
+              
+              if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[channelChannelNeighbors[ii][jj]])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
                 }
-              else if (OUTFLOW == channelChannelNeighbors[ii][jj])
+              else if (OUTFLOW == neighbor)
                 {
                   hasLowerNeighbor = true;
                 }
@@ -3765,7 +3954,7 @@ void FileManager::meshMassage()
           if (ii < neighbor && meshCatchment[ii] != meshCatchment[neighbor])
             {
               // Get the height of the center of the edge separating the neighbors.  If it is higher than both neighbors it is considered a ridge.
-              // FIXME this could be replaced with checking if both elements slope away form the edge.
+              // FIXME this could be replaced with checking if both elements slope away from the edge.
               edgeZSurface = 0.5 * (meshVertexZSurface[ii][(jj + 1) % MeshElement::meshNeighborsSize] +
                                     meshVertexZSurface[ii][(jj + 2) % MeshElement::meshNeighborsSize]);
               
@@ -3806,14 +3995,16 @@ void FileManager::meshMassage()
       
       for (jj = 0; !hasLowerNeighbor && jj < MeshElement::meshNeighborsSize; jj++)
         {
-          if (!isBoundary(meshMeshNeighbors[ii][jj]))
+          neighbor = meshMeshNeighbors[ii][jj];
+          
+          if (!isBoundary(neighbor))
             {
-              if (meshElementZSurface[ii] > meshElementZSurface[meshMeshNeighbors[ii][jj]])
+              if (meshElementZSurface[ii] > meshElementZSurface[neighbor])
                 {
                   hasLowerNeighbor = true;
                 }
             }
-          else if (OUTFLOW == meshMeshNeighbors[ii][jj])
+          else if (OUTFLOW == neighbor)
             {
               hasLowerNeighbor = true;
             }
@@ -3821,8 +4012,10 @@ void FileManager::meshMassage()
       
       for (jj = 0; !hasChannelNeighbor && jj < MeshElement::channelNeighborsSize && NOFLOW != meshChannelNeighbors[ii][jj]; jj++)
         {
+          neighbor = meshChannelNeighbors[ii][jj];
+          
           // Don't count icemasses because an icemass could be higher than the mesh element.
-          if (ICEMASS != channelChannelType[meshChannelNeighbors[ii][jj]])
+          if (ICEMASS != channelChannelType[neighbor])
             {
               hasChannelNeighbor = true;
             }
@@ -3863,17 +4056,18 @@ void FileManager::meshMassage()
 
 void FileManager::calculateDerivedValues()
 {
-  int    ii, jj;         // Loop counters.
-  double value;          // For calculating derived values.
-  double lengthSoFar;    // For traversing vertices.  The length traversed so far.
-  double nextLength;     // For traversing vertices.  The length to the next vertex.
-  double lengthFraction; // For traversing vertices.  The fraction of the distance from the current vertex to the next of the point of interest.
-  double minX;           // For finding the bounding box of vertices.
-  double maxX;           // For finding the bounding box of vertices.
-  double minY;           // For finding the bounding box of vertices.
-  double maxY;           // For finding the bounding box of vertices.
-  double minZBank;       // For finding the bounding box of vertices.
-  double maxZBank;       // For finding the bounding box of vertices.
+  int    ii, jj;           // Loop counters.
+  double value;            // For calculating derived values.
+  double nominalSoilDepth; // Noah-MP cannot handle zero soil depth.  For setting depth of one meter instead.
+  double lengthSoFar;      // For traversing vertices.  The length traversed so far.
+  double nextLength;       // For traversing vertices.  The length to the next vertex.
+  double lengthFraction;   // For traversing vertices.  The fraction of the distance from the current vertex to the next of the point of interest.
+  double minX;             // For finding the bounding box of vertices.
+  double maxX;             // For finding the bounding box of vertices.
+  double minY;             // For finding the bounding box of vertices.
+  double maxY;             // For finding the bounding box of vertices.
+  double minZBank;         // For finding the bounding box of vertices.
+  double maxZBank;         // For finding the bounding box of vertices.
 
   // Delete vertex updated arrays that are no longer needed.
   deleteArrayIfNonNull(&meshVertexUpdated);
@@ -4026,8 +4220,14 @@ void FileManager::calculateDerivedValues()
         }
     }
   
+  // Fix elements with invalid vegetation or soil type.
+  if (ADHydro::doMeshMassage)
+    {
+      meshMassageVegetationAndSoilType();
+    }
+  
   // MeshConductivity and meshPorosity are taken from 19-category SOILPARM.TBL of Noah-MP.
-  if ((NULL == meshConductivity || NULL == meshPorosity) && NULL != meshSoilType)
+  if ((NULL == meshConductivity || NULL == meshPorosity) && NULL != meshSoilType && NULL != meshVegetationType)
     {
       if (NULL == meshConductivity)
         {
@@ -4129,6 +4329,12 @@ void FileManager::calculateDerivedValues()
             meshPorosity[ii]     = 0.339;
             break;
           } // End of switch.
+          
+          // If the vegetation type is Urban and Built-Up Land (1) then Noah-MP sets porosity to 0.45 regardless of soil type.
+          if (1 == meshVegetationType[ii])
+            {
+              meshPorosity[ii] = 0.45;
+            }
         } // End of element loop.
     } // End of assigning meshConductivity and meshPorosity.
   
@@ -4289,6 +4495,28 @@ void FileManager::calculateDerivedValues()
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
           meshEvaporationCumulative[ii] = 0.0;
+        }
+    }
+  
+  // If not already specified meshTranspiration defaults to zero.
+  if (NULL == meshTranspiration)
+    {
+      meshTranspiration = new double[localNumberOfMeshElements];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          meshTranspiration[ii] = 0.0;
+        }
+    }
+  
+  // If not already specified meshTranspirationCumulative defaults to zero.
+  if (NULL == meshTranspirationCumulative)
+    {
+      meshTranspirationCumulative = new double[localNumberOfMeshElements];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          meshTranspirationCumulative[ii] = 0.0;
         }
     }
   
@@ -4466,13 +4694,23 @@ void FileManager::calculateDerivedValues()
       
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
+          // Noah-MP cannot handle zero soil depth.  Use one meter instead.
+          if (0.0 == meshElementSoilDepth[ii])
+            {
+              nominalSoilDepth = 1.0;
+            }
+          else
+            {
+              nominalSoilDepth = meshElementSoilDepth[ii];
+            }
+          
           meshZSnso[ii][0] = 0.0f;
           meshZSnso[ii][1] = 0.0f;
           meshZSnso[ii][2] = 0.0f;
-          meshZSnso[ii][3] = (float)(-0.05 * meshElementSoilDepth[ii]);
-          meshZSnso[ii][4] = (float)(-0.2  * meshElementSoilDepth[ii]);
-          meshZSnso[ii][5] = (float)(-0.5  * meshElementSoilDepth[ii]);
-          meshZSnso[ii][6] = (float)(-1.0  * meshElementSoilDepth[ii]);
+          meshZSnso[ii][3] = (float)(-0.05 * nominalSoilDepth);
+          meshZSnso[ii][4] = (float)(-0.2  * nominalSoilDepth);
+          meshZSnso[ii][5] = (float)(-0.5  * nominalSoilDepth);
+          meshZSnso[ii][6] = (float)(-1.0  * nominalSoilDepth);
         }
     }
   
@@ -4980,8 +5218,6 @@ void FileManager::calculateDerivedValues()
           channelElementZBed[ii] = channelElementZBank[ii] - channelElementBankFullDepth[ii];
         }
     }
-  
-  // FIXME how do we calculate channelBaseWidth, channelSideSlope, channelBedConductivity, channelBedThickness, channelManningsN
   
   // If not already specified channelSurfacewaterDepth defaults to zero.
   if (NULL == channelSurfacewaterDepth)
@@ -6125,6 +6361,16 @@ void FileManager::handleCreateFiles(const char* directory)
       error = createNetCDFVariable(fileID, "meshEvaporationCumulative", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
     }
   
+  if (!error && NULL != meshTranspiration)
+    {
+      error = createNetCDFVariable(fileID, "meshTranspiration", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "meshTranspirationCumulative", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
   if (!error && NULL != meshSurfacewaterInfiltration)
     {
       error = createNetCDFVariable(fileID, "meshSurfacewaterInfiltration", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
@@ -6568,7 +6814,231 @@ void FileManager::handleCreateFiles(const char* directory)
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
+  
+  // Create the display file.
+  if (!error)
+    {
+      error = openNetCDFFile(directory, "display.nc", true, false, &fileID);
+      
+      if (!error)
+        {
+          fileOpen = true;
+        }
+    }
+  
+  // Create display dimensions.
+  if (!error)
+    {
+      error = createNetCDFDimension(fileID, "instances", NC_UNLIMITED, &instancesDimensionID);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFDimension(fileID, "meshElements", NC_UNLIMITED, &meshElementsDimensionID);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFDimension(fileID, "meshMeshNeighborsSize", MeshElement::meshNeighborsSize, &meshMeshNeighborsSizeDimensionID);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFDimension(fileID, "channelElements", NC_UNLIMITED, &channelElementsDimensionID);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFDimension(fileID, "channelChannelNeighborsSize", ChannelElement::channelNeighborsSize, &channelChannelNeighborsSizeDimensionID);
+    }
+  
+  // Create display variables.
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // Assumes size_t is 8 bytes when storing as NC_UINT64.
+      CkAssert(8 == sizeof(size_t));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      error = createNetCDFVariable(fileID, "geometryInstance", NC_UINT64, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // Assumes size_t is 8 bytes when storing as NC_UINT64.
+      CkAssert(8 == sizeof(size_t));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      error = createNetCDFVariable(fileID, "parameterInstance", NC_UINT64, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFVariable(fileID, "referenceDate", NC_DOUBLE, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFVariable(fileID, "currentTime", NC_DOUBLE, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error)
+    {
+      error = createNetCDFVariable(fileID, "dt", NC_DOUBLE, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // Assumes size_t is 8 bytes when storing as NC_UINT64.
+      CkAssert(8 == sizeof(size_t));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      error = createNetCDFVariable(fileID, "iteration", NC_UINT64, 1, instancesDimensionID, 0, 0);
+    }
+  
+  if (!error && NULL != meshSurfacewaterDepth)
+    {
+      error = createNetCDFVariable(fileID, "meshSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshSurfacewaterError)
+    {
+      error = createNetCDFVariable(fileID, "meshSurfacewaterError", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshGroundwaterHead)
+    {
+      error = createNetCDFVariable(fileID, "meshGroundwaterHead", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshGroundwaterError)
+    {
+      error = createNetCDFVariable(fileID, "meshGroundwaterError", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshPrecipitation)
+    {
+      error = createNetCDFVariable(fileID, "meshPrecipitation", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "meshPrecipitationCumulative", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshEvaporation)
+    {
+      error = createNetCDFVariable(fileID, "meshEvaporation", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshEvaporationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "meshEvaporationCumulative", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshTranspiration)
+    {
+      error = createNetCDFVariable(fileID, "meshTranspiration", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "meshTranspirationCumulative", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshSnEqv)
+    {
+      error = createNetCDFVariable(fileID, "meshSnEqv", NC_FLOAT, 2, instancesDimensionID, meshElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsSurfacewaterFlowRate)
+    {
+      error = createNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterFlowRate", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
+                                   meshMeshNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsSurfacewaterCumulativeFlow)
+    {
+      error = createNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterCumulativeFlow", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
+                                   meshMeshNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsGroundwaterFlowRate)
+    {
+      error = createNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterFlowRate", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
+                                   meshMeshNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsGroundwaterCumulativeFlow)
+    {
+      error = createNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterCumulativeFlow", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
+                                   meshMeshNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != channelSurfacewaterDepth)
+    {
+      error = createNetCDFVariable(fileID, "channelSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelSurfacewaterError)
+    {
+      error = createNetCDFVariable(fileID, "channelSurfacewaterError", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelPrecipitation)
+    {
+      error = createNetCDFVariable(fileID, "channelPrecipitation", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "channelPrecipitationCumulative", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelEvaporation)
+    {
+      error = createNetCDFVariable(fileID, "channelEvaporation", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelEvaporationCumulative)
+    {
+      error = createNetCDFVariable(fileID, "channelEvaporationCumulative", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelSnEqv)
+    {
+      error = createNetCDFVariable(fileID, "channelSnEqv", NC_FLOAT, 2, instancesDimensionID, channelElementsDimensionID, 0);
+    }
+  
+  if (!error && NULL != channelChannelNeighborsSurfacewaterFlowRate)
+    {
+      error = createNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterFlowRate", NC_DOUBLE, 3, instancesDimensionID, channelElementsDimensionID,
+                                   channelChannelNeighborsSizeDimensionID);
+    }
+  
+  if (!error && NULL != channelChannelNeighborsSurfacewaterCumulativeFlow)
+    {
+      error = createNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterCumulativeFlow", NC_DOUBLE, 3, instancesDimensionID, channelElementsDimensionID,
+                                   channelChannelNeighborsSizeDimensionID);
+    }
+  
+  // Close the display file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::handleCreateFiles: unable to close NetCDF display file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
   if (!error)
     {
       contribute();
@@ -6579,7 +7049,8 @@ void FileManager::handleCreateFiles(const char* directory)
     }
 }
 
-void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState)
+void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, bool writeDisplay, double referenceDateNew,
+                                   double currentTimeNew, double dtNew, size_t iterationNew)
 {
   bool   error    = false;  // Error flag.
   int    ncErrorCode;       // Return value of NetCDF functions.
@@ -6588,6 +7059,7 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
   size_t geometryInstance;  // Instance index for geometry file.
   size_t parameterInstance; // Instance index for parameter file.
   size_t stateInstance;     // Instance index for state file.
+  size_t displayInstance;   // Instance index for display file.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != directory))
@@ -6595,11 +7067,23 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       CkError("ERROR in FileManager::handleWriteFiles: directory must not be null.\n");
       error = true;
     }
+
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in FileManager::handleUpdateState: dtNew must be greater than zero.\n");
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Open the geometry file.
   if (!error)
     {
+      // Save reference date, current time, dt, and iteration.
+      referenceDate = referenceDateNew;
+      currentTime   = currentTimeNew;
+      dt            = dtNew;
+      iteration     = iterationNew;
+      
+      // Open the geometry file.
       error = openNetCDFFile(directory, "geometry.nc", false, true, &fileID);
       
       if (!error)
@@ -7125,6 +7609,17 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
                                       meshEvaporationCumulative);
         }
       
+      if (!error && NULL != meshTranspiration)
+        {
+          error = writeNetCDFVariable(fileID, "meshTranspiration", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspiration);
+        }
+      
+      if (!error && NULL != meshTranspirationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "meshTranspirationCumulative", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshTranspirationCumulative);
+        }
+      
       if (!error && NULL != meshSurfacewaterInfiltration)
         {
           error = writeNetCDFVariable(fileID, "meshSurfacewaterInfiltration", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
@@ -7294,49 +7789,49 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       
       if (!error && NULL != meshMeshNeighborsSurfacewaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterFlowRate", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                       MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != meshMeshNeighborsSurfacewaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterCumulativeFlow", geometryInstance, localMeshElementStart,
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterCumulativeFlow", stateInstance, localMeshElementStart,
                                       localNumberOfMeshElements, MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterCumulativeFlow);
         }
       
       if (!error && NULL != meshMeshNeighborsGroundwaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterFlowRate", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                       MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != meshMeshNeighborsGroundwaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterCumulativeFlow", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterCumulativeFlow", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                       MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != meshChannelNeighborsSurfacewaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "meshChannelNeighborsSurfacewaterFlowRate", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+          error = writeNetCDFVariable(fileID, "meshChannelNeighborsSurfacewaterFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                       MeshElement::channelNeighborsSize, meshChannelNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != meshChannelNeighborsSurfacewaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "meshChannelNeighborsSurfacewaterCumulativeFlow", geometryInstance, localMeshElementStart,
+          error = writeNetCDFVariable(fileID, "meshChannelNeighborsSurfacewaterCumulativeFlow", stateInstance, localMeshElementStart,
                                       localNumberOfMeshElements, MeshElement::channelNeighborsSize, meshChannelNeighborsSurfacewaterCumulativeFlow);
         }
       
       if (!error && NULL != meshChannelNeighborsGroundwaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "meshChannelNeighborsGroundwaterFlowRate", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+          error = writeNetCDFVariable(fileID, "meshChannelNeighborsGroundwaterFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                       MeshElement::channelNeighborsSize, meshChannelNeighborsGroundwaterFlowRate);
         }
       
       if (!error && NULL != meshChannelNeighborsGroundwaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "meshChannelNeighborsGroundwaterCumulativeFlow", geometryInstance, localMeshElementStart,
+          error = writeNetCDFVariable(fileID, "meshChannelNeighborsGroundwaterCumulativeFlow", stateInstance, localMeshElementStart,
                                       localNumberOfMeshElements, MeshElement::channelNeighborsSize, meshChannelNeighborsGroundwaterCumulativeFlow);
         }
       
@@ -7533,37 +8028,37 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       
       if (!error && NULL != channelChannelNeighborsSurfacewaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterFlowRate", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterFlowRate", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::channelNeighborsSize, channelChannelNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != channelChannelNeighborsSurfacewaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterCumulativeFlow", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterCumulativeFlow", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::channelNeighborsSize, channelChannelNeighborsSurfacewaterCumulativeFlow);
         }
       
       if (!error && NULL != channelMeshNeighborsSurfacewaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "channelMeshNeighborsSurfacewaterFlowRate", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelMeshNeighborsSurfacewaterFlowRate", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::meshNeighborsSize, channelMeshNeighborsSurfacewaterFlowRate);
         }
       
       if (!error && NULL != channelMeshNeighborsSurfacewaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "channelMeshNeighborsSurfacewaterCumulativeFlow", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelMeshNeighborsSurfacewaterCumulativeFlow", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::meshNeighborsSize, channelMeshNeighborsSurfacewaterCumulativeFlow);
         }
       
       if (!error && NULL != channelMeshNeighborsGroundwaterFlowRate)
         {
-          error = writeNetCDFVariable(fileID, "channelMeshNeighborsGroundwaterFlowRate", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelMeshNeighborsGroundwaterFlowRate", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::meshNeighborsSize, channelMeshNeighborsGroundwaterFlowRate);
         }
       
       if (!error && NULL != channelMeshNeighborsGroundwaterCumulativeFlow)
         {
-          error = writeNetCDFVariable(fileID, "channelMeshNeighborsGroundwaterCumulativeFlow", geometryInstance, localChannelElementStart,
+          error = writeNetCDFVariable(fileID, "channelMeshNeighborsGroundwaterCumulativeFlow", stateInstance, localChannelElementStart,
                                       localNumberOfChannelElements, ChannelElement::meshNeighborsSize, channelMeshNeighborsGroundwaterCumulativeFlow);
         }
     } // End if (writeState).
@@ -7578,6 +8073,210 @@ void FileManager::handleWriteFiles(const char* directory, bool writeGeometry, bo
       if (!(NC_NOERR == ncErrorCode))
         {
           CkError("ERROR in FileManager::handleWriteFiles: unable to close NetCDF state file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Open the display file.
+  if (!error)
+    {
+      error = openNetCDFFile(directory, "display.nc", false, true, &fileID);
+      
+      if (!error)
+        {
+          fileOpen = true;
+        }
+    }
+  
+  // Get the number of existing instances in the display file.
+  if (!error)
+    {
+      error = readNetCDFDimensionSize(fileID, "instances", &displayInstance);
+    }
+  
+  // Write display variables.
+  if (writeDisplay)
+    {
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "geometryInstance", displayInstance, 0, 1, 1, &geometryInstance);
+        }
+      
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "parameterInstance", displayInstance, 0, 1, 1, &parameterInstance);
+        }
+      
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "referenceDate", displayInstance, 0, 1, 1, &referenceDate);
+        }
+      
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "currentTime", displayInstance, 0, 1, 1, &currentTime);
+        }
+      
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "dt", displayInstance, 0, 1, 1, &dt);
+        }
+      
+      if (!error)
+        {
+          error = writeNetCDFVariable(fileID, "iteration", displayInstance, 0, 1, 1, &iteration);
+        }
+      
+      if (!error && NULL != meshSurfacewaterDepth)
+        {
+          error = writeNetCDFVariable(fileID, "meshSurfacewaterDepth", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshSurfacewaterDepth);
+        }
+      
+      if (!error && NULL != meshSurfacewaterError)
+        {
+          error = writeNetCDFVariable(fileID, "meshSurfacewaterError", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshSurfacewaterError);
+        }
+      
+      if (!error && NULL != meshGroundwaterHead)
+        {
+          error = writeNetCDFVariable(fileID, "meshGroundwaterHead", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterHead);
+        }
+      
+      if (!error && NULL != meshGroundwaterError)
+        {
+          error = writeNetCDFVariable(fileID, "meshGroundwaterError", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshGroundwaterError);
+        }
+      
+      if (!error && NULL != meshPrecipitation)
+        {
+          error = writeNetCDFVariable(fileID, "meshPrecipitation", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitation);
+        }
+      
+      if (!error && NULL != meshPrecipitationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "meshPrecipitationCumulative", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshPrecipitationCumulative);
+        }
+      
+      if (!error && NULL != meshEvaporation)
+        {
+          error = writeNetCDFVariable(fileID, "meshEvaporation", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshEvaporation);
+        }
+      
+      if (!error && NULL != meshEvaporationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "meshEvaporationCumulative", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshEvaporationCumulative);
+        }
+      
+      if (!error && NULL != meshTranspiration)
+        {
+          error = writeNetCDFVariable(fileID, "meshTranspiration", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspiration);
+        }
+      
+      if (!error && NULL != meshTranspirationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "meshTranspirationCumulative", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                      meshTranspirationCumulative);
+        }
+      
+      if (!error && NULL != meshSnEqv)
+        {
+          error = writeNetCDFVariable(fileID, "meshSnEqv", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSnEqv);
+        }
+      
+      if (!error && NULL != meshMeshNeighborsSurfacewaterFlowRate)
+        {
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterFlowRate", displayInstance, localMeshElementStart, localNumberOfMeshElements,
+                                      MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
+        }
+      
+      if (!error && NULL != meshMeshNeighborsSurfacewaterCumulativeFlow)
+        {
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsSurfacewaterCumulativeFlow", displayInstance, localMeshElementStart,
+                                      localNumberOfMeshElements, MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterCumulativeFlow);
+        }
+      
+      if (!error && NULL != meshMeshNeighborsGroundwaterFlowRate)
+        {
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterFlowRate", displayInstance, localMeshElementStart, localNumberOfMeshElements,
+                                      MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
+        }
+      
+      if (!error && NULL != meshMeshNeighborsGroundwaterCumulativeFlow)
+        {
+          error = writeNetCDFVariable(fileID, "meshMeshNeighborsGroundwaterCumulativeFlow", displayInstance, localMeshElementStart, localNumberOfMeshElements,
+                                      MeshElement::meshNeighborsSize, meshMeshNeighborsSurfacewaterFlowRate);
+        }
+      
+      if (!error && NULL != channelSurfacewaterDepth)
+        {
+          error = writeNetCDFVariable(fileID, "channelSurfacewaterDepth", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelSurfacewaterDepth);
+        }
+      
+      if (!error && NULL != channelSurfacewaterError)
+        {
+          error = writeNetCDFVariable(fileID, "channelSurfacewaterError", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelSurfacewaterError);
+        }
+      
+      if (!error && NULL != channelPrecipitation)
+        {
+          error = writeNetCDFVariable(fileID, "channelPrecipitation", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelPrecipitation);
+        }
+      
+      if (!error && NULL != channelPrecipitationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "channelPrecipitationCumulative", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelPrecipitationCumulative);
+        }
+      
+      if (!error && NULL != channelEvaporation)
+        {
+          error = writeNetCDFVariable(fileID, "channelEvaporation", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelEvaporation);
+        }
+      
+      if (!error && NULL != channelEvaporationCumulative)
+        {
+          error = writeNetCDFVariable(fileID, "channelEvaporationCumulative", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                      channelEvaporationCumulative);
+        }
+      
+      if (!error && NULL != channelSnEqv)
+        {
+          error = writeNetCDFVariable(fileID, "channelSnEqv", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelSnEqv);
+        }
+      
+      if (!error && NULL != channelChannelNeighborsSurfacewaterFlowRate)
+        {
+          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterFlowRate", displayInstance, localChannelElementStart,
+                                      localNumberOfChannelElements, ChannelElement::channelNeighborsSize, channelChannelNeighborsSurfacewaterFlowRate);
+        }
+      
+      if (!error && NULL != channelChannelNeighborsSurfacewaterCumulativeFlow)
+        {
+          error = writeNetCDFVariable(fileID, "channelChannelNeighborsSurfacewaterCumulativeFlow", displayInstance, localChannelElementStart,
+                                      localNumberOfChannelElements, ChannelElement::channelNeighborsSize, channelChannelNeighborsSurfacewaterCumulativeFlow);
+        }
+    } // End if (writeDisplay).
+  
+  // Close the display file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::handleWriteFiles: unable to close NetCDF display file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -7628,9 +8327,13 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Open the forcing file.
   if (!error)
     {
+      // Save reference date and current time.
+      referenceDate = referenceDateNew;
+      currentTime   = currentTimeNew;
+      
+      // Open the forcing file.
       error = openNetCDFFile(directory, "forcing.nc", false, false, &fileID);
       
       if (!error)
@@ -7691,7 +8394,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   if (!error)
     {
       instance    = 0;
-      currentDate = referenceDateNew + currentTimeNew / (24.0 * 3600.0);
+      currentDate = referenceDate + currentTime / (24.0 * 3600.0);
       
       if (!(jultime[0] <= currentDate))
         {
@@ -7938,22 +8641,9 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
     }
 }
 
-void FileManager::handleUpdateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew)
+void FileManager::handleUpdateState()
 {
   int ii; // Loop counter.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(0.0 < dtNew))
-    {
-      CkError("ERROR in FileManager::updateState: dtNew must be greater than zero.\n");
-      CkExit();
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-  referenceDate = referenceDateNew;
-  currentTime   = currentTimeNew;
-  dt            = dtNew;
-  iteration     = iterationNew;
   
   if (NULL != meshElementUpdated)
     {
@@ -7998,11 +8688,12 @@ bool FileManager::allElementsUpdated()
 
 void FileManager::handleMeshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
                                          double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
-                                         double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
-                                         double* meshNeighborsSurfacewaterFlowRate, double* meshNeighborsSurfacewaterCumulativeFlow,
-                                         double* meshNeighborsGroundwaterFlowRate, double* meshNeighborsGroundwaterCumulativeFlow,
-                                         double* channelNeighborsSurfacewaterFlowRate, double* channelNeighborsSurfacewaterCumulativeFlow,
-                                         double* channelNeighborsGroundwaterFlowRate, double* channelNeighborsGroundwaterCumulativeFlow)
+                                         double transpiration, double transpirationCumulative, double surfacewaterInfiltration, double groundwaterRecharge,
+                                         EvapoTranspirationStateStruct evapoTranspirationState, double* meshNeighborsSurfacewaterFlowRate,
+                                         double* meshNeighborsSurfacewaterCumulativeFlow, double* meshNeighborsGroundwaterFlowRate,
+                                         double* meshNeighborsGroundwaterCumulativeFlow, double* channelNeighborsSurfacewaterFlowRate,
+                                         double* channelNeighborsSurfacewaterCumulativeFlow, double* channelNeighborsGroundwaterFlowRate,
+                                         double* channelNeighborsGroundwaterCumulativeFlow)
 {
   int ii; // Loop counter.
   
@@ -8018,8 +8709,44 @@ void FileManager::handleMeshStateMessage(int element, double surfacewaterDepth, 
       CkError("ERROR in FileManager::handleMeshStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
       CkExit();
     }
-  // FIXME error check other inputs
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: precipitation must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: precipitationCumulative must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 >= transpiration))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpiration must be less than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 >= transpirationCumulative))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: transpirationCumulative must be less than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= surfacewaterInfiltration))
+    {
+      CkError("ERROR in FileManager::handleMeshStateMessage, element %d: surfacewaterInfiltration must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 
   meshSurfacewaterDepth[element - localMeshElementStart]        = surfacewaterDepth;
   meshSurfacewaterError[element - localMeshElementStart]        = surfacewaterError;
@@ -8029,6 +8756,8 @@ void FileManager::handleMeshStateMessage(int element, double surfacewaterDepth, 
   meshPrecipitationCumulative[element - localMeshElementStart]  = precipitationCumulative;
   meshEvaporation[element - localMeshElementStart]              = evaporation;
   meshEvaporationCumulative[element - localMeshElementStart]    = evaporationCumulative;
+  meshTranspiration[element - localMeshElementStart]            = transpiration;
+  meshTranspirationCumulative[element - localMeshElementStart]  = transpirationCumulative;
   meshSurfacewaterInfiltration[element - localMeshElementStart] = surfacewaterInfiltration;
   meshGroundwaterRecharge[element - localMeshElementStart]      = groundwaterRecharge;
   
@@ -8122,8 +8851,26 @@ void FileManager::handleChannelStateMessage(int element, double surfacewaterDept
       CkError("ERROR in FileManager::handleChannelStateMessage, element %d: surfacewaterDepth must be greater than or equal to zero.\n", element);
       CkExit();
     }
-  // FIXME error check other inputs
+  
+  if (!(0.0 <= precipitation))
+    {
+      CkError("ERROR in FileManager::handleChannelStateMessage, element %d: precipitation must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
+  
+  if (!(0.0 <= precipitationCumulative))
+    {
+      CkError("ERROR in FileManager::handleChannelStateMessage, element %d: precipitationCumulative must be greater than or equal to zero.\n", element);
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 
   channelSurfacewaterDepth[element - localChannelElementStart]       = surfacewaterDepth;
   channelSurfacewaterError[element - localChannelElementStart]       = surfacewaterError;

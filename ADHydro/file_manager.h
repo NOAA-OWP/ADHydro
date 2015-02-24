@@ -167,6 +167,8 @@ public:
   double*               meshPrecipitationCumulative;
   double*               meshEvaporation;
   double*               meshEvaporationCumulative;
+  double*               meshTranspiration;
+  double*               meshTranspirationCumulative;
   double*               meshSurfacewaterInfiltration;
   double*               meshGroundwaterRecharge;
   FloatArraySnowLayers* meshFIceOld;
@@ -376,8 +378,18 @@ private:
   // directory    - The directory from which to read the files.
   // fileBasename - The basename not including the directory path of the files
   //                to read.  handleInitializeFromASCIIFiles will read the
-  //                following files: directory/fileBasename.node, FIXME finish
-  //                list of files.
+  //                following files:
+  //                directory/fileBasename.node
+  //                directory/fileBasename.z
+  //                directory/fileBasename.ele
+  //                directory/fileBasename.neigh
+  //                directory/fileBasename.landCover
+  //                directory/fileBasename.soilType
+  //                directory/fileBasename.edge
+  //                directory/fileBasename.chan.node
+  //                directory/fileBasename.chan.z
+  //                directory/fileBasename.chan.ele
+  //                directory/fileBasename.chan.prune
   void handleInitializeFromASCIIFiles(const char* directory, const char* fileBasename);
   
   // Open or create a NetCDF file.
@@ -570,6 +582,12 @@ private:
   // zBank   - Bank Z coordinate of vertex.
   void handleChannelVertexDataMessage(int node, double x, double y, double zBank);
   
+  // Fix problems with mesh elements having invalid vegetation or soil type.
+  // This is a different function from meshMassage because it has to be called
+  // further up in calculateDerivedValues before conductivity, porosity, and
+  // Mannings's N are determined from vegetation and soil type.
+  void meshMassageVegetationAndSoilType();
+  
   // Returns: An element immediately downstream of element, or OUTFLOW if
   // element has an outflow boundary, or NOFLOW if element has neither.  If
   // element has more than one qualifying downstream element or a downstream
@@ -648,17 +666,22 @@ private:
   //
   // Parameters:
   //
-  // directory      - The directory in which to write the files.
-  // writeGeometry  - Whether to write a new instance into the geometry file.
-  //                  If false, the last exsisting instance is used as the
-  //                  instance to write into the state file and it is an error
-  //                  if no instance exists.
-  // writeParameter - Whether to write a new instance into the parameter file.
-  //                  If false, the last exsisting instance is used as the
-  //                  instance to write into the state file and it is an error
-  //                  if no instance exists.
-  // writeState     - Whether to write a new instance into the state file.
-  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState);
+  // directory        - The directory in which to write the files.
+  // writeGeometry    - Whether to write a new instance into the geometry file.
+  //                    If false, the last exsisting instance is used as the
+  //                    instance to write into the state file and it is an
+  //                    error if no instance exists.
+  // writeParameter   - Whether to write a new instance into the parameter
+  //                    file.  If false, the last exsisting instance is used as
+  //                    the instance to write into the state file and it is an
+  //                    error if no instance exists.
+  // writeState       - Whether to write a new instance into the state file.
+  // referenceDateNew - The updated Julian date when currentTimeNew is zero.
+  // currentTimeNew   - The updated time step in seconds.
+  // dtNew            - The updated simulation timestep duration in seconds.
+  // iterationNew     - The updated simulation iteration number.
+  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, bool writeDisplay, double referenceDateNew,
+                        double currentTimeNew, double dtNew, size_t iterationNew);
   
   // Read forcing data from file and send to mesh and channel elements.  Each
   // file manager reads the data for the elements it owns and sends it on to
@@ -680,14 +703,7 @@ private:
   // This function does not contribute to a reduction, but after receiving
   // state messages from all mesh and channel elements the SDAG code
   // contributes to an empty reduction.
-  //
-  // Parameters:
-  //
-  // referenceDateNew - The updated Julian date when currentTimeNew is zero.
-  // currentTimeNew   - The updated time step in seconds.
-  // dtNew            - The updated simulation timestep duration in seconds.
-  // iterationNew     - The updated simulation iteration number.
-  void handleUpdateState(double referenceDateNew, double currentTimeNew, double dtNew, size_t iterationNew);
+  void handleUpdateState();
   
   // Returns: true if all element information is updated, false otherwise.
   bool allElementsUpdated();
@@ -707,6 +723,8 @@ private:
   // precipitationCumulative                    - mesh element state.
   // evaporation                                - mesh element state.
   // evaporationCumulative                      - mesh element state.
+  // transpiration                              - mesh element state.
+  // transpirationCumulative                    - mesh element state.
   // surfacewaterInfiltration                   - mesh element state.
   // groundwaterRecharge                        - mesh element state.
   // evapoTranspirationState                    - mesh element state.
@@ -719,12 +737,13 @@ private:
   // channelNeighborsGroundwaterFlowRate        - mesh element state.
   // channelNeighborsGroundwaterCumulativeFlow  - mesh element state.
   void handleMeshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
-                              double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
-                              double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
-                              double* meshNeighborsSurfacewaterFlowRate, double* meshNeighborsSurfacewaterCumulativeFlow,
-                              double* meshNeighborsGroundwaterFlowRate, double* meshNeighborsGroundwaterCumulativeFlow,
-                              double* channelNeighborsSurfacewaterFlowRate, double* channelNeighborsSurfacewaterCumulativeFlow,
-                              double* channelNeighborsGroundwaterFlowRate, double* channelNeighborsGroundwaterCumulativeFlow);
+                              double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative, double transpiration,
+                              double transpirationCumulative, double surfacewaterInfiltration, double groundwaterRecharge,
+                              EvapoTranspirationStateStruct evapoTranspirationState, double* meshNeighborsSurfacewaterFlowRate,
+                              double* meshNeighborsSurfacewaterCumulativeFlow, double* meshNeighborsGroundwaterFlowRate,
+                              double* meshNeighborsGroundwaterCumulativeFlow, double* channelNeighborsSurfacewaterFlowRate,
+                              double* channelNeighborsSurfacewaterCumulativeFlow, double* channelNeighborsGroundwaterFlowRate,
+                              double* channelNeighborsGroundwaterCumulativeFlow);
 
   // Receive a state message from a mesh element and update the values for that
   // element in the file manager's variables.

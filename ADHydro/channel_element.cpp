@@ -1143,18 +1143,18 @@ void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew,
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperatureNew))
+  else if (!(-70.0f <= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperatureNew))
+  else if (!(70.0f >= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -1238,18 +1238,18 @@ void ChannelElement::handleForcingDataMessage(float atmosphereLayerThicknessNew,
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperatureNew))
+  else if (!(-70.0f <= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperatureNew))
+  else if (!(70.0f >= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -2354,18 +2354,18 @@ void ChannelElement::handleCheckInvariant()
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperature))
+  else if (!(-70.0f <= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperature))
+  else if (!(70.0f >= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -2448,18 +2448,18 @@ void ChannelElement::handleCheckInvariant()
       CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperature))
+  else if (!(-70.0f <= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperature))
+  else if (!(70.0f >= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in ChannelElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -2495,12 +2495,18 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      // FIXME add check that all channel neighbors have to be packed to the front of the array.
       if (!(isBoundary(channelNeighbors[edge]) || (0 <= channelNeighbors[edge] &&
                                                    channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be a boundary condition code or a valid array "
                   "index.\n", thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
@@ -2536,12 +2542,18 @@ void ChannelElement::handleCheckInvariant()
   
   for (edge = 0; edge < meshNeighborsSize; edge++)
     {
-      // FIXME add check that all mesh neighbors have to be packed to the front of the array.
       if (!(NOFLOW == meshNeighbors[edge] || (0 <= meshNeighbors[edge] &&
                                               meshNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
         {
           CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != meshNeighbors[edge - 1] || NOFLOW == meshNeighbors[edge]))
+        {
+          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
@@ -2567,11 +2579,23 @@ void ChannelElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!(0.0 < meshNeighborsEdgeLength[edge]))
+      if (NOFLOW == meshNeighbors[edge])
         {
-          CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero.\n",
-                  thisIndex, edge);
-          error = true;
+          if (!(0.0 == meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be zero for a NOFLOW edge.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+        }
+      else
+        {
+          if (!(0.0 < meshNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in ChannelElement::handleCheckInvariant, element %d, edge %d: meshNeighborsEdgeLength must be greater than zero for a non-NOFLOW "
+                      "edge.\n", thisIndex, edge);
+              error = true;
+            }
         }
       
       if (!(FLOW_RATE_LIMITING_CHECK_DONE == meshNeighborsSurfacewaterFlowRateReady[edge]))

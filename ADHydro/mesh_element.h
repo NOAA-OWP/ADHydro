@@ -574,6 +574,10 @@ private:
   double evaporationCumulative;    // Cumulative evaporation or condensation on the mesh element in meters of water since last set to zero.  Gets set to zero
                                    // at initialization and each I/O phase.  Positive means water added to the element.  Negative means water removed from the
                                    // element.
+  double transpiration;            // Transpiration from the mesh element in meters of water.  Negative means water removed from the element.
+                                   // Must be non-positive.
+  double transpirationCumulative;  // Cumulative transpiration from the mesh element in meters of water since last set to zero.  Gets set to zero at
+                                   // initialization and each I/O phase.  Negative means water removed from the element.  Must be non-positive.
   double surfacewaterInfiltration; // Meters of water infiltrating from the surface.  Positive means flow from the surface to the vadose zone.  Must be
                                    // non-negative.  If water exfiltrates from groundwater to the surface that is handled in a different way in
                                    // moveGroundwater.  FIXME store cumulative infiltration?

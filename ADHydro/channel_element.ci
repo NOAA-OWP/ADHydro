@@ -96,7 +96,30 @@ module channel_element
           }
           
           // When the element receives a doTimestep message it starts the rounds of messages to calculate groundwater and surfacewater movement.
-          // FIXME document communication pattern here.
+          //
+          // The process starts with calculating groundwater flow rates between each pair of neighbors.  Calculating a flow rate requires state information
+          // from both neighbors, which requires communication.  There are two possible communication strategies.  Either both neighbors send their state to
+          // each other and both calculate the same flow rate, or one neighbor sends its state to the other and the other calculates the flow rate and sends
+          // just the flow rate back.  Which strategy is used is controlled by the variables channelNeighborsInteraction and meshNeighborsInteraction.
+          //
+          // Once all of the flow rates for an element are calculated there is an extra step to ensure that outward flows from any element cannot make the
+          // amount of water in that element go negative.  The element adds up all of its outward flow rates and if they are greater than the amount of water
+          // available all flow rates are reduced proportionally.  The elements on the other side of those flows need to know when flow rates are reduced by
+          // this process, and equally important, they need to know when flows have been checked and will not be reduced by this process and thus can be used.
+          // So every element for all of its outward flows sends a flow rate limited message whether or not the flow was actually reduced.  If the flow rate
+          // was not reduced the flow rate limited message just sends the value of the original flow rate.  Elements do not proceed until they receive a flow
+          // rate limited message for all of their inward flows.  If the flow rate is zero, neither neighbor sends nor expects to receive a flow rate limited
+          // message.
+          //
+          // Once an element knows all of its flow rates, including flow rate limited messages, that element can move water without further communication by
+          // simply increasing or decreasing its own stock of water.  Its neighbors will increase or decrease their stocks of water by corresponding amounts.
+          // Once groundwater is finished being moved all elements peform a similar process to move surfacewater.
+          //
+          // There are also point processes such as precipitation, evapo-transpiration, infiltration, and inflow and outflow boundaries that take place
+          // entirely within an element with no communication requirements.  Some of these processes are performed inside handleDoTimestep and some are
+          // performed in response to a calculateBoundaryConditionsMessage that each element sends to itself.  The purpose of having an element perform these
+          // processes in response to a message to itself is to give control to the Charm++ system over when these processes are performed.  This may allow
+          // better overlap of computation and communication.
           when doTimestep(size_t iterationThisTimestep, double date, double dtThisTimestep)
           {
             serial

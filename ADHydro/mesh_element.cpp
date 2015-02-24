@@ -89,6 +89,8 @@ void MeshElement::pup(PUP::er &p)
   p | precipitationCumulative;
   p | evaporation;
   p | evaporationCumulative;
+  p | transpiration;
+  p | transpirationCumulative;
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | evapoTranspirationState;
@@ -527,6 +529,8 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       precipitationCumulative  = 0.0;
       evaporation              = 0.0;
       evaporationCumulative    = 0.0;
+      transpiration            = 0.0;
+      transpirationCumulative  = 0.0;
       surfacewaterInfiltration = 0.0;
       groundwaterRecharge      = 0.0;
     }
@@ -1007,7 +1011,9 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
   if (!error)
     {
       // gar_domain_alloc(&domain, parameters, layer_top_depth, layer_bottom_depth, yes_groundwater, initial_water_content, yes_groundwater, water_table);
-      error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
+      // error = gar_domain_alloc(&garDomain, garParameters, 0.0, elementZSurface - elementZBedrock, true, 0.2, true, elementZSurface - groundwaterHead);
+      // gar_domain_alloc can't have layer thickness of zero, and now we have some of those in the mesh.
+      error = gar_domain_alloc(&garDomain, garParameters, 0.0, 1.0, true, 0.2, true, elementZSurface - groundwaterHead);
     }
   // End of gar_domain initialization.
    */
@@ -1381,18 +1387,18 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperatureNew))
+  else if (!(-70.0f <= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperatureNew))
+  else if (!(70.0f >= surfaceTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: surfaceTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -1476,18 +1482,18 @@ void MeshElement::handleForcingDataMessage(float atmosphereLayerThicknessNew, fl
               thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperatureNew))
+  else if (!(-70.0f <= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperatureNew))
+  else if (!(70.0f >= soilBottomTemperatureNew))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleForcingDataMessage, element %d: soilBottomTemperatureNew above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -1557,7 +1563,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
   float  evaporationFromCanopy;                            // Output of evapoTranspirationSoil.
   float  evaporationFromSnow;                              // Output of evapoTranspirationSoil.
   float  evaporationFromGround;                            // Output of evapoTranspirationSoil.
-  float  transpiration;                                    // Output of evapoTranspirationSoil.
+  float  transpirationFromVegetation;                      // Output of evapoTranspirationSoil.
   float  waterError;                                       // Output of evapoTranspirationSoil.
   double unsatisfiedEvaporation;                           // Unsatisfied evaporation in meters of water.  Positive means water evaporated off of the ground.
                                                            // Negative means water condensed on to the ground.
@@ -1621,7 +1627,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
         {
           cosZ = 0.0f;
         }
-      
+
       // FIXME get real values for soil moisture from infiltration state.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
@@ -1629,7 +1635,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
                                     evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]); // Depth as a negative number.
           distanceAboveWaterTable = elementZSurface + layerMiddleDepth - groundwaterHead;
 
-          if (0.1 > distanceAboveWaterTable)
+          if (0.1 >= distanceAboveWaterTable)
             {
               relativeSaturation = 1.0;
             }
@@ -1637,9 +1643,9 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
             {
               relativeSaturation = 1.0 - (log10(distanceAboveWaterTable) + 1.0) * 0.3;
 
-              if (0.0 > relativeSaturation)
+              if (0.01 > relativeSaturation)
                 {
-                  relativeSaturation = 0.0;
+                  relativeSaturation = 0.01;
                 }
             }
 
@@ -1647,21 +1653,23 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
           sh2o[ii]  = porosity * relativeSaturation;
           smc[ii]   = porosity * relativeSaturation;
         }
-
+      
       error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), atmosphereLayerThickness,
                                      shadedFraction, shadedFractionMaximum, smcEq, surfaceTemperature + ZERO_C_IN_KELVIN, surfacePressure,
                                      atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0f, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead, smc[3], &evapoTranspirationState,
-                                     &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround, &transpiration, &waterError);
+                                     &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround, &transpirationFromVegetation,
+                                     &waterError);
     }
   
   if (!error)
     {
-      // Move water and record flows for precipitation and evaporation.
+      // Move water and record flows for precipitation, evaporation, and transpiration.
       surfacewaterDepth += surfacewaterAdd / 1000.0;
       precipitation      = precipitationRate * dt;
       evaporation        = -((double)evaporationFromCanopy + evaporationFromSnow) / 1000.0;
+      transpiration      = 0.0;
       
       // Take evaporationFromGround first from surfacewater, and then if there isn't enough surfacewater from groundwater.  If there isn't enough groundwater
       // print a warning and reduce the quantity of evaporation.
@@ -1685,7 +1693,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
             }
           else
             {
-              unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
+              unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - (groundwaterHead - elementZBedrock)) * porosity;
               evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
               groundwaterHead        = elementZBedrock;
               
@@ -1699,28 +1707,28 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
       
       // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater print a
       // warning and reduce the quantity of transpiration.
-      unsatisfiedEvaporation = transpiration / 1000.0;
+      unsatisfiedEvaporation = transpirationFromVegetation / 1000.0;
       
       if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
         {
           groundwaterHead -= unsatisfiedEvaporation / porosity;
-          evaporation     -= unsatisfiedEvaporation;
+          transpiration   -= unsatisfiedEvaporation;
         }
       else
         {
-          unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
-          evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
+          unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - (groundwaterHead - elementZBedrock)) * porosity;
+          transpiration         -= (groundwaterHead - elementZBedrock) * porosity;
           groundwaterHead        = elementZBedrock;
           
           if (surfacewaterDepth >= unsatisfiedEvaporation)
             {
               surfacewaterDepth -= unsatisfiedEvaporation;
-              evaporation       -= unsatisfiedEvaporation;
+              transpiration     -= unsatisfiedEvaporation;
             }
           else
             {
               unsatisfiedEvaporation -= surfacewaterDepth;
-              evaporation            -= surfacewaterDepth;
+              transpiration          -= surfacewaterDepth;
               surfacewaterDepth       = 0.0;
               
               if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
@@ -1734,6 +1742,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
       // Record cumulative flows and water error.
       precipitationCumulative += precipitation;
       evaporationCumulative   += evaporation;
+      transpirationCumulative += transpiration;
       surfacewaterError       += (waterError / 1000.0) * elementArea;
       
       // Initiate groundwater phase.
@@ -2497,6 +2506,8 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
       // Set the flow rate state for this timestep to not ready.
       meshNeighborsSurfacewaterFlowRateReady[edge] = FLOW_RATE_NOT_READY;
       
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
       if (!(isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge]))
         {
           // Send my state to my neighbor.
@@ -2552,32 +2563,34 @@ void MeshElement::moveGroundwater(size_t iterationThisMessage)
 
 void MeshElement::handleCalculateSurfacewaterBoundaryConditionsMessage(size_t iterationThisMessage)
 {
-  bool                  error = false; // Error flag.
-  int                   edge;          // Loop counter.
-  BoundaryConditionEnum boundary;      // Boundary condition code to pass to the function to calculate flow rate.
+  bool error = false; // Error flag.
+  int  edge;          // Loop counter.
+  int  neighbor;      // A neighboring element or boundary condition code.
 
   for (edge = 0; !error && edge < meshNeighborsSize; edge++)
     {
-      if (isBoundary(meshNeighbors[edge]) || meshNeighborsChannelEdge[edge])
+      // If this is a channel edge there will be no direct surfacewater interaction with the mesh neighbor on the other side of the channel.
+      // Instead, interaction will be indirect with both neighbors being connected to the channel.  Treat the mesh neighbor as a NOFLOW boundary.
+      if (meshNeighborsChannelEdge[edge])
+        {
+          neighbor = NOFLOW;
+        }
+      else
+        {
+          neighbor = meshNeighbors[edge];
+        }
+      
+      if (isBoundary(neighbor))
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(FLOW_RATE_NOT_READY == meshNeighborsSurfacewaterFlowRateReady[edge]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-          if (isBoundary(meshNeighbors[edge]))
-            {
-              boundary = (BoundaryConditionEnum)meshNeighbors[edge];
-            }
-          else
-            {
-              // Channel edge.  No direct flow to/from mesh neighbor on other side of channel.
-              boundary = NOFLOW;
-            }
-          
           // Calculate surfacewater flow rate.
           // FIXME figure out what to do about inflow boundary velocity and height
-          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], boundary, 0.0, 0.0, 0.0, meshNeighborsEdgeLength[edge],
-                                                   meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge], surfacewaterDepth);
+          error = surfacewaterMeshBoundaryFlowRate(&meshNeighborsSurfacewaterFlowRate[edge], (BoundaryConditionEnum)neighbor, 0.0, 0.0, 0.0,
+                                                   meshNeighborsEdgeLength[edge], meshNeighborsEdgeNormalX[edge], meshNeighborsEdgeNormalY[edge],
+                                                   surfacewaterDepth);
           
           if (!error)
             {
@@ -3145,6 +3158,18 @@ void MeshElement::handleCheckInvariant()
       error = true;
     }
   
+  if (!(0.0 >= transpiration))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpiration must be less than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 >= transpirationCumulative))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpirationCumulative must be less than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
   if (!(0.0 <= surfacewaterInfiltration))
     {
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfacewaterInfiltration must be greater than or equal to zero.\n", thisIndex);
@@ -3176,18 +3201,18 @@ void MeshElement::handleCheckInvariant()
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: surfaceTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= surfaceTemperature))
+  else if (!(-70.0f <= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= surfaceTemperature))
+  else if (!(70.0f >= surfaceTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: surfaceTemperature above 70 degrees C.\n", thisIndex);
         }
     }
 
@@ -3270,18 +3295,18 @@ void MeshElement::handleCheckInvariant()
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature must be greater than or equal to zero Kelvin.\n", thisIndex);
       error = true;
     }
-  else if (!(-60.0f <= soilBottomTemperature))
+  else if (!(-70.0f <= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature below -70 degrees C.\n", thisIndex);
         }
     }
-  else if (!(60.0f >= soilBottomTemperature))
+  else if (!(70.0f >= soilBottomTemperature))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 60 degrees C.\n", thisIndex);
+          CkError("WARNING in MeshElement::handleCheckInvariant, element %d: soilBottomTemperature above 70 degrees C.\n", thisIndex);
         }
     }
   
@@ -3385,12 +3410,18 @@ void MeshElement::handleCheckInvariant()
   
   for (edge = 0; edge < channelNeighborsSize; edge++)
     {
-      // FIXME add check that all channel neighbors have to be packed to the front of the array.
       if (!(NOFLOW == channelNeighbors[edge] || (0 <= channelNeighbors[edge] &&
                                                  channelNeighbors[edge] < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
         {
           CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must be NOFLOW or a valid array index.\n",
                   thisIndex, edge);
+          error = true;
+        }
+      
+      if (0 < edge && !(NOFLOW != channelNeighbors[edge - 1] || NOFLOW == channelNeighbors[edge]))
+        {
+          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighbors must have non-NOFLOW neighbors compacted to the front "
+                  "of the array.\n", thisIndex, edge);
           error = true;
         }
       
@@ -3416,11 +3447,23 @@ void MeshElement::handleCheckInvariant()
           error = true;
         }
       
-      if (!(0.0 < channelNeighborsEdgeLength[edge]))
+      if (NOFLOW == channelNeighbors[edge])
         {
-          CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be greater than zero.\n",
-                  thisIndex, edge);
-          error = true;
+          if (!(0.0 == channelNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be zero for a NOFLOW edge.\n",
+                      thisIndex, edge);
+              error = true;
+            }
+        }
+      else
+        {
+          if (!(0.0 < channelNeighborsEdgeLength[edge]))
+            {
+              CkError("ERROR in MeshElement::handleCheckInvariant, element %d, edge %d: channelNeighborsEdgeLength must be greater than zero for a non-NOFLOW "
+                      "edge.\n", thisIndex, edge);
+              error = true;
+            }
         }
       
       if (!(FLOW_RATE_LIMITING_CHECK_DONE == channelNeighborsSurfacewaterFlowRateReady[edge]))

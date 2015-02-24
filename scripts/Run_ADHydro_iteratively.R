@@ -26,34 +26,43 @@ user<<-"hmorenor"
 mtmoran_sen<<-"ssh hmorenor@mtmoran.uwyo.edu qsub /project/CI-WATER/tools/build/ADHydro/input/job_script"
 mtmoran_sta<<-"ssh hmorenor@mtmoran.uwyo.edu qstat -u "
 mtmoran_del<<-"ssh hmorenor@mtmoran.uwyo.edu qdel"
-nchecks<<-800000  # number of iterative checks separated by about 30 seconds that the program makes during a run  
-checko<<-20       # use the last checko iterations to check that the model does not get stopped at the beggining of the simulation
-num=2  #  Consecutive number of state.nc outputs... careful when restarting this script to avoid overwriting outputs
+nchecks<<-8000000     # number of iterative checks separated by about 30 seconds that the program makes during a run  
+checko<<-20       # use the last checko iterations to check that the model does not get stopped at the beggining of the simulation after getting R status
+num=7  #  Consecutive number of state.nc outputs... careful when restarting this script to avoid overwriting outputs
 #*************************************************************************************************************************************************************
 
 # A new job is submitted
-wait(system(mtmoran_sen,intern=FALSE, ignore.stderr = FALSE,wait=FALSE),timeout=10) # do  not run this line if cluster is already running a jobscript
+wait(system(mtmoran_sen,intern=TRUE, ignore.stderr = FALSE),timeout=10) # do  not run this line if cluster is already running a jobscript
 
 checkpoints=seq(checko,nchecks,checko)
 inforjobold=0
 # Program begins checking when "C" signal is found from the qstat command
 statusold="Q"
+too=0
 for (to in 1:nchecks){   # checks for 1000000 minutes ! 
-  
+  too=too+1
   # Checking status of simulation until it gets "C"
   
-  sj<-wait(system(paste(mtmoran_sta,user," >", copypath,"getex.txt",sep=""),intern=FALSE, ignore.stderr = FALSE,wait=FALSE),timeout=10)
+  sj<-wait(system(paste(mtmoran_sta,user," >", copypath,"getex.txt",sep=""),intern=FALSE, ignore.stderr = FALSE,wait=FALSE),timeout=20)
   infor<-file.info(paste(copypath,"getex.txt",sep=""))
   SAL=read.table(paste(copypath,"getex.txt",sep=""),skip=5)
-  status=as.character(SAL[dim(SAL)[1],10])
-  cat("Status = ",status,fill=TRUE)
   
-  # Checking that ADHydro.oxxxxxx file shows some change every X checking iterations 
-  if (status=="R"){
+  if (too == 1){
   deco=as.character(SAL[dim(SAL)[1],1])
   pa=as.numeric(substring(deco, 1:nchar(deco),1:nchar(deco)))
   dondenas=which(is.na(pa)==TRUE)
   jobid=paste(pa[1:(dondenas[1]-1)],collapse="")
+  cat("jobid= ",jobid,fill=TRUE)
+  status=as.character(SAL[dim(SAL)[1],10])
+  cat("Status = ",status,fill=TRUE)
+  } else {
+  cuallid=which(SAL==paste(jobid,".mmmmgt1.cluster",sep=""), arr.ind=TRUE) 
+  status=as.character(SAL[cuallid[1],10])
+  cat("Status = ",status,fill=TRUE)  
+  }
+    
+  # Checking that ADHydro.oxxxxxx file shows some change every X checking iterations 
+  if (status=="R"){
   filejob=paste(homepath,"ADHydro.o",jobid,sep="")
   inforjob<-file.info(filejob)[1,1]
   if (is.element(to,checkpoints)==TRUE){
@@ -66,8 +75,8 @@ for (to in 1:nchecks){   # checks for 1000000 minutes !
       cat("Removing files in ",outpath,fill=TRUE)
       cat(lista,fill=TRUE)
       file.remove(paste(outpath,lista,sep=""))
-      cat("Removing ADHydro.oxxxx  file",fill=TRUE)
-      file.remove(paste(homepath,"ADHydro.o",jobid,sep=""))
+      #cat("Removing ADHydro.oxxxx  file",fill=TRUE)
+      #file.remove(paste(homepath,"ADHydro.o",jobid,sep=""))
       Sys.sleep(60)  
     }
     inforjobold=inforjob
@@ -86,12 +95,13 @@ for (to in 1:nchecks){   # checks for 1000000 minutes !
       cat("Removing files in ",outpath,fill=TRUE)
       cat(lista,fill=TRUE)
       file.remove(paste(outpath,lista,sep=""))
-      cat("Removing ADHydro.oxxxx  file",fill=TRUE)
-      file.remove(paste(homepath,"ADHydro.o",jobid,sep=""))
+      #cat("Removing ADHydro.oxxxx  file",fill=TRUE)
+      #file.remove(paste(homepath,"ADHydro.o",jobid,sep=""))
       num=num+1
       Sys.sleep(60)
       # Re-submitting a new job  
       wait(system(mtmoran_sen,intern=FALSE, ignore.stderr = FALSE,wait=FALSE),timeout=10)
+      too=0
       Sys.sleep(30)
     }
   
@@ -102,11 +112,12 @@ for (to in 1:nchecks){   # checks for 1000000 minutes !
     # Re-submitting a new job  
     wait(system(mtmoran_sen,intern=FALSE, ignore.stderr = FALSE,wait=FALSE),timeout=10)
     Sys.sleep(30)
+    too=0
   }
   
 tiempo<<-as.character(Sys.time())
 cat(tiempo,fill=TRUE)
-Sys.sleep(20) # every 30 secodns check qstat -u
+Sys.sleep(60) # every 30 secodns check qstat -u
 statusold=status
 }
 
