@@ -573,6 +573,7 @@ def getSoilContent(s):
    co_key_rows = co_key_rows.apply(rel_percent_mod, axis=1)
    s['SoilType'] = co_key_rows.apply(getSoilTyp, axis = 1).values
    s['HorizonThickness'] = co_key_rows['hzdepb_r'].values
+   s['HorizonThickness'] = s['HorizonThickness']/100.0
    return s
 
 def getSoilTyp(s):
