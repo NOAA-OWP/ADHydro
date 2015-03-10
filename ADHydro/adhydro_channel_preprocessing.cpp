@@ -1290,6 +1290,8 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
     }
 }
 
+
+
 // This function actually implements isCoincidentOrDownstream.  See that
 // function's comment for details.  This one does not check the invariant.
 // Checking that invariant inside a recursive depth first search that doesn't
@@ -4059,6 +4061,125 @@ void createNode(double x, double y, int* nodesSize, int* numberOfNodes, double**
 
 #define NUMBER_OF_STREAM_ORDERS (10)
 
+// Handle links that are not at least 70% as large as their stream order size. The small links are disconnected and put as part of their upstream and their upstream are connected to their downstreams.
+//
+// Restriction: Small links connected to an edge are not changed even if smaller than the stream order.
+//
+// Returns: true if there is an error, false otherwise.
+//
+/// Parameters:
+//
+// channels               - The channel network as a 1D array of
+//                          ChannelLinkStruct.
+// size                   - The number of elements in channels.
+bool handleShortStreamLink(ChannelLinkStruct* channels, int size)
+{
+  bool               error = false;     // Error flag.
+  int                ii, jj;            // Loop counters. ii refers to links and j is the downstream connection.
+  double             streamOrderElementLength[NUMBER_OF_STREAM_ORDERS + 1]
+                                              = {NAN, 100.0, 140.0, 200.0, 280.0, 400.0, 550.0, 800.0, 1000.0, 1500.0, 2000.0};
+  // Desired length in meters of channel elements for each stream order.  E.g. for first order streams it
+  // is 100.0.  For second order streams it is 140.0, etc.
+  int                streamOrder;       // Stream order of a stream.
+  bool               prune;             // Whether to prune.
+  LinkElementStruct* element;           // For checking if elements are unassociated.
+  int                upstreamLinkNo;    // The upstream connection of a channel link.
+  int                downstreamLinkNo;  // The downstream connection of a channel link.
+
+  for (ii = 0; ii < size; ii++)
+    {
+
+      if (STREAM == channels[ii].type)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          assert(0 <= channels[ii].reachCode && channels[ii].reachCode < size);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+          // Get stream order from the original link number in case this link was moved.
+          streamOrder = channels[channels[ii].reachCode].streamOrder;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (1 > streamOrder)
+            {
+              fprintf(stderr, "WARNING in handleShortStreamLink: stream order less than one in link %d.  Using one for stream order.\n", ii);
+
+              streamOrder = 1;
+            }
+          else if (NUMBER_OF_STREAM_ORDERS < streamOrder)
+            {
+              fprintf(stderr, "WARNING in handleShortStreamLink: stream order greater than %d in link %d.  Using %d for stream order.\n",
+                      NUMBER_OF_STREAM_ORDERS, ii, NUMBER_OF_STREAM_ORDERS);
+
+              streamOrder = NUMBER_OF_STREAM_ORDERS;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+          if (channels[ii].length  < 0.7 * streamOrderElementLength[streamOrder])
+            {  
+              // Check if the channel is an associated with an edge. Only prune if unassociated. 
+              prune   = true;
+              element = channels[ii].firstElement;
+
+              while (prune && NULL != element)
+                {
+                  if (-1 != element->edge)
+                    {
+                      prune = false;
+                    }
+
+                  element = element->next;
+                }
+
+              if (prune)    
+                {
+                  // For all upstream connections, remove the connection with the channel element ii,
+                  // add the channel ii length to the upstream connection and create a upstream downstream
+                  // connection with all the channel element ii downstreams.
+                  while ( NOFLOW != channels[ii].upstream[0] && !error )
+                    {           
+                      // When removing the upstream downstream connection, the connection on location 1 is moved
+                      // to location 0. So every loop the value to be removed is on location 0. The loop stops when
+                      // location 0 has the value NOFLOW.             
+                      upstreamLinkNo   = channels[ii].upstream[0];
+
+                      // Add the channel ii length to the endLocation of the upstream link structure and the length element
+                      // Only if not a inflow or outflow boundary condition.
+                      if( !isBoundary(upstreamLinkNo) && STREAM == channels[upstreamLinkNo].type )
+                        {
+                          channels[upstreamLinkNo].length += channels[ii].length;
+                          element = channels[upstreamLinkNo].lastElement;
+
+                          while (-1 != element->movedTo)
+                            {
+                              element->endLocation += channels[ii].length;
+                              element = element->prev;
+                            }
+
+                          element->endLocation += channels[ii].length;
+                        }
+
+                      removeUpstreamDownstreamConnection(channels, size, upstreamLinkNo, ii);
+
+                      // Loop over all downstream connections
+                      jj = 0;
+                      while ( DOWNSTREAM_SIZE > jj && NOFLOW != channels[ii].downstream[jj] && !error )
+                        {
+                          downstreamLinkNo = channels[ii].downstream[jj];
+                          error = addUpstreamDownstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
+                          jj++;
+                        }
+                    }
+
+                  tryToPruneLink(channels, size, ii);
+                }   
+            }
+        }         
+
+    }
+
+  return error;
+}
+
 typedef int IntArrayMMN[3];                                  // Fixed size array of ints. Size is mesh mesh neighbors.
 typedef int IntArrayMEE[2];                                  // Fixed size array of ints. Size is mesh edge elements.
 typedef int IntArrayCV[ChannelElement::channelVerticesSize]; // Fixed size array of ints. Size is channel vertices.
@@ -4169,7 +4290,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   double             overlapLength;                   // For calculating channel mesh neighbors edge length.
   int                meshNeighbors[ChannelElement::meshNeighborsSize];           // For storing channel mesh neighbors before outputting.
   double             meshNeighborsEdgeLength[ChannelElement::meshNeighborsSize]; // For storing channel mesh neighbors before outputting.
-
+  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
@@ -5103,9 +5224,10 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 
               if (actualElementLength < 0.7 * streamOrderElementLength[streamOrder])
                 {
+                  
                   fprintf(stderr, "WARNING in writeChannelNetwork: element %d length increased from %lf to %lf.\n", channels[ii].elementStart,
                           actualElementLength, 0.7 * streamOrderElementLength[streamOrder]);
-
+                  
                   actualElementLength = 0.7 * streamOrderElementLength[streamOrder];
                 }
             } // End calculate the length of the elements of this link.
@@ -5624,7 +5746,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
             }
           else
             {
-              fprintf(stderr, "WARNING in main: pruned stream %d does not flows downstream into any unpruned link.\n", ii);
+              fprintf(stderr, "WARNING in writeChannelNetwork: pruned stream %d does not flow downstream into any unpruned link.\n", ii);
             }
         }
     }
@@ -5676,7 +5798,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
     {
       delete[] meshEdgeLength;
     }
-  
   return error;
 }
 
@@ -5854,7 +5975,7 @@ int main(void)
       error = channelNetworkCheckInvariant(channels, size);
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  
+
   if (!error)
     {
       for (ii = 0; ii < size; ii++)
@@ -5862,22 +5983,34 @@ int main(void)
           tryToPruneLink(channels, size, ii);
         }
     }
-  
+
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   if (!error)
     {
       error = channelNetworkCheckInvariant(channels, size);
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  
+
+  if (!error)
+    {
+      error = handleShortStreamLink (channels, size);
+    }
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+  if (!error)
+    {
+      error = channelNetworkCheckInvariant(channels, size);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
+
   if (!error)
     {
       error = writeChannelNetwork(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune");
+                                  "/user2/lpureza/Desktop/output/mesh.1.chan.node",
+                                  "/user2/lpureza/Desktop/output/mesh.1.chan.ele",
+                                  "/user2/lpureza/Desktop/output/mesh.1.chan.prune");
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
