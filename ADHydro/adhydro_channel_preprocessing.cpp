@@ -1256,7 +1256,7 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
   // Prune streams if there are no upstream links and all elements are unassociated.
   if (STREAM == channels[linkNo].type && NOFLOW == channels[linkNo].upstream[0])
     {
-      // Check that all elements are unassociated.
+      // Check if the channel is associated with a mesh edge. Only prune if unassociated.
       prune   = true;
       element = channels[linkNo].firstElement;
       
@@ -1289,8 +1289,6 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
         }
     }
 }
-
-
 
 // This function actually implements isCoincidentOrDownstream.  See that
 // function's comment for details.  This one does not check the invariant.
@@ -4059,64 +4057,79 @@ void createNode(double x, double y, int* nodesSize, int* numberOfNodes, double**
   *nodeNumber               = (*numberOfNodes)++;
 }
 
-#define NUMBER_OF_STREAM_ORDERS (10)
+#define NUMBER_OF_STREAM_ORDERS (10) // The number of stream orders to store data for.
 
-// Handle links that are not at least 70% as large as their stream order size. The small links are disconnected and put as part of their upstream and their upstream are connected to their downstreams.
+double streamOrderElementLength[NUMBER_OF_STREAM_ORDERS + 1] = {NAN, 100.0, 140.0, 200.0, 280.0, 400.0, 550.0, 800.0, 1000.0, 1500.0, 2000.0};
+                                     // Desired length in meters of channel elements for each stream order.  E.g. channel elements for first order streams
+                                     // should be 100.0 meters long, second order should be 140.0, etc.
+
+// If a stream is split into more than one channel element then the smallest
+// that the actual channel element length can be is ~70% of the desired channel
+// element length.  This occurs when the stream is just barely big enough to be
+// split into two channel elements.  However, if an entire link is shorter than
+// this it results in a single channel element that is too short.  Short
+// channel elements can be problematic for running a simulation.  This function
+// tries to fix links that are too short.
 //
-// Restriction: Small links connected to an edge are not changed even if smaller than the stream order.
+// The length of the short link is added on to the lengths of its upstream
+// neighbors.  Then those neighbors are disconnected from the short link and
+// connected upstream of all links downstream of the short link.  Then the
+// short link is pruned.
+//
+// This function does not fix all links.  Any link that is not fixed here gets
+// its length arbitrarily increased in writeChannelNetwork to 70% of the
+// desired channel element length.
+//
+// This function only fixes links whose length is less than 50% of the desired
+// channel element length.  It's better for a link that is almost long enough
+// to be lengthened than pruned.
+//
+// This function does not fix links that are connected to mesh edges.
+//
+// This function does not fix waterbodies because their length is not
+// calculated yet, and they are most likely connected to mesh edges.
 //
 // Returns: true if there is an error, false otherwise.
 //
-/// Parameters:
+// Parameters:
 //
-// channels               - The channel network as a 1D array of
-//                          ChannelLinkStruct.
-// size                   - The number of elements in channels.
-bool handleShortStreamLink(ChannelLinkStruct* channels, int size)
+// channels - The channel network as a 1D array of ChannelLinkStruct.
+// size     - The number of elements in channels.
+bool fixShortLinks(ChannelLinkStruct* channels, int size)
 {
-  bool               error = false;     // Error flag.
-  int                ii, jj;            // Loop counters. ii refers to links and j is the downstream connection.
-  double             streamOrderElementLength[NUMBER_OF_STREAM_ORDERS + 1]
-                                              = {NAN, 100.0, 140.0, 200.0, 280.0, 400.0, 550.0, 800.0, 1000.0, 1500.0, 2000.0};
-  // Desired length in meters of channel elements for each stream order.  E.g. for first order streams it
-  // is 100.0.  For second order streams it is 140.0, etc.
-  int                streamOrder;       // Stream order of a stream.
-  bool               prune;             // Whether to prune.
-  LinkElementStruct* element;           // For checking if elements are unassociated.
-  int                upstreamLinkNo;    // The upstream connection of a channel link.
-  int                downstreamLinkNo;  // The downstream connection of a channel link.
+  bool               error = false;  // Error flag.
+  int                ii, jj;         // Loop counters.
+  int                streamOrder;    // Stream order of a stream.
+  bool               prune;          // Whether to prune.
+  LinkElementStruct* element;        // For checking if link elements are unassociated.
+  int                upstreamLinkNo; // The upstream connection of a channel link.
 
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
-
       if (STREAM == channels[ii].type)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          assert(0 <= channels[ii].reachCode && channels[ii].reachCode < size);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-
           // Get stream order from the original link number in case this link was moved.
           streamOrder = channels[channels[ii].reachCode].streamOrder;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
           if (1 > streamOrder)
             {
-              fprintf(stderr, "WARNING in handleShortStreamLink: stream order less than one in link %d.  Using one for stream order.\n", ii);
+              fprintf(stderr, "WARNING in fixShortLinks: stream order less than one in link %d.  Using one for stream order.\n", ii);
 
               streamOrder = 1;
             }
           else if (NUMBER_OF_STREAM_ORDERS < streamOrder)
             {
-              fprintf(stderr, "WARNING in handleShortStreamLink: stream order greater than %d in link %d.  Using %d for stream order.\n",
+              fprintf(stderr, "WARNING in fixShortLinks: stream order greater than %d in link %d.  Using %d for stream order.\n",
                       NUMBER_OF_STREAM_ORDERS, ii, NUMBER_OF_STREAM_ORDERS);
 
               streamOrder = NUMBER_OF_STREAM_ORDERS;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
-          if (channels[ii].length  < 0.7 * streamOrderElementLength[streamOrder])
-            {  
-              // Check if the channel is an associated with an edge. Only prune if unassociated. 
+          if (channels[ii].length  < 0.5 * streamOrderElementLength[streamOrder])
+            {
+              // Check if the channel is associated with a mesh edge. Only prune if unassociated.
               prune   = true;
               element = channels[ii].firstElement;
 
@@ -4130,52 +4143,54 @@ bool handleShortStreamLink(ChannelLinkStruct* channels, int size)
                   element = element->next;
                 }
 
-              if (prune)    
+              if (prune)
                 {
-                  // For all upstream connections, remove the connection with the channel element ii,
-                  // add the channel ii length to the upstream connection and create a upstream downstream
-                  // connection with all the channel element ii downstreams.
-                  while ( NOFLOW != channels[ii].upstream[0] && !error )
-                    {           
-                      // When removing the upstream downstream connection, the connection on location 1 is moved
-                      // to location 0. So every loop the value to be removed is on location 0. The loop stops when
-                      // location 0 has the value NOFLOW.             
-                      upstreamLinkNo   = channels[ii].upstream[0];
+                  fprintf(stderr, "WARNING in fixShortLinks: pruning short link %d, stream order %d, length %lf.\n", ii, streamOrder, channels[ii].length);
+                  
+                  // For all upstream connections, add the length of link ii to the upstream connection, remove the connection with link ii, and create a
+                  // connection with all of the links downstream of link ii.
+                  while (!error && NOFLOW != channels[ii].upstream[0])
+                    {
+                      // When removing the upstream downstream connection, the connection at location 1 is moved to location 0.  So on every loop the next
+                      // connection to be removed is at location 0. The loop stops when location 0 has the value NOFLOW.
+                      upstreamLinkNo = channels[ii].upstream[0];
 
-                      // Add the channel ii length to the endLocation of the upstream link structure and the length element
-                      // Only if not a inflow or outflow boundary condition.
-                      if( !isBoundary(upstreamLinkNo) && STREAM == channels[upstreamLinkNo].type )
+                      // Add the length of link ii to the upstream connection.
+                      if(!isBoundary(upstreamLinkNo))
                         {
                           channels[upstreamLinkNo].length += channels[ii].length;
-                          element = channels[upstreamLinkNo].lastElement;
-
-                          while (-1 != element->movedTo)
+                          
+                          // If the upstream connection is a stream update link element end locations.
+                          if (STREAM == channels[upstreamLinkNo].type)
                             {
-                              element->endLocation += channels[ii].length;
-                              element = element->prev;
-                            }
+                              element = channels[upstreamLinkNo].lastElement;
 
-                          element->endLocation += channels[ii].length;
+                              // All moved link elements get pushed out by the added length.
+                              while (-1 != element->movedTo)
+                                {
+                                  element->endLocation += channels[ii].length;
+                                  element               = element->prev;
+                                }
+
+                              // The last unmoved link element has the length added to it.
+                              element->endLocation += channels[ii].length;
+                            }
                         }
 
                       removeUpstreamDownstreamConnection(channels, size, upstreamLinkNo, ii);
 
                       // Loop over all downstream connections
-                      jj = 0;
-                      while ( DOWNSTREAM_SIZE > jj && NOFLOW != channels[ii].downstream[jj] && !error )
+                      for (jj = 0; !error && DOWNSTREAM_SIZE > jj && NOFLOW != channels[ii].downstream[jj]; jj++)
                         {
-                          downstreamLinkNo = channels[ii].downstream[jj];
-                          error = addUpstreamDownstreamConnection(channels, size, upstreamLinkNo, downstreamLinkNo);
-                          jj++;
+                          error = addUpstreamDownstreamConnection(channels, size, upstreamLinkNo, channels[ii].downstream[jj]);
                         }
                     }
 
                   tryToPruneLink(channels, size, ii);
-                }   
-            }
-        }         
-
-    }
+                }
+            } // End if (channels[ii].length  < 0.7 * streamOrderElementLength[streamOrder]).
+        } // End if (STREAM == channels[ii].type).
+    } // End for (ii = 0; !error && ii < size; ii++).
 
   return error;
 }
@@ -4231,10 +4246,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   int                numberOfChannelElements = 0;     // Number of channel elements.
   int                numberOfNeighbors;               // Number of neighbors of a channel element.  Used for both channel and mesh neighbors.
   int                streamOrder;                     // Stream order of a stream.
-  double             streamOrderElementLength[NUMBER_OF_STREAM_ORDERS + 1]
-                                             = {NAN, 100.0, 140.0, 200.0, 280.0, 400.0, 550.0, 800.0, 1000.0, 1500.0, 2000.0};
-                                                      // Desired length in meters of channel elements for each stream order.  E.g. for first order streams it
-                                                      // is 100.0.  For second order streams it is 140.0, etc.
   double             actualElementLength;             // Length in meters of actual channel elements.
   int                channelNodesSize;                // Size of channelNodesX and channelNodesY arrays.
   int                numberOfChannelNodes    = 0;     // Number of channel nodes actually existing in channelNodesX and channelNodesY arrays.
@@ -4306,10 +4317,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
       
       if (STREAM == channels[ii].type)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          assert(0 <= channels[ii].reachCode && channels[ii].reachCode < size);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
           // Get stream order from the original link number in case this link was moved.
           streamOrder = channels[channels[ii].reachCode].streamOrder;
           
@@ -5167,15 +5174,16 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                     }
                   
                   // Set the length of the waterbody as the long dimension of the bounding box and the top width as the short dimension of the bounding box.
+                  // Use += for length because we might have added length to a waterbody in fixShortLinks.
                   if (xMax - xMin > yMax - yMin)
                     {
-                      channels[ii].length = xMax - xMin;
-                      topWidth            = yMax - yMin;
+                      channels[ii].length += xMax - xMin;
+                      topWidth             = yMax - yMin;
                     }
                   else
                     {
-                      channels[ii].length = yMax - yMin;
-                      topWidth            = xMax - xMin;
+                      channels[ii].length += yMax - yMin;
+                      topWidth             = xMax - xMin;
                     }
                   
                   // Set the bank full depth as ten percent of the top width.
@@ -5188,15 +5196,12 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
             {
               actualElementLength = channels[ii].length / channels[ii].numberOfElements;
 
-              // If a stream has more than one element then the smallest that the actual element length can be is ~70% of the desired element length.  This
-              // occurs when the stream is just barely big enough to be split into two elements.  If a stream or waterbody has only one element it can be
-              // shorter than this.  Arbitrarily increase the length of these short links.
+              // If a stream is split into more than one channel element then the smallest that the actual channel element length can be is ~70% of the desired
+              // channel element length.  This occurs when the stream is just barely big enough to be split into two channel elements.  However, if an entire
+              // link is shorter than this it results in a single channel element that is too short.  Short channel elements can be problematic for running a
+              // simulation.  Arbitrarily increase the length of these short links.
               if (STREAM == channels[ii].type)
                 {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-                  assert(0 <= channels[ii].reachCode && channels[ii].reachCode < size);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-
                   // Get stream order from the original link number in case this link was moved.
                   streamOrder = channels[channels[ii].reachCode].streamOrder;
 
@@ -5224,7 +5229,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 
               if (actualElementLength < 0.7 * streamOrderElementLength[streamOrder])
                 {
-                  
                   fprintf(stderr, "WARNING in writeChannelNetwork: element %d length increased from %lf to %lf.\n", channels[ii].elementStart,
                           actualElementLength, 0.7 * streamOrderElementLength[streamOrder]);
                   
@@ -5798,6 +5802,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
     {
       delete[] meshEdgeLength;
     }
+  
   return error;
 }
 
@@ -5993,7 +5998,7 @@ int main(void)
 
   if (!error)
     {
-      error = handleShortStreamLink (channels, size);
+      error = fixShortLinks(channels, size);
     }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -6005,12 +6010,13 @@ int main(void)
 
   if (!error)
     {
-      error = writeChannelNetwork(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
+      error = writeChannelNetwork(channels, size,
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele",
                                   "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge",
-                                  "/user2/lpureza/Desktop/output/mesh.1.chan.node",
-                                  "/user2/lpureza/Desktop/output/mesh.1.chan.ele",
-                                  "/user2/lpureza/Desktop/output/mesh.1.chan.prune");
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node",
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele",
+                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune");
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
