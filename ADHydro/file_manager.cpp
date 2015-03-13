@@ -5219,14 +5219,14 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified channelSurfacewaterDepth defaults to zero.
-  if (NULL == channelSurfacewaterDepth)
+  // If not already specified channelSurfacewaterDepth defaults to channelElementBankFullDepth.
+  if (NULL == channelSurfacewaterDepth && NULL != channelElementBankFullDepth)
     {
       channelSurfacewaterDepth = new double[localNumberOfChannelElements];
       
       for (ii = 0; ii < localNumberOfChannelElements; ii++)
         {
-          channelSurfacewaterDepth[ii] = 0.0;
+          channelSurfacewaterDepth[ii] = channelElementBankFullDepth[ii];
         }
     }
   
@@ -8414,7 +8414,12 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
       // Record the dates of the current forcing data and next forcing data and that the forcing data is initialized.
       forcingDataDate = jultime[instance];
       
-      if (instance + 1 < numberOfInstances)
+      if (ADHydro::drainDownMode)
+        {
+          // In drain down mode use the initial forcing data forever.
+          nextForcingDataDate = INFINITY;
+        }
+      else if (instance + 1 < numberOfInstances)
         {
           nextForcingDataDate = jultime[instance + 1];
         }
