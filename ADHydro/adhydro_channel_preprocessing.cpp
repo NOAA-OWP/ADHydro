@@ -471,8 +471,8 @@ bool channelNetworkCheckInvariant(ChannelLinkStruct* channels, int size)
                                   error = true;
                                 }
                               
-                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size &&
-                                    (STREAM == channels[channels[ii].downstream[jj]].type || PRUNED_STREAM == channels[channels[ii].downstream[jj]].type)))
+                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size && (STREAM == channels[tempElement->movedTo].type ||
+                                                                                                 PRUNED_STREAM == channels[tempElement->movedTo].type)))
                                 {
                                   fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved to element must be valid "
                                           "linkNo.\n", ii);
@@ -498,8 +498,8 @@ bool channelNetworkCheckInvariant(ChannelLinkStruct* channels, int size)
                                   error = true;
                                 }
                               
-                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size &&
-                                    (STREAM == channels[channels[ii].downstream[jj]].type || PRUNED_STREAM == channels[channels[ii].downstream[jj]].type)))
+                              if (!(0 <= tempElement->movedTo && tempElement->movedTo < size && (STREAM == channels[tempElement->movedTo].type ||
+                                                                                                 PRUNED_STREAM == channels[tempElement->movedTo].type)))
                                 {
                                   fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: stream link element list moved to element must be valid "
                                           "linkNo.\n", ii);
