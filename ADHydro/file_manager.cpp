@@ -1184,7 +1184,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
           meshElementVertices[ index - localMeshElementStart][1] = vertex1;
           meshElementVertices[ index - localMeshElementStart][2] = vertex2;
           meshElementSoilDepth[index - localMeshElementStart]    = soilDepth;
-          meshCatchment[       index - localMeshElementStart]    = catchment;
+          meshCatchment[       index - localMeshElementStart]    = catchment - 2;  // The .ele file stores catchment number plus two because zero and one are
+                                                                                   // used by triangle.
           meshVegetationType[  index - localMeshElementStart]    = vegetationType;
           meshSoilType[        index - localMeshElementStart]    = soilType;
           meshMeshNeighbors[   index - localMeshElementStart][0] = neighbor0;
@@ -1290,8 +1291,8 @@ void FileManager::handleInitializeFromASCIIFiles(const char* directory, const ch
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       
-      // If the edge is a channel edge find it in the mesh and mark it as such.
-      if (!error && 0 > boundary)
+      // If the edge is a channel edge find it in the mesh and mark it as such.  A boundary code of two or more indicates a channel edge.
+      if (!error && 2 <= boundary)
         {
           for (jj = 0; jj < localNumberOfMeshElements; jj++)
             {

@@ -124,7 +124,9 @@ with open(output_node_file, "w") as node_file:
           used_linknos.append(-1)
         used_linknos[linkno] = reachcode
         print "Waterbody number " + str(feature.id()) + " reach code " + str(reachcode) + " assigned to linkno " + str(linkno)
-        boundary_marker = str(-linkno) # The boundary marker indicates which waterbody.  Use negative because marker 1 is used by triangle.
+        # The boundary marker indicates which waterbody.  Use linkno + 2 in the poly file because 0 is already used for no boundary and 1 is already used for
+        # mesh edge boundary.
+        boundary_marker = str(linkno + 2)
         for ring in polygon:
           firstnode = node
           for point in ring:
@@ -148,9 +150,11 @@ with open(output_node_file, "w") as node_file:
         assert 0 < len(polyline) # No empty polylines.
         linkno, success = feature.attributeMap()[linknoindex].toInt()
         assert success # Integer conversion must succeed.
+        assert 0 <= linkno # linkno must be non-negative.
         assert linkno == used_linknos[linkno] # The permanent code of a stream must be its linkno.
-        assert 0 < linkno # TauDEM doesn't use linkno 0 and we can't use it as a boundary marker in triangle because 0 indicates no boundary marker.
-        boundary_marker = str(-linkno) # The boundary marker indicates which stream.  Use negative because marker 1 is used by triangle.
+        # The boundary marker indicates which stream.  Use linkno + 2 in the poly file because 0 is already used for no boundary and 1 is already used for
+        # mesh edge boundary.
+        boundary_marker = str(linkno + 2)
         firstnode = node
         for point in polyline:
           node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
@@ -180,8 +184,14 @@ with open(output_node_file, "w") as node_file:
       catchment_provider.select([catchmentindex])
       while catchment_provider.nextFeature(feature):
         regionx, regiony = point_in_polygon(feature)
+        catchment_number, success = feature.attributeMap()[catchmentindex].toInt()
+        assert success # Integer conversion must succeed.
+        assert 0 <= catchment_number # Catchment number must be non-negative.
+        # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
+        # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
+        region_attribute = str(catchment_number + 2)
         area_constraint = "-1" # FIXME calculate a real area constraint.
-        poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + feature.attributeMap()[catchmentindex].toString() + " " + area_constraint + "\n")
+        poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + region_attribute + " " + area_constraint + "\n")
         region += 1
       #
       # Fill in the number of segments and nodes at the beginning of the files.

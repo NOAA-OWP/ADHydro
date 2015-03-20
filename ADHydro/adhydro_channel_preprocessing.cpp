@@ -2831,11 +2831,11 @@ bool addAllStreamMeshEdges(ChannelLinkStruct* channels, int size, const char* no
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       
-      // A neagtive boundary code indicates a channel edge.
-      if (!error && 0 > boundary)
+      // A boundary code of two or more indicates a channel edge.
+      if (!error && 2 <= boundary)
         {
-          // Convert to positive link number.
-          boundary *= -1;
+          // Convert to link number.
+          boundary -= 2;
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
           if (!(boundary < size))
@@ -4265,7 +4265,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   int                meshVertex0;                     // For reading a vertex of a mesh element.
   int                meshVertex1;                     // For reading a vertex of a mesh element.
   int                meshVertex2;                     // For reading a vertex of a mesh element.
-  int                meshCatchment;                   // For reading the catchment of a mesh element.
   FILE*              edgeFile;                        // Input file for mesh edges.
   int                numberOfMeshEdges;               // Number of Mesh edges.
   int                boundary;                        // For reading the boundary code of a mesh edge.
@@ -4481,10 +4480,10 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   // Read the vertices.
   for (jj = 0; !error && jj < numberOfMeshElements; jj++)
     {
-      numScanned = fscanf(eleFile, "%d %d %d %d %d", &meshElementNumber, &meshVertex0, &meshVertex1, &meshVertex2, &meshCatchment);
+      numScanned = fscanf(eleFile, "%d %d %d %d %*d", &meshElementNumber, &meshVertex0, &meshVertex1, &meshVertex2);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(5 == numScanned))
+      if (!(4 == numScanned))
         {
           fprintf(stderr, "ERROR in writeChannelNetwork: Unable to read entry %d from mesh element file %s.\n", jj, meshElementFilename);
           error = true;
@@ -4559,13 +4558,13 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       
-      if (0 > boundary)
+      // A boundary code of two or more indicates a channel edge.
+      if (2 <= boundary)
         {
-          // A neagtive boundary code indicates a channel edge.
           if (!error)
             {
-              // Convert to positive link number.
-              boundary *= -1;
+              // Convert to link number.
+              boundary -= 2;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
               if (!(boundary < size))
@@ -4629,7 +4628,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
 
             }
-        } // End if (0 > boundary).
+        } // End if (2 <= boundary).
       else
         {
           // If the edge is not a channel edge we don't need to find out what mesh elements it connects to.  Fill in the unused spaces with NOFLOW.
