@@ -117,7 +117,7 @@ with open(output_node_file, "w") as node_file:
         assert success # Integer conversion must succeed.
         reachcode = int(reachcodelong)
         # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
-        linkno = 1 # We have to start at 1 because we can't use 0 as a boundary marker in triangle because 0 indicates no boundary marker.
+        linkno = 0
         while linkno < len(used_linknos) and -1 != used_linknos[linkno] and reachcode != used_linknos[linkno]:
           linkno += 1
         while linkno >= len(used_linknos):
