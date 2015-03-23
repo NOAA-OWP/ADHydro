@@ -7,7 +7,8 @@ CHARMLDFLAGS  := $(LDFLAGS) -language charm++
 
 VPATH := ../ADHydro_rewrite
 
-EXES := test_date_functions \
+EXES := adhydro_mesh_check  \
+        test_date_functions \
         test_random_simulation
 
 TEST_RANDOM_SIMULATION_OBJS := test_random_simulation.o \
@@ -17,6 +18,8 @@ TEST_RANDOM_SIMULATION_OBJS := test_random_simulation.o \
 all: $(EXES)
 
 .PHONY: all
+
+adhydro_mesh_check: all.h # Uses implicit rule to compile from adhydro_mesh_check.cpp.  This just adds the header file dependency.
 
 test_date_functions: all.h # Uses implicit rule to compile from test_date_functions.cpp.  This just adds the header file dependency.
 
