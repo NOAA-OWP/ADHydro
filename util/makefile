@@ -1,5 +1,5 @@
-CPPFLAGS := -I../ADHydro_rewrite -fdiagnostics-show-option -g -Wall
-LDFLAGS  := -fdiagnostics-show-option -g -Wall
+CPPFLAGS := -I../ADHydro_rewrite -I/usr/include/libshp -fdiagnostics-show-option -g -Wall
+LDFLAGS  := -lshp -fdiagnostics-show-option -g -Wall
 
 CHARMC        := $(CHARMDIR)/bin/charmc
 CHARMCPPFLAGS := $(CPPFLAGS)
@@ -7,8 +7,9 @@ CHARMLDFLAGS  := $(LDFLAGS) -language charm++
 
 VPATH := ../ADHydro_rewrite
 
-EXES := adhydro_mesh_check  \
-        test_date_functions \
+EXES := adhydro_channel_preprocessing \
+        adhydro_mesh_check            \
+        test_date_functions           \
         test_random_simulation
 
 TEST_RANDOM_SIMULATION_OBJS := test_random_simulation.o \
@@ -18,6 +19,8 @@ TEST_RANDOM_SIMULATION_OBJS := test_random_simulation.o \
 all: $(EXES)
 
 .PHONY: all
+
+adhydro_channel_preprocessing: all.h # Uses implicit rule to compile from adhydro_channel_preprocessing.cpp.  This just adds the header file dependency.
 
 adhydro_mesh_check: all.h # Uses implicit rule to compile from adhydro_mesh_check.cpp.  This just adds the header file dependency.
 
