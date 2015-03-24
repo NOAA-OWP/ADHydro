@@ -28,9 +28,12 @@ int main(void)
   double* detectedX           = NULL;  // X coordinates of detected problem triangles.  Used to exclude larger nearby problem triangles.
   double* detectedY           = NULL;  // Y coordinates of detected problem triangles.  Used to exclude larger nearby problem triangles.
   double* detectedArea        = NULL;  // Areas of detected problem triangles.  Used to exclude larger nearby problem triangles.
+  double* detectedAngle       = NULL;  // Angles of detected problem triangles.  Used to exclude larger nearby problem triangles.
   int     meshVertex[3];               // For reading the vertices of a mesh element.
   int     meshCatchment;               // For reading the catchment of a mesh element.
-  double  area;                        // For calculating the area of mesh elements.
+  double  area;                        // For calculating the area of a mesh element.
+  double  side[3];                     // For calculating the side lengths of a mesh element.
+  double  angle[3];                    // For calculating the angles of a mesh element.
   bool    tooClose;                    // Whether a problem triangle is too close to a previously reported smaller problem triangle.
   
   // Open the files.
@@ -138,6 +141,7 @@ int main(void)
       detectedX     = new double[numberOfMeshElements];
       detectedY     = new double[numberOfMeshElements];
       detectedArea  = new double[numberOfMeshElements];
+      detectedAngle = new double[numberOfMeshElements];
     }
   
   // Read the elements.
@@ -168,21 +172,38 @@ int main(void)
 
           for (jj = 0; jj < 3; jj++)
             {
-              area += meshNodesX[meshVertex[jj]] * (meshNodesY[meshVertex[(jj + 1) % 3]] - meshNodesY[meshVertex[(jj + 2) % 3]]);
+              area    += meshNodesX[meshVertex[jj]] * (meshNodesY[meshVertex[(jj + 1) % 3]] - meshNodesY[meshVertex[(jj + 2) % 3]]);
+              side[jj] = sqrt((meshNodesX[meshVertex[(jj + 1) % 3]] - meshNodesX[meshVertex[(jj + 2) % 3]]) *
+                              (meshNodesX[meshVertex[(jj + 1) % 3]] - meshNodesX[meshVertex[(jj + 2) % 3]]) +
+                              (meshNodesY[meshVertex[(jj + 1) % 3]] - meshNodesY[meshVertex[(jj + 2) % 3]]) *
+                              (meshNodesY[meshVertex[(jj + 1) % 3]] - meshNodesY[meshVertex[(jj + 2) % 3]]));
             }
 
           area *= 0.5;
           
-          if (0 == meshCatchment || 7500.0 > area)
+          for (jj = 0; jj < 3; jj++)
             {
-              // This is a problem triangle.  Report it if there hasn't already been a smaller one reported within 100 meters.
+              angle[jj] = acos(((side[jj] * side[jj]) - (side[(jj + 1) % 3] * side[(jj + 1) % 3]) - (side[(jj + 2) % 3] * side[(jj + 2) % 3])) /
+                               (-2.0 * side[(jj + 1) % 3] * side[(jj + 2) % 3])) * 180.0 / M_PI; // Convert to degrees.
+              
+              // We really just want the smallest angle so put that one in angle[0].
+              if (angle[0] > angle[jj])
+                {
+                  angle[0] = angle[jj];
+                }
+            }
+          
+          if (0 == meshCatchment || 7500.0 > area || 20.0 > angle[0])
+            {
+              // This is a problem triangle.  Report it if there hasn't already been a smaller one reported within 100 meters.  Always report triangles with no
+              // catchment.
               tooClose = false;
               
-              for (jj = 0; !tooClose && jj < detectedIndex; jj++)
+              for (jj = 0; 0 != meshCatchment && !tooClose && jj < detectedIndex; jj++)
                 {
                   if (100.0 >= sqrt((meshNodesX[meshVertex[0]] - detectedX[jj]) * (meshNodesX[meshVertex[0]] - detectedX[jj]) +
                                     (meshNodesY[meshVertex[0]] - detectedY[jj]) * (meshNodesY[meshVertex[0]] - detectedY[jj])) &&
-                      area  >= detectedArea[jj])
+                      area  >= detectedArea[jj] && angle[0] >= detectedAngle[jj])
                     {
                       tooClose = true;
                     }
@@ -190,12 +211,13 @@ int main(void)
               
               if (!tooClose)
                 {
-                  printf("Found problem triangle at (%lf, %lf), catchment = %d, area = %lf.\n", meshNodesX[meshVertex[0]], meshNodesY[meshVertex[0]],
-                         meshCatchment, area);
+                  printf("Found problem triangle at (%lf, %lf), catchment = %d, area = %lf, angle = %lf.\n", meshNodesX[meshVertex[0]],
+                         meshNodesY[meshVertex[0]], meshCatchment, area, angle[0]);
                   
-                  detectedX[detectedIndex]    = meshNodesX[meshVertex[0]];
-                  detectedY[detectedIndex]    = meshNodesY[meshVertex[0]];
-                  detectedArea[detectedIndex] = area;
+                  detectedX[detectedIndex]     = meshNodesX[meshVertex[0]];
+                  detectedY[detectedIndex]     = meshNodesY[meshVertex[0]];
+                  detectedArea[detectedIndex]  = area;
+                  detectedAngle[detectedIndex] = angle[0];
                   
                   detectedIndex++;
                 }
@@ -220,6 +242,7 @@ int main(void)
   delete[] detectedX;
   delete[] detectedY;
   delete[] detectedArea;
+  delete[] detectedAngle;
   
   return 0;
 }
