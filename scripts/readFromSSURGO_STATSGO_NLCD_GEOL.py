@@ -38,6 +38,14 @@ STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
 STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
 
+input_GEOL_prefix = "/share/CI-WATER_Third_Party_Files/Geologic_Units/"
+#Directory where extracted data files exist
+input_GEOL_State_prefix = os.path.join(input_GEOL_prefix, "MergingShapeFiles/")
+input_GEOL_file  =  os.path.join(input_GEOL_prefix, "AllMerged.shp") 
+GEOL_layer     = QgsVectorLayer(input_GEOL_file, "GEOLOGIC_UNITS",  "ogr")
+GEOL_provider  = GEOL_layer.dataProvider()
+GEOL_SourceInd = GEOL_provider.fieldNameIndex("SOURCE")
+
 #This script will read the SSURGO soil mukey files from this directory
 input_SSURGO_County_prefix = os.path.join(input_SSURGO_prefix, "all")
 # This script will read the NLCD data form this directory
@@ -48,7 +56,7 @@ input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projecte
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh"
+input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 
 # This script will write its output to this directory
 # the files it will write are:
@@ -56,7 +64,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh"
+output_directory_path = "/user2/lpureza/Desktop/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -79,6 +87,15 @@ horizon_table_names = ['hzname', 'desgndisc', 'desgnmaster', 'desgnmasterprime',
 
 #Dictionary to hold QgsVector layers for vegitation data
 veg_parm_dict={}
+
+# Dictionry with the Geologic units shape file for the states: WY, CO, AZ, NM, and UT
+# The files do not have a standard name. For other states, insert the file name in the dictionary.
+GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix + "azgeol_poly_dd.shp", "GEOL_UNITS_AZ",   "ogr"), 
+                                   'CO': QgsVectorLayer(input_GEOL_State_prefix + "cogeol_dd_polygon.shp", "GEOL_UNITS_CO","ogr"), 
+                                   'NM': QgsVectorLayer(input_GEOL_State_prefix + "nmgeol_dd_polygon.shp", "GEOL_UNITS_NM","ogr"),
+                                   'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
+                                   'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
+
 
 def writeSoilFile(s, f, bugFix):
     """
@@ -132,6 +149,25 @@ def writeVegFile(s, f, bugFix):
   """
   f.write('  '+str(s.name)+'  '+str(s['VegParm'])+'\n')
 
+#Write a line to the veg file, f, based on information passed in series, s
+#Note bugFix is here just to bypass a weird file not open for reading bug that appears
+#if s and f are the only args
+def writeGeolFile(s, f, bugFix):
+  """
+    This function writes a line to the Geologic Units output file for each element. 
+    First line contain the number of elements. From the second line it contains the element number and
+    its geologic type. 1 refers to alluvium, 0 refers to not alluvium.
+    It is desgned to work the the pandas data frame apply function, which used along the first axis
+    of a data frame, this function writes information from each row in the dataframe to an output file.
+
+    Required Arguements:
+      s -- pandas series containing element information, including VegParm (provided by the apply function)
+      f -- file handle to the desired output file
+      bugFix -- need to pass a third parameter to bypass a weird file not open for reading bug that appears if s and f are the only args, simply pass None for this arg
+
+  """
+  f.write('  '+str(s.name)+'  '+str(s['ROCKTYPE'])+'\n')
+
 def getSoilTypDRV():
    """
      This is the user entry point to process the mesh, lookup the soil and vegitation information, and write the output files.
@@ -139,14 +175,17 @@ def getSoilTypDRV():
      
      getSoilTypDRV utilizes pandas data frames to hold this information, and then applies several functions to the data frame to lookup the nessicary information.
      Once all this information is found and added to the dataframe, this function creates the output files specified by these variables:
-       output_SoilTyp_file -- structured output file storing the layers of the soil horizon for each element
-       output_VegTyp_file -- structured output file storing each element's vegitation type
+       output_SoilTyp_file      -- structured output file storing the layers of the soil horizon for each element
+       output_VegTyp_file       -- structured output file storing each element's vegitation type
+       output_GeolTyp_file      -- structured output file storing each element's Geologic Unit type
        output_element_data_file -- a comma seperated value file containing all of the computed and looked up information for each element
+      
    """
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
    NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
    output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
+   output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
    output_element_data_file = os.path.join(output_directory_path, 'element_data.csv')
 
    print 'Reading element file.'
@@ -220,15 +259,18 @@ def getSoilTypDRV():
     these values.  On really large meshes, this might be required to do.
    """
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
-   
+     
    print 'Finding MUKEY.'
-
+   
    #find the MUKEY for each element, this adds the following columns to elements:
    #MUKEY, AreaSym, inSSURGO
    elements = elements.apply(getMUKEY, axis=1)
    
    #Write the element data csv file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
    elements.to_csv(output_element_data_file, na_rep='NaN')
+   
+   print 'Finding Geologic Units'
+   elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
    
    print 'Finding COKEY.'
 
@@ -266,7 +308,7 @@ def getSoilTypDRV():
    
    print 'Writing vegetation file.'
    
-   #Get the vegitation output file handle
+   #Get the vegetation output file handle
    VegFile = open(output_VegTyp_file, 'wb')
    #Write veg file header information
    VegFile.write(str(num_elems))
@@ -275,6 +317,15 @@ def getSoilTypDRV():
    elements.apply(writeVegFile, axis=1, args=(VegFile, None))
    VegFile.close()
    
+   print 'Writing Geologic Unit data file.'
+   #Get the output file handle for the soil file
+   GeolFile = open(output_GeolTyp_file, 'wb')
+   #Write soil file header information
+   GeolFile.write(str(num_elems))
+   GeolFile.write('\n')
+   #Write each element
+   elements.apply(writeGeolFile, axis=1, args=(GeolFile, None))
+   GeolFile.close()
    
 #TODO If really need to specify which dataset to search( SSURGO or STATSGO ) then make two functions, one for each
 #Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results    
@@ -724,6 +775,60 @@ def getVegParm(s):
    #set veg type to the value val, or np.nan if not success, then return the series
    s['VegParm'] = val
    return s  
+
+def get_GEOLOGIC_UNITS(s):
+            """
+      This function searches for the geologic units in the shape files downloaded from http://mrdata.usgs.gov/geology/state/
+      
+      It is designed to work with the pandas data frame's apply function, which, when used along axis=1,
+      will apply this function to each row of a dataframe, passing the row's information in the series argument.
+      This dataframe should have columns for the following variables:
+        lat_center
+        long_center
+        AreaSym
+      AreaSym is found in getMUKEY() function. Therefore, get_GEOLOGIC_UNITS() can only be run after GetMUKEY().
+      
+      1 refers to alluvium, 0 refers to not alluvium.     
+            """
+            Source = s['AreaSym']
+            x = s['lat_center']
+            y = s['long_center']
+            point = QgsPoint(x, y)
+            pointBox = QgsRectangle(point, point)
+            
+            # AreaSym string name starts with the state abbreviation and it is used to access the GEOL_Unit_State_VectorLayer_dict
+            #GEOL_Unit_State_VectorLayer_dict[ Source[0] + Source[1] ]
+            
+            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
+            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
+            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
+            
+            feature  = QgsFeature()
+            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
+            
+            index = QgsSpatialIndex()
+            while GEOL_perState_provider.nextFeature(feature):
+                index.insertFeature(feature)
+            ids = index.intersects(pointBox)
+            for i in ids:
+                GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
+                geom = feature.geometry()
+                if geom.contains(point):
+                    attribute = feature.attributeMap()
+                    RockType = str(attribute[GEOL_State_ROCKTYPE].toString())
+                    found = True
+                    break
+            #break #Stop looking if we find a contain
+    
+            if not found:
+               print("Geologic type not found. Assuming not Alluvium")
+               RockType = "Other"
+        
+            if (RockType == "alluvium"):
+                s['ROCKTYPE'] = int(1)
+            else:
+                s['ROCKTYPE'] = int(0)
+            return s
 
 if __name__ == '__main__':
     #Run the getSoilTypDRV function
