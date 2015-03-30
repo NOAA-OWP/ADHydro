@@ -1,5 +1,16 @@
-CPPFLAGS := -I../ADHydro_rewrite -I/usr/include/libshp -fdiagnostics-show-option -g -Wall
-LDFLAGS  := -lshp -fdiagnostics-show-option -g -Wall
+# Use these values for Mt Moran.
+
+#CHARMDIR   := /project/CI-WATER/tools/build/charm
+
+# Use these values for EN3038 lab.
+
+EXTRACPPFLAGS := -I/usr/include/libshp -fdiagnostics-show-option
+EXTRALDFLAGS  := -lshp -fdiagnostics-show-option
+
+# Use these values for all.
+
+CPPFLAGS := $(EXTRACPPFLAGS) -I../ADHydro_rewrite -g -Wall
+LDFLAGS  := $(EXTRALDFLAGS) -g -Wall
 
 CHARMC        := $(CHARMDIR)/bin/charmc
 CHARMCPPFLAGS := $(CPPFLAGS)

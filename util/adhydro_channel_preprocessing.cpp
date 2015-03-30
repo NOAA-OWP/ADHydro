@@ -1749,15 +1749,20 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
-      // Get link type.
+      // Get link type.  We found that the values in the FTYPE field were not consistent across data sources.  In Wyoming the values were words: "Ice Mass",
+      // "LakePond", and "SwampMarsh".  In Colorado the values were numbers: "378" for Ice Mass, "390" for LakePond, "466" for SwampMarsh, and "436" for
+      // Reservoir.  The string "Reservoir" did not appear in the Wyoming data that we have processed so we don't know the exact form of the string that might
+      // be used so we didn't check for it.  It seems likely that any time you process a mesh in a new political unit you will need to figure out what they put
+      // in FTYPE and update this code.
       if (!error)
         {
-          if (0 == strcmp("Ice Mass", ftype))
+          if (0 == strcmp("Ice Mass", ftype) || 0 == strcmp("378", ftype))
             {
               linkType = ICEMASS;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 == strcmp("LakePond", ftype) || 0 == strcmp("SwampMarsh", ftype)))
+          else if (!(0 == strcmp("LakePond", ftype) || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
+                     0 == strcmp("436", ftype)))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;
@@ -4307,7 +4312,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   double             salientPointFraction;            // Fraction of distance between two shape vertices of salient point.
   double             shapeVertexLocation;             // The 1D location in meters along a link of a shape vertex.
   bool               done;                            // Termination condition for complex loop.
-  FILE*              outputFile;                      // Output file for channel nodes and elements.
+  FILE*              outputFile              = NULL;  // Output file for channel nodes and elements.
   size_t             numPrinted;                      // Used to check that snprintf printed the correct number of characters.
   double             xMin;                            // For computing bounding box of waterbody.
   double             xMax;                            // For computing bounding box of waterbody.
@@ -5751,7 +5756,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
     }
   
   // Write the pruned links into the channel prune file.
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
       if (PRUNED_STREAM == channels[ii].type)
         {
