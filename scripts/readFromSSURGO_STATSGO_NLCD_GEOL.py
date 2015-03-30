@@ -623,6 +623,7 @@ def getSoilContent(s):
       return s
    
    #Calculate relative percent of soil types for each row  
+   
    co_key_rows['rel_percent'] = co_key_rows['sandtotal_r'] + co_key_rows['silttotal_r'] + co_key_rows['claytotal_r']
    #Modify if rel_percent != 100
    co_key_rows = co_key_rows.apply(rel_percent_mod, axis=1)
@@ -649,6 +650,14 @@ def getSoilTyp(s):
    sand = s['sandtotal_r']
    silt = s['silttotal_r']
    clay = s['claytotal_r']
+   
+   if sand.isnan():
+      sand = 0.0
+   if silt.isnan():
+      silt = 0.0
+   if clay.isnan():
+      clay = 0.0
+   
    #TODO what should be done when information about soil content isn't available for a particular chkey???
    if ( (sand + silt + clay) == 0 ):
       return -1
@@ -676,6 +685,7 @@ def getSoilTyp(s):
       return 11 # 'Silty Clay'
    if ( (clay >= 40) and (sand <= 45) and (silt < 40) ):
       return 12 # 'Clay'
+   return -1 # In case all the above statements fail
 
 def getVegParm(s):
    """
@@ -706,7 +716,7 @@ def getVegParm(s):
    layer = veg_parm_dict[AreaSym]
    success, data = layer.identify(QgsPoint(x, y))
    data = str(data.values()[0])
-   val = np.nan
+   val = -1
    # Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
       # NLCD    definition                     USGS         definition
       #	11	open water	               16           Water Bodies   
