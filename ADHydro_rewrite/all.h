@@ -88,7 +88,7 @@ enum BoundaryConditionEnum
 {
   NOFLOW  = -1, // This must be -1 because Triangle and TauDEM both use -1 to indicate no neighbor.
   INFLOW  = -2, // Others must be non-positive because positive numbers are used for neighbor array indices.
-  OUTFLOW = -3
+  OUTFLOW = -3,
 };
 
 // Returns: true if x is a boundary condition code, false otherwise.
