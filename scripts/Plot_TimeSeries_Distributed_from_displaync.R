@@ -12,33 +12,35 @@ library(plotrix)
 library(rgl)
 library(sp)
 library(maptools)
-library(playwith)
 library(fields)
 options(digits=16)
 ## INPUT DATA #################################################################################################################################
 
-outpath="/localstore/MtMoranLink/project/CI-WATER/tools/build/ADHydro/output/"                                                    # Path to read output data
-filen="state.nc"                                                                 # root name of a set of files to read in sequential order
-nout=c("")                                                                       # c(1,2) # a list with the serial number of outputs to read
-toplotmeshm=c("meshGroundwaterHead","meshSurfacewaterDepth")  # List of variables to plot in meters per unit of time
-toplotmeshmm=c("meshPrecipitation","meshEvaporation")         # List of variables to plot in mm per unit of time
-xtifflim<<-c(2260,  0.0,  0,          0)                      # optional scale limits for the SPATIAL tiff plots only for toplotmeshm and toplotmeshmm
-ytifflim<<-c(4062,  0.2,  5.2e-4,    65)
-toplotchannel=c("channelSurfacewaterDepth")					                              # List of variables to plot on channel nodes
-toplotneighbors=c("channelMeshNeighborsGroundwaterFlowRate")                      # List of variables to plot with neighbors
-spatial=0   				                                                              # Plot spatially distributed variables for toplotmesh? 0 no, 1 yes
-TINF<<-"/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc"             # Netcdf file with the AD-Hydro mesh elements for which the WRF 
-celda<<- 100                                                                      # Desired output cellsize
-divisoria<<-"/user2/hmoreno/Documents/DEMS/small_green_mesh/XY_Border_points.csv" # csv points file with the watershed divide
-nodata<<- -9999                                                                   # nodata value
+outpath="/localstore/MtMoranLink/project/CI-WATER/tools/build/ADHydro/output/"       # Path to read output data
+filen="display.nc"                                                                   # root name of a set of files to read in sequential order
+nout=c("")                                                                           # c(1,2) # a list with the serial number of outputs to read
 output_dir<<-"/localstore/MtMoranLink/project/CI-WATER/tools/build/ADHydro/output/"  # directory where figures will be exported
-plotchannels<<-1                                                                  # optional do you want to add channels? 0=no, 1=yes
-canales="/user2/hmoreno/Documents/DEMS/small_green_mesh/projectednet.shp"         # optional path and name of channels file
-BB<<-100                                                                          # BB=2 always to start but can increase in multiples of 2 until divide looks good
-
-									          
+spatial<<-0   				                                                               # Plot spatially distributed variables for toplotmesh? 0 no, 1 yes
+toplotmeshm=c("meshGroundwaterHead","meshSurfacewaterDepth","meshSnEqv")                         # List of variables to plot in meters per unit of time
+toplotmeshmm=c("meshPrecipitation","meshEvaporation")                                # List of variables to plot in mm per unit of time
+toplotchannel=c("channelSurfacewaterDepth")					     # List of variables to plot on channel nodes
+#toplotneighbors=c("channelMeshNeighborsGroundwaterFlowRate")                         # List of variables to plot with neighbors
+TINF<<-"/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc"                # Netcdf file with the AD-Hydro mesh elements for which the WRF 
+celda<<- 100                                                                         # Desired output cellsize
+divisoria<<-"/user2/hmoreno/Documents/DEMS/small_green_mesh/XY_Border_points.csv"    # csv points file with the watershed divide
+nodata<<- -9999                                                                      # nodata value
+xtifflim<<-c(2260,  0.0,  0,          0)                                             # optional scale limits for the SPATIAL tiff plots only for toplotmeshm and toplotmeshmm
+ytifflim<<-c(4062,  0.2,  5.2e-4,    65)
+plotchannels<<-1                                                                     # optional do you want to add channels? 0=no, 1=yes
+canales="/user2/hmoreno/Documents/DEMS/small_green_mesh/projectednet.shp"            # optional path and name of channels file
+BB<<-100                                                                             # BB=2 always to start but can increase in multiples of 2 until divide looks good
+meshplot<<- 1                                                                        # 1 if mesh element time series must be plotted; 0 if no.
+meshlist<<-c(32288,32278,32266, 32273, 32283, 32066, 32281, 32282)                   # List of mesh elements whose time series must be plotted only if meshplot=1									          
+chanplot<<-0                                                                        # 1 if channel element time series must be plotted; 0 if not.
+chanlist<<-c(0)                                                                      # List of channel elements whose time series must be plotted only if meshplot=1  								          
 ################################################################################################################################################
-cat("Reading state.nc netcdf files", fill=TRUE)
+
+cat("Reading display.nc netcdf files", fill=TRUE)
 ex.ncp = nc_open(paste(outpath, nout[1],filen, sep=""))                                              # it opens the first file
 Rdump=capture.output(print(ex.ncp), file = NULL, append = FALSE)
 write.table(Rdump,paste(outpath,"Pncdump.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   # dumps netcdf headers to a file in outfolder  
@@ -117,8 +119,9 @@ if (spatial == 1){
 } 
 
 
+
 for (j in 1:length(nout)){
-    cat("Reading state.nc # ", nout[j], fill=TRUE)
+    cat("Reading display.nc # ", nout[j], fill=TRUE)
     ex.ncp = nc_open(paste(outpath, nout[j],filen, sep="")) # it opens the first file 
     dt=ncvar_get(ex.ncp, "dt")
     ctime=ncvar_get(ex.ncp, "currentTime")
@@ -126,28 +129,45 @@ for (j in 1:length(nout)){
     basinavemeshm=matrix(NA,length(ctime),length(toplotmeshm))  # Rows are the time steps, columns are the basin-averaged variables
     basinavemeshmm=matrix(NA,length(ctime),length(toplotmeshmm))  # Rows are the time steps, columns are the basin-averaged variables
     basinavechannel=matrix(NA,length(ctime),length(toplotchannel))  # Rows are the time steps, columns are the basin-averaged variables
-    basinaveneighbors=matrix(NA,length(ctime),length(toplotneighbors))  # Rows are the time steps, columns are the basin-averaged variables
+    #basinaveneighbors=matrix(NA,length(ctime),length(toplotneighbors))  # Rows are the time steps, columns are the basin-averaged variables
+    
+        if (meshplot==1){
+        meshavemeshm=array(NA,c(length(ctime),length(toplotmeshm),length(meshlist)))  # Rows are the time steps, columns are the basin-averaged variables,thickness is the number of mesh elements 
+        meshavemeshmm=array(NA,c(length(ctime),length(toplotmeshmm),length(meshlist)))  # Rows are the time steps, columns are the basin-averaged variables,thickness is the number of mesh elements
+        #meshaveneighbors=array(NA,c(length(ctime),length(toplotneighbors),length(meshlist)))  # Rows are the time steps, columns are the basin-averaged variables,thickness is the number of mesh elements
+        }   
+    
+        if (chanplot==1){  
+        meshavechannel=array(NA,c(length(ctime),length(toplotchannel),length(meshlist)))  # Rows are the time steps, columns are the basin-averaged variables,thickness is the number of mesh elements
+        }    
+    
     
     for (plim in 1: length(toplotmeshm)){
     cat("Averaging column ", toplotmeshm[plim], fill=TRUE)
     Ind = ncvar_get(ex.ncp, toplotmeshm[plim]) # rows are the number of nodes. Columns are the outpout time steps.
       for (ti in 1:length(ctime)){
-       basinavemeshm[ti,plim]=mean(Ind[,ti])
+      basinavemeshm[ti,plim]=mean(Ind[,ti])
+         if (meshplot==1){
+         meshavemeshm[ti,plim,]=Ind[meshlist+1,ti]    
+         }
       }
-        if (spatial==1){
-        meshm_dist[,plim,j]=rowMeans(Ind)
-        }    
+      if (spatial==1){
+      meshm_dist[,plim,j]=rowMeans(Ind)
+      }    
     }
 
     for (plimm in 1: length(toplotmeshmm)){
     cat("Averaging column ", toplotmeshmm[plimm], fill=TRUE)
      Ind = ncvar_get(ex.ncp, toplotmeshmm[plimm]) # rows are the number of nodes. Columns are the outpout time steps.
       for (ti in 1:length(ctime)){
-       basinavemeshmm[ti,plimm]=mean(Ind[,ti])
+      basinavemeshmm[ti,plimm]=mean(Ind[,ti])
+        if (meshplot==1){
+        meshavemeshmm[ti,plimm,]=Ind[meshlist+1,ti]    
+        }
       }
       if (spatial==1){
       meshmm_dist[,plimm,j]=rowMeans(Ind)
-    }    
+      }    
     }
 
     for (plic in 1: length(toplotchannel)){
@@ -155,6 +175,9 @@ for (j in 1:length(nout)){
     Ind = ncvar_get(ex.ncp, toplotchannel[plic]) # rows are the number of nodes. Columns are the outpout time steps.
       for (ti in 1:length(ctime)){
        basinavechannel[ti,plic]=mean(Ind[,ti])
+         if (chanplot==1){
+         meshavechannel[ti,plic,]=Ind[chanlist+1,ti]    
+         }
       }
     }
 
@@ -171,18 +194,37 @@ for (j in 1:length(nout)){
       colnames(basinavemeshm)=toplotmeshm
       colnames(basinavemeshmm)=toplotmeshmm
       colnames(basinavechannel)=toplotchannel
-      colnames(basinaveneighbors)=toplotneighbors
+      #colnames(basinaveneighbors)=toplotneighbors
       basinavemeshmold=basinavemeshm
       basinavemeshmmold=basinavemeshmm
       basinavechannelold=basinavechannel
-      basinaveneighborsold=basinaveneighbors
+      #basinaveneighborsold=basinaveneighbors
+      if (meshplot==1){
+      colnames(meshavemeshm)=toplotmeshm
+      colnames(meshavemeshmm)=toplotmeshmm
+      meshavemeshmold=meshavemeshm
+      meshavemeshmmold=meshavemeshmm
+      }
+      if (chanplot==1){
+      colnames(meshavechannel)=toplotchannel
+      meshavechannelold=meshavechannel
+      }
+      #meshaveneighborsold=basinaveneighbors
       dtold=dt
       ctimeold=ctime
     } else {
       basinavemeshmold=rbind(basinavemeshmold,basinavemeshm)
       basinavemeshmmold=rbind(basinavemeshmmold,basinavemeshmm)
       basinavechannelold=rbind(basinavechannelold,basinavechannel)
-      basinaveneighborsold=rbind(basinaveneighborsold,basinaveneighbors)
+      #basinaveneighborsold=rbind(basinaveneighborsold,basinaveneighbors)
+      if (meshplot==1){
+      meshavemeshmold=rbind(meshavemeshmold,meshavemeshm)
+      meshavemeshmmold=rbind(meshavemeshmmold,meshavemeshmm)
+      }
+      if (chanplot==1){
+      meshavechannelold=rbind(meshavechannelold,meshavechannel)
+      }
+      #basinaveneighborsold=rbind(basinaveneighborsold,basinaveneighbors)
       dtold=c(dtold,dt)
       ctimeold=c(ctimeold,ctime)
     }
@@ -193,8 +235,15 @@ ctime=ctimeold/3600
 basinavemeshm=basinavemeshmold
 basinavemeshmm=basinavemeshmmold
 basinavechannel=basinavechannelold
-basinaveneighbors=basinaveneighborsold
-
+#basinaveneighbors=basinaveneighborsold
+if (meshplot==1){
+meshavemeshm=meshavemeshmold
+meshavemeshmm=meshavemeshmmold
+}
+if (chanplot==1){
+meshavechannel=meshavechannelold
+}
+#meshaveneighbors=meshaveneighborsold
 
 #for (ploi in 1:length(toplot)) {
 #cual=toplot[ploi]
@@ -290,6 +339,70 @@ dev.off()
 #}
 #dev.off()
 ##},new = TRUE)
+
+if (meshplot==1){
+  for (mi in 1:length(meshlist)){
+  postscript(paste(output_dir,"MeshEl_",meshlist[mi],"_vars_meshm.ps",sep=""),width=8000,height=5500)
+  mat=matrix(1:(length(toplotmeshm)+1),length(toplotmeshm)+1,1)
+  layout(mat)
+  par(mar=c(3.9,4,3,3.5))
+  plot(ctime,dt,type ="l",xlab="time [hr]",ylab="value",main="Time step",
+       pch=22, col="red", cex.axis=1,panel.first = grid(),cex.lab=1)
+    for (i in 1:length(toplotmeshm)) {
+    cual=toplotmeshm[i]
+    ordenada=as.name(cual)
+    plot(ctime,meshavemeshm[,cual,mi],type ="l",xlab="time [hr]",ylab="value",main=cual,col="blue", cex.axis=1,panel.first = grid(),cex.lab=1,
+         xlim=c(ctime[1],ctime[length(ctime)]),ylim=c(min(meshavemeshm[,cual,mi]),max(meshavemeshm[,cual,mi])))
+    polygon(c(ctime[1],ctime,ctime[length(ctime)],ctime[1]),c(min(meshavemeshm[,cual,mi]),meshavemeshm[,cual,mi],min(meshavemeshm[,cual,mi]),min(meshavemeshm[,cual,mi])),
+            col='skyblue',xlim=c(ctime[1],ctime[length(ctime)]),ylim=c(min(meshavemeshm[,cual,mi]),max(meshavemeshm[,cual,mi])))
+    cat("mean of ",cual,"=",mean(meshavemeshm[,cual,mi]),fill=TRUE)
+  }
+  dev.off()
+  }
+  
+  for (mi in 1:length(meshlist)){
+    postscript(paste(output_dir,"MeshEl_",meshlist[mi],"_vars_meshmm.ps",sep=""),width=8000,height=5500)
+    mat=matrix(1:(length(toplotmeshmm)+1),length(toplotmeshmm)+1,1)
+    layout(mat)
+    par(mar=c(3.9,4,3,3.5))
+    plot(ctime,dt,type ="l",xlab="time [hr]",ylab="value",main="Time step",
+         pch=22, col="red", cex.axis=1,panel.first = grid(),cex.lab=1)
+
+     for (i in 1:length(toplotmeshmm)) {
+     cual=toplotmeshmm[i]
+     ordenada=as.name(cual)
+     #plot(ctime,3600000*basinavemeshmm[,cual],type ="h",xlab="time [hr]",ylab="value [mm]",main=cual,
+     barplot(3600000*meshavemeshmm[,cual,mi],xlab="time [hr]",ylab="value [mm]", names.arg=round(ctime,digits=0),panel.first = grid(),main=cual,col=colores[i])
+     box()
+     cat("mean of ",cual,"=",mean(meshavemeshmm[,cual,mi]),fill=TRUE)
+     }
+    dev.off()
+  }
+   
+}
+
+if (meshplot==1){
+  for (mi in 1:length(meshlist)){
+    postscript(paste(output_dir,"MeshEl_",meshlist[mi],"_vars_meshm.ps",sep=""),width=8000,height=5500)
+    mat=matrix(1:(length(toplotmeshm)+1),length(toplotmeshm)+1,1)
+    layout(mat)
+    par(mar=c(3.9,4,3,3.5))
+    plot(ctime,dt,type ="l",xlab="time [hr]",ylab="value",main="Time step",
+         pch=22, col="red", cex.axis=1,panel.first = grid(),cex.lab=1)
+    for (i in 1:length(toplotmeshm)) {
+      cual=toplotmeshm[i]
+      ordenada=as.name(cual)
+      plot(ctime,meshavemeshm[,cual,mi],type ="l",xlab="time [hr]",ylab="value",main=cual,col="blue", cex.axis=1,panel.first = grid(),cex.lab=1,
+           xlim=c(ctime[1],ctime[length(ctime)]),ylim=c(min(meshavemeshm[,cual,mi]),max(meshavemeshm[,cual,mi])))
+      polygon(c(ctime[1],ctime,ctime[length(ctime)],ctime[1]),c(min(meshavemeshm[,cual,mi]),meshavemeshm[,cual,mi],min(meshavemeshm[,cual,mi]),min(meshavemeshm[,cual,mi])),
+              col='skyblue',xlim=c(ctime[1],ctime[length(ctime)]),ylim=c(min(meshavemeshm[,cual,mi]),max(meshavemeshm[,cual,mi])))
+      cat("mean of ",cual,"=",mean(meshavemeshm[,cual,mi]),fill=TRUE)
+    }
+    dev.off()
+  }
+}
+  
+
 
 
 ## averaging individual nout files in meshm_dist and meshmm_dist
