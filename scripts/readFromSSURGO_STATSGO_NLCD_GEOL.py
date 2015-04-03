@@ -64,7 +64,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/user2/lpureza/Desktop/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -269,8 +269,20 @@ def getSoilTypDRV():
    #Write the element data csv file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
    elements.to_csv(output_element_data_file, na_rep='NaN')
    
-   print 'Finding Geologic Units'
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_csv(output_element_data_file)
+
+   print 'Finding Geologic Units.'
+
+   #find the geologic unit for each element, this adds the following columns to elements:
+   #ROCKTYPE
    elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
+   
+   #Write the element data csv file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
+   elements.to_csv(output_element_data_file, na_rep='NaN')
+   
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_csv(output_element_data_file)
    
    print 'Finding COKEY.'
 
@@ -292,8 +304,11 @@ def getSoilTypDRV():
    
    print 'Writing element data file.'
    
-   #Write the element data csv file, usising the string NaN for missing data representation
+   #Write the element data csv file, using the string NaN for missing data representation
    elements.to_csv(output_element_data_file, na_rep='NaN')
+   
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_csv(output_element_data_file)
    
    print 'Writing soil file.'
    
@@ -651,11 +666,11 @@ def getSoilTyp(s):
    silt = s['silttotal_r']
    clay = s['claytotal_r']
    
-   if sand.isnan():
+   if np.isnan(sand):
       sand = 0.0
-   if silt.isnan():
+   if np.isnan(silt):
       silt = 0.0
-   if clay.isnan():
+   if np.isnan(clay):
       clay = 0.0
    
    #TODO what should be done when information about soil content isn't available for a particular chkey???
