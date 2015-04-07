@@ -88,6 +88,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   simulationDuration = superfile.GetReal("", "simulationDuration", 0.0); // If simulationDuration is not in the superfile it defaults to zero and the
                                                                          // simulation will not run any timesteps.
   dt                 = superfile.GetReal("", "dt", NAN);                 // If dt is not in the superfile it will be taken from the input NetCDF files.
+  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", 0.0);   // If checkpointPeriod is not in the superfile it defaults to zero and the simulation will
+                                                                         // checkpoint every timestep.
   outputPeriod       = superfile.GetReal("", "outputPeriod", 0.0);       // If outputPeriod is not in the superfile it defaults to zero and the simulation will
                                                                          // output every timestep.
   iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
@@ -150,6 +152,8 @@ void ADHydro::pup(PUP::er &p)
   p | simulationDuration;
   p | endTime;
   p | dt;
+  p | checkpointPeriod;
+  p | nextCheckpointTime;
   p | outputPeriod;
   p | nextOutputTime;
   p | iteration;
@@ -196,7 +200,8 @@ void ADHydro::fileManagerInitialized()
       dt = fileManagerProxy.ckLocalBranch()->dt;
     }
   
-  nextOutputTime = currentTime + outputPeriod;
+  nextCheckpointTime = currentTime + checkpointPeriod;
+  nextOutputTime     = currentTime + outputPeriod;
   
   if ((size_t)-1 == iteration)
     {
@@ -233,6 +238,8 @@ void ADHydro::fileManagerInitialized()
       // Do not need to write the geometry and parameter files when appending to input files.
       writeGeometry  = false;
       writeParameter = false;
+      writeState     = false;
+      writeDisplay   = false;
       
       checkForcingData();
     }
@@ -241,6 +248,8 @@ void ADHydro::fileManagerInitialized()
       // Need to write the geometry and parameter files when creating new output files.
       writeGeometry  = true;
       writeParameter = true;
+      writeState     = true;
+      writeDisplay   = true;
       
       // Set the callback to write output files after they are created.
       fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
@@ -255,12 +264,14 @@ void ADHydro::writeFiles()
   // Set the callback to check forcing data when files are written.
   fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
   
-  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, true, referenceDate, currentTime, dt,
-                              iteration);
+  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, writeState, writeDisplay, referenceDate,
+                              currentTime, dt, iteration);
   
   // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
   writeGeometry  = false;
   writeParameter = false;
+  writeState     = false;
+  writeDisplay   = false;
 }
 
 void ADHydro::checkForcingData()
@@ -382,6 +393,12 @@ void ADHydro::checkInvariant()
       error = true;
     }
   
+  if (!(0.0 <= checkpointPeriod))
+    {
+      CkError("ERROR in ADHydro::checkInvariant: checkpointPeriod must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
   if (!(0.0 <= outputPeriod))
     {
       CkError("ERROR in ADHydro::checkInvariant: outputPeriod must be greater than or equal to zero.\n");
@@ -496,19 +513,35 @@ void ADHydro::timestepDone(double dtNew)
     }
 
   // Check if it is time to output to file.
-  if (currentTime >= nextOutputTime || currentTime >= endTime)
+  if (currentTime >= nextCheckpointTime || currentTime >= nextOutputTime || currentTime >= endTime)
     {
+      if (currentTime >= nextCheckpointTime || currentTime >= endTime)
+        {
+          writeState = true;
+          
+          if (currentTime >= nextCheckpointTime && 0.0 < checkpointPeriod)
+            {
+              // Advance nextCheckpointTime by multiples of checkpointPeriod until it is greater than currentTime.
+              nextCheckpointTime += checkpointPeriod * (floor((currentTime - nextCheckpointTime) / checkpointPeriod) + 1);
+            }
+        }
+      
+      if (currentTime >= nextOutputTime || currentTime >= endTime)
+        {
+          writeDisplay = true;
+          
+          if (currentTime >= nextOutputTime && 0.0 < outputPeriod)
+            {
+              // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.
+              nextOutputTime += outputPeriod * (floor((currentTime - nextOutputTime) / outputPeriod) + 1);
+            }
+        }
+      
       if (1 <= verbosityLevel)
         {
           CkPrintf("Writing output files.\n");
           
           printMessage = true;
-        }
-      
-      if (0.0 < outputPeriod)
-        {
-          // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.
-          nextOutputTime += outputPeriod * (floor((currentTime - nextOutputTime) / outputPeriod) + 1);
         }
 
       // Set the callback to write output files after state information is updated.

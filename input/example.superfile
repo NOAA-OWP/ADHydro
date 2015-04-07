@@ -19,6 +19,7 @@ outputDirectory          = /localstore/output
 ;simulationDuration       = 0.0       ; If simulationDuration is not in the superfile it defaults to zero and the simulation will run zero timesteps.
                                       ; Running zero timesteps can be useful for initially reading in the mesh from ASCII files and outputting to NetCDF.
 ;dt                       = 1.0       ; If dt is not in the superfile it will be taken from the input NetCDF files.
+;checkpointPeriod         = 0.0       ; If checkpointPeriod is not in the superfile it defaults to zero and the simulation will checkpoint every timestep.
 ;outputPeriod             = 0.0       ; If outputPeriod is not in the superfile it defaults to zero and the simulation will output every timestep.
 ;iteration                = 1         ; If iteration is not in the superfile it will be taken from the input NetCDF files.
 ;drainDownMode            = false     ; If drainDownMode is true the simulation will operate in a special mode to generate a groundwater initial condition.

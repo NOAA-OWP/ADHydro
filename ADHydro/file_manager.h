@@ -167,6 +167,8 @@ public:
   double*               meshPrecipitationCumulative;
   double*               meshEvaporation;
   double*               meshEvaporationCumulative;
+  double*               meshTranspiration;
+  double*               meshTranspirationCumulative;
   double*               meshSurfacewaterInfiltration;
   double*               meshGroundwaterRecharge;
   FloatArraySnowLayers* meshFIceOld;
@@ -678,7 +680,7 @@ private:
   // currentTimeNew   - The updated time step in seconds.
   // dtNew            - The updated simulation timestep duration in seconds.
   // iterationNew     - The updated simulation iteration number.
-  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, double referenceDateNew,
+  void handleWriteFiles(const char* directory, bool writeGeometry, bool writeParameter, bool writeState, bool writeDisplay, double referenceDateNew,
                         double currentTimeNew, double dtNew, size_t iterationNew);
   
   // Read forcing data from file and send to mesh and channel elements.  Each
@@ -721,6 +723,8 @@ private:
   // precipitationCumulative                    - mesh element state.
   // evaporation                                - mesh element state.
   // evaporationCumulative                      - mesh element state.
+  // transpiration                              - mesh element state.
+  // transpirationCumulative                    - mesh element state.
   // surfacewaterInfiltration                   - mesh element state.
   // groundwaterRecharge                        - mesh element state.
   // evapoTranspirationState                    - mesh element state.
@@ -733,12 +737,13 @@ private:
   // channelNeighborsGroundwaterFlowRate        - mesh element state.
   // channelNeighborsGroundwaterCumulativeFlow  - mesh element state.
   void handleMeshStateMessage(int element, double surfacewaterDepth, double surfacewaterError, double groundwaterHead, double groundwaterError,
-                              double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative,
-                              double surfacewaterInfiltration, double groundwaterRecharge, EvapoTranspirationStateStruct evapoTranspirationState,
-                              double* meshNeighborsSurfacewaterFlowRate, double* meshNeighborsSurfacewaterCumulativeFlow,
-                              double* meshNeighborsGroundwaterFlowRate, double* meshNeighborsGroundwaterCumulativeFlow,
-                              double* channelNeighborsSurfacewaterFlowRate, double* channelNeighborsSurfacewaterCumulativeFlow,
-                              double* channelNeighborsGroundwaterFlowRate, double* channelNeighborsGroundwaterCumulativeFlow);
+                              double precipitation, double precipitationCumulative, double evaporation, double evaporationCumulative, double transpiration,
+                              double transpirationCumulative, double surfacewaterInfiltration, double groundwaterRecharge,
+                              EvapoTranspirationStateStruct evapoTranspirationState, double* meshNeighborsSurfacewaterFlowRate,
+                              double* meshNeighborsSurfacewaterCumulativeFlow, double* meshNeighborsGroundwaterFlowRate,
+                              double* meshNeighborsGroundwaterCumulativeFlow, double* channelNeighborsSurfacewaterFlowRate,
+                              double* channelNeighborsSurfacewaterCumulativeFlow, double* channelNeighborsGroundwaterFlowRate,
+                              double* channelNeighborsGroundwaterCumulativeFlow);
 
   // Receive a state message from a mesh element and update the values for that
   // element in the file manager's variables.

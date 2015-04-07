@@ -161,15 +161,20 @@ private:
   double simulationDuration; // The duration to simulate in seconds.
   double endTime;            // The time to simulate to in seconds since referenceDate.
   double dt;                 // Next simulation timestep duration in seconds.
-  double outputPeriod;       // Simulation time in seconds between outputs to file.  Zero means output every timestep.
-  double nextOutputTime;     // Simulation time in seconds since referenceDate of the next output to file.  The next output to file will occur as soon as
-                             // currentTime equals or exceeds this value.
+  double checkpointPeriod;   // Simulation time in seconds between outputs to checkpoint file.  Zero means checkpoint every timestep.
+  double nextCheckpointTime; // Simulation time in seconds since referenceDate of the next output to checkpoint file.  The next checkpoint will occur as soon
+                             // as currentTime equals or exceeds this value.
+  double outputPeriod;       // Simulation time in seconds between outputs to display file.  Zero means output every timestep.
+  double nextOutputTime;     // Simulation time in seconds since referenceDate of the next output to display file.  The next output to file will occur as soon
+                             // as currentTime equals or exceeds this value.
   size_t iteration;          // Iteration number to put on all messages this timestep.
   size_t startingIteration;  // Iteration number of the first timestep in this run.  Used to decide when to load balance.
   
   // Flags.
   bool writeGeometry;        // Flag to indicate whether the geometry has changed and needs to be outputted.
   bool writeParameter;       // Flag to indicate whether the parameters have changed and need to be outputted.
+  bool writeState;           // Flag to indicate whether checkpoint state needs to be outputted.
+  bool writeDisplay;         // Flag to indicate whether display state needs to be outputted.
   bool needToCheckInvariant; // Flag to indicate whether the invariant needs to be checked.
   bool printMessage;         // Flag to indicate whether you need to print a message after a callback.
 };

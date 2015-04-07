@@ -1,7 +1,7 @@
-#include "channel_element.h"
 #include "all.h"
 #include <shapefil.h>
-#include <assert.h>
+#include <cstdio>
+#include <cstring>
 
 // This code is a separate executable used to pre-process the channel network
 // into a .chan.ele file and a .chan.node file that are read into the adhydro
@@ -13,6 +13,32 @@
 // not contiguous in the TauDEM output so there may be some elements in the
 // array that are unused.  The gaps in the TauDEM link numbers are used for
 // waterbodies.
+
+// Locations of input files.  Edit these and recompile to change which files get read.
+// FIXME make these command line parameters.
+const char* streamNetworkShapefile                       = "/share/CI-WATER_Simulation_Data/small_green_mesh/projectednet";
+const char* waterbodiesShapefile                         = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies";
+const char* waterbodiesStreamsIntersectionsShapefile     = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_streams_intersections";
+const char* waterbodiesWaterbodiesIntersectionsShapefile = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_waterbodies_intersections";
+const char* meshLinkFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.link";
+const char* meshNodeFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node";
+const char* meshElementFilename                          = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele";
+const char* meshEdgeFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge";
+
+// Locations of output files.  Edit these and recompile to change which files get written.
+// FIXME make these command line parameters.
+const char* channelNodeFilename    = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node";
+const char* channelElementFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele";
+const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune";
+
+// These values should be the same as the values in the ChannelElement class, but we can't include channel_element.h here because this isn't a Charm++ program.
+// If they are not the same it's actually not that bad.  When the output of this program gets read by the file managers if these numbers are less than the
+// sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
+// the files.
+// FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
+const int ChannelElement_channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 18; // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
 
 #define SHAPES_SIZE     (2)  // Size of array of shapes in ChannelLinkStruct.
 #define UPSTREAM_SIZE   (13) // Size of array of upstream links in ChannelLinkStruct.
@@ -1579,8 +1605,10 @@ bool readLink(ChannelLinkStruct** channels, int* size, const char* filename)
   // Deallocate channels and set size to zero on error.
   if (error)
     {
-      deleteArrayIfNonNull(channels);
-      *size = 0;
+      delete[] *channels;
+      
+      *channels = NULL;
+      *size     = 0;
     }
 
   // Close the file.
@@ -1721,15 +1749,20 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
-      // Get link type.
+      // Get link type.  We found that the values in the FTYPE field were not consistent across data sources.  In the files originally downloaded by Bob the
+      // values were words: "Ice Mass", "LakePond", "SwampMarsh", and "Reservoir".  In the files later downloaded by Leticia the values were numbers:
+      // "378" for Ice Mass, "390" for LakePond, "466" for SwampMarsh, and "436" for Reservoir.  It may be that Bob downloaded the NHDPlus dataset while
+      // Leticia downloaded the NHD dataset, but we don't know for sure if that's what happened or if that's the reason for the difference.  You may need to
+      // modify this code to account for different values in your data source.
       if (!error)
         {
-          if (0 == strcmp("Ice Mass", ftype))
+          if (0 == strcmp("Ice Mass", ftype) || 0 == strcmp("378", ftype))
             {
               linkType = ICEMASS;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 == strcmp("LakePond", ftype) || 0 == strcmp("SwampMarsh", ftype)))
+          else if (!(0 == strcmp("LakePond", ftype)  || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
+                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype)))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;
@@ -2854,10 +2887,6 @@ bool addAllStreamMeshEdges(ChannelLinkStruct* channels, int size, const char* no
             }
         }
     }
-
-  // Deallocate node arrays.
-  deleteArrayIfNonNull(&nodesX);
-  deleteArrayIfNonNull(&nodesY);
   
   // Close the files.
   if (NULL != nodeFile)
@@ -2869,6 +2898,10 @@ bool addAllStreamMeshEdges(ChannelLinkStruct* channels, int size, const char* no
     {
       fclose(edgeFile);
     }
+
+  // Deallocate node arrays.
+  delete[] nodesX;
+  delete[] nodesY;
 
   return error;
 }
@@ -4195,9 +4228,9 @@ bool fixShortLinks(ChannelLinkStruct* channels, int size)
   return error;
 }
 
-typedef int IntArrayMMN[3];                                  // Fixed size array of ints. Size is mesh mesh neighbors.
-typedef int IntArrayMEE[2];                                  // Fixed size array of ints. Size is mesh edge elements.
-typedef int IntArrayCV[ChannelElement::channelVerticesSize]; // Fixed size array of ints. Size is channel vertices.
+typedef int IntArrayMMN[3];                                 // Fixed size array of ints. Size is mesh mesh neighbors.
+typedef int IntArrayMEE[2];                                 // Fixed size array of ints. Size is mesh edge elements.
+typedef int IntArrayCV[ChannelElement_channelVerticesSize]; // Fixed size array of ints. Size is channel vertices.
 
 // Used for the types of salient points.  Salient points are used when doing a parallel walk along channel elements and shape vertices.  A salient point is the
 // next point on a channel element that we need to output whether or not it lies on a shape vertex.
@@ -4279,7 +4312,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   double             salientPointFraction;            // Fraction of distance between two shape vertices of salient point.
   double             shapeVertexLocation;             // The 1D location in meters along a link of a shape vertex.
   bool               done;                            // Termination condition for complex loop.
-  FILE*              outputFile;                      // Output file for channel nodes and elements.
+  FILE*              outputFile              = NULL;  // Output file for channel nodes and elements.
   size_t             numPrinted;                      // Used to check that snprintf printed the correct number of characters.
   double             xMin;                            // For computing bounding box of waterbody.
   double             xMax;                            // For computing bounding box of waterbody.
@@ -4298,8 +4331,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   double             overlapBeginLocation;            // For calculating channel mesh neighbors edge length.
   double             overlapEndLocation;              // For calculating channel mesh neighbors edge length.
   double             overlapLength;                   // For calculating channel mesh neighbors edge length.
-  int                meshNeighbors[ChannelElement::meshNeighborsSize];           // For storing channel mesh neighbors before outputting.
-  double             meshNeighborsEdgeLength[ChannelElement::meshNeighborsSize]; // For storing channel mesh neighbors before outputting.
+  int                meshNeighbors[ChannelElement_meshNeighborsSize];           // For storing channel mesh neighbors before outputting.
+  double             meshNeighborsEdgeLength[ChannelElement_meshNeighborsSize]; // For storing channel mesh neighbors before outputting.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size);
@@ -4358,7 +4391,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   // channelVertices must be initialized because they may be written ahead.
   for (jj = 0; jj < numberOfChannelElements; jj++)
     {
-      for (kk = 0; kk < ChannelElement::channelVerticesSize; kk++)
+      for (kk = 0; kk < ChannelElement_channelVerticesSize; kk++)
         {
           channelVertices[jj][kk] = -1;
         }
@@ -4727,7 +4760,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   if (0 < ll && epsilonLess(shapeVertexLocation, salientPointLocation))
                     {
                       // The next shape vertex comes before the salient point so add it to the element.
-                      if (kk < ChannelElement::channelVerticesSize)
+                      if (kk < ChannelElement_channelVerticesSize)
                         {
                           // Save the shape vertex
                           createNode(shape->padfX[ll], shape->padfY[ll], &channelNodesSize, &numberOfChannelNodes, &channelNodesX, &channelNodesY,
@@ -4741,7 +4774,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       else
                         {
                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
-                                  jj, ChannelElement::channelVerticesSize);
+                                  jj, ChannelElement_channelVerticesSize);
                           error = true;
                         }
                     }
@@ -4792,12 +4825,12 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                                   assert(-1 == channelVertices[channels[channels[ii].upstream[mm]].elementStart +
                                                                channels[channels[ii].upstream[mm]].numberOfElements - 1]
-                                                              [ChannelElement::channelVerticesSize - 1]);
+                                                              [ChannelElement_channelVerticesSize - 1]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
                                   channelVertices[channels[channels[ii].upstream[mm]].elementStart +
                                                   channels[channels[ii].upstream[mm]].numberOfElements - 1]
-                                                 [ChannelElement::channelVerticesSize - 1] = channelVertices[jj][kk];
+                                                 [ChannelElement_channelVerticesSize - 1] = channelVertices[jj][kk];
                                 }
                             }
                         } // End if the first vertex hasn't already been created by a neighbor, create it.
@@ -4830,7 +4863,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       // The next vertex to add to the element is the end of the element and the beginning of the next element in the same link.
                       
                       // Create the vertex.
-                      if (kk < ChannelElement::channelVerticesSize)
+                      if (kk < ChannelElement_channelVerticesSize)
                         {
                           // Get the X,Y coordinates of the vertex to add.
                           if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
@@ -4862,7 +4895,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                      &channelVertices[jj][kk]);
 
                           // Fill in the rest of the vertices with duplicates of the last vertex.
-                          for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+                          for (mm = kk + 1; mm < ChannelElement_channelVerticesSize; mm++)
                             {
                               channelVertices[jj][mm] = channelVertices[jj][kk];
                             }
@@ -4877,7 +4910,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       else
                         {
                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
-                                  jj, ChannelElement::channelVerticesSize);
+                                  jj, ChannelElement_channelVerticesSize);
                           error = true;
                         }
                       
@@ -4907,10 +4940,10 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   else if (LINK_END == salientPointType)
                     {
                       // The next vertex to add to the element is the end of the last element in the link.
-                      if (kk < ChannelElement::channelVerticesSize)
+                      if (kk < ChannelElement_channelVerticesSize)
                         {
                           // If the last vertex hasn't already been created by a neighbor, create it.
-                          if (-1 == channelVertices[jj][ChannelElement::channelVerticesSize - 1])
+                          if (-1 == channelVertices[jj][ChannelElement_channelVerticesSize - 1])
                             {
                               // Get the X,Y coordinates of the vertex to add.
                               if (epsilonLessOrEqual(shapeVertexLocation, salientPointLocation))
@@ -4959,26 +4992,26 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                                           assert(-1 == channelVertices[channels[channels[channels[ii].downstream[0]].upstream[mm]].elementStart +
                                                                        channels[channels[channels[ii].downstream[0]].upstream[mm]].numberOfElements - 1]
-                                                                      [ChannelElement::channelVerticesSize - 1]);
+                                                                      [ChannelElement_channelVerticesSize - 1]);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
                                           channelVertices[channels[channels[channels[ii].downstream[0]].upstream[mm]].elementStart +
                                                           channels[channels[channels[ii].downstream[0]].upstream[mm]].numberOfElements - 1]
-                                                         [ChannelElement::channelVerticesSize - 1] = channelVertices[jj][kk];
+                                                         [ChannelElement_channelVerticesSize - 1] = channelVertices[jj][kk];
                                         }
                                     }
                                 }
                             } // End if the last vertex hasn't already been created by a neighbor, create it.
-                          else if (kk != ChannelElement::channelVerticesSize - 1)
+                          else if (kk != ChannelElement_channelVerticesSize - 1)
                             {
                               // Move the vertex created by a neighbor into the right position.
-                              channelVertices[jj][kk] = channelVertices[jj][ChannelElement::channelVerticesSize - 1];
+                              channelVertices[jj][kk] = channelVertices[jj][ChannelElement_channelVerticesSize - 1];
                             }
 
                           if (!error)
                             {
                               // Fill in the rest of the vertices with duplicates of the last vertex.
-                              for (mm = kk + 1; mm < ChannelElement::channelVerticesSize; mm++)
+                              for (mm = kk + 1; mm < ChannelElement_channelVerticesSize; mm++)
                                 {
                                   channelVertices[jj][mm] = channelVertices[jj][kk];
                                 }
@@ -4989,7 +5022,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       else
                         {
                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
-                                  jj, ChannelElement::channelVerticesSize);
+                                  jj, ChannelElement_channelVerticesSize);
                           error = true;
                         }
                     } // End else if (LINK_END == salientPointType).
@@ -5015,7 +5048,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 
               for (ll = shape->nVertices - 1; !error && ll >= 0; ll--)
                 {
-                  if (kk < ChannelElement::channelVerticesSize)
+                  if (kk < ChannelElement_channelVerticesSize)
                     {
                       // FIXME see if the point is a duplicate with any connected link.
                       
@@ -5025,14 +5058,14 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   else
                     {
                       fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
-                              channels[ii].elementStart, ChannelElement::channelVerticesSize);
+                              channels[ii].elementStart, ChannelElement_channelVerticesSize);
                       error = true;
                     }
                 }
             }
           
           // Fill in the rest of the vertices with duplicates of the last vertex.
-          for (mm = kk; !error && mm < ChannelElement::channelVerticesSize; mm++)
+          for (mm = kk; !error && mm < ChannelElement_channelVerticesSize; mm++)
             {
               channelVertices[channels[ii].elementStart][mm] = channelVertices[channels[ii].elementStart][kk - 1];
             }
@@ -5272,8 +5305,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               
               // Output fixed length per-element information.
               numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
-                                   topWidth, bankFullDepth, ChannelElement::channelVerticesSize, ChannelElement::channelNeighborsSize,
-                                   ChannelElement::meshNeighborsSize);
+                                   topWidth, bankFullDepth, ChannelElement_channelVerticesSize, ChannelElement_channelNeighborsSize,
+                                   ChannelElement_meshNeighborsSize);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(0 < numPrinted))
@@ -5284,7 +5317,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               
               // Output vertices.
-              for (kk = 0; !error && kk < ChannelElement::channelVerticesSize; kk++)
+              for (kk = 0; !error && kk < ChannelElement_channelVerticesSize; kk++)
                 {
                   numPrinted = fprintf(outputFile, " %d", channelVertices[jj][kk]);
 
@@ -5308,7 +5341,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       // The first element of a link is connected to the last element of all upstream neighbors of that link.
                       for (mm = 0; !error && mm < UPSTREAM_SIZE && NOFLOW != channels[ii].upstream[mm]; mm++)
                         {
-                          if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                          if (numberOfNeighbors < ChannelElement_channelNeighborsSize)
                             {
                               numberOfNeighbors++;
                               
@@ -5335,7 +5368,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                           else
                             {
                               fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
-                                      jj, ChannelElement::channelNeighborsSize);
+                                      jj, ChannelElement_channelNeighborsSize);
                               error = true;
                             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5344,7 +5377,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   else
                     {
                       // Elements other than the first element in a link are only connected to the previous element in the link.
-                      if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                      if (numberOfNeighbors < ChannelElement_channelNeighborsSize)
                         {
                           numberOfNeighbors++;
                           numPrinted = fprintf(outputFile, " %d 0", jj - 1);
@@ -5362,7 +5395,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       else
                         {
                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
-                                  jj, ChannelElement::channelNeighborsSize);
+                                  jj, ChannelElement_channelNeighborsSize);
                           error = true;
                         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5377,7 +5410,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       // The last element of a link is connected to the first element of all downstream neighbors of that link.
                       for (mm = 0; !error && mm < DOWNSTREAM_SIZE && NOFLOW != channels[ii].downstream[mm]; mm++)
                         {
-                          if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                          if (numberOfNeighbors < ChannelElement_channelNeighborsSize)
                             {
                               numberOfNeighbors++;
                               
@@ -5403,7 +5436,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                           else
                             {
                               fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
-                                      jj, ChannelElement::channelNeighborsSize);
+                                      jj, ChannelElement_channelNeighborsSize);
                               error = true;
                             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5412,7 +5445,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   else
                     {
                       // Elements other than the last element in a link are only connected to the next element in the link.
-                      if (numberOfNeighbors < ChannelElement::channelNeighborsSize)
+                      if (numberOfNeighbors < ChannelElement_channelNeighborsSize)
                         {
                           numberOfNeighbors++;
                           numPrinted = fprintf(outputFile, " %d 1", jj + 1);
@@ -5430,7 +5463,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       else
                         {
                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of channel neighbors exceeds maximum number %d.\n",
-                                  jj, ChannelElement::channelNeighborsSize);
+                                  jj, ChannelElement_channelNeighborsSize);
                           error = true;
                         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5438,7 +5471,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 } // End output downstream channel neighbors.
               
               // Fill in unused channel neighbors with NOFLOW.
-              while (!error && numberOfNeighbors < ChannelElement::channelNeighborsSize)
+              while (!error && numberOfNeighbors < ChannelElement_channelNeighborsSize)
                 {
                   numberOfNeighbors++;
                   numPrinted = fprintf(outputFile, " %d 0", NOFLOW);
@@ -5518,7 +5551,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                   else
                                     {
                                       // Otherwise, add a new neighbor.
-                                      if (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                                      if (numberOfNeighbors < ChannelElement_meshNeighborsSize)
                                         {
                                           meshNeighbors[numberOfNeighbors]           = meshEdgeElements[tempElement->edge][mm];
                                           meshNeighborsEdgeLength[numberOfNeighbors] = overlapLength;
@@ -5528,7 +5561,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                       else
                                         {
                                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of mesh neighbors exceeds maximum number %d.\n",
-                                                  jj, ChannelElement::meshNeighborsSize);
+                                                  jj, ChannelElement_meshNeighborsSize);
                                           error = true;
                                         }
     #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5587,7 +5620,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                   else
                                     {
                                       // Otherwise, add a new neighbor.
-                                      if (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                                      if (numberOfNeighbors < ChannelElement_meshNeighborsSize)
                                         {
                                           meshNeighbors[numberOfNeighbors]           = meshEdgeElements[tempElement->edge][mm];
                                           meshNeighborsEdgeLength[numberOfNeighbors] = overlapLength;
@@ -5597,7 +5630,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                       else
                                         {
                                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of mesh neighbors exceeds maximum number %d.\n",
-                                                  jj, ChannelElement::meshNeighborsSize);
+                                                  jj, ChannelElement_meshNeighborsSize);
                                           error = true;
                                         }
     #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5631,7 +5664,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                   else
                                     {
                                       // Otherwise, add a new neighbor.
-                                      if (numberOfNeighbors < ChannelElement::meshNeighborsSize)
+                                      if (numberOfNeighbors < ChannelElement_meshNeighborsSize)
                                         {
                                           meshNeighbors[numberOfNeighbors]           = meshEdgeElements[tempElement->edge][mm];
                                           meshNeighborsEdgeLength[numberOfNeighbors] = meshEdgeLength[tempElement->edge];
@@ -5641,7 +5674,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                                       else
                                         {
                                           fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of mesh neighbors exceeds maximum number %d.\n",
-                                              jj, ChannelElement::meshNeighborsSize);
+                                              jj, ChannelElement_meshNeighborsSize);
                                           error = true;
                                         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -5668,7 +5701,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 } // End output mesh neighbors.
               
               // Fill in unused mesh neighbors with NOFLOW.
-              while (!error && numberOfNeighbors < ChannelElement::meshNeighborsSize)
+              while (!error && numberOfNeighbors < ChannelElement_meshNeighborsSize)
                 {
                   numberOfNeighbors++;
                   numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 0.0);
@@ -5723,7 +5756,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
     }
   
   // Write the pruned links into the channel prune file.
-  for (ii = 0; ii < size; ii++)
+  for (ii = 0; !error && ii < size; ii++)
     {
       if (PRUNED_STREAM == channels[ii].type)
         {
@@ -5858,7 +5891,6 @@ void channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
   *size     = 0;
 }
 
-// FIXME make into a more user friendly main program.
 int main(void)
 {
   bool               error = false; // Error flag.
@@ -5883,7 +5915,7 @@ int main(void)
   // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
   allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
   
-  error = readLink(&channels, &size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.link");
+  error = readLink(&channels, &size, meshLinkFilename);
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   if (!error)
@@ -5894,7 +5926,7 @@ int main(void)
   
   if (!error)
     {
-      error = readWaterbodies(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies");
+      error = readWaterbodies(channels, size, waterbodiesShapefile);
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -5906,7 +5938,7 @@ int main(void)
   
   if (!error)
     {
-      error = readTaudemStreamnet(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/projectednet");
+      error = readTaudemStreamnet(channels, size, streamNetworkShapefile);
     }
   
   // Reach codes get set when reading the link file, but the types of those links get set in readWaterbodies and readTaudemStreamnet so temporarily there are
@@ -5929,8 +5961,7 @@ int main(void)
   
   if (!error)
     {
-      error = addAllStreamMeshEdges(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
-                                    "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge");
+      error = addAllStreamMeshEdges(channels, size, meshNodeFilename, meshEdgeFilename);
     }
   
   // When adding a link element at the end of a link the length of the last unmoved element must temporarily be different than the link length.
@@ -5945,7 +5976,7 @@ int main(void)
   
   if (!error)
     {
-      error = readWaterbodyStreamIntersections(channels, size, "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_streams_intersections");
+      error = readWaterbodyStreamIntersections(channels, size, waterbodiesStreamsIntersectionsShapefile);
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -5969,8 +6000,7 @@ int main(void)
   
   if (!error)
     {
-      error = readAndLinkWaterbodyWaterbodyIntersections(channels, size,
-                                                         "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_waterbodies_intersections");
+      error = readAndLinkWaterbodyWaterbodyIntersections(channels, size, waterbodiesWaterbodiesIntersectionsShapefile);
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -6009,13 +6039,8 @@ int main(void)
 
   if (!error)
     {
-      error = writeChannelNetwork(channels, size,
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele",
-                                  "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune");
+      error = writeChannelNetwork(channels, size, meshNodeFilename, meshElementFilename, meshEdgeFilename, channelNodeFilename, channelElementFilename,
+                                  channelPruneFilename);
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)

@@ -16,9 +16,10 @@ int main(void)
   int         boundary;                    // For reading the boundary code of a mesh edge.
   double*     meshNodesX          = NULL;  // X coordinates of mesh nodes.
   double*     meshNodesY          = NULL;  // Y coordinates of mesh nodes.
-  int         detectedIndex;
-  double*     detectedX;
-  double*     detectedY;
+  int         detectedIndex;               // Number of detected problem triangles.
+  double*     detectedX           = NULL;  // X coordinates of detected problem triangles.  Used to exclude larger nearby problem triangles.
+  double*     detectedY           = NULL;  // Y coordinates of detected problem triangles.  Used to exclude larger nearby problem triangles.
+  double*     detectedArea        = NULL;  // Areas of detected problem triangles.  Used to exclude larger nearby problem triangles.
   int         meshNodeNumber;              // For reading the node number of a mesh node.
   int         meshElementNumber;           // For reading the element number of a mesh element.
   double      xCoordinate;                 // For reading X coordinates of mesh nodes.
@@ -131,6 +132,7 @@ int main(void)
       detectedIndex = 0;
       detectedX     = new double[numberOfMeshElements];
       detectedY     = new double[numberOfMeshElements];
+      detectedArea  = new double[numberOfMeshElements];
     }
   
   // Read the elements.
@@ -169,13 +171,14 @@ int main(void)
           
           if (0 == meshCatchment || 7500.0 > area)
             {
-              // This is a problem triangle.  Report it if there hasn't already been one reported within 100 meters.
+              // This is a problem triangle.  Report it if there hasn't already been a smaller one reported within 100 meters.
               tooClose = false;
               
               for (jj = 0; !tooClose && jj < detectedIndex; jj++)
                 {
-                  if (100.0 > sqrt((meshNodesX[meshVertex[0]] - detectedX[jj]) * (meshNodesX[meshVertex[0]] - detectedX[jj]) +
-                                   (meshNodesY[meshVertex[0]] - detectedY[jj]) * (meshNodesY[meshVertex[0]] - detectedY[jj])))
+                  if (100.0 >= sqrt((meshNodesX[meshVertex[0]] - detectedX[jj]) * (meshNodesX[meshVertex[0]] - detectedX[jj]) +
+                                    (meshNodesY[meshVertex[0]] - detectedY[jj]) * (meshNodesY[meshVertex[0]] - detectedY[jj])) &&
+                      area  >= detectedArea[jj])
                     {
                       tooClose = true;
                     }
@@ -186,8 +189,9 @@ int main(void)
                   printf("Found problem triangle at (%lf, %lf), catchment = %d, area = %lf.\n", meshNodesX[meshVertex[0]], meshNodesY[meshVertex[0]],
                          meshCatchment, area);
                   
-                  detectedX[detectedIndex] = meshNodesX[meshVertex[0]];
-                  detectedY[detectedIndex] = meshNodesY[meshVertex[0]];
+                  detectedX[detectedIndex]    = meshNodesX[meshVertex[0]];
+                  detectedY[detectedIndex]    = meshNodesY[meshVertex[0]];
+                  detectedArea[detectedIndex] = area;
                   
                   detectedIndex++;
                 }
@@ -227,6 +231,11 @@ int main(void)
   if (NULL != detectedY)
     {
       delete[] detectedY;
+    }
+  
+  if (NULL != detectedArea)
+    {
+      delete[] detectedArea;
     }
   
   return 0;

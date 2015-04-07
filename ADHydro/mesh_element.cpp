@@ -89,6 +89,8 @@ void MeshElement::pup(PUP::er &p)
   p | precipitationCumulative;
   p | evaporation;
   p | evaporationCumulative;
+  p | transpiration;
+  p | transpirationCumulative;
   p | surfacewaterInfiltration;
   p | groundwaterRecharge;
   p | evapoTranspirationState;
@@ -527,6 +529,8 @@ void MeshElement::handleInitialize(CProxy_ChannelElement channelProxyInit, CProx
       precipitationCumulative  = 0.0;
       evaporation              = 0.0;
       evaporationCumulative    = 0.0;
+      transpiration            = 0.0;
+      transpirationCumulative  = 0.0;
       surfacewaterInfiltration = 0.0;
       groundwaterRecharge      = 0.0;
     }
@@ -1559,7 +1563,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
   float  evaporationFromCanopy;                            // Output of evapoTranspirationSoil.
   float  evaporationFromSnow;                              // Output of evapoTranspirationSoil.
   float  evaporationFromGround;                            // Output of evapoTranspirationSoil.
-  float  transpiration;                                    // Output of evapoTranspirationSoil.
+  float  transpirationFromVegetation;                      // Output of evapoTranspirationSoil.
   float  waterError;                                       // Output of evapoTranspirationSoil.
   double unsatisfiedEvaporation;                           // Unsatisfied evaporation in meters of water.  Positive means water evaporated off of the ground.
                                                            // Negative means water condensed on to the ground.
@@ -1655,15 +1659,17 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
                                      atomsphereLayerPressure, eastWindSpeed, northWindSpeed, atmosphereLayerMixingRatio, cloudMixingRatio,
                                      shortWaveRadiationDown, longWaveRadiationDown, precipitationRate * 1000.0f, soilBottomTemperature + ZERO_C_IN_KELVIN,
                                      planetaryBoundaryLayerHeight, sh2o, smc, elementZSurface - groundwaterHead, smc[3], &evapoTranspirationState,
-                                     &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround, &transpiration, &waterError);
+                                     &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow, &evaporationFromGround, &transpirationFromVegetation,
+                                     &waterError);
     }
   
   if (!error)
     {
-      // Move water and record flows for precipitation and evaporation.
+      // Move water and record flows for precipitation, evaporation, and transpiration.
       surfacewaterDepth += surfacewaterAdd / 1000.0;
       precipitation      = precipitationRate * dt;
       evaporation        = -((double)evaporationFromCanopy + evaporationFromSnow) / 1000.0;
+      transpiration      = 0.0;
       
       // Take evaporationFromGround first from surfacewater, and then if there isn't enough surfacewater from groundwater.  If there isn't enough groundwater
       // print a warning and reduce the quantity of evaporation.
@@ -1687,7 +1693,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
             }
           else
             {
-              unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
+              unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - (groundwaterHead - elementZBedrock)) * porosity;
               evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
               groundwaterHead        = elementZBedrock;
               
@@ -1701,28 +1707,28 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
       
       // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater print a
       // warning and reduce the quantity of transpiration.
-      unsatisfiedEvaporation = transpiration / 1000.0;
+      unsatisfiedEvaporation = transpirationFromVegetation / 1000.0;
       
       if (groundwaterHead - unsatisfiedEvaporation / porosity >= elementZBedrock)
         {
           groundwaterHead -= unsatisfiedEvaporation / porosity;
-          evaporation     -= unsatisfiedEvaporation;
+          transpiration   -= unsatisfiedEvaporation;
         }
       else
         {
-          unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - groundwaterHead + elementZBedrock) * porosity;
-          evaporation           -= (groundwaterHead - elementZBedrock) * porosity;
+          unsatisfiedEvaporation = (unsatisfiedEvaporation / porosity - (groundwaterHead - elementZBedrock)) * porosity;
+          transpiration         -= (groundwaterHead - elementZBedrock) * porosity;
           groundwaterHead        = elementZBedrock;
           
           if (surfacewaterDepth >= unsatisfiedEvaporation)
             {
               surfacewaterDepth -= unsatisfiedEvaporation;
-              evaporation       -= unsatisfiedEvaporation;
+              transpiration     -= unsatisfiedEvaporation;
             }
           else
             {
               unsatisfiedEvaporation -= surfacewaterDepth;
-              evaporation            -= surfacewaterDepth;
+              transpiration          -= surfacewaterDepth;
               surfacewaterDepth       = 0.0;
               
               if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || 3 <= ADHydro::verbosityLevel)
@@ -1736,6 +1742,7 @@ void MeshElement::handleDoTimestep(size_t iterationThisTimestep, double date, do
       // Record cumulative flows and water error.
       precipitationCumulative += precipitation;
       evaporationCumulative   += evaporation;
+      transpirationCumulative += transpiration;
       surfacewaterError       += (waterError / 1000.0) * elementArea;
       
       // Initiate groundwater phase.
@@ -3148,6 +3155,18 @@ void MeshElement::handleCheckInvariant()
   if (!(0.0 <= precipitationCumulative))
     {
       CkError("ERROR in MeshElement::handleCheckInvariant, element %d: precipitationCumulative must be greater than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 >= transpiration))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpiration must be less than or equal to zero.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 >= transpirationCumulative))
+    {
+      CkError("ERROR in MeshElement::handleCheckInvariant, element %d: transpirationCumulative must be less than or equal to zero.\n", thisIndex);
       error = true;
     }
   

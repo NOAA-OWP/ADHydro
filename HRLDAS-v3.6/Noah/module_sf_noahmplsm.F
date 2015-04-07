@@ -1159,6 +1159,11 @@ contains
   REAL                                        :: ERRSW  !error in shortwave radiation balance [w/m2]
   REAL                                        :: FSRVG
   CHARACTER(len=256)                          :: message
+  
+  REAL                                        :: ERROR_EPSILON !for scaling error threshold when
+                                                               !numbers get big and floating point
+                                                               !roundoff error is larger than the
+                                                               !previous fixed error threshold
 ! --------------------------------------------------------------------------------------------------
 !jref:start
    ERRSW   = SWDOWN - (FSA + FSR)
@@ -1204,7 +1209,17 @@ contains
         ERRWAT = END_WB-BEG_WB-(PRCP-ECAN-ETRAN-EDIR-RUNSRF-RUNSUB)*DT
 
 #ifndef WRF_HYDRO
-        IF(ABS(ERRWAT) > 0.1) THEN
+        ERROR_EPSILON = 0.1
+        
+        IF (ERROR_EPSILON < BEG_WB * 1.0E-6) THEN
+           ERROR_EPSILON = BEG_WB * 1.0E-6
+        END IF
+        
+        IF (ERROR_EPSILON < END_WB * 1.0E-6) THEN
+           ERROR_EPSILON = END_WB * 1.0E-6
+        END IF
+
+        IF(ABS(ERRWAT) > ERROR_EPSILON) THEN
            if (ERRWAT > 0) then
               call wrf_message ('The model is gaining water (ERRWAT is positive)')
            else
@@ -1218,7 +1233,9 @@ contains
            WRITE(message,'(i6,1x,i6,1x,2f15.3,9f11.5)')ILOC,JLOC,END_WB,BEG_WB,PRCP*DT,ECAN*DT,&
                 EDIR*DT,ETRAN*DT,RUNSRF*DT,RUNSUB*DT,ZWT
            call wrf_message(trim(message))
-           call wrf_error_fatal("Water budget problem in NOAHMP LSM")
+           !Make this just a warning.
+           !call wrf_error_fatal("Water budget problem in NOAHMP LSM")
+           call wrf_message("Water budget problem in NOAHMP LSM")
         END IF
 #endif
    ELSE                 !KWM
