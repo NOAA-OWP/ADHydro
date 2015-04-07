@@ -126,10 +126,14 @@ def writeSoilFile(s, f, bugFix):
             f.write(str(len(s['SoilType']))+'  ')
             #Write out the pairs of soil types and thicknesses
             for pair in zip(s['SoilType'], s['HorizonThickness']):
-                if not np.isnan(pair[0]):
+                if (not np.isnan(pair[0])) and (not np.isnan(pair[1])):
                     f.write(str(int(pair[0]))+','+str(pair[1])+'  ')
-                else:
+                else if not np.isnan(pair[0]):
+                    f.write(str(int(pair[0]))+','+str(0)+'  ')
+                else if not np.isnan(pair[1]):
                     f.write(str(-1)+','+str(pair[1])+'  ')
+                else:
+                    f.write(str(-1)+','+str(0)+'  ')
     f.write('\n')
 
 #Write a line to the veg file, f, based on information passed in series, s
