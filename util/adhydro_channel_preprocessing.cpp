@@ -1749,11 +1749,11 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
-      // Get link type.  We found that the values in the FTYPE field were not consistent across data sources.  In Wyoming the values were words: "Ice Mass",
-      // "LakePond", and "SwampMarsh".  In Colorado the values were numbers: "378" for Ice Mass, "390" for LakePond, "466" for SwampMarsh, and "436" for
-      // Reservoir.  The string "Reservoir" did not appear in the Wyoming data that we have processed so we don't know the exact form of the string that might
-      // be used so we didn't check for it.  It seems likely that any time you process a mesh in a new political unit you will need to figure out what they put
-      // in FTYPE and update this code.
+      // Get link type.  We found that the values in the FTYPE field were not consistent across data sources.  In the files originally downloaded by Bob the
+      // values were words: "Ice Mass", "LakePond", "SwampMarsh", and "Reservoir".  In the files later downloaded by Leticia the values were numbers:
+      // "378" for Ice Mass, "390" for LakePond, "466" for SwampMarsh, and "436" for Reservoir.  It may be that Bob downloaded the NHDPlus dataset while
+      // Leticia downloaded the NHD dataset, but we don't know for sure if that's what happened or if that's the reason for the difference.  You may need to
+      // modify this code to account for different values in your data source.
       if (!error)
         {
           if (0 == strcmp("Ice Mass", ftype) || 0 == strcmp("378", ftype))
@@ -1761,8 +1761,8 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
               linkType = ICEMASS;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 == strcmp("LakePond", ftype) || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
-                     0 == strcmp("436", ftype)))
+          else if (!(0 == strcmp("LakePond", ftype)  || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
+                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype)))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;

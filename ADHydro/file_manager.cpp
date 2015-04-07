@@ -8443,15 +8443,17 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   // Read forcing variables.
   if (0 < localNumberOfMeshElements)
     {
-      if (!error)
-        {
-          error = readNetCDFVariable(fileID, "VEGFRA", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &vegFra);
-        }
+      // We don't use vegFra anymore.
+      //if (!error)
+      //  {
+      //    error = readNetCDFVariable(fileID, "VEGFRA", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &vegFra);
+      //  }
       
-      if (!error)
-        {
-          error = readNetCDFVariable(fileID, "MAXVEGFRA", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &maxVegFra);
-        }
+      // We don't use maxVegFra antmore.
+      //if (!error)
+      //  {
+      //    error = readNetCDFVariable(fileID, "MAXVEGFRA", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &maxVegFra);
+      //  }
       
       if (!error)
         {
@@ -8510,7 +8512,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
       
       for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
         {
-          meshProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localMeshElementStart], maxVegFra[ii - localMeshElementStart], t2[ii - localMeshElementStart],
+          meshProxy[ii].forcingDataMessage(20.0f, 0.0f /*vegFra[ii - localMeshElementStart]*/, 0.0f /*maxVegFra[ii - localMeshElementStart]*/, t2[ii - localMeshElementStart],
                                            psfc[ii - localMeshElementStart], psfc[ii - localMeshElementStart] - 120.0f, u[ii - localMeshElementStart],
                                            v[ii - localMeshElementStart], qVapor[ii - localMeshElementStart], qCloud[ii - localMeshElementStart],
                                            swDown[ii - localMeshElementStart], gLw[ii - localMeshElementStart],
@@ -8535,15 +8537,17 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   
   if (0 < localNumberOfChannelElements)
     {
-      if (!error)
-        {
-          error = readNetCDFVariable(fileID, "VEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &vegFra);
-        }
+      // We don't use vegFra anymore.
+      //if (!error)
+      //  {
+      //    error = readNetCDFVariable(fileID, "VEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &vegFra);
+      //  }
 
-      if (!error)
-        {
-          error = readNetCDFVariable(fileID, "MAXVEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &maxVegFra);
-        }
+      // We don't use maxVegFra anymore.
+      //if (!error)
+      //  {
+      //    error = readNetCDFVariable(fileID, "MAXVEGFRA_C", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &maxVegFra);
+      //  }
 
       if (!error)
         {
@@ -8602,7 +8606,7 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
 
       for (ii = localChannelElementStart; ii < localChannelElementStart + localNumberOfChannelElements; ii++)
         {
-          channelProxy[ii].forcingDataMessage(20.0f, vegFra[ii - localChannelElementStart], maxVegFra[ii - localChannelElementStart],
+          channelProxy[ii].forcingDataMessage(20.0f, 0.0f /*vegFra[ii - localChannelElementStart]*/, 0.0f /*maxVegFra[ii - localChannelElementStart]*/,
                                               t2[ii - localChannelElementStart], psfc[ii - localChannelElementStart],
                                               psfc[ii - localChannelElementStart] - 120.0f, u[ii - localChannelElementStart], v[ii - localChannelElementStart],
                                               qVapor[ii - localChannelElementStart], qCloud[ii - localChannelElementStart],
