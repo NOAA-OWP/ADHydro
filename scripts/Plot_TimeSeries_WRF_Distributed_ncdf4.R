@@ -13,30 +13,32 @@ library(plotrix)
 library(rgl)
 library(sp)
 library(maptools)
-library(playwith)
 library(fields)
 options(digits=16)
 ################ INPUT MODULE #####################################################################################################################################################
-Outfolder<<-"/share/CI-WATER_Simulation_Data/WRF_to_ADHydro/"                     # Path to the nc folder
-Outncfile<<-"WRF_ADHydro_Small_Green_River_2000-01-01_00:00:00_1year.nc"          # Path to the nc file
-Outnames<<-c("T2","QVAPOR","TPREC","U","V")                                       # names of the nc variables to read
+Outfolder<<-"/localstore/MtMoranLink/project/CI-WATER/data/WRFtoADHydro/"         # Path to the nc folder
+Outncfile<<-"Forcing10Y_VEGFRA.nc"                                                # Name of the nc file
+Outnames<<-c("T2","QVAPOR","QCLOUD","PSFC","U","V","VEGFRA","MAXVEGFRA","TPREC","SWDOWN","GLW","PBLH","TSLB",
+             "T2_C","QVAPOR_C","QCLOUD_C","PSFC_C","U_C","V_C","VEGFRA_C","MAXVEGFRA_C","TPREC_C","SWDOWN_C","GLW_C","PBLH_C","TSLB_C")  # names of the nc variables to read
 timeseries<<-1                                                                    # 0 if time series are not desired. 1 if time series are desired
-spatial<<-1                                                                       # 0 if should not plot spatially-averaged data, 1 if yes. 
 TINF<<-"/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc"             # netcdf file with the AD-Hydro mesh elements for which the WRF data will be extracted
+nodata<<- -9999                                                                   # nodata value
+output_dir<<-"/localstore/MtMoranLink/project/CI-WATER/data/WRFtoADHydro/"        # directory where figures will be exported
+chunksTime<<-3                                                                    # Number of chunks to be split the read for number of TIN pints in the nc file
+cluster<<-0                                                                       # 0 if you are not running this script in the cluster; 1 if yes.                                                               
+spatial<<-0                                                                       # 0 if should not plot spatially-averaged data, 1 if yes. 
 celda<<-100                                                                       # Desired output cellsize for plots
 divisoria<<-"/user2/hmoreno/Documents/DEMS/small_green_mesh/XY_Border_points.csv" # csv points file with the watershed divide
-nodata<<- -9999                                                                   # nodata value
-output_dir<<-"/user2/hmoreno/Documents/Moreno2014/AGU2014/"                       # directory where figures will be exported
 plotchannels<<-1                                                                  # optional do you want to add channels? 0=no, 1=yes
 canales="/user2/hmoreno/Documents/DEMS/small_green_mesh/projectednet.shp"         # optional path and name of channels file
 xtifflim<<-c(2260,-5.0, 0.0030, 1e-8, -1.3,-2.2)                                  # optional scale limits for the tiff plots in order of Topography + Outnames
 ytifflim<<-c(4066,4.5,  0.0038, 3.7e-8,1.9, 0.9)
-BB<<-100                                                                           # BB=2 always to start but can increase in multiples of 2 until divide looks good
+BB<<-2                                                                            # BB=2 always to start but can increase in multiples of 2 until divide looks good
 ################################################################################################################################################################
 #### Verification of generated nc file:
 #### Basin average for verification. Will have to read values from written matrices
 
-ex.nco = nc_open(paste(Outfolder,Outncfile,sep="")) # it opens the recently created nc file
+ex.nco = nc_open(paste(Outfolder,Outncfile,sep=""),readunlim=FALSE) # it opens the recently created nc file
 Rdumpo=capture.output(print(ex.nco), file = NULL, append = FALSE)
 write.table(Rdumpo,paste(Outfolder,"Rncdumpo.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
 
@@ -49,37 +51,79 @@ cat("**********Averaging basin values for verification",fill=TRUE)
 Avefinal=matrix(NA,rowsfinal,length(Outnames)) ## matrix containing the variables in the columns (not includign  node, WRFHOUR or JULTIME) and times in the rows
 colnames(Avefinal)=Outnames
 
+
+if (chunksTime > 1){ 
+  startpedazos=floor(seq(from=1,to=rowsfinal,length.out=chunksTime+1)) #by=floor(dim(TINX)[1]/chunks)
+  startpedazos[2:length(startpedazos)]=startpedazos[2:length(startpedazos)]+1
+  sp1=c(startpedazos[2:length(startpedazos)],startpedazos[length(startpedazos)])  
+  countpedazos=sp1-startpedazos
+  
+} else {
+  startpedazos=1  
+  countpedazos=rowsfinal  
+}
+
+##### Reading geometry properties from Rdumpo to find number of mesh and channel elements
+dondeMeshEl=grep("Mesh_Elements  Size",Rdumpo)  # Creful when running this line because this might change depending on nc output programming
+paMeshEl=substring(Rdumpo[dondeMeshEl],1:nchar(Rdumpo[dondeMeshEl]),1:nchar(Rdumpo[dondeMeshEl]))
+if (cluster==0) {
+MeshEl=as.numeric(paste(paMeshEl[(which(paMeshEl==":")+1):(which(paMeshEl=="\"")[2]-1)],collapse=""))
+} else {
+MeshEl=as.numeric(paste(paMeshEl[(which(paMeshEl==":")+1):length(paMeshEl)],collapse=""))
+}
+
+dondeChannelEl=grep("Channel_Elements  Size",Rdumpo)  # Creful when running this line because this might change depending on nc output programming
+paChannEl=substring(Rdumpo[dondeChannelEl],1:nchar(Rdumpo[dondeChannelEl]),1:nchar(Rdumpo[dondeChannelEl]))
+if (cluster==0) {
+ChannelEl=as.numeric(paste(paChannEl[(which(paChannEl==":")+1):(which(paChannEl=="\"")[2]-1)],collapse=""))
+} else {
+ChannelEl=as.numeric(paste(paChannEl[(which(paChannEl==":")+1):length(paChannEl)],collapse=""))
+}
+
+
 for (vi in 1:length(Outnames)){  # by columns
-  cat("Averaging column ",vi, " of ",length(Outnames), fill=TRUE)
-  z = ncvar_get( ex.nco, Outnames[vi])   # variable
-  for (ti in 1:rowsfinal){	
-	Avefinal[ti,vi]=mean(as.numeric(z[,ti]))  # FIX ME and CHECK ME 	
+cat("Averaging variable ",Outnames[vi], " of ",length(Outnames)," Variables", fill=TRUE)
+  for (wi in 1:chunksTime){
+  cat("Chunk ",wi, " of ",chunksTime,fill=TRUE)
+     if (Outnames[vi]=="T2" | Outnames[vi]=="QVAPOR" | Outnames[vi]=="QCLOUD" | Outnames[vi]=="PSFC" | Outnames[vi]=="U" | Outnames[vi]=="V"
+         | Outnames[vi]=="VEGFRA" | Outnames[vi]=="MAXVEGFRA" | Outnames[vi]=="TPREC" | Outnames[vi]=="SWDOWN" | Outnames[vi]=="GLW" | Outnames[vi]=="PBLH"
+         | Outnames[vi]=="TSLB") { 
+    cat("Using MeshEl for elements", fill=TRUE) 
+    z = ncvar_get( ex.nco, Outnames[vi], start=c(1,startpedazos[wi]), count=c(MeshEl,countpedazos[wi]))   # variable
+    } else {
+    cat("Using ChannelEl for elements", fill=TRUE) 
+    z = ncvar_get( ex.nco, Outnames[vi], start=c(1,startpedazos[wi]), count=c(ChannelEl,countpedazos[wi]))   # variable
+    }
+    
+  for (ti in 1:countpedazos[wi]){	
+	  cui=ti+startpedazos[wi]-1
+    Avefinal[cui,vi]=mean(as.numeric(z[,ti]))  	
+    }
   }
 }
 
-finalold=matrix(NA,rowsfinal,dim(Avefinal)[2]+3)
-### Plotting basin average values# 
+### PLotting basin average values# 
 
-if (dim(finalold)[2]<=8){
-postscript(paste(output_dir,"Basin_Average_TS.ps",sep=""),width=8000,height=5500)
+if (length(Outnames)<=5){
+postscript(paste(Outfolder,"Basin_Average_TS.ps",sep=""),width=8000,height=5500)
 mat=matrix(1:5,5,1)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
-for (pli in 1:(length(Outnames))){
+for (pli in 1:length(Outnames)){
 plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
 dev.off()
 }
 
-if (dim(finalold)[2]<=13 & dim(finalold)[2]>8){
-postscript(paste(output_dir,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+if (length(Outnames)<=10 & length(Outnames)>5){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
 mat=matrix(1:5,5,1)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
 for (pli in 1:5){
 plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
-postscript(paste(output_dir,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
 for (pli in 6:dim(Avefinal)[2]){
@@ -87,8 +131,8 @@ plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
 }
 
-if (dim(finalold)[2]<=18 & dim(finalold)[2]>13){
-postscript(paste(output_dir,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+if (length(Outnames)<=15 & length(Outnames)>10){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
 mat=matrix(1:5,5,1)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
@@ -98,7 +142,7 @@ for (pli in 1:5){
 plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
 dev.off()
-postscript(paste(output_dir,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
 #x11()
@@ -107,7 +151,7 @@ for (pli in 6:10){
 plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
 dev.off()
-postscript(paste(output_dir,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
+postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
 layout(mat)
 par(mar=c(3.9,4,3,3.5))
 #x11()
@@ -117,7 +161,107 @@ plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
 dev.off()
 }
+
+
+if (length(Outnames)<=25 & length(Outnames)>20){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+mat=matrix(1:5,5,1)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 1:5){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
 }
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 6:10){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 11:15){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS4.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 16:20){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS6.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 21:dim(Avefinal)[2]){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+}
+
+
+if (length(Outnames)<=30 & length(Outnames)>25){
+postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
+mat=matrix(1:5,5,1)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 1:5){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 6:10){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+#x11()
+#par(mar = rep(2, 4),mfrow=c(6,1))
+for (pli in 11:15){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS4.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 16:20){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS5.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 21:25){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+postscript(paste(Outfolder,"Basin_Average_TS6.ps",sep=""),width=8000,height=5500)
+layout(mat)
+par(mar=c(3.9,4,3,3.5))
+for (pli in 26:dim(Avefinal)[2]){
+plot(Avefinal[,pli],type="l",main=Outnames[pli])
+}
+dev.off()
+}
+}
+
 
 if (spatial == 1){
 

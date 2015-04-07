@@ -3,11 +3,12 @@
 # Hernan Moreno
 # Aug 19 2014
 ###################################################################################################################################################################################
-# The final output file will be an array of two dimensions (node and time) and length(Outnames) variables. The list of potential variables that can go in the columns are, up to now:
-# (1) WRFHOUR (2) JULTIME (3) T2 [Celsius], (4) Q2 [kg/kg], (5) QVAPOR[kg/kg], (6)QCLOUD[kg/kg], (7)PSFC [Pa], (8) U10 [m/s], (9) V10 [m/s], (10) U, (11) V, (12) VEGFRA [-], 
-# (13) MAXVEGFRA, (14) TPREC (RAINC+RAINSH+RAINCC) [m/s],(15) FRAC_FROZ_PREC (SNOWNC+GRAUPELNC+HAILNC) [m/s], (16) SWDOWN [w/m2], (17) GLW [W/M2], (18) PBLH [m], 
-# (19) SOILTB[Celsius], (20) TSLB [Celsius]
+# The final output file will be an array of dimensions (a) mesh element or channel element and (b) time) of each of the "Outnames" variables. The list of potential variables that 
+# can go in the columns are, up to now:(1) WRFHOUR (2) JULTIME (3) T2 [Celsius], (4) Q2 [kg/kg], (5) QVAPOR[kg/kg], (6)QCLOUD[kg/kg], (7)PSFC [Pa], (8) U10 [m/s], (9) V10 [m/s], 
+# (10) U, (11) V, (12) VEGFRA [-],(13) MAXVEGFRA, (14) TPREC (RAINC+RAINSH+RAINCC) [m/s],(15) FRAC_FROZ_PREC (SNOWNC+GRAUPELNC+HAILNC) [m/s], (16) SWDOWN [w/m2], (17) GLW [W/M2],
+# (18) PBLH [m], (19) SOILTB[Celsius], (20) TSLB [Celsius]
 # Caveat: all times are in GMT time
+# User must provide values in the INPUT MODULE and line 470 to account for the output variables in the nc.ex list vector.
 ################# LOAD LIBRARIES ##################################################################################################################################################
 
 rm(list=ls())  # remove all objects before starting
@@ -59,10 +60,10 @@ FalseEast<<-20000000 	# False East of desired coordinate system
 FalseNorth<<-10000000	# False North of  desired coordinate system
 cell_Buffer<<-4 	# number of cells to be added to the selected rectangular from the minimum and maximum TIN points to efficiently read the WRF data. Use a number >2
 soillayers<<-4  	# number of total staggered soil layers. It can be extracted from the Rncdump.txt file from line 39
-Outnames<<-c("WRFHOUR","JULTIME","T2","QVAPOR","QCLOUD","PSFC","U","V","VEGFRA","MAXVEGFRA","TPREC","SWDOWN","GLW","PBLH","TSLB")  # Variables process + WRFHOUR and JULTIME 
+Outnames<<-c("WRFHOUR","JULTIME","T2","QVAPOR","QCLOUD","PSFC","U","V","TPREC","SWDOWN","GLW","PBLH","TSLB")  # Variables to process + WRFHOUR and JULTIME 
 Outfolder<<-"/share/CI-WATER_Simulation_Data/WRF_to_ADHydro/"	# Folder name for final netcdf output
-Outncfile<<-"WRF_ADHydro_Small_Green_River" # Base name for output file
-firsthour=seq(1,120,12)  # this is applied for the precipitation and GLW matrices that contain zero values for the first hour of a new year, so this sequence may change according to WRF-files
+Outncfile<<-"WRF_ADHydro_Small_Green_River"                     # Base name for output file
+firsthour=seq(1,length(WRF_Files),12)  # Frequency of new year data. As precipitation and GLW data have zero's at the first hour of a new year. This sequence may change according to WRF-files
 
 ############### MODULE METADATA AND HEADERS #######################################################################################################################################
 nccolumns<<-c(Outnames,paste(Outnames[3:length(Outnames)],"_C",sep=""))
@@ -85,11 +86,11 @@ CEX= ncvar_get(mesh.nc, "channelElementX")  # channel_elements
 CEY= ncvar_get(mesh.nc, "channelElementY")  # channel_elements
 CE= cbind(seq(0,(length(CEX)-1)),CEX,CEY)
 
-x11()
+pdf(file=paste(Outfolder,"Basin_domain",sep=""))
 par(mfcol=c(1,2))
-plot(TIN[,2],TIN[,3],pch=19,cex=0.2,main="Basin domain")
+plot(TIN[,2],TIN[,3],pch=19,cex=0.2,main="Basin domain", xlim=c(min(TIN[,2]),max(TIN[,2])),ylim=c(min(TIN[,3]),max(TIN[,3])))
 par(new=TRUE)
-plot(CE[,2],CE[,3],pch=19,cex=0.2,col="cyan")
+plot(CE[,2],CE[,3],pch=19,cex=0.2,col="cyan",xlim=c(min(TIN[,2]),max(TIN[,2])),ylim=c(min(TIN[,3]),max(TIN[,3])),axes=FALSE,xlab="",ylab="")
 
 
 ## Read only the dimension file to determine matrices size
@@ -164,12 +165,13 @@ sel_WRFC[ni,3]=wmindC[2] # col
 
 cat("** Maximum distance between an ADHydro channel element and WRF cell center is", max(mindiC)," m",fill=TRUE)
 par(new=TRUE)
-plot(WRFL[1]+sel_WRFC[,2],WRFL[2]+sel_WRFC[,3],xlim=c(1,colss),ylim=c(1,rowss),cex=0.2,pch=20,col="cyan")
-
+plot(WRFL[1]+sel_WRFC[,2],WRFL[2]+sel_WRFC[,3],xlim=c(1,colss),ylim=c(1,rowss),cex=0.2,pch=20,col="cyan",axes=FALSE,xlab="",ylab="")
+cat("**** PLEASE CHECK!. A plot containing the basin mask has been exported to Outfolder",fill=TRUE)
+dev.off()
 ### Staggered coordinate transformation ###########################################################################################################################################
 # Reads only the staggered-LON - LAT field and transform them to sinusoidal coordinates
 LONU_WRF = ncvar_get(ex.nc, "XLONG_U",start=c(1,1,1),count=c(colss+1,rowss, 1))   # Matrix of longitudes is in inverse order (south_north, west_east)
-LATU_WRF = ncvar_get(ex.nc, "XLAT_U",start=c(1,1,1),count=c(colss+1,rowss, 1))   # Matrix of latitudes
+LATU_WRF = ncvar_get(ex.nc, "XLAT_U",start=c(1,1,1),count=c(colss+1,rowss, 1))    # Matrix of latitudes
 
 # Transform LONU-LATU, LONV, LATV matrices to sinusoidal projection
 xsu=RE*((LONU_WRF*pi/180)-Lambda0)*cos(LATU_WRF*pi/180)+FalseEast   #  xsu and xsv are very similar.. only separated by few meters..so we assume xsu=xsv
@@ -210,7 +212,6 @@ for (ni in 1:dim(CE)[1]){
 }
 	
 cat("** Maximum distance between an ADHydro channel element and WRF staggered point is", max(mindiSC)," m",fill=TRUE)
-
 
 ## Creation of the final array that will be transformed into a netcdf file
 ## Starts reading the WRF matrices as named in WRF_Files
@@ -369,7 +370,9 @@ for (v in 1:dim(TIN)[1]){ # For the meshelements matrix
     P0=Paccum[v,(1:(length(zt)-1))]
     finalold[v,u+1,(2:length(zt))]=(P1-P0)*(1/3600000) # mm/h to m/s
 }
-      
+
+cat("Mean Precipitation on mesh elements is ",mean(as.numeric(finalold[,u+1,])),fill=TRUE)
+cat("Min Precipitation on mesh elements is ",min(finalold[,u+1,]),fill=TRUE)
 if (min(finalold[,u+1,])<0) {
 cat("Negative PRECIP found in finalold at mi=",mi,fill=TRUE)
 #Sys.sleep(600000)
@@ -392,6 +395,8 @@ for (v in 1:dim(CE)[1]){ # For the channel elements matrix
     finaloldC[v,u-1,(2:length(zt))]=(P1C-P0C)*(1/3600000) # mm/h to m/s
     }
     	  
+cat("Mean Precipitation on channel elements is ",mean(as.numeric(finaloldC[,u-1,])),fill=TRUE)
+cat("Min Precipitation on channel elements is ",min(finaloldC[,u-1,]),fill=TRUE)
 if (min(finaloldC[,u-1,])<0) {
 cat("Negative PRECIP found in finaloldC at mi=",mi,fill=TRUE)
 #Sys.sleep(600000)	
@@ -399,28 +404,7 @@ cat("Negative PRECIP found in finaloldC at mi=",mi,fill=TRUE)
 
 PaccumoldC=PaccumC
 }
-
-#	if (Outnames[u]=="FRAC_FROZ_PREC"){
-#	Saccum=matrix(NA,dim(TIN)[1],length(zt)) # rows are the nodes, columns are the times
-#        zsnownc = ncvar_get( ex.nc, "SNOWNC",start=c(WRFL[1],WRFL[2],1), count=c((WRFU[1]-WRFL[1]+1),(WRFU[2]-WRFL[2]+1) ,length(zt)))   #
-#	zgraupelnc = ncvar_get( ex.nc, "GRAUPELNC",start=c(WRFL[1],WRFL[2],1), count=c((WRFU[1]-WRFL[1]+1),(WRFU[2]-WRFL[2]+1) ,length(zt)))   #\
-# 	zhailnc = ncvar_get( ex.nc, "HAILNC",start=c(WRFL[1],WRFL[2],1), count=c((WRFU[1]-WRFL[1]+1),(WRFU[2]-WRFL[2]+1) ,length(zt)))   #\
-#	cat("variable  FRAC_FROZ_PREC",fill=TRUE)
-#	for (v in 1:dim(TIN)[1]){
-#	  if (mi==1){
-#         finalold[v,u+1,1]=(zsnownc[sel_WRF[v,2],sel_WRF[v,3],1]+ zgraupelnc[sel_WRF[v,2],sel_WRF[v,3],1] + zhailnc[sel_WRF[v,2],sel_WRF[v,3],1])*(1/3600000) # mm/h to m/s
-#	  } else {
-#	  finalold[v,u+1,1]=((zsnownc[sel_WRF[v,2],sel_WRF[v,3],1]+ zgraupelnc[sel_WRF[v,2],sel_WRF[v,3],1] + zhailnc[sel_WRF[v,2],sel_WRF[v,3],1])-(Saccumold[v,dim(Saccumold)[2]]))*(1/3600000) # mm/h to m/s    
-#          }
-#          Saccum[v,]=zsnownc[sel_WRF[v,2],sel_WRF[v,3],]+ zgraupelnc[sel_WRF[v,2],sel_WRF[v,3],] + zhailnc[sel_WRF[v,2],sel_WRF[v,3],]
-#	  S1=Saccum[v,2:length(zt)]
-#	  S0=Saccum[v,1:(length(zt)-1)]
-#	  finalold[v,u+1,(2:length(zt))]=(S1-S0)*(1/3600000) # mm/h to m/s
-#          }
-#	}
-
 }
-
 
 # Creating temporal WRFchar variable
 if (mi==1){
@@ -450,70 +434,72 @@ dim3 = ncdim_def( "Channel_Elements","", as.integer(finaloldC[,1,1]))
 # define the EMPTY netcdf variables
 #varNODES=ncvar_def("NODES","", list(dim1), -99999, longname="NODES")
 #varWRFHOUR=ncvar_def("WRFHOUR","hours", list(dim2),longname="WRFHOUR",prec='char')
-varJULTIME=ncvar_def("JULTIME","days", list(dim2), -99999, longname="JULTIME", prec="double") #,prec="double")
-varT2 = ncvar_def("T2","Celsius", list(dim1,dim2), -99999, longname="T2")
-varT2_C = ncvar_def("T2_C","Celsius", list(dim3,dim2), -99999, longname="T2_C")
-varQVAPOR = ncvar_def("QVAPOR","kg kg-1", list(dim1,dim2), -99999, longname="QVAPOR")
-varQVAPOR_C = ncvar_def("QVAPOR_C","kg kg-1", list(dim3,dim2), -99999, longname="QVAPOR_C")
-varQCLOUD = ncvar_def("QCLOUD","kg kg-1", list(dim1,dim2), -99999, longname="QCLOUD")
-varQCLOUD_C = ncvar_def("QCLOUD_C","kg kg-1", list(dim3,dim2), -99999, longname="QCLOUD_C")
-varPSFC = ncvar_def("PSFC","Pa", list(dim1,dim2), -99999, longname="PSFC")
-varPSFC_C = ncvar_def("PSFC_C","Pa", list(dim3,dim2), -99999, longname="PSFC_C")
-varU = ncvar_def("U","ms-1", list(dim1,dim2), -99999, longname="U")
-varU_C = ncvar_def("U_C","m s-1", list(dim3,dim2), -99999, longname="U_C")
-varV = ncvar_def("V","m s-1", list(dim1,dim2), -99999, longname="V")
-varV_C = ncvar_def("V_C","m s-1", list(dim3,dim2), -99999, longname="V_C")
-varVEGFRA = ncvar_def("VEGFRA","m2 m-2", list(dim1,dim2), -99999, longname="VEGFRA")
-varVEGFRA_C = ncvar_def("VEGFRA_C","m2 m-2", list(dim3,dim2), -99999, longname="VEGFRA_C")
-varMAXVEGFRA = ncvar_def("MAXVEGFRA","m2 m-2", list(dim1,dim2), -99999, longname="MAXVEGFRA")
-varMAXVEGFRA_C = ncvar_def("MAXVEGFRA_C","m2 m-2", list(dim3,dim2), -99999, longname="MAXVEGFRA_C")
-varTPREC = ncvar_def("TPREC","m s-1", list(dim1,dim2), -99999, longname="TPREC")
-varTPREC_C = ncvar_def("TPREC_C","m s-1", list(dim3,dim2), -99999, longname="TPREC_C")
-varSWDOWN = ncvar_def("SWDOWN","W m-2", list(dim1,dim2), -99999, longname="SWDOWN")
-varSWDOWN_C = ncvar_def("SWDOWN_C","W m-2", list(dim3,dim2), -99999, longname="SWDOWN_C")
-varGLW = ncvar_def("GLW","W m-2", list(dim1,dim2), -99999, longname="GLW")
-varGLW_C = ncvar_def("GLW_C","W m-2", list(dim3,dim2), -99999, longname="GLW_C")
-varPBLH = ncvar_def("PBLH","m", list(dim1,dim2), -99999, longname="PBLH")
-varPBLH_C = ncvar_def("PBLH_C","m", list(dim3,dim2), -99999, longname="PBLH_C")
-varTSLB = ncvar_def("TSLB","Celsius", list(dim1,dim2), -99999, longname="TSLB")
-varTSLB_C = ncvar_def("TSLB_C","Celsius", list(dim3,dim2), -99999, longname="TSLB_C")
+varJULTIME<<-ncvar_def("JULTIME","days", list(dim2), -99999, longname="JULTIME", prec="double") #,prec="double")
+if (("T2" %in% Outnames)==TRUE) varT2 <<- ncvar_def("T2","Celsius", list(dim1,dim2), -99999, longname="T2")
+if (("T2" %in% Outnames)==TRUE) varT2_C <<- ncvar_def("T2_C","Celsius", list(dim3,dim2), -99999, longname="T2_C")
+if (("QVAPOR" %in% Outnames)==TRUE) varQVAPOR <<- ncvar_def("QVAPOR","kg kg-1", list(dim1,dim2), -99999, longname="QVAPOR")
+if (("QVAPOR" %in% Outnames)==TRUE) varQVAPOR_C <<- ncvar_def("QVAPOR_C","kg kg-1", list(dim3,dim2), -99999, longname="QVAPOR_C")
+if (("QCLOUD" %in% Outnames)==TRUE) varQCLOUD <<- ncvar_def("QCLOUD","kg kg-1", list(dim1,dim2), -99999, longname="QCLOUD")
+if (("QCLOUD" %in% Outnames)==TRUE) varQCLOUD_C <<- ncvar_def("QCLOUD_C","kg kg-1", list(dim3,dim2), -99999, longname="QCLOUD_C")
+if (("PSFC" %in% Outnames)==TRUE) varPSFC <<- ncvar_def("PSFC","Pa", list(dim1,dim2), -99999, longname="PSFC")
+if (("PSFC" %in% Outnames)==TRUE) varPSFC_C <<- ncvar_def("PSFC_C","Pa", list(dim3,dim2), -99999, longname="PSFC_C")
+if (("U" %in% Outnames)==TRUE) varU <<- ncvar_def("U","ms-1", list(dim1,dim2), -99999, longname="U")
+if (("U" %in% Outnames)==TRUE) varU_C <<- ncvar_def("U_C","m s-1", list(dim3,dim2), -99999, longname="U_C")
+if (("V" %in% Outnames)==TRUE) varV <<- ncvar_def("V","m s-1", list(dim1,dim2), -99999, longname="V")
+if (("V" %in% Outnames)==TRUE) varV_C <<- ncvar_def("V_C","m s-1", list(dim3,dim2), -99999, longname="V_C")
+if (("VEGFRA" %in% Outnames)==TRUE) varVEGFRA <<- ncvar_def("VEGFRA","m2 m-2", list(dim1,dim2), -99999, longname="VEGFRA")
+if (("VEGFRA" %in% Outnames)==TRUE) varVEGFRA_C <<- ncvar_def("VEGFRA_C","m2 m-2", list(dim3,dim2), -99999, longname="VEGFRA_C")
+if (("MAXVEGFRA" %in% Outnames)==TRUE) varMAXVEGFRA <<- ncvar_def("MAXVEGFRA","m2 m-2", list(dim1,dim2), -99999, longname="MAXVEGFRA")
+if (("MAXVEGFRA" %in% Outnames)==TRUE) varMAXVEGFRA_C <<- ncvar_def("MAXVEGFRA_C","m2 m-2", list(dim3,dim2), -99999, longname="MAXVEGFRA_C")
+if (("TPREC" %in% Outnames)==TRUE) varTPREC <<- ncvar_def("TPREC","m s-1", list(dim1,dim2), -99999, longname="TPREC")
+if (("TPREC" %in% Outnames)==TRUE) varTPREC_C <<- ncvar_def("TPREC_C","m s-1", list(dim3,dim2), -99999, longname="TPREC_C")
+if (("SWDOWN" %in% Outnames)==TRUE) varSWDOWN <<- ncvar_def("SWDOWN","W m-2", list(dim1,dim2), -99999, longname="SWDOWN")
+if (("SWDOWN" %in% Outnames)==TRUE) varSWDOWN_C <<- ncvar_def("SWDOWN_C","W m-2", list(dim3,dim2), -99999, longname="SWDOWN_C")
+if (("GLW" %in% Outnames)==TRUE) varGLW <<- ncvar_def("GLW","W m-2", list(dim1,dim2), -99999, longname="GLW")
+if (("GLW" %in% Outnames)==TRUE) varGLW_C <<- ncvar_def("GLW_C","W m-2", list(dim3,dim2), -99999, longname="GLW_C")
+if (("PBLH" %in% Outnames)==TRUE) varPBLH <<- ncvar_def("PBLH","m", list(dim1,dim2), -99999, longname="PBLH")
+if (("PBLH" %in% Outnames)==TRUE) varPBLH_C <<- ncvar_def("PBLH_C","m", list(dim3,dim2), -99999, longname="PBLH_C")
+if (("TSLB" %in% Outnames)==TRUE) varTSLB <<- ncvar_def("TSLB","Celsius", list(dim1,dim2), -99999, longname="TSLB")
+if (("TSLB" %in% Outnames)==TRUE) varTSLB_C <<- ncvar_def("TSLB_C","Celsius", list(dim3,dim2), -99999, longname="TSLB_C")
 
 # associate the netcdf variable with a netcdf file   
 # put the variable into the file, and
 # close
-
+## Create netcdf file ####################################################################### 
+cat("Now creating nc.ex file",fill=TRUE)
 nc.ex = nc_create(paste(Outfolder,Outncfile,"_",exportname,".nc",sep=""),list(varJULTIME, varT2, varT2_C, varQVAPOR, varQVAPOR_C, varQCLOUD, varQCLOUD_C,
-        varPSFC, varPSFC_C, varU, varU_C, varV, varV_C, varVEGFRA, varVEGFRA_C, varMAXVEGFRA, varMAXVEGFRA_C, varTPREC, varTPREC_C, varSWDOWN, varSWDOWN_C, 
-        varGLW, varGLW_C, varPBLH, varPBLH_C, varTSLB, varTSLB_C),force_v4=TRUE)
+        varPSFC, varPSFC_C, varU, varU_C, varV, varV_C, varTPREC, varTPREC_C, varSWDOWN, varSWDOWN_C,varGLW, varGLW_C, varPBLH, varPBLH_C, varTSLB, varTSLB_C),
+        force_v4=TRUE)
+
 #ncvar_put(nc.ex, varNODES, finalold[,which(ordencols=="node"),1])
 }
 
 ncvar_put(nc.ex, varJULTIME, as.numeric(finalold[1,which(ordencols=="JULTIME"),]),start=tini,count=length(zt))
 #ncvar_put(nc.ex, varWRFHOUR, finalold[1,which(ordencols=="WRFHOUR"),],start=tini,count=length(zt))
-ncvar_put(nc.ex, varT2, finalold[,which(ordencols=="T2"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varT2_C, finaloldC[,which(ordencolsC=="T2"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varQVAPOR, finalold[,which(ordencols=="QVAPOR"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varQVAPOR_C, finaloldC[,which(ordencolsC=="QVAPOR"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varQCLOUD, as.double(finalold[,which(ordencols=="QCLOUD"),]),start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varQCLOUD_C, as.double(finaloldC[,which(ordencolsC=="QCLOUD"),]),start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varPSFC, finalold[,which(ordencols=="PSFC"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varPSFC_C, finaloldC[,which(ordencolsC=="PSFC"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varU, finalold[,which(ordencols=="U"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varU_C, finaloldC[,which(ordencolsC=="U"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varV, finalold[,which(ordencols=="V"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varV_C, finaloldC[,which(ordencolsC=="V"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varVEGFRA, finalold[,which(ordencols=="VEGFRA"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varVEGFRA_C, finaloldC[,which(ordencolsC=="VEGFRA"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varTPREC, finalold[,which(ordencols=="TPREC"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varTPREC_C, finaloldC[,which(ordencolsC=="TPREC"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varSWDOWN, finalold[,which(ordencols=="SWDOWN"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varSWDOWN_C, finaloldC[,which(ordencolsC=="SWDOWN"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varGLW, finalold[,which(ordencols=="GLW"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varGLW_C, finaloldC[,which(ordencolsC=="GLW"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varPBLH, finalold[,which(ordencols=="PBLH"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varPBLH_C, finaloldC[,which(ordencolsC=="PBLH"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
-ncvar_put(nc.ex, varTSLB, finalold[,which(ordencols=="TSLB"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
-ncvar_put(nc.ex, varTSLB_C, finaloldC[,which(ordencolsC=="TSLB"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("T2" %in% Outnames)==TRUE) ncvar_put(nc.ex, varT2, finalold[,which(ordencols=="T2"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("T2" %in% Outnames)==TRUE) ncvar_put(nc.ex, varT2_C, finaloldC[,which(ordencolsC=="T2"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("QVAPOR" %in% Outnames)==TRUE) ncvar_put(nc.ex, varQVAPOR, finalold[,which(ordencols=="QVAPOR"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("QVAPOR" %in% Outnames)==TRUE) ncvar_put(nc.ex, varQVAPOR_C, finaloldC[,which(ordencolsC=="QVAPOR"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("QCLOUD" %in% Outnames)==TRUE) ncvar_put(nc.ex, varQCLOUD, as.double(finalold[,which(ordencols=="QCLOUD"),]),start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("QCLOUD" %in% Outnames)==TRUE) ncvar_put(nc.ex, varQCLOUD_C, as.double(finaloldC[,which(ordencolsC=="QCLOUD"),]),start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("PSFC" %in% Outnames)==TRUE) ncvar_put(nc.ex, varPSFC, finalold[,which(ordencols=="PSFC"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("PSFC" %in% Outnames)==TRUE) ncvar_put(nc.ex, varPSFC_C, finaloldC[,which(ordencolsC=="PSFC"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("U" %in% Outnames)==TRUE) ncvar_put(nc.ex, varU, finalold[,which(ordencols=="U"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("U" %in% Outnames)==TRUE) ncvar_put(nc.ex, varU_C, finaloldC[,which(ordencolsC=="U"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("V" %in% Outnames)==TRUE) ncvar_put(nc.ex, varV, finalold[,which(ordencols=="V"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("V" %in% Outnames)==TRUE) ncvar_put(nc.ex, varV_C, finaloldC[,which(ordencolsC=="V"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("VEGFRA" %in% Outnames)==TRUE) ncvar_put(nc.ex, varVEGFRA, finalold[,which(ordencols=="VEGFRA"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("VEGFRA" %in% Outnames)==TRUE) ncvar_put(nc.ex, varVEGFRA_C, finaloldC[,which(ordencolsC=="VEGFRA"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("TPREC" %in% Outnames)==TRUE) ncvar_put(nc.ex, varTPREC, finalold[,which(ordencols=="TPREC"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("TPREC" %in% Outnames)==TRUE) ncvar_put(nc.ex, varTPREC_C, finaloldC[,which(ordencolsC=="TPREC"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("SWDOWN" %in% Outnames)==TRUE) ncvar_put(nc.ex, varSWDOWN, finalold[,which(ordencols=="SWDOWN"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("SWDOWN" %in% Outnames)==TRUE) ncvar_put(nc.ex, varSWDOWN_C, finaloldC[,which(ordencolsC=="SWDOWN"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("GLW" %in% Outnames)==TRUE) ncvar_put(nc.ex, varGLW, finalold[,which(ordencols=="GLW"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("GLW" %in% Outnames)==TRUE)ncvar_put(nc.ex, varGLW_C, finaloldC[,which(ordencolsC=="GLW"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("PBLH" %in% Outnames)==TRUE) ncvar_put(nc.ex, varPBLH, finalold[,which(ordencols=="PBLH"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("PBLH" %in% Outnames)==TRUE) ncvar_put(nc.ex, varPBLH_C, finaloldC[,which(ordencolsC=="PBLH"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
+if (("TSLB" %in% Outnames)==TRUE) ncvar_put(nc.ex, varTSLB, finalold[,which(ordencols=="TSLB"),],start=c(1,tini),count=c(dim(TIN)[1],length(zt)))
+if (("TSLB" %in% Outnames)==TRUE) ncvar_put(nc.ex, varTSLB_C, finaloldC[,which(ordencolsC=="TSLB"),],start=c(1,tini),count=c(dim(CE)[1],length(zt)))
 }
 
 ### Before closing the file, compute MAXVEGFRAC if requested
@@ -594,141 +580,6 @@ if (length(which(Outnames=="MAXVEGFRA"))>0){
 }    
 nc_close(nc.ex) 
 
-#### Verification of generated  nc file:
-#### Basin average for verification. Will have to read values from written matrices
-ex.nco = nc_open(paste(Outfolder,Outncfile,"_",exportname,".nc",sep="")) # it opens the recently created nc file
-Rdumpo=capture.output(print(ex.nco), file = NULL, append = FALSE)
-write.table(Rdumpo,paste(Outfolder,"Rncdumpo.txt",sep=""),quote=FALSE,col.names=FALSE,row.names=FALSE)   ## dumps netcdf headers to a file in outfolder  
-
-cat("**********Averaging basin values for verification",fill=TRUE)
-Avefinal=matrix(NA,rowsfinal,(length(nccolumns)-2)) ## matrix containing the variables in the columns (not includign  node, WRFHOUR or JULTIME) and times in the rows
-colnames(Avefinal)=nccolumns[3:length(nccolumns)]
-
-for (vi in 1:(length(nccolumns)-2)){  # by columns
-  cat("Averaging column ",vi, " of ",length(nccolumns)-2, fill=TRUE)
-  z = ncvar_get( ex.nco, nccolumns[vi+2])   # variable
-  for (ti in 1:rowsfinal){	
-      if (nccolumns[vi+2]=="MAXVEGFRA" || nccolumns[vi+2]=="MAXVEGFRA_C" ){
-      Avefinal[ti,vi]=max(as.numeric(z[,ti]))	
-      } else {
-      Avefinal[ti,vi]=mean(as.numeric(z[,ti]))  # FIX ME and CHECK ME 	
-      }
-  }
-}
-cat("Time at this moment is ",date(),fill=TRUE)
-### PLotting basin average values# 
-
-if ((length(nccolumns)-2)<=5){
-postscript(paste(Outfolder,"Basin_Average_TS.ps",sep=""),width=8000,height=5500)
-mat=matrix(1:5,5,1)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 1:(length(nccolumns)-2)){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-}
-
-if ((length(nccolumns)-2)<=10 & (length(nccolumns)-2)>5){
-postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
-mat=matrix(1:5,5,1)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 1:5){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 6:dim(Avefinal)[2]){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-}
-
-if ((length(nccolumns)-2)<=15 & (length(nccolumns)-2)>10){
-postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
-mat=matrix(1:5,5,1)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 1:5){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 6:10){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 11:dim(Avefinal)[2]){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-}
-
-
-if ((length(nccolumns)-2)<=30 & (length(nccolumns)-2)>25){
-postscript(paste(Outfolder,"Basin_Average_TS1.ps",sep=""),width=8000,height=5500)
-mat=matrix(1:5,5,1)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 1:5){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS2.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 6:10){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS3.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-#x11()
-#par(mar = rep(2, 4),mfrow=c(6,1))
-for (pli in 11:15){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS4.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 16:20){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS5.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 21:25){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-postscript(paste(Outfolder,"Basin_Average_TS6.ps",sep=""),width=8000,height=5500)
-layout(mat)
-par(mar=c(3.9,4,3,3.5))
-for (pli in 26:dim(Avefinal)[2]){
-plot(Avefinal[,pli],type="l",main=nccolumns[pli+2])
-}
-dev.off()
-
-}
 
 
 
