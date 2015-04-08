@@ -6,10 +6,12 @@ mainmodule adhydro
   
   mainchare [migratable] ADHydro
   {
-    readonly bool appendToInputFiles;
-    readonly bool drainDownMode;
-    readonly bool doMeshMassage;
-    readonly int  verbosityLevel;
+    readonly bool   appendToInputFiles;
+    readonly bool   drainDownMode;
+    readonly double drainDownTime;
+    readonly bool   doMeshMassage;
+    readonly int    verbosityLevel;
+    
     initproc void setLoadBalancingToManual();
     entry ADHydro(CkArgMsg* msg);
     entry [reductiontarget] void fileManagerInitialized();

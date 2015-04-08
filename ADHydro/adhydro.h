@@ -67,6 +67,12 @@ public:
   // in the channels will be capped.
   static bool drainDownMode;
   
+  // Global read-only variable specifies the time to use for forcing data in
+  // drain down mode.  For drain down mode we want to hold the calendar time
+  // still and have constant conditions for the mesh to settle towards a stable
+  // state.  This value is used instead of currentTime for all forcing data.
+  static double drainDownTime;
+  
   // Global read-only variable specifies whether to run mesh massage to fix
   // digital dams and similar problems.
   static bool doMeshMassage;

@@ -8395,7 +8395,16 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
   if (!error)
     {
       instance    = 0;
-      currentDate = referenceDate + currentTime / (24.0 * 3600.0);
+      
+      if (ADHydro::drainDownMode)
+        {
+          // In drain down mode use a single time forever.
+          currentDate = referenceDate + ADHydro::drainDownTime / (24.0 * 3600.0);
+        }
+      else
+        {
+          currentDate = referenceDate + currentTime / (24.0 * 3600.0);
+        }
       
       if (!(jultime[0] <= currentDate))
         {
