@@ -2666,11 +2666,11 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: sai must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(1.0f >= evapoTranspirationState->sai))
+  else if (!(2.0f >= evapoTranspirationState->sai))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above one.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above two.\n");
         }
     }
 
