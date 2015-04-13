@@ -20,11 +20,16 @@ outpath="/localstore/MtMoranLink/project/CI-WATER/tools/build/ADHydro/output/"  
 filen="display.nc"                                                                   # root name of a set of files to read in sequential order
 nout=c("")                                                                           # c(1,2) # a list with the serial number of outputs to read
 output_dir<<-"/localstore/MtMoranLink/project/CI-WATER/tools/build/ADHydro/output/"  # directory where figures will be exported
-spatial<<-0   				                                                               # Plot spatially distributed variables for toplotmesh? 0 no, 1 yes
-toplotmeshm=c("meshGroundwaterHead","meshSurfacewaterDepth","meshSnEqv")                         # List of variables to plot in meters per unit of time
+toplotmeshm=c("meshGroundwaterHead","meshSurfacewaterDepth","meshSnEqv")             # List of variables to plot in meters per unit of time
 toplotmeshmm=c("meshPrecipitation","meshEvaporation")                                # List of variables to plot in mm per unit of time
 toplotchannel=c("channelSurfacewaterDepth")					     # List of variables to plot on channel nodes
-#toplotneighbors=c("channelMeshNeighborsGroundwaterFlowRate")                         # List of variables to plot with neighbors
+#toplotneighbors=c("channelMeshNeighborsGroundwaterFlowRate")                        # List of variables to plot with neighbors
+meshplot<<- 1                                                                        # 1 if mesh element time series must be plotted; 0 if no.
+meshlist<<-c(32288,32278,32266, 32273, 32283, 32066, 32281, 32282)                  #List of mesh elements whose time series must be plotted only if meshplot=1		     
+chanplot<<-1                                                                        # 1 if channel element time series must be plotted; 0 if not.
+chanlist<<-c(100,102)                                                               # List of channel elements whose time series must be plotted only if meshplot=1  								          
+## This module is optional only is spatial <<-1 ################################################################################################
+spatial<<-0   				                                             # Plot spatially distributed variables for toplotmesh? 0 no, 1 yes
 TINF<<-"/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc"                # Netcdf file with the AD-Hydro mesh elements for which the WRF 
 celda<<- 100                                                                         # Desired output cellsize
 divisoria<<-"/user2/hmoreno/Documents/DEMS/small_green_mesh/XY_Border_points.csv"    # csv points file with the watershed divide
@@ -34,10 +39,6 @@ ytifflim<<-c(4062,  0.2,  5.2e-4,    65)
 plotchannels<<-1                                                                     # optional do you want to add channels? 0=no, 1=yes
 canales="/user2/hmoreno/Documents/DEMS/small_green_mesh/projectednet.shp"            # optional path and name of channels file
 BB<<-100                                                                             # BB=2 always to start but can increase in multiples of 2 until divide looks good
-meshplot<<- 1                                                                        # 1 if mesh element time series must be plotted; 0 if no.
-meshlist<<-c(32288,32278,32266, 32273, 32283, 32066, 32281, 32282)                   # List of mesh elements whose time series must be plotted only if meshplot=1									          
-chanplot<<-0                                                                        # 1 if channel element time series must be plotted; 0 if not.
-chanlist<<-c(0)                                                                      # List of channel elements whose time series must be plotted only if meshplot=1  								          
 ################################################################################################################################################
 
 cat("Reading display.nc netcdf files", fill=TRUE)

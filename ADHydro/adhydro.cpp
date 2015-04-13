@@ -3,10 +3,11 @@
 #include "INIReader.h"
 
 // Read-only global variables.
-bool ADHydro::appendToInputFiles;
-bool ADHydro::drainDownMode;
-bool ADHydro::doMeshMassage;
-int  ADHydro::verbosityLevel;
+bool   ADHydro::appendToInputFiles;
+bool   ADHydro::drainDownMode;
+double ADHydro::drainDownTime;
+bool   ADHydro::doMeshMassage;
+int    ADHydro::verbosityLevel;
 
 void ADHydro::setLoadBalancingToManual()
 {
@@ -95,6 +96,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
                                                                          // will run in normal mode.
+  drainDownTime      = superfile.GetReal("", "drainDownTime", NAN);      // If drainDownTime is not in the superfile it will be taken from currentTime.
   doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // If doMeshMassage is not in the superfile it defaults to false and mesh massage will
                                                                          // not be run.
   verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);    // If verbosityLevel is not in the superfile it defaults to two.
@@ -206,6 +208,11 @@ void ADHydro::fileManagerInitialized()
   if ((size_t)-1 == iteration)
     {
       iteration = fileManagerProxy.ckLocalBranch()->iteration;
+    }
+  
+  if (isnan(drainDownTime))
+    {
+      drainDownTime = currentTime;
     }
   
   startingIteration    = iteration;
@@ -438,6 +445,8 @@ void ADHydro::checkInvariant()
 
 void ADHydro::doTimestep()
 {
+  double date; // The julian date to use for sun position calculations.
+  
   if (endTime > currentTime)
     {
       // Limit dt to time remaining.
@@ -453,10 +462,19 @@ void ADHydro::doTimestep()
         }
 
       // Set callbacks and start timestep.
+      if (drainDownMode)
+        {
+          date = referenceDate + drainDownTime / (24.0 * 3600.0);
+        }
+      else
+        {
+          date = referenceDate + currentTime / (24.0 * 3600.0);
+        }
+      
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
         {
           meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-          meshProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
+          meshProxy.doTimestep(iteration, date, dt);
         }
       else
         {
@@ -466,7 +484,7 @@ void ADHydro::doTimestep()
       if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
         {
           channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
-          channelProxy.doTimestep(iteration, referenceDate + currentTime / (24.0 * 3600.0), dt);
+          channelProxy.doTimestep(iteration, date, dt);
         }
       else
         {

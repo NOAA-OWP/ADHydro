@@ -64,7 +64,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/user2/lpureza/Desktop/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -126,10 +126,14 @@ def writeSoilFile(s, f, bugFix):
             f.write(str(len(s['SoilType']))+'  ')
             #Write out the pairs of soil types and thicknesses
             for pair in zip(s['SoilType'], s['HorizonThickness']):
-                if not np.isnan(pair[0]):
+                if (not np.isnan(pair[0])) and (not np.isnan(pair[1])):
                     f.write(str(int(pair[0]))+','+str(pair[1])+'  ')
-                else:
+                elif not np.isnan(pair[0]):
+                    f.write(str(int(pair[0]))+','+str(0)+'  ')
+                elif not np.isnan(pair[1]):
                     f.write(str(-1)+','+str(pair[1])+'  ')
+                else:
+                    f.write(str(-1)+','+str(0)+'  ')
     f.write('\n')
 
 #Write a line to the veg file, f, based on information passed in series, s
@@ -178,7 +182,7 @@ def getSoilTypDRV():
        output_SoilTyp_file      -- structured output file storing the layers of the soil horizon for each element
        output_VegTyp_file       -- structured output file storing each element's vegitation type
        output_GeolTyp_file      -- structured output file storing each element's Geologic Unit type
-       output_element_data_file -- a comma seperated value file containing all of the computed and looked up information for each element
+       output_element_data_file -- a Pandas dataFrame serialized to file containing all of the computed and looked up information for each element
       
    """
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
@@ -186,7 +190,7 @@ def getSoilTypDRV():
    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
    output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
    output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
-   output_element_data_file = os.path.join(output_directory_path, 'element_data.csv')
+   output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
 
    print 'Reading element file.'
 
@@ -266,11 +270,23 @@ def getSoilTypDRV():
    #MUKEY, AreaSym, inSSURGO
    elements = elements.apply(getMUKEY, axis=1)
    
-   #Write the element data csv file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
-   elements.to_csv(output_element_data_file, na_rep='NaN')
+   #Write the element data serialized file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
+   elements.to_pickle(output_element_data_file)
    
-   print 'Finding Geologic Units'
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_pickle(output_element_data_file)
+
+   print 'Finding Geologic Units.'
+
+   #find the geologic unit for each element, this adds the following columns to elements:
+   #ROCKTYPE
    elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
+   
+   #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
+   elements.to_pickle(output_element_data_file)
+   
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_pickle(output_element_data_file)
    
    print 'Finding COKEY.'
 
@@ -292,8 +308,11 @@ def getSoilTypDRV():
    
    print 'Writing element data file.'
    
-   #Write the element data csv file, usising the string NaN for missing data representation
-   elements.to_csv(output_element_data_file, na_rep='NaN')
+   #Write the element data serialized file
+   elements.to_pickle(output_element_data_file)
+   
+   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+   #elements = pd.read_pickle(output_element_data_file)
    
    print 'Writing soil file.'
    
@@ -651,11 +670,11 @@ def getSoilTyp(s):
    silt = s['silttotal_r']
    clay = s['claytotal_r']
    
-   if sand.isnan():
+   if np.isnan(sand):
       sand = 0.0
-   if silt.isnan():
+   if np.isnan(silt):
       silt = 0.0
-   if clay.isnan():
+   if np.isnan(clay):
       clay = 0.0
    
    #TODO what should be done when information about soil content isn't available for a particular chkey???
