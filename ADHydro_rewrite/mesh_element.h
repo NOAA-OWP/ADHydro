@@ -1,41 +1,102 @@
 #ifndef __MESH_ELEMENT_H__
 #define __MESH_ELEMENT_H__
 
-#include "element.h"
+#include "neighbor_proxy.h"
 #include "evapo_transpiration.h"
 
-class MeshGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
-{
-public:
-  
-  // FIXME comment and implement
-  void sendWater(MaterialTransfer water);
-};
-
-class MeshGroundwaterChannelNeighborProxy : public SimpleNeighborProxy
-{
-public:
-  
-  // FIXME comment and implement
-  void sendWater(MaterialTransfer water);
-};
-
+// Proxy for a mesh element's surfacewater neighbor that is a mesh element.
 class MeshSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment and implement
-  void sendWater(MaterialTransfer water);
+  // Identification parameters.
+  int region;                  // Region number where the neighbor is.
+  int neighbor;                // Mesh element ID number of the neighbor.
+  int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
+  
+  // Geometric coordinates.
+  double neighborX;        // Meters.
+  double neighborY;        // Meters.
+  double neighborZSurface; // Elevation in meters.
+  double neighborArea;     // Square meters.
+  double edgeLength;       // Meters.  2-D distance ignoring Z coordinates.
+  double edgeNormalX;      // X component of normal unit vector, unitless.
+  double edgeNormalY;      // Y component of normal unit vector, unitless.
+  
+  // Hydraulic parameters.
+  double neighborManningsN; // Roughness parameter in seconds/(meters^(1/3)).
 };
 
+// Proxy for a mesh element's surfacewater neighbor that is a channel element.
 class MeshSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment and implement
-  void sendWater(MaterialTransfer water);
+  // Identification parameters.
+  int region;                  // Region number where the neighbor is.
+  int neighbor;                // Channel element ID number of the neighbor.
+  int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
+  
+  // Geometric coordinates.
+  double neighborZBank; // Elevation in meters.
+  double neighborZBed;  // Elevation in meters.
+  double edgeLength;    // Meters.  2-D distance ignoring Z coordinates.
+  
+  // Hydraulic parameters.
+  double neighborBaseWidth; // Width of channel base in meters.
+  double neighborSideSlope; // Widening of each side of the channel for each unit increase in water depth.  It is delta-x over delta-y, the inverse of the
+                            // traditional definition of slope, unitless.
 };
 
+// Proxy for a mesh element's groundwater neighbor that is a mesh element.
+class MeshGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
+{
+public:
+  
+  // Identification parameters.
+  int region;                  // Region number where the neighbor is.
+  int neighbor;                // Mesh element ID number of the neighbor.
+  int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
+  
+  // Geometric coordinates.
+  double neighborX;            // Meters.
+  double neighborY;            // Meters.
+  double neighborZSurface;     // Elevation in meters.
+  double neighborLayerZBottom; // Elevation in meters.
+  double neighborArea;         // Square meters.
+  double edgeLength;           // Meters.  2-D distance ignoring Z coordinates.
+  double edgeNormalX;          // X component of normal unit vector, unitless.
+  double edgeNormalY;          // Y component of normal unit vector, unitless.
+  
+  // Hydraulic parameters.
+  double neighborConductivity; // Meters per second.
+  double neighborPorosity;     // Unitless.
+};
+
+// Proxy for a mesh element's groundwater neighbor that is a channel element.
+class MeshGroundwaterChannelNeighborProxy : public SimpleNeighborProxy
+{
+public:
+  
+  // Identification parameters.
+  int region;                  // Region number where the neighbor is.
+  int neighbor;                // Channel element ID number of the neighbor.
+  int reciprocalNeighborProxy; // The index into neighbor's undergroundMeshNeighbors vector of the proxy for me.
+  
+  // Geometric coordinates.
+  double neighborZBank; // Meters.
+  double neighborZBed;  // Meters.
+  double edgeLength;    // Meters.  2-D distance ignoring Z coordinates.
+  
+  // Hydraulic parameters.
+  double neighborBaseWidth;       // Width of channel base in meters.
+  double neighborSideSlope;       // Widening of each side of the channel for each unit increase in water depth.  It is delta-x over delta-y, the inverse of
+                                  // the traditional definition of slope, unitless.
+  double neighborBedConductivity; // Meters per second.
+  double neighborBedThickness;    // Meters.
+};
+
+// FIXME comment
 class InfiltrationAndGroundwater
 {
 public:
@@ -49,18 +110,25 @@ public:
                           // Whenever vadose zone state is needed it is assumed to be in equilibrium with groundwaterHead.  If groundwaterMethod is
                           // SHALLOW_AQUIFER then quantity of water in the domain is groundwaterRecharge + (groundwaterHead - layerZBottom) * porosity, and no
                           // vadose zone water is counted.  If groundwaterMethod is DEEP_AQUIFER then quantity of water in the domain is groundwaterRecharge.
+    // FIXME implement GARTO_INFILTRATION,
   };
   
   enum GroundwaterMethodEnum
   {
     NO_AQUIFER,      // This method must be used if and only if infiltrationMethod is NO_INFILTRATION.
-    DEEP_AQUIFER,    // The water table is assumed to always be below the modeled domain.  If infiltrationMethod is TRIVIAL_INFILTRATION then the member
-                     // variable groundwaterHead still needs a valid value because it is used to fill in the soil moisture struct, but its value is never
-                     // changed.  Any water that makes it to groundwaterRecharge gets sent immediately to an aquifer storage bucket, which may collect water
-                     // from many elements.  There is no lateral flow to neighboring elements.  The meshNeighbors and channelNeighbors vectors must be empty.
+    DEEP_AQUIFER,    // The water table is assumed to always be below the modeled domain.  Any water that makes it to groundwaterRecharge gets sent immediately
+                     // to an aquifer storage bucket, which may collect water from many elements.  There is no lateral flow to neighboring elements.  The
+                     // meshNeighbors and channelNeighbors vectors must be empty.  If infiltrationMethod is TRIVIAL_INFILTRATION then the member variable
+                     // groundwaterHead still needs a valid value because it is used to fill in the soil moisture struct, but its value is never changed.
     SHALLOW_AQUIFER, // Both vadose zone and water table are modeled.  Water that makes it to groundwaterRecharge stays in the modeled domain.  Water below
                      // groundwaterHead may flow laterally to neighboring elements.
   };
+  
+  // FIXME constructor
+  
+  // FIXME pup
+  
+  // FIXME checkInvariant
   
   // Fill in the evapo-transpiration soil moisture variables from the current
   // groundwater state.
@@ -95,6 +163,53 @@ public:
   // unsatisfiedTranspiration - The requested amount of water in meters.
   double transpire(double unsatisfiedTranspiration);
   
+  // Calculate nominalFlowRate and expirationTime with a mesh neighbor.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime                 - Current simulation time in seconds since
+  //                               Element::referenceDate.
+  // regionalExpirationTimeLimit - Simulation time in seconds that the new
+  //                               expirationTime can be no greater than.  If
+  //                               the neighbor is in a different region you
+  //                               must pass in the minimum of the time limits
+  //                               of the two regions.
+  // neighborProxyIndex          - Which element of meshNeighbors is the proxy
+  //                               for the neighbor.
+  // elementX                    - Pass value from MeshElement object.
+  // elementY                    - Pass value from MeshElement object.
+  // elementZSurface             - Pass value from MeshElement object.
+  // elementArea                 - Pass value from MeshElement object.
+  // elementSurfacewaterDepth    - Pass value from MeshElement object.
+  // neighborSurfacewaterDepth   - Meters.
+  // neighborGroundwaterHead     - Elevation in meters.
+  bool calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex, double elementX,
+                                                double elementY, double elementZSurface, double elementArea, double elementSurfacewaterDepth,
+                                                double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+  
+  // Calculate nominalFlowRate and expirationTime with a channel neighbor.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime                 - Current simulation time in seconds since
+  //                               Element::referenceDate.
+  // regionalExpirationTimeLimit - Simulation time in seconds that the new
+  //                               expirationTime can be no greater than.  If
+  //                               the neighbor is in a different region you
+  //                               must pass in the minimum of the time limits
+  //                               of the two regions.
+  // neighborProxyIndex          - Which element of channelNeighbors is the
+  //                               proxy for the neighbor.
+  // elementZSurface             - Pass value from MeshElement object.
+  // elementSurfacewaterDepth    - Pass value from MeshElement object.
+  // neighborSurfacewaterDepth   - Meters.
+  bool calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex, double elementZSurface,
+                                                   double elementSurfacewaterDepth, double neighborSurfacewaterDepth);
+  
   // Perform infiltration, which takes water from surfacewaterDepth and takes
   // or puts water into groundwaterRecharge.  Then limit and send groundwater
   // outflows taking the water from groundwaterRecharge.  Groundwater inflows
@@ -106,11 +221,11 @@ public:
   // Parameters:
   //
   // currentTime       - Current simulation time in seconds since
-  //                     referenceDate.
+  //                     Element::referenceDate.
   // timestepEndTime   - Simulation time at the end of the current timestep in
-  //                     seconds since referenceDate.
-  // elementZSurface   - Surface elevation in meters.
-  // elementArea       - Element area in square meters.
+  //                     seconds since Element::referenceDate.
+  // elementZSurface   - Pass value from MeshElement object.
+  // elementArea       - Pass value from MeshElement object.
   // surfacewaterDepth - Scalar passed by reference containing the amount of
   //                     surfacewater available for infiltration in meters.
   //                     Will be updated to the new amount of surfacewater
@@ -118,12 +233,20 @@ public:
   void doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
                                                 double elementArea, double& surfacewaterDepth);
   
+  // FIXME comment
+  bool allInflowsArrived(double currentTime, double timestepEndTime);
+  
+  // FIXME comment
+  void receiveInflows(double currentTime, double timestepEndTime, double elementArea);
+  
   // The methods to use to calculate infiltration and groundwater flow.
   InfiltrationMethodEnum infiltrationMethod;
   GroundwaterMethodEnum  groundwaterMethod;
   
   // Geometric coordinates.
   double layerZBottom; // Elevation in meters.
+  double slopeX;       // Layer bottom slope in X direction, unitless.
+  double slopeY;       // Layer bottom slope in Y direction, unitless.
   
   // Hydraulic parameters.
   double conductivity; // Meters per second.
@@ -139,20 +262,42 @@ public:
   std::vector<MeshGroundwaterChannelNeighborProxy> channelNeighbors;
 };
 
-class MeshElement : public Element
+PUPbytes(InfiltrationAndGroundwater::InfiltrationMethodEnum);
+PUPbytes(InfiltrationAndGroundwater::GroundwaterMethodEnum);
+
+// FIXME comment
+class MeshElement
 {
 public:
   
-  // FIXME what to do about iterator?
+  // FIXME constructor
+  
+  // FIXME pup
+  
+  // FIXME checkInvariant
   
   // FIXME comment
-  bool doPointProcessesAndSendOutflows();
+  bool calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                double neighborSurfacewaterDepth);
   
   // FIXME comment
-  bool allInflowsArrived();
+  bool calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                   double neighborSurfacewaterDepth);
   
   // FIXME comment
-  void receiveInflowsAndAdvanceTime();
+  bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime);
+  
+  // FIXME comment
+  bool allInflowsArrived(double currentTime, double timestepEndTime);
+  
+  // FIXME comment
+  void receiveInflows(double currentTime, double timestepEndTime);
+  
+  // Identification parameters.
+  int elementNumber;  // Mesh element ID number of this element.
+  int catchment;      // Catchment ID number that this element belongs to.
+  int vegetationType; // Vegetation type from Noah-MP VEGPARM.TBL file.
+  int soilType;       // Soil type form Noah-MP SOILPARM.TBL file.
   
   // Geometric coordinates.
   double elementX;        // Meters.
@@ -162,17 +307,14 @@ public:
   double latitude;        // Radians.
   double longitude;       // Radians.
   
-  // Identification parameters.
-  int elementNumber;  // Mesh element ID number of this element.
-  int catchment;      // Catchment ID number that this element belongs to.
-  int vegetationType; // Vegetation type from Noah-MP VEGPARM.TBL file.
-  int soilType;       // Soil type form Noah-MP SOILPARM.TBL file.
+  // Hydraulic parameters.
+  double manningsN; // Roughness parameter in seconds/(meters^(1/3)).
   
   // Water state variables.
   double surfacewaterDepth; // Meters.
   double surfacewaterError; // Meters.  Positive means water was created.  Negative means water was destroyed.
   
-  // Water flow state variables.
+  // Water flow variables.
   double precipitationRate;                // Precipitation falling on the mesh element in meters of water per second.  Negative means water added to the
                                            // element.  Must be non-positive.
   double precipitationCumulativeShortTerm; // precipitationCumulativeShortTerm plus precipitationCumulativeLongTerm together are the cumulative precipitation

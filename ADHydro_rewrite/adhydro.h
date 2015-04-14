@@ -8,6 +8,7 @@
 
 #include "all_charm.h"
 
+// FIXME comment
 class ADHydro : public CBase_ADHydro
 {
   ADHydro_SDAG_CODE
@@ -18,6 +19,15 @@ public:
   static double centralMeridian; // Radians.
   static double falseEasting;    // Meters.
   static double falseNorthing;   // Meters.
+  
+  // Global read-only variables to specify whether to run the simulation in
+  // drain down mode.  In this mode, there will be no precipitation, the water
+  // level in the channels will be capped at bank-full depth, and calendar date
+  // and time will stand still.  Forcing data, sun angle, and other things that
+  // depend on absolute time will always be taken from a single point in time
+  // specified by drainDownTime.
+  static bool   drainDownMode; // If true, run in drain down mode.
+  static double drainDownTime; // Seconds since Element::referenceDate.
   
   // Global read-only variable specifies how much to print to the display.
   // Current verbosity levels are:

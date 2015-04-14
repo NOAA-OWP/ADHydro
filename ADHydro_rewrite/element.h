@@ -1,7 +1,7 @@
 #ifndef __ELEMENT_H__
 #define __ELEMENT_H__
 
-#include "neighbor_proxy.h"
+#include "all_charm.h"
 
 // Element is an abstract class that implements some of our basic simulation
 // architecture.  The architecture is a first-order simulation of moving
@@ -53,47 +53,6 @@ class Element
 {
 public:
   
-  // There is some generic code for any simulation implemented in the Element
-  // class that requires iterating through all of the neighbors of the element.
-  // Storing a container of NeighborProxys in Element isn't a good solution
-  // because specific simulations are going to subclass NeighborProxy.  Storing
-  // a container of pointers to NeighborProxys also isn't a good solution
-  // because it has a bad interaction with the pup framework.  Basically, when
-  // we are unpacking and need to construct a new object to store the pupped
-  // data how do we know which subclass to construct?  The right solution is to
-  // have this pure virtual iterator class that gets subclassed by each
-  // specific simulation to iterate over the specific NeighborProxy
-  // subclass(es) in the simulation.  The actual NeighborProxy subclass objects
-  // are stored in the Element subclass, which knows their type and can pup
-  // them properly.
-  //
-  // Subclasses of iterator must iterate over all of an element's neighbors
-  // even if an element has multiple types of neighbors in multiple containers.
-  //
-  // This is a non-standard iterator pattern.  It was done this way so that the
-  // actual implementation could come from subclasses.
-  class Iterator
-  {
-  public:
-    
-    // Destructor.  Needs to be virtual because we will be deleting Iterator
-    // pointers to subclass objects.
-    virtual ~Iterator();
-    
-    // Dereference operator.
-    //
-    // Returns: The NeighborProxy that this iterator points to.
-    virtual NeighborProxy& operator*() = 0;
-    
-    // Increment operator.
-    //
-    // Returns: The iterator after incrementing.
-    virtual Iterator& operator++() = 0;
-    
-    // Returns: true if the iterator is at the end, false otherwise.
-    virtual bool atEnd() = 0;
-  }; // End class Iterator.
-  
   // Constructor.  timestepEndTime is initialized to be currentTimeInit
   // indicating that a new value for timestepEndTime needs to be selected in
   // step 2 of the simulation.  nextSyncTime is initialized to be
@@ -120,24 +79,6 @@ public:
   //
   // Returns: true if the invariant is violated, false otherwise.
   bool checkInvariant();
-  
-  // Returns: A heap allocated iterator pointing to the first of this element's
-  //          neighbors.  The caller is responsible for deleting it.
-  virtual Iterator* begin() = 0;
-  
-  // Returns: true if the flow rate expiration times of all neighbors are
-  //          later than currentTime, false othewise.
-  bool allFlowRatesCalculated();
-  
-  // If currentTime is equal to timestepEndTime calculate the minimum of
-  // nextSyncTime and the expirationTimes of all neighbors.  If this minimum is
-  // later than currentTime select it as the new timestepEndTime.
-  //
-  // If timestepEndTime is already later than currentTime, or this minimum is
-  // equal to currentTime do not select a new timestepEndTime.
-  //
-  // Returns: true if a new timestepEndTime was selected.
-  bool selectTimestep();
 
   // The following time invariants exist:
   //
@@ -150,13 +91,13 @@ public:
   // last MaterialTransfer.endTime <= expirationTime
   //
   // timestepEndTime <= expirationTime
-  double referenceDate;      // Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to
-                             // referenceDate + currentTime / (24.0 * 60.0 * 60.0).  Time zone is UTC.
-  double currentTime;        // Current simulation time in seconds since referenceDate.
-  double timestepEndTime;    // Simulation time at the end of the current timestep in seconds since referenceDate.
-  double nextSyncTime;       // Simulation time at the next global sync point in seconds since referenceDate.  Elements may want to sync up globally for
-                             // reasons such as outputting the state of all elements at the same simulation time.
-  double simulationEndTime;  // Simulation time to end the simulation in seconds since referenceDate.
+  double referenceDate;     // Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to
+                            // referenceDate + currentTime / (24.0 * 60.0 * 60.0).  Time zone is UTC.
+  double currentTime;       // Current simulation time in seconds since referenceDate.
+  double timestepEndTime;   // Simulation time at the end of the current timestep in seconds since referenceDate.
+  double nextSyncTime;      // Simulation time at the next global sync point in seconds since referenceDate.  Elements may want to sync up globally for reasons
+                            // such as outputting the state of all elements at the same simulation time.
+  double simulationEndTime; // Simulation time to end the simulation in seconds since referenceDate.
   
   // Any subclass of Element must include member variable(s) with the
   // NeighborProxys to the Element's neighbors.

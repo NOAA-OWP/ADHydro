@@ -1,10 +1,5 @@
 #include "element.h"
 
-Element::Iterator::~Iterator()
-{
-  // Do nothing.
-}
-
 Element::Element(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit) :
   referenceDate(referenceDateInit),
   currentTime(currentTimeInit),
@@ -65,45 +60,4 @@ bool Element::checkInvariant()
     }
   
   return error;
-}
-
-// FIXME do I need allFlowRatesCalculated?  Maybe I could just call selectTimestep instead.
-bool Element::allFlowRatesCalculated()
-{
-  Iterator* it;                   // Loop iterator.
-  bool      allCalculated = true; // Return value.
-  
-  for (it = begin(); allCalculated && !it->atEnd(); ++*it)
-    {
-      allCalculated = (currentTime < (**it).expirationTime);
-    }
-  
-  delete it;
-  
-  return allCalculated;
-}
-
-bool Element::selectTimestep()
-{
-  Iterator* it;                  // Loop iterator.
-  bool      newTimestep = false; // return value
-  
-  if (timestepEndTime == currentTime)
-    {
-      timestepEndTime = nextSyncTime;
-
-      for (it = begin(); !it->atEnd(); ++*it)
-        {
-          if (timestepEndTime > (**it).expirationTime)
-            {
-              timestepEndTime = (**it).expirationTime;
-            }
-        }
-
-      delete it;
-      
-      newTimestep = (timestepEndTime > currentTime);
-    }
-  
-  return newTimestep;
 }

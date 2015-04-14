@@ -159,7 +159,7 @@ public:
   bool checkInvariant();
   
   // Insert a new MaterialTransfer into incomingMaterial.  This keeps the list
-  // sorted and checks that the time range of the newly inserted element is
+  // sorted and checks that the time range of the newly inserted material is
   // non-overlapping.  Exit on error.
   void insertMaterial(MaterialTransfer newMaterial);
   

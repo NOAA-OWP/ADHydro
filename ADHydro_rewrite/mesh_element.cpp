@@ -1,25 +1,7 @@
 #include "mesh_element.h"
 #include "adhydro.h"
-
-void MeshGroundwaterMeshNeighborProxy::sendWater(MaterialTransfer water)
-{
-  // FIXME implement.
-}
-
-void MeshGroundwaterChannelNeighborProxy::sendWater(MaterialTransfer water)
-{
-  // FIXME implement.
-}
-
-void MeshSurfacewaterMeshNeighborProxy::sendWater(MaterialTransfer water)
-{
-  // FIXME implement.
-}
-
-void MeshSurfacewaterChannelNeighborProxy::sendWater(MaterialTransfer water)
-{
-  // FIXME implement.
-}
+#include "surfacewater.h"
+#include "groundwater.h"
 
 void InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(double elementZSurface, float zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS],
                                                                             EvapoTranspirationSoilMoistureStruct& evapoTranspirationSoilMoisture)
@@ -28,6 +10,8 @@ void InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
   double layerMiddleDepth;        // Meters.
   double distanceAboveWaterTable; // Meters.
   double relativeSaturation;      // Unitless.
+  
+  // FIXME error check inputs.
   
   if (NO_INFILTRATION == infiltrationMethod)
     {
@@ -77,6 +61,8 @@ void InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
 double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
 {
   double evaporation = 0.0; // Return value.
+  
+  // FIXME error check inputs.
 
   // if (NO_INFILTRATION == infiltrationMethod) return zero.
   if (TRIVIAL_INFILTRATION == infiltrationMethod)
@@ -107,6 +93,8 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
 double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
 {
   double transpiration = 0.0; // Return value.
+  
+  // FIXME error check inputs.
 
   // if (NO_INFILTRATION == infiltrationMethod) return zero.
   if (TRIVIAL_INFILTRATION == infiltrationMethod)
@@ -118,6 +106,85 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
   return transpiration;
 }
 
+bool InfiltrationAndGroundwater::calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                                          double elementX, double elementY, double elementZSurface, double elementArea,
+                                                                          double elementSurfacewaterDepth, double neighborSurfacewaterDepth,
+                                                                          double neighborGroundwaterHead)
+{
+  bool   error = false;    // Error flag.
+  double dtNew = INFINITY; // Duration before nominal flow rate expiration in seconds.
+  
+  // FIXME error check inputs.
+  
+  if (isBoundary(meshNeighbors[neighborProxyIndex].neighbor))
+    {
+      // Calculate nominal flow rate.
+      // FIXME what to do about inflowHeight?
+      error = groundwaterMeshBoundaryFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &dtNew,
+                                              (BoundaryConditionEnum)meshNeighbors[neighborProxyIndex].neighbor, 0.0,
+                                              meshNeighbors[neighborProxyIndex].edgeLength, meshNeighbors[neighborProxyIndex].edgeNormalX,
+                                              meshNeighbors[neighborProxyIndex].edgeNormalY, layerZBottom, elementArea, slopeX, slopeY, conductivity, porosity,
+                                              groundwaterHead);
+    }
+  else
+    {
+      // Calculate nominal flow rate.
+      error = groundwaterMeshMeshFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &dtNew, meshNeighbors[neighborProxyIndex].edgeLength, elementX,
+                                          elementY, elementZSurface, layerZBottom, elementArea, conductivity, porosity, elementSurfacewaterDepth,
+                                          groundwaterHead, meshNeighbors[neighborProxyIndex].neighborX, meshNeighbors[neighborProxyIndex].neighborY,
+                                          meshNeighbors[neighborProxyIndex].neighborZSurface, meshNeighbors[neighborProxyIndex].neighborLayerZBottom,
+                                          meshNeighbors[neighborProxyIndex].neighborArea, meshNeighbors[neighborProxyIndex].neighborConductivity,
+                                          meshNeighbors[neighborProxyIndex].neighborPorosity, neighborSurfacewaterDepth, neighborGroundwaterHead);
+    }
+  
+  // Calculate expiration time.
+  if (!error)
+    {
+      meshNeighbors[neighborProxyIndex].expirationTime = currentTime + dtNew;
+      
+      // Limit expiration time to the regional limit.
+      if (meshNeighbors[neighborProxyIndex].expirationTime > regionalExpirationTimeLimit)
+        {
+          meshNeighbors[neighborProxyIndex].expirationTime = regionalExpirationTimeLimit;
+        }
+    }
+  
+  return error;
+}
+
+bool InfiltrationAndGroundwater::calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                                             double elementZSurface, double elementSurfacewaterDepth,
+                                                                             double neighborSurfacewaterDepth)
+{
+  bool   error = false;    // Error flag.
+  double dtNew = INFINITY; // Duration before nominal flow rate expiration in seconds.
+  
+  // FIXME error check inputs.
+  
+  // Calculate nominal flow rate.
+  // FIXME calculate dtNew
+  error = groundwaterMeshChannelFlowRate(&channelNeighbors[neighborProxyIndex].nominalFlowRate, channelNeighbors[neighborProxyIndex].edgeLength,
+                                         elementZSurface, layerZBottom, elementSurfacewaterDepth, groundwaterHead,
+                                         channelNeighbors[neighborProxyIndex].neighborZBank, channelNeighbors[neighborProxyIndex].neighborZBed,
+                                         channelNeighbors[neighborProxyIndex].neighborBaseWidth, channelNeighbors[neighborProxyIndex].neighborSideSlope,
+                                         channelNeighbors[neighborProxyIndex].neighborBedConductivity,
+                                         channelNeighbors[neighborProxyIndex].neighborBedThickness, neighborSurfacewaterDepth);
+  
+  // Calculate expiration time.
+  if (!error)
+    {
+      channelNeighbors[neighborProxyIndex].expirationTime = currentTime + dtNew;
+      
+      // Limit expiration time to the regional limit.
+      if (channelNeighbors[neighborProxyIndex].expirationTime > regionalExpirationTimeLimit)
+        {
+          channelNeighbors[neighborProxyIndex].expirationTime = regionalExpirationTimeLimit;
+        }
+    }
+  
+  return error;
+}
+
 void InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
                                                                           double elementArea, double& surfacewaterDepth)
 {
@@ -127,6 +194,9 @@ void InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
   double groundwaterAvailable    = 0.0;                                 // Groundwater available to satisfy outflows in cubic meters of water.
   double totalOutwardFlowRate    = 0.0;                                 // Sum of all outward flow rates in cubic meters per second.
   double outwardFlowRateFraction = 1.0;                                 // Fraction of all outward flow rates that can be satisfied, unitless.
+  double waterSent;                                                     // Cubic meters.
+  
+  // FIXME error check inputs.
   
   // Do infiltration.
   // if (NO_INFILTRATION == infiltrationMethod) do nothing.
@@ -188,9 +258,12 @@ void InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
         {
           if (0.0 < (*itMesh).nominalFlowRate)
             {
-              groundwaterRecharge -= (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction / elementArea;
+              waterSent            = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+              groundwaterRecharge -= waterSent / elementArea;
 
-              (*itMesh).sendWater(MeshGroundwaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              // FIXME call the region's function to send the water.
+              //region->sendGroundwaterToMeshElement((*itMesh).region, (*itMesh).neighbor, (*itMesh).reciprocalNeighborProxy,
+              //                                     MeshGroundwaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, waterSent));
             }
         }
 
@@ -198,9 +271,12 @@ void InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
         {
           if (0.0 < (*itChannel).nominalFlowRate)
             {
-              groundwaterRecharge -= (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction / elementArea;
+              waterSent            = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
+              groundwaterRecharge -= waterSent / elementArea;
 
-              (*itChannel).sendWater(MeshGroundwaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              // FIXME call the region's function to send the water.
+              //region->sendWaterToChannelElement((*itChannel).region, (*itChannel).neighbor, (*itChannel).reciprocalNeighborProxy,
+              //                                  MeshGroundwaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, waterSent));
             }
         }
 
@@ -230,42 +306,179 @@ void InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
     }
 }
 
-bool MeshElement::doPointProcessesAndSendOutflows()
+bool InfiltrationAndGroundwater::allInflowsArrived(double currentTime, double timestepEndTime)
 {
-  bool   error                   = false;                                              // Error flag.
-  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;                  // Loop iterator.
-  std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;               // Loop iterator.
-  double date                    = referenceDate + currentTime / (24.0 * 60.0 * 60.0); // Days.
-  long   year;                                                                         // For calculating yearlen, julian, and hourAngle.
-  long   month;                                                                        // For calculating hourAngle.
-  long   day;                                                                          // For calculating hourAngle.
-  long   hour;                                                                         // For passing to julianToGregorian, unused.
-  long   minute;                                                                       // For passing to julianToGregorian, unused.
-  double second;                                                                       // For passing to julianToGregorian, unused.
-  int    yearlen;                                                                      // Input to evapoTranspirationSoil in days.
-  float  julian;                                                                       // Input to evapoTranspirationSoil in days.
-  double hourAngle;                                                                    // For calculating cosZ.  In radians.
-  double declinationOfSun;                                                             // For calculating cosZ.  In radians.
-  float  cosZ;                                                                         // Input to evapoTranspirationSoil, unitless.
-  EvapoTranspirationSoilMoistureStruct evapoTranspirationSoilMoisture;                 // Input to evapoTranspirationSoil.
-  double dt                      = timestepEndTime - currentTime;                      // Seconds.
-  float  surfacewaterAdd;                                                              // Output of evapoTranspirationSoil in millimeters.
-  float  evaporationFromCanopy;                                                        // Output of evapoTranspirationSoil in millimeters.
-  float  evaporationFromSnow;                                                          // Output of evapoTranspirationSoil in millimeters.
-  float  evaporationFromGround;                                                        // Output of evapoTranspirationSoil in millimeters.
-  float  transpirationFromVegetation;                                                  // Output of evapoTranspirationSoil in millimeters.
-  float  waterError;                                                                   // Output of evapoTranspirationSoil in millimeters.
-  double evaporation;                                                                  // Meters.
-  double transpiration;                                                                // Meters.
-  double unsatisfiedEvaporation;                                                       // Meters.
-  double groundwaterEvaporation;                                                       // Meters.
-  double totalOutwardFlowRate    = 0.0;                                                // Sum of all outward flow rates in cubic meters per second.
-  double outwardFlowRateFraction = 1.0;                                                // Fraction of all outward flow rates that can be satisfied, unitless.
+  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;            // Loop iterator.
+  std::vector<MeshGroundwaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
+  bool                                                       allArrived = true; // Whether all material has arrived from all neighbors.
   
-  // Do point processes for rainfall, snowmelt, and evapo-transpiration.
+  // FIXME error check inputs.
   
-  // Calculate Gregorian date from Julian date.
-  julianToGregorian(date, &year, &month, &day, &hour, &minute, &second);
+  // If timestepEndTime is not in the future we can't call allMaterialHasArrived.  allInflowsArrived shouldn't be called in this situation, but if it is return
+  // that all inflows have arrived for the next zero seconds.
+  if (currentTime < timestepEndTime)
+    {
+      for (itMesh = meshNeighbors.begin(); allArrived && itMesh != meshNeighbors.end(); ++itMesh)
+        {
+          if (0.0 > (*itMesh).nominalFlowRate)
+            {
+              allArrived = (*itMesh).allMaterialHasArrived(currentTime, timestepEndTime);
+            }
+        }
+      
+      for (itChannel = channelNeighbors.begin(); allArrived && itChannel != channelNeighbors.end(); ++itChannel)
+        {
+          if (0.0 > (*itChannel).nominalFlowRate)
+            {
+              allArrived = (*itChannel).allMaterialHasArrived(currentTime, timestepEndTime);
+            }
+        }
+    }
+  
+  return allArrived;
+}
+
+void InfiltrationAndGroundwater::receiveInflows(double currentTime, double timestepEndTime, double elementArea)
+{
+  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;    // Loop iterator.
+  std::vector<MeshGroundwaterChannelNeighborProxy>::iterator itChannel; // Loop iterator.
+  
+  // FIXME error check inputs.
+  
+  // If timestepEndTime is not in the future we can't call getMaterial.  advanceTime shouldn't be called in this situation, but if it is we don't have to do
+  // anything to advance time by zero seconds.
+  if (currentTime < timestepEndTime)
+    {
+      // Receive all inflows.
+      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+        {
+          if (0.0 > (*itMesh).nominalFlowRate)
+            {
+              groundwaterRecharge += (*itMesh).getMaterial(currentTime, timestepEndTime) / elementArea;
+            }
+        }
+      
+      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+        {
+          if (0.0 > (*itChannel).nominalFlowRate)
+            {
+              groundwaterRecharge += (*itChannel).getMaterial(currentTime, timestepEndTime) / elementArea;
+            }
+        }
+    }
+}
+
+bool MeshElement::calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                           double neighborSurfacewaterDepth)
+{
+  bool   error = false;    // Error flag.
+  double dtNew = INFINITY; // Duration before nominal flow rate expiration in seconds.
+  
+  // FIXME error check inputs.
+  
+  if (isBoundary(meshNeighbors[neighborProxyIndex].neighbor))
+    {
+      // Calculate nominal flow rate.
+      // FIXME what to do about inflowXVelocity, inflowYVelocity, and inflowHeight?
+      error = surfacewaterMeshBoundaryFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &dtNew,
+                                               (BoundaryConditionEnum)meshNeighbors[neighborProxyIndex].neighbor, 0.0, 0.0, 0.0,
+                                               meshNeighbors[neighborProxyIndex].edgeLength, meshNeighbors[neighborProxyIndex].edgeNormalX,
+                                               meshNeighbors[neighborProxyIndex].edgeNormalY, elementArea, surfacewaterDepth);
+    }
+  else
+    {
+      // Calculate nominal flow rate.
+      error = surfacewaterMeshMeshFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &dtNew, meshNeighbors[neighborProxyIndex].edgeLength, elementX,
+                                           elementY, elementZSurface, elementArea, manningsN, surfacewaterDepth, meshNeighbors[neighborProxyIndex].neighborX,
+                                           meshNeighbors[neighborProxyIndex].neighborY, meshNeighbors[neighborProxyIndex].neighborZSurface,
+                                           meshNeighbors[neighborProxyIndex].neighborArea, meshNeighbors[neighborProxyIndex].neighborManningsN,
+                                           neighborSurfacewaterDepth);
+    }
+  
+  // Calculate expiration time.
+  if (!error)
+    {
+      meshNeighbors[neighborProxyIndex].expirationTime = currentTime + dtNew;
+      
+      // Limit expiration time to the regional limit.
+      if (meshNeighbors[neighborProxyIndex].expirationTime > regionalExpirationTimeLimit)
+        {
+          meshNeighbors[neighborProxyIndex].expirationTime = regionalExpirationTimeLimit;
+        }
+    }
+  
+  return error;
+}
+
+bool MeshElement::calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
+                                                              double neighborSurfacewaterDepth)
+{
+  bool   error = false;    // Error flag.
+  double dtNew = INFINITY; // Duration before nominal flow rate expiration in seconds.
+  
+  // FIXME error check inputs.
+  
+  // Calculate nominal flow rate.
+  error = surfacewaterMeshChannelFlowRate(&channelNeighbors[neighborProxyIndex].nominalFlowRate, &dtNew, channelNeighbors[neighborProxyIndex].edgeLength,
+                                          elementZSurface, elementArea, surfacewaterDepth, channelNeighbors[neighborProxyIndex].neighborZBank,
+                                          channelNeighbors[neighborProxyIndex].neighborZBed, channelNeighbors[neighborProxyIndex].neighborBaseWidth,
+                                          channelNeighbors[neighborProxyIndex].neighborSideSlope, neighborSurfacewaterDepth);
+  
+  // Calculate expiration time.
+  if (!error)
+    {
+      channelNeighbors[neighborProxyIndex].expirationTime = currentTime + dtNew;
+      
+      // Limit expiration time to the regional limit.
+      if (channelNeighbors[neighborProxyIndex].expirationTime > regionalExpirationTimeLimit)
+        {
+          channelNeighbors[neighborProxyIndex].expirationTime = regionalExpirationTimeLimit;
+        }
+    }
+  
+  return error;
+}
+
+bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime)
+{
+  bool   error                   = false;                                // Error flag.
+  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;    // Loop iterator.
+  std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel; // Loop iterator.
+  double localSolarDateTime      = referenceDate + (ADHydro::drainDownMode ? ADHydro::drainDownTime : currentTime) / (24.0 * 60.0 * 60.0) +
+                                   longitude / (2 * M_PI);               // The time and date to use for the sun angle as a Julian date converted from UTC to
+                                                                         // local solar time.  If we are using drainDownMode calendar date and time stands
+                                                                         // still at the time specified by ADHydro::drainDownTime.
+  long   year;                                                           // For calculating yearlen, julian, and hourAngle.
+  long   month;                                                          // For calculating hourAngle.
+  long   day;                                                            // For calculating hourAngle.
+  long   hour;                                                           // For passing to julianToGregorian, unused.
+  long   minute;                                                         // For passing to julianToGregorian, unused.
+  double second;                                                         // For passing to julianToGregorian, unused.
+  int    yearlen;                                                        // Input to evapoTranspirationSoil in days.
+  float  julian;                                                         // Input to evapoTranspirationSoil in days.
+  double hourAngle;                                                      // For calculating cosZ.  In radians.
+  double declinationOfSun;                                               // For calculating cosZ.  In radians.
+  float  cosZ;                                                           // Input to evapoTranspirationSoil, unitless.
+  EvapoTranspirationSoilMoistureStruct evapoTranspirationSoilMoisture;   // Input to evapoTranspirationSoil.
+  double dt                      = timestepEndTime - currentTime;        // Seconds.
+  float  surfacewaterAdd;                                                // Output of evapoTranspirationSoil in millimeters.
+  float  evaporationFromCanopy;                                          // Output of evapoTranspirationSoil in millimeters.
+  float  evaporationFromSnow;                                            // Output of evapoTranspirationSoil in millimeters.
+  float  evaporationFromGround;                                          // Output of evapoTranspirationSoil in millimeters.
+  float  transpirationFromVegetation;                                    // Output of evapoTranspirationSoil in millimeters.
+  float  waterError;                                                     // Output of evapoTranspirationSoil in millimeters.
+  double evaporation;                                                    // Meters.
+  double transpiration;                                                  // Meters.
+  double unsatisfiedEvaporation;                                         // Meters.
+  double groundwaterEvaporation;                                         // Meters.
+  double totalOutwardFlowRate    = 0.0;                                  // Sum of all outward flow rates in cubic meters per second.
+  double outwardFlowRateFraction = 1.0;                                  // Fraction of all outward flow rates that can be satisfied, unitless.
+  double waterSent;                                                      // Cubic meters.
+  
+  // FIXME error check inputs.
+  
+  // Calculate year, month, and day.
+  julianToGregorian(localSolarDateTime, &year, &month, &day, &hour, &minute, &second);
   
   // Determine if it is a leap year.
   if (0 == year % 400)
@@ -286,15 +499,15 @@ bool MeshElement::doPointProcessesAndSendOutflows()
     }
   
   // Calculate the ordinal day of the year by subtracting the Julian date of Jan 1 beginning midnight.
-  julian = date - gregorianToJulian(year, 1, 1, 0, 0, 0);
+  julian = localSolarDateTime - gregorianToJulian(year, 1, 1, 0, 0, 0);
   
   // FIXME if this element is shaded set cosZ to zero.
 
   // FIXME handle slope and aspect effects on solar radiation.
   
-  // This calculates the hour angle at longitude zero, and then adds the longitude of this location.  If it wraps around to greater than two PI or less than
-  // zero it doesn't matter because we are only using the cosine of it.  
-  hourAngle = (date - gregorianToJulian(year, month, day, 12, 0, 0)) * 2.0 * M_PI + longitude;
+  // The number of "hours" that the sun is east or west of straight overhead.  The value is actually in radians with each hour being Pi/12 radians.  Positive
+  // means west.  Negative means east.
+  hourAngle = (localSolarDateTime - gregorianToJulian(year, month, day, 12, 0, 0)) * 2.0 * M_PI;
   
   // Calculate cosZ.
   declinationOfSun = -23.44 * M_PI / 180.0 * cos(2.0 * M_PI * (julian + 10.0) / yearlen);
@@ -310,8 +523,10 @@ bool MeshElement::doPointProcessesAndSendOutflows()
       cosZ = 0.0f;
     }
   
+  // Fill in the Noah-MP soil moisture struct from groundwater and vadose zone state.
   underground.fillInEvapoTranspirationSoilMoistureStruct(elementZSurface, evapoTranspirationState.zSnso, evapoTranspirationSoilMoisture);
   
+  // Do point processes for rainfall, snowmelt, and evapo-transpiration.
   error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
                                  &evapoTranspirationSoilMoisture, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow,
                                  &evaporationFromGround, &transpirationFromVegetation, &waterError);
@@ -420,9 +635,11 @@ bool MeshElement::doPointProcessesAndSendOutflows()
         {
           if (0.0 < (*itMesh).nominalFlowRate)
             {
-              surfacewaterDepth -= (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction / elementArea;
+              waterSent          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+              surfacewaterDepth -= waterSent / elementArea;
 
-              (*itMesh).sendWater(MeshSurfacewaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              // FIXME call the region's function to send the water.
+              //region->sendWater(MeshSurfacewaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
             }
         }
 
@@ -430,9 +647,11 @@ bool MeshElement::doPointProcessesAndSendOutflows()
         {
           if (0.0 < (*itChannel).nominalFlowRate)
             {
-              surfacewaterDepth -= (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction / elementArea;
+              waterSent          = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
+              surfacewaterDepth -= waterSent / elementArea;
 
-              (*itChannel).sendWater(MeshSurfacewaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              // FIXME call the region's function to send the water.
+              //region->sendWater(MeshSurfacewaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
             }
         }
 
@@ -451,11 +670,13 @@ bool MeshElement::doPointProcessesAndSendOutflows()
   return error;
 }
 
-bool MeshElement::allInflowsArrived()
+bool MeshElement::allInflowsArrived(double currentTime, double timestepEndTime)
 {
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;            // Loop iterator.
   std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
-  bool                                                        allArrived = true; // Whether all material has arrived from all neighbors.
+  bool allArrived = underground.allInflowsArrived(currentTime, timestepEndTime); // Whether all material has arrived from all neighbors.
+  
+  // FIXME error check inputs.
   
   // If timestepEndTime is not in the future we can't call allMaterialHasArrived.  allInflowsArrived shouldn't be called in this situation, but if it is return
   // that all inflows have arrived for the next zero seconds.
@@ -481,10 +702,12 @@ bool MeshElement::allInflowsArrived()
   return allArrived;
 }
 
-void MeshElement::receiveInflowsAndAdvanceTime()
+void MeshElement::receiveInflows(double currentTime, double timestepEndTime)
 {
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;    // Loop iterator.
   std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel; // Loop iterator.
+  
+  // FIXME error check inputs.
   
   // If timestepEndTime is not in the future we can't call getMaterial.  advanceTime shouldn't be called in this situation, but if it is we don't have to do
   // anything to advance time by zero seconds.
@@ -507,7 +730,6 @@ void MeshElement::receiveInflowsAndAdvanceTime()
             }
         }
       
-      // Advance time.
-      currentTime = timestepEndTime;
+      underground.receiveInflows(currentTime, timestepEndTime, elementArea);
     }
 }

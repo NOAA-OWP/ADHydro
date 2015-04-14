@@ -5,6 +5,8 @@ mainmodule adhydro
     readonly double centralMeridian;
     readonly double falseEasting;
     readonly double falseNorthing;
+    readonly bool   drainDownMode;
+    readonly double drainDownTime;
     readonly int    verbosityLevel;
     
     entry ADHydro(CkArgMsg* msg);
