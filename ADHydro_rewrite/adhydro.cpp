@@ -4,6 +4,8 @@
 double ADHydro::centralMeridian;
 double ADHydro::falseEasting;
 double ADHydro::falseNorthing;
+bool   ADHydro::drainDownMode;
+double ADHydro::drainDownTime;
 int    ADHydro::verbosityLevel;
 
 bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude)

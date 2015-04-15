@@ -2,6 +2,115 @@
 #include "test_random_simulation.decl.h"
 #include <cstdio>
 
+/* I changed the implementation of Element to cut this code out.  We'll have to implement something similar here instead of calling the function in Element that no longer exists.
+ * 
+  
+  // There is some generic code for any simulation implemented in the Element
+  // class that requires iterating through all of the neighbors of the element.
+  // Storing a container of NeighborProxys in Element isn't a good solution
+  // because specific simulations are going to subclass NeighborProxy.  Storing
+  // a container of pointers to NeighborProxys also isn't a good solution
+  // because it has a bad interaction with the pup framework.  Basically, when
+  // we are unpacking and need to construct a new object to store the pupped
+  // data how do we know which subclass to construct?  The right solution is to
+  // have this pure virtual iterator class that gets subclassed by each
+  // specific simulation to iterate over the specific NeighborProxy
+  // subclass(es) in the simulation.  The actual NeighborProxy subclass objects
+  // are stored in the Element subclass, which knows their type and can pup
+  // them properly.
+  //
+  // Subclasses of iterator must iterate over all of an element's neighbors
+  // even if an element has multiple types of neighbors in multiple containers.
+  //
+  // This is a non-standard iterator pattern.  It was done this way so that the
+  // actual implementation could come from subclasses.
+  class Iterator
+  {
+  public:
+    
+    // Destructor.  Needs to be virtual because we will be deleting Iterator
+    // pointers to subclass objects.
+    virtual ~Iterator();
+    
+    // Dereference operator.
+    //
+    // Returns: The NeighborProxy that this iterator points to.
+    virtual NeighborProxy& operator*() = 0;
+    
+    // Increment operator.
+    //
+    // Returns: The iterator after incrementing.
+    virtual Iterator& operator++() = 0;
+    
+    // Returns: true if the iterator is at the end, false otherwise.
+    virtual bool atEnd() = 0;
+  }; // End class Iterator.
+  
+  // Returns: A heap allocated iterator pointing to the first of this element's
+  //          neighbors.  The caller is responsible for deleting it.
+  virtual Iterator* begin() = 0;
+  
+  // Returns: true if the flow rate expiration times of all neighbors are
+  //          later than currentTime, false othewise.
+  bool allFlowRatesCalculated();
+  
+  // If currentTime is equal to timestepEndTime calculate the minimum of
+  // nextSyncTime and the expirationTimes of all neighbors.  If this minimum is
+  // later than currentTime select it as the new timestepEndTime.
+  //
+  // If timestepEndTime is already later than currentTime, or this minimum is
+  // equal to currentTime do not select a new timestepEndTime.
+  //
+  // Returns: true if a new timestepEndTime was selected.
+  bool selectTimestep();
+
+Element::Iterator::~Iterator()
+{
+  // Do nothing.
+}
+
+// FIXME do I need allFlowRatesCalculated?  Maybe I could just call selectTimestep instead.
+bool Element::allFlowRatesCalculated()
+{
+  Iterator* it;                   // Loop iterator.
+  bool      allCalculated = true; // Return value.
+  
+  for (it = begin(); allCalculated && !it->atEnd(); ++*it)
+    {
+      allCalculated = (currentTime < (**it).expirationTime);
+    }
+  
+  delete it;
+  
+  return allCalculated;
+}
+
+bool Element::selectTimestep()
+{
+  Iterator* it;                  // Loop iterator.
+  bool      newTimestep = false; // return value
+  
+  if (timestepEndTime == currentTime)
+    {
+      timestepEndTime = nextSyncTime;
+
+      for (it = begin(); !it->atEnd(); ++*it)
+        {
+          if (timestepEndTime > (**it).expirationTime)
+            {
+              timestepEndTime = (**it).expirationTime;
+            }
+        }
+
+      delete it;
+      
+      newTimestep = (timestepEndTime > currentTime);
+    }
+  
+  return newTimestep;
+}
+ */
+
 // Forward declaration to eliminate circular dependency.
 class RandomNeighborProxy;
 
