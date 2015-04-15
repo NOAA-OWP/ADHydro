@@ -49,6 +49,8 @@ public:
                           // Whenever vadose zone state is needed it is assumed to be in equilibrium with groundwaterHead.  If groundwaterMethod is
                           // SHALLOW_AQUIFER then quantity of water in the domain is groundwaterRecharge + (groundwaterHead - layerZBottom) * porosity, and no
                           // vadose zone water is counted.  If groundwaterMethod is DEEP_AQUIFER then quantity of water in the domain is groundwaterRecharge.
+    GARTO_INFILTRATION,   // Vadose zone water is simulated using Green-Ampt infiltration and redistribution method for surface wetting front, 
+                          // and T-O method for groundwater front.
   };
   
   enum GroundwaterMethodEnum
