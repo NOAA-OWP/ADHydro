@@ -1,9 +1,9 @@
-#ifndef GARTO_H
-#define GARTO_H
+#ifndef __GARTO_H__
+#define __GARTO_H__
 
 /* A garto_parameters struct stores constant soil parameters for Green-Ampt with Redistribution (GARTO) domain.
- * Note: In GARTO model, the Brooks-Corey soil model is taken by default, because the capillary head across the 
- * wetting front between any water content G(theta_1, theta_2) is available. While the analytic equation from 
+ * Note: In GARTO model, the Brooks-Corey soil model is taken by default, because the capillary head across the
+ * wetting front between any water content G(theta_1, theta_2) is available. While the analytic equation from
  * van Genutchen is not available, the vg_alpha and vg_n are transformed to bc_lambda and bc_psib.
  */
 typedef struct
@@ -16,7 +16,7 @@ typedef struct
   double bc_lambda;                   // Brook-Corey parameter, unitless.
   double bc_psib;                     // Brook-Corey parameter in meters [m].
   double saturated_conductivity;      // Saturated hydraulic conducivity in meters per second [m/s].
-  double effective_capillary_suction; // Effective capillary suction head used in Green-Ampt model, in meters [m]. 
+  double effective_capillary_suction; // Effective capillary suction head used in Green-Ampt model, in meters [m].
 } garto_parameters;
 
 /* A garto_domain struct stores all of the state of a single GARTO domain.
@@ -27,7 +27,7 @@ typedef struct
   garto_parameters* parameters;              // Constant soil paramters.
   double            top_depth;               // The dpeth of the top of the garto_domain in meters [m].
   double            bottom_depth;            // The dpeth of the bottom of the garto_domain in meters [m].
-  double*           d_theta;                 // 1D array of veloctiy of surface wetting fornt water content change in each bin, unitless.
+  double*           d_theta;                 // 1D array of veloctiy of surface wetting front water content change in each bin, unitless.
   double*           surface_front_theta;     // 1D array of surface front water content in each bin, unitless.
   double*           surface_front_depth;     // 1D array of depth of surface water wetting front in each bin, in meters[m].
   double*           groundwater_front_theta; // 1D array of groundwater front water content in each bin, unitless.
@@ -56,29 +56,29 @@ typedef struct
  */
 int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double conductivity, double porosity, double residual_saturation,
                            int van_genutchen, double vg_alpha, double vg_n, double bc_lambda, double bc_psib);
-                         
+
 /* Free memory allocated by garto_parameters_alloc.
  *
  * Parameters:
  *
- * parameters - A pointer to the gart0_parameters struct passed by reference. Will be set to NULL after the memory is deallocated.
- */                         
+ * parameters - A pointer to the garto_parameters struct passed by reference. Will be set to NULL after the memory is deallocated.
+ */
 void garto_parameters_dealloc(garto_parameters** parameters);
 
 /* Create a garto_domain struct and initialize it.
  * Return TRUE if there is an error, FALSE otherwise.
  * If yes_groundwater is TRUE and initialize_to_hydrostatic is TRUE, then the domain is initialized to hydrostatic equilibrium with the given water table.
- * Else, the domain is initialized to have no water other than initial_water_content. 
+ * Else, the domain is initialized to have no water other than initial_water_content.
  *
  * Parameters:
  *
  * domain                    - A pointer passed by reference which will be assigned to point to the newly allocated struct or NULL if there is an error.
  * parameters                - A pointer to the garto_parameters struct.
  * layer_top_depth           - The depth of the top    of the garto_domain in meters[m].
- * layer_bottom_depth        - The depth of the bottom of the t_o_domain in meters[m].
+ * layer_bottom_depth        - The depth of the bottom of the garto_domain in meters[m].
  * yes_groundwater           - Whether to simulate groundwater.
  * initial_water_content     - Initial water content used when yes_groundwater or initialize_to_hydrostatic is FALSE.
- * initialize_to_hydrostatic - Whether to initialize the groundwater front to hydrostatic equilibrium with the given water table. 
+ * initialize_to_hydrostatic - Whether to initialize the groundwater front to hydrostatic equilibrium with the given water table.
  * water_table               - The depth in meters of the water table to use to initialize the groundwater front.
  */
 int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, double layer_top_depth, double layer_bottom_depth, int yes_groundwater,
@@ -100,18 +100,18 @@ void garto_domain_dealloc(garto_domain** domain);
  */
 double garto_total_water_in_domain(garto_domain* domain);
 
-/* Step the Grenn-Ampt with Redistribution simulation forward one timestep.
+/* Step the Green-Ampt with Redistribution simulation forward one timestep.
  * Return TRUE if there is an error, FALSE otherwise.
  *
  * Parameters:
  *
  * domain               - A pointer to the garto_domain struct.
  * dt                   - The duration of the timestep in seconds.
- * surfacewater_depth   - A scalar passed by reference containing the depth in meters of the surface water.  
+ * surfacewater_depth   - A scalar passed by reference containing the depth in meters of the surface water.
  *                         Will be updated for the amount of infiltration.
- * water_table          - The depth in meters of the water table.                      
+ * water_table          - The depth in meters of the water table.
  * groundwater_recharge - A scalar passed by reference containing any previously accumulated groundwater recharge in meters of water.
- *                        Will be updated for the amount of water that flowed between the GARTO domain and groundwater. 
+ *                        Will be updated for the amount of water that flowed between the GARTO domain and groundwater.
  *                        Positive means water flowed down out of the GARTO domain.
  *                        Negative means water flowed up in to the GARTO domain.
  */
@@ -135,11 +135,11 @@ void garto_check_invariant(garto_domain* domain);
  *                        If the updated value is not epsilon equal to zero the caller is responsible for putting
  *                        that much water somewhere else to maintain mass conservation.
  *                        If it failed to add all of the water that means the domain is entirely full and you can
- *                        move the water table to the surface and put the rest  of the water in the surface water.                
+ *                        move the water table to the surface and put the rest  of the water in the surface water.    
  */
 void garto_add_groundwater(garto_domain* domain, double* groundwater_recharge);
 
-/* Arbitrarily remove water from the groundwater front of a GARTO domain.  
+/* Arbitrarily remove water from the groundwater front of a GARTO domain.
  * This function is used to couple the domain to a separate groundwater simulation.
  *
  * garto_take_groundwater takes water starting with the rightmost bin.
@@ -156,9 +156,9 @@ void garto_add_groundwater(garto_domain* domain, double* groundwater_recharge);
 void garto_take_groundwater(garto_domain* domain, double water_table, double* groundwater_recharge);
 
 /* Return an estimate of the specific yield.
- * 
+ *
  * Parameters:
- * 
+ *
  * domain      - A pointer to the t_o_domain struct.
  * water_table - The depth in meters of the water table.
  */
@@ -174,7 +174,7 @@ double garto_specific_yield(garto_domain* domain, double water_table);
  * transpiration_demand - Potential root zone transpiration demand in meters of water.
  * root_depth           - Depth of root zone in [meters].
  *
- * Note, soil evaporation rate can be obtained from NOAHMP output variable ESOIL() in unit of [mm / second], (variable name EDIR() in origin NOAH code). 
+ * Note, soil evaporation rate can be obtained from NOAHMP output variable ESOIL() in unit of [mm / second], (variable name EDIR() in origin NOAH code).
  *          transpiration rate can be obtained from NOAHMP output variable ETRAN() in unit of [mm / second].
  */
 double garto_evapotranspiration(garto_domain* domain, double evaporation_demand, double transpiration_demand, double root_depth);
@@ -188,5 +188,5 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
  * soil_depth_z       - A pointer to 1d array of size num_elements contains depth of each element's lower bound, in unit of [meters], positive downward.
  */
 int get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements);
-                  
-#endif // GARTO_H
+
+#endif // __GARTO_H__

@@ -216,17 +216,20 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
-              // soilDepthZ is positive downward, zSnso is negative downward.
+              // FIXME is this necessary?  From the comments waterContent is an output of get_garto_domain_water_content, but Wencong put this here so is it
+              // actually an in/out parameter, or did he just do this while get_garto_domain_water_content is commented out?
               waterContent[ii] = porosity;
+              
+              // soilDepthZ is positive downward, zSnso is negative downward.
+              // FIXME this is wrong if the comment in garto.h is correct that it should contain each element's lower bound
               soilDepthZ[ii]   = -0.5 * (zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] + zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
             }
           
-          // FIXME, need to initialize garto_domain.
-          // get_garto_domain_water_content(garto_domain, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
+          get_garto_domain_water_content((garto_domain*)vadoseZoneState, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
-              evapoTranspirationSoilMoisture.smcEq[ii] = waterContent[ii];
+              evapoTranspirationSoilMoisture.smcEq[ii] = waterContent[ii]; // FIXME no, GARTO is not necessarily at equilibrium.
               evapoTranspirationSoilMoisture.sh2o[ii]  = waterContent[ii];
               evapoTranspirationSoilMoisture.smc[ii]   = waterContent[ii];
             }
@@ -275,8 +278,7 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
     }
   else if (GARTO_INFILTRATION == infiltrationMethod)
     {
-      // FIXME, need to initialize garto_domain.
-      // evaporation = garto_evapotranspiration(garto_domain, unsatisfiedEvaporation, 0.0, 0.0);
+      evaporation = garto_evapotranspiration((garto_domain*)vadoseZoneState, unsatisfiedEvaporation, 0.0, 0.0); // FIXME root_depth?
     }
     
   return evaporation;
@@ -302,8 +304,7 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
     }
   else if (GARTO_INFILTRATION == infiltrationMethod)
     {
-      // FIXME, need to initialize garto_domain. define root_depth in vadose zone?
-      // transpiration = garto_evapotranspiration(garto_domain, 0.0, unsatisfiedTranspiration, root_depth);
+      transpiration = garto_evapotranspiration((garto_domain*)vadoseZoneState, 0.0, unsatisfiedTranspiration, 0.0); // FIXME root_depth?
     }
   return transpiration;
 }
@@ -359,8 +360,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
         }
       else if (GARTO_INFILTRATION == infiltrationMethod)
         {
-          // FIXME, need to define garto_domain. Is it passed by reference correct?
-          // garto_timestep(garto_domain, dt, &surfacewaterDepth, groundwaterHead, &groundwaterRecharge);
+          garto_timestep((garto_domain*)vadoseZoneState, dt, &surfacewaterDepth, elementZSurface - groundwaterHead, &groundwaterRecharge);
         }
 
       // Do groundwater outflows and resolve groundwaterRecharge.
@@ -455,18 +455,37 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
             }
           else if (GARTO_INFILTRATION == infiltrationMethod)
             {
-              // FIXME this is not quite correct.  Fix it later.
-              if (groundwaterRecharge > 0.0)
+              groundwaterHead += groundwaterRecharge / garto_specific_yield((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead);
+
+              // Cap groundwaterHead at the surface.  Do not limit groundwaterHead from going below layerZBottom.
+              if (groundwaterHead > elementZSurface)
                 {
-                  //garto_add_groundwater(garto_domain, &groundwaterRecharge);
+                  groundwaterHead = elementZSurface;
                 }
-              else if (groundwaterRecharge < 0.0)
+              
+              if (epsilonLess(0.0, groundwaterRecharge))
                 {
-                  //garto_take_groundwater(garto_domain, groundwaterHead, &groundwaterRecharge);
+                  // If there is excess water put it immediately into the groundwater front of the GARTO domain.
+                  garto_add_groundwater((garto_domain*)vadoseZoneState, &groundwaterRecharge);
+
+                  if (epsilonLess(0.0, groundwaterRecharge))
+                    {
+                      // Not all of the water could fit in to the GARTO domain because the domain is full.  Put the excess water on the surface and the
+                      // groundwater head moves up to the surface.  The real groundwater head is at the top of the surfacewater, but we set groundwaterHead to
+                      // be at the surface and add surfacewaterDepth as needed because if we set groundwaterHead to be at the top of the surfacewater we would
+                      // need to update it any time the value of surfacewaterDepth changed.
+                      surfacewaterDepth   += groundwaterRecharge;
+                      groundwaterRecharge  = 0.0;
+                      groundwaterHead      = elementZSurface;
+                    }
                 }
-               
-              //groundwaterHead  += groundwaterRecharge / garto_specific_yield(garto_domain, groundwaterHead); // Probaly not need this.
-              groundwaterError += groundwaterRecharge;
+              else if (epsilonGreater(0.0, groundwaterRecharge))
+                {
+                  // If there is a water deficit take it immediately from the groundwater front of the GARTO domain.
+                  garto_take_groundwater((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead, &groundwaterRecharge);
+
+                  // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+                }
             }
         }
     }

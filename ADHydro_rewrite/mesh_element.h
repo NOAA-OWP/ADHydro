@@ -120,8 +120,8 @@ public:
     NO_AQUIFER,      // This method must be used if and only if infiltrationMethod is NO_INFILTRATION.
     DEEP_AQUIFER,    // The water table is assumed to always be below the modeled domain.  Any water that makes it to groundwaterRecharge gets sent immediately
                      // to an aquifer storage bucket, which may collect water from many elements.  There is no lateral flow to neighboring elements.  The
-                     // meshNeighbors and channelNeighbors vectors must be empty.  If infiltrationMethod is TRIVIAL_INFILTRATION then the member variable
-                     // groundwaterHead still needs a valid value because it is used to fill in the soil moisture struct, but its value is never changed.
+                     // meshNeighbors and channelNeighbors vectors must be empty.  The member variable groundwaterHead still needs a valid value because it is
+                     // used to fill in the soil moisture struct, but its value is never changed.
     SHALLOW_AQUIFER, // Both vadose zone and water table are modeled.  Water that makes it to groundwaterRecharge stays in the modeled domain.  Water below
                      // groundwaterHead may flow laterally to neighboring elements.
   };
@@ -283,6 +283,12 @@ public:
   double groundwaterHead;     // Elevation in meters.
   double groundwaterRecharge; // Meters of water.
   double groundwaterError;    // Meters of water.  Positive means water was created.  Negative means water was destroyed.
+  
+  // Vadose zone variables.
+  void* vadoseZoneState; // What this is depends on infiltrationMethod:
+                         //   NO_INFILTRATION      - NULL.
+                         //   TRIVIAL_INFILTRATION - NULL.
+                         //   GARTO_INFILTRATION   - Pointer to garto_domain.
   
   // Neighbors.
   std::vector<MeshGroundwaterMeshNeighborProxy>    meshNeighbors;
