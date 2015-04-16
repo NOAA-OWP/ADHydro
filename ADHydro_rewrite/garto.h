@@ -14,7 +14,7 @@ typedef struct
   double vg_alpha;                    // Van Genutchen parameter in one over meters [1/m].
   double vg_n;                        // Van Genutchen parameter, unitless.
   double bc_lambda;                   // Brook-Corey parameter, unitless.
-  double bc_psib;                     // Brook-Corey parameter in meters [m].
+  double bc_psib;                     // Brook-Corey parameter in meters [m], positive value.
   double saturated_conductivity;      // Saturated hydraulic conducivity in meters per second [m/s].
   double effective_capillary_suction; // Effective capillary suction head used in Green-Ampt model, in meters [m].
 } garto_parameters;
@@ -170,8 +170,8 @@ double garto_specific_yield(garto_domain* domain, double water_table);
  * Parameters:
  *
  * domain               - A pointer to the garto_domain struct.
- * evaporation_demand   - Potential evaporation demand in meters of water.
- * transpiration_demand - Potential root zone transpiration demand in meters of water.
+ * evaporation_demand   - Evaporation demand in meters of water.
+ * transpiration_demand - Root zone transpiration demand in meters of water.
  * root_depth           - Depth of root zone in [meters].
  *
  * Note, soil evaporation rate can be obtained from NOAHMP output variable ESOIL() in unit of [mm / second], (variable name EDIR() in origin NOAH code).
@@ -179,14 +179,24 @@ double garto_specific_yield(garto_domain* domain, double water_table);
  */
 double garto_evapotranspiration(garto_domain* domain, double evaporation_demand, double transpiration_demand, double root_depth);
 
-/* Map gar domain into water content in 1D space discretization, water_content[num_elements] and effective_porosity are output values.
+/* Map gar domain into water content in 1D space discretization, water_content[num_elements] is output values.
+ * water_content[jj] is average water content between layer (soil_depth_z[jj - 1], soil_depth_z[jj]).
  *
  * Parameters:
  * domain             - A pointer to the garto_domain struct.
- * num_elements       - Number of element in 1d soil column, zero-based.
  * water_content      - A pointer to 1d array of size num_elements contains water content of each element.
  * soil_depth_z       - A pointer to 1d array of size num_elements contains depth of each element's lower bound, in unit of [meters], positive downward.
+ *                      Both water_content and soil_depth_z are zero-based.
+ * num_elements       - Number of element in 1d soil column.
  */
-int get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements);
+void get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements);
+
+/* Get equilibrium water content using Brook-Corey retention curve, given depth above water table. Add April 16, 2015.
+ * Parameters:
+ * domain                  - A pointer to the garto_domain struct.
+ * depth_above_water_table - Depth above water table in meters.
+ *
+ */
+double garto_equilibrium_water_content(garto_domain* domain, double depth_above_water_table);
 
 #endif // __GARTO_H__
