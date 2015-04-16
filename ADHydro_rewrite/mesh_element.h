@@ -96,7 +96,8 @@ public:
   double neighborBedThickness;    // Meters.
 };
 
-// FIXME comment
+// An InfiltrationAndGroundwater simulates the groundwater and vadose zone
+// state for a MeshElement.
 class InfiltrationAndGroundwater
 {
 public:
@@ -130,8 +131,59 @@ public:
   
   // FIXME checkInvariant
   
+  // Calculate new values for nominalFlowRate and expirationTime for a proxy in
+  // meshNeighbors.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime               - Current simulation time in seconds since
+  //                             Element::referenceDate.
+  // regionalDtLimit           - Maximum duration in seconds before the new
+  //                             expirationTime.  If the neighbor is in a
+  //                             different region you must pass in the minimum
+  //                             of the time limits of the two regions.
+  // neighborProxyIndex        - Which index of meshNeighbors is the proxy for
+  //                             the neighbor.
+  // elementX                  - Pass value from MeshElement object.
+  // elementY                  - Pass value from MeshElement object.
+  // elementZSurface           - Pass value from MeshElement object.
+  // elementArea               - Pass value from MeshElement object.
+  // elementSurfacewaterDepth  - Pass value from MeshElement object.
+  // neighborSurfacewaterDepth - Meters.
+  // neighborGroundwaterHead   - Elevation in meters.
+  bool calculateNominalFlowRateWithGroundwaterMeshNeighbor(double currentTime, double regionalDtLimit,
+                                                           std::vector<MeshGroundwaterMeshNeighborProxy>::size_type neighborProxyIndex, double elementX,
+                                                           double elementY, double elementZSurface, double elementArea, double elementSurfacewaterDepth,
+                                                           double neighborSurfacewaterDepth, double neighborGroundwaterHead);
+  
+  // Calculate new values for nominalFlowRate and expirationTime for a proxy in
+  // channelNeighbors.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime               - Current simulation time in seconds since
+  //                             Element::referenceDate.
+  // regionalDtLimit           - Maximum duration in seconds before the new
+  //                             expirationTime.  If the neighbor is in a
+  //                             different region you must pass in the minimum
+  //                             of the time limits of the two regions.
+  // neighborProxyIndex        - Which index of meshNeighbors is the proxy for
+  //                             the neighbor.
+  // elementZSurface           - Pass value from MeshElement object.
+  // elementSurfacewaterDepth  - Pass value from MeshElement object.
+  // neighborSurfacewaterDepth - Meters.
+  bool calculateNominalFlowRateWithGroundwaterChannelNeighbor(double currentTime, double regionalDtLimit,
+                                                              std::vector<MeshGroundwaterChannelNeighborProxy>::size_type neighborProxyIndex,
+                                                              double elementZSurface, double elementSurfacewaterDepth, double neighborSurfacewaterDepth);
+  
   // Fill in the evapo-transpiration soil moisture variables from the current
   // groundwater state.
+  //
+  // Returns: true if there is an error, false otherwise.
   //
   // Parameters:
   //
@@ -142,7 +194,7 @@ public:
   // evapoTranspirationSoilMoisture
   //                 - Soil moisture struct passed by reference will be filled
   //                   in based on current groundwater state.
-  void fillInEvapoTranspirationSoilMoistureStruct(double elementZSurface, float zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS],
+  bool fillInEvapoTranspirationSoilMoistureStruct(double elementZSurface, float zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS],
                                                   EvapoTranspirationSoilMoistureStruct& evapoTranspirationSoilMoisture);
   
   // Remove surface evaporation from groundwater.
@@ -163,60 +215,15 @@ public:
   // unsatisfiedTranspiration - The requested amount of water in meters.
   double transpire(double unsatisfiedTranspiration);
   
-  // Calculate nominalFlowRate and expirationTime with a mesh neighbor.
-  //
-  // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // currentTime                 - Current simulation time in seconds since
-  //                               Element::referenceDate.
-  // regionalExpirationTimeLimit - Simulation time in seconds that the new
-  //                               expirationTime can be no greater than.  If
-  //                               the neighbor is in a different region you
-  //                               must pass in the minimum of the time limits
-  //                               of the two regions.
-  // neighborProxyIndex          - Which element of meshNeighbors is the proxy
-  //                               for the neighbor.
-  // elementX                    - Pass value from MeshElement object.
-  // elementY                    - Pass value from MeshElement object.
-  // elementZSurface             - Pass value from MeshElement object.
-  // elementArea                 - Pass value from MeshElement object.
-  // elementSurfacewaterDepth    - Pass value from MeshElement object.
-  // neighborSurfacewaterDepth   - Meters.
-  // neighborGroundwaterHead     - Elevation in meters.
-  bool calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex, double elementX,
-                                                double elementY, double elementZSurface, double elementArea, double elementSurfacewaterDepth,
-                                                double neighborSurfacewaterDepth, double neighborGroundwaterHead);
-  
-  // Calculate nominalFlowRate and expirationTime with a channel neighbor.
-  //
-  // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // currentTime                 - Current simulation time in seconds since
-  //                               Element::referenceDate.
-  // regionalExpirationTimeLimit - Simulation time in seconds that the new
-  //                               expirationTime can be no greater than.  If
-  //                               the neighbor is in a different region you
-  //                               must pass in the minimum of the time limits
-  //                               of the two regions.
-  // neighborProxyIndex          - Which element of channelNeighbors is the
-  //                               proxy for the neighbor.
-  // elementZSurface             - Pass value from MeshElement object.
-  // elementSurfacewaterDepth    - Pass value from MeshElement object.
-  // neighborSurfacewaterDepth   - Meters.
-  bool calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex, double elementZSurface,
-                                                   double elementSurfacewaterDepth, double neighborSurfacewaterDepth);
-  
   // Perform infiltration, which takes water from surfacewaterDepth and takes
   // or puts water into groundwaterRecharge.  Then limit and send groundwater
   // outflows taking the water from groundwaterRecharge.  Groundwater inflows
   // from last timestep will already be in groundwaterRecharge.  Then update
   // groundwaterHead based on net groundwaterRecharge and take or put
-  // groundwaterRecharge water back into the domain, or if the domain is full
-  // put it back in surfacewaterDepth.
+  // groundwaterRecharge water back into the vadose zone, or if the vadose zone
+  // is full put it back in surfacewaterDepth.
+  //
+  // Returns: true if there is an error, false otherwise.
   //
   // Parameters:
   //
@@ -230,14 +237,33 @@ public:
   //                     surfacewater available for infiltration in meters.
   //                     Will be updated to the new amount of surfacewater
   //                     after infiltration or exfiltration.
-  void doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
+  bool doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
                                                 double elementArea, double& surfacewaterDepth);
   
-  // FIXME comment
+  // Returns: whether all inflows have arrived that are required to advance
+  // time to timestepEndTime.
+  //
+  // Parameters:
+  //
+  // currentTime     - Current simulation time in seconds since
+  //                   Element::referenceDate.
+  // timestepEndTime - Simulation time at the end of the current timestep in
+  //                   seconds since referenceDate.
   bool allInflowsArrived(double currentTime, double timestepEndTime);
   
-  // FIXME comment
-  void receiveInflows(double currentTime, double timestepEndTime, double elementArea);
+  // Update state to incorporate all incoming water from incomingMaterial lists
+  // up to timestepEndTime.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime     - Current simulation time in seconds since
+  //                   Element::referenceDate.
+  // timestepEndTime - Simulation time at the end of the current timestep in
+  //                   seconds since referenceDate.
+  // elementArea     - Pass value from MeshElement object.
+  bool receiveInflows(double currentTime, double timestepEndTime, double elementArea);
   
   // The methods to use to calculate infiltration and groundwater flow.
   InfiltrationMethodEnum infiltrationMethod;
@@ -265,7 +291,9 @@ public:
 PUPbytes(InfiltrationAndGroundwater::InfiltrationMethodEnum);
 PUPbytes(InfiltrationAndGroundwater::GroundwaterMethodEnum);
 
-// FIXME comment
+// A MeshElement is a triangular element in the mesh.  It simulates the
+// overland (non-channel) surfacewater state, and through a contained
+// InfiltrationAndGroundwater also the groundwater and vadose zone state.
 class MeshElement
 {
 public:
@@ -276,22 +304,88 @@ public:
   
   // FIXME checkInvariant
   
-  // FIXME comment
-  bool calculateNominalFlowRateWithMeshNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
-                                                double neighborSurfacewaterDepth);
+  // Calculate new values for nominalFlowRate and expirationTime for a proxy in
+  // meshNeighbors.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime               - Current simulation time in seconds since
+  //                             Element::referenceDate.
+  // regionalDtLimit           - Maximum duration in seconds before the new
+  //                             expirationTime.  If the neighbor is in a
+  //                             different region you must pass in the minimum
+  //                             of the time limits of the two regions.
+  // neighborProxyIndex        - Which index of meshNeighbors is the proxy for
+  //                             the neighbor.
+  // neighborSurfacewaterDepth - Meters.
+  bool calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double currentTime, double regionalDtLimit,
+                                                            std::vector<MeshSurfacewaterMeshNeighborProxy>::size_type neighborProxyIndex,
+                                                            double neighborSurfacewaterDepth);
   
-  // FIXME comment
-  bool calculateNominalFlowRateWithChannelNeighbor(double currentTime, double regionalExpirationTimeLimit, int neighborProxyIndex,
-                                                   double neighborSurfacewaterDepth);
+  // Calculate new values for nominalFlowRate and expirationTime for a proxy in
+  // channelNeighbors.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime               - Current simulation time in seconds since
+  //                             Element::referenceDate.
+  // regionalDtLimit           - Maximum duration in seconds before the new
+  //                             expirationTime.  If the neighbor is in a
+  //                             different region you must pass in the minimum
+  //                             of the time limits of the two regions.
+  // neighborProxyIndex        - Which index of channelNeighbors is the proxy
+  //                             for the neighbor.
+  // neighborSurfacewaterDepth - Meters.
+  bool calculateNominalFlowRateWithSurfacewaterChannelNeighbor(double currentTime, double regionalDtLimit,
+                                                               std::vector<MeshSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex,
+                                                               double neighborSurfacewaterDepth);
   
-  // FIXME comment
+  // Update state for point processes that require no communication with other
+  // elements.  Then send outflow water to neighbors.  Handles surfacewater and
+  // calls underground to handle groundwater.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // referenceDate   - Julian date when currentTime is zero.  The current date
+  //                   and time of the simulation is the Julian date equal to
+  //                   referenceDate + currentTime / (24.0 * 60.0 * 60.0).
+  //                   Time zone is UTC.
+  // currentTime     - Current simulation time in seconds since referenceDate.
+  // timestepEndTime - Simulation time at the end of the current timestep in
+  //                   seconds since referenceDate.
   bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime);
   
-  // FIXME comment
+  // Returns: whether all inflows have arrived that are required to advance
+  //          time to timestepEndTime.  Handles surfacewater and calls
+  //          underground to handle groundwater.
+  //
+  // Parameters:
+  //
+  // currentTime     - Current simulation time in seconds since
+  //                   Element::referenceDate.
+  // timestepEndTime - Simulation time at the end of the current timestep in
+  //                   seconds since referenceDate.
   bool allInflowsArrived(double currentTime, double timestepEndTime);
   
-  // FIXME comment
-  void receiveInflows(double currentTime, double timestepEndTime);
+  // Update state to incorporate all incoming water from incomingMaterial lists
+  // up to timestepEndTime.  Handles surfacewater and calls underground to
+  // handle groundwater.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime     - Current simulation time in seconds since
+  //                   Element::referenceDate.
+  // timestepEndTime - Simulation time at the end of the current timestep in
+  //                   seconds since referenceDate.
+  bool receiveInflows(double currentTime, double timestepEndTime);
   
   // Identification parameters.
   int elementNumber;  // Mesh element ID number of this element.

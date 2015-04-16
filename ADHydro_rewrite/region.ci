@@ -4,6 +4,8 @@ module region
   {
     entry void runUntilSimulationEnd()
     {
+      // FIXME do initialization.
+      
       while (currentTime < simulationEndTime)
       {
         // Step 1: Calculate nominal flow rates with neighbors.
@@ -50,6 +52,8 @@ module region
         {
           receiveInflowsAndAdvanceTime();
         }
+        
+        // FIXME do output.
       } // End while (currentTime < simulationEndTime).
       
       serial

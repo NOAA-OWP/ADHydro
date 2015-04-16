@@ -97,6 +97,17 @@ mesh_element.o : mesh_element.cpp      \
                  all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
+channel_element.o : channel_element.cpp \
+                    channel_element.h   \
+                    adhydro.h           \
+                    adhydro.decl.h      \
+                    neighbor_proxy.h    \
+                    surfacewater.h      \
+                    groundwater.h       \
+                    all_charm.h         \
+                    all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
 element.o: element.cpp      \
            element.h        \
            all_charm.h      \
