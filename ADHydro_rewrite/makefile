@@ -93,6 +93,7 @@ mesh_element.o : mesh_element.cpp      \
                  surfacewater.h        \
                  groundwater.h         \
                  evapo_transpiration.h \
+                 garto.h               \
                  all_charm.h           \
                  all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@

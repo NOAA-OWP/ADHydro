@@ -2,6 +2,7 @@
 #include "adhydro.h"
 #include "surfacewater.h"
 #include "groundwater.h"
+#include "garto.h"
 
 bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double currentTime, double regionalDtLimit,
                                                                                      std::vector<MeshGroundwaterMeshNeighborProxy>::size_type
@@ -146,11 +147,13 @@ bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterChannelN
 bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(double elementZSurface, float zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS],
                                                                             EvapoTranspirationSoilMoistureStruct& evapoTranspirationSoilMoisture)
 {
-  bool   error = false;           // Error flag.
-  int    ii;                      // Loop counter.
-  double layerMiddleDepth;        // Meters.
-  double distanceAboveWaterTable; // Meters.
-  double relativeSaturation;      // Unitless.
+  bool   error = false;                                           // Error flag.
+  int    ii;                                                      // Loop counter.
+  double layerMiddleDepth;                                        // Meters.
+  double distanceAboveWaterTable;                                 // Meters.
+  double relativeSaturation;                                      // Unitless.
+  double waterContent[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]; // Water content for GARTO_INFILTRATION.
+  double soilDepthZ[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];   // Soil depth in GARTO_INFILTRATION in meters, positive downward.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   for (ii = EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii < EVAPO_TRANSPIRATION_NUMBER_OF_ALL_LAYERS; ii++)
@@ -207,6 +210,27 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
               evapoTranspirationSoilMoisture.smc[ii]   = porosity * relativeSaturation;
             }
         }
+      else if (GARTO_INFILTRATION == infiltrationMethod)
+        {
+          evapoTranspirationSoilMoisture.zwt = elementZSurface - groundwaterHead;
+          
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+            {
+              // soilDepthZ is positive downward, zSnso is negative downward.
+              waterContent[ii] = porosity;
+              soilDepthZ[ii]   = -0.5 * (zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] + zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
+            }
+          
+          // FIXME, need to initialize garto_domain.
+          // get_garto_domain_water_content(garto_domain, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
+          
+          for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+            {
+              evapoTranspirationSoilMoisture.smcEq[ii] = waterContent[ii];
+              evapoTranspirationSoilMoisture.sh2o[ii]  = waterContent[ii];
+              evapoTranspirationSoilMoisture.smc[ii]   = waterContent[ii];
+            }
+        }
 
       // For all methods make the lowest layer water content extend down forever.
       evapoTranspirationSoilMoisture.smcwtd = evapoTranspirationSoilMoisture.smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS - 1];
@@ -249,7 +273,12 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
             }
         }
     }
-
+  else if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      // FIXME, need to initialize garto_domain.
+      // evaporation = garto_evapotranspiration(garto_domain, unsatisfiedEvaporation, 0.0, 0.0);
+    }
+    
   return evaporation;
 }
 
@@ -271,7 +300,11 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
       // With no vadose zone state transpiration water comes from the same place as evaporation water.
       transpiration = evaporate(unsatisfiedTranspiration);
     }
-
+  else if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      // FIXME, need to initialize garto_domain. define root_depth in vadose zone?
+      // transpiration = garto_evapotranspiration(garto_domain, 0.0, unsatisfiedTranspiration, root_depth);
+    }
   return transpiration;
 }
 
@@ -323,6 +356,11 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
               groundwaterRecharge += surfacewaterDepth;
               surfacewaterDepth    = 0.0;
             }
+        }
+      else if (GARTO_INFILTRATION == infiltrationMethod)
+        {
+          // FIXME, need to define garto_domain. Is it passed by reference correct?
+          // garto_timestep(garto_domain, dt, &surfacewaterDepth, groundwaterHead, &groundwaterRecharge);
         }
 
       // Do groundwater outflows and resolve groundwaterRecharge.
@@ -414,6 +452,21 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   surfacewaterDepth += (groundwaterHead - elementZSurface) * porosity;
                   groundwaterHead    = elementZSurface;
                 }
+            }
+          else if (GARTO_INFILTRATION == infiltrationMethod)
+            {
+              // FIXME this is not quite correct.  Fix it later.
+              if (groundwaterRecharge > 0.0)
+                {
+                  //garto_add_groundwater(garto_domain, &groundwaterRecharge);
+                }
+              else if (groundwaterRecharge < 0.0)
+                {
+                  //garto_take_groundwater(garto_domain, groundwaterHead, &groundwaterRecharge);
+                }
+               
+              //groundwaterHead  += groundwaterRecharge / garto_specific_yield(garto_domain, groundwaterHead); // Probaly not need this.
+              groundwaterError += groundwaterRecharge;
             }
         }
     }
