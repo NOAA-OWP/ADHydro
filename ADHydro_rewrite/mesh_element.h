@@ -38,9 +38,12 @@ public:
   int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
   
   // Geometric coordinates.
-  double neighborZBank; // Elevation in meters.
-  double neighborZBed;  // Elevation in meters.
-  double edgeLength;    // Meters.  2-D distance ignoring Z coordinates.
+  double neighborZBank;   // Elevation in meters.
+  double neighborZBed;    // Elevation in meters.
+  double neighborZOffset; // Meters.  The Z coordinate at the center of a mesh element is not the same as the Z coordinate at the edge of the element next to
+                          // its channel neighbor.  This Z offset, which can be positive or negative, is added to mesh element center Z surface, Z bottom, and
+                          // groundwater head elevations when used for interaction with this channel neighbor.
+  double edgeLength;      // Meters.  2-D distance ignoring Z coordinates.
   
   // Hydraulic parameters.
   double neighborBaseWidth; // Width of channel base in meters.
@@ -84,9 +87,12 @@ public:
   int reciprocalNeighborProxy; // The index into neighbor's undergroundMeshNeighbors vector of the proxy for me.
   
   // Geometric coordinates.
-  double neighborZBank; // Meters.
-  double neighborZBed;  // Meters.
-  double edgeLength;    // Meters.  2-D distance ignoring Z coordinates.
+  double neighborZBank;   // Meters.
+  double neighborZBed;    // Meters.
+  double neighborZOffset; // Meters.  The Z coordinate at the center of a mesh element is not the same as the Z coordinate at the edge of the element next to
+                          // its channel neighbor.  This Z offset, which can be positive or negative, is added to mesh element center Z surface, Z bottom, and
+                          // groundwater head elevations when used for interaction with this channel neighbor.
+  double edgeLength;      // Meters.  2-D distance ignoring Z coordinates.
   
   // Hydraulic parameters.
   double neighborBaseWidth;       // Width of channel base in meters.

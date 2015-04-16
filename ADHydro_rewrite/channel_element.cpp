@@ -35,7 +35,8 @@ bool ChannelElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double
   if (!error)
     {
       error = surfacewaterMeshChannelFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &regionalDtLimit,
-                                              meshNeighbors[neighborProxyIndex].edgeLength, meshNeighbors[neighborProxyIndex].neighborZSurface,
+                                              meshNeighbors[neighborProxyIndex].edgeLength,
+                                              meshNeighbors[neighborProxyIndex].neighborZSurface + meshNeighbors[neighborProxyIndex].neighborZOffset,
                                               meshNeighbors[neighborProxyIndex].neighborArea, neighborSurfacewaterDepth, elementZBank, elementZBed, baseWidth,
                                               sideSlope, surfacewaterDepth);
     }
@@ -150,10 +151,12 @@ bool ChannelElement::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double 
       // FIXME figure out how to calculate dtNew
       error = groundwaterMeshChannelFlowRate(&undergroundMeshNeighbors[neighborProxyIndex].nominalFlowRate,
                                              undergroundMeshNeighbors[neighborProxyIndex].edgeLength,
-                                             undergroundMeshNeighbors[neighborProxyIndex].neighborZSurface,
-                                             undergroundMeshNeighbors[neighborProxyIndex].neighborLayerZBottom, neighborSurfacewaterDepth,
-                                             neighborGroundwaterHead, elementZBank, elementZBed, baseWidth, sideSlope, bedConductivity, bedThickness,
-                                             surfacewaterDepth);
+                                             undergroundMeshNeighbors[neighborProxyIndex].neighborZSurface +
+                                             undergroundMeshNeighbors[neighborProxyIndex].neighborZOffset,
+                                             undergroundMeshNeighbors[neighborProxyIndex].neighborLayerZBottom +
+                                             undergroundMeshNeighbors[neighborProxyIndex].neighborZOffset, neighborSurfacewaterDepth,
+                                             neighborGroundwaterHead + undergroundMeshNeighbors[neighborProxyIndex].neighborZOffset, elementZBank, elementZBed,
+                                             baseWidth, sideSlope, bedConductivity, bedThickness, surfacewaterDepth);
     }
   
   // Calculate expiration time.

@@ -128,7 +128,9 @@ bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterChannelN
     {
       // FIXME calculate dtNew
       error = groundwaterMeshChannelFlowRate(&channelNeighbors[neighborProxyIndex].nominalFlowRate, channelNeighbors[neighborProxyIndex].edgeLength,
-                                             elementZSurface, layerZBottom, elementSurfacewaterDepth, groundwaterHead,
+                                             elementZSurface + channelNeighbors[neighborProxyIndex].neighborZOffset,
+                                             layerZBottom + channelNeighbors[neighborProxyIndex].neighborZOffset, elementSurfacewaterDepth,
+                                             groundwaterHead + channelNeighbors[neighborProxyIndex].neighborZOffset,
                                              channelNeighbors[neighborProxyIndex].neighborZBank, channelNeighbors[neighborProxyIndex].neighborZBed,
                                              channelNeighbors[neighborProxyIndex].neighborBaseWidth, channelNeighbors[neighborProxyIndex].neighborSideSlope,
                                              channelNeighbors[neighborProxyIndex].neighborBedConductivity,
@@ -666,7 +668,8 @@ bool MeshElement::calculateNominalFlowRateWithSurfacewaterChannelNeighbor(double
   if (!error)
     {
       error = surfacewaterMeshChannelFlowRate(&channelNeighbors[neighborProxyIndex].nominalFlowRate, &regionalDtLimit,
-                                              channelNeighbors[neighborProxyIndex].edgeLength, elementZSurface, elementArea, surfacewaterDepth,
+                                              channelNeighbors[neighborProxyIndex].edgeLength,
+                                              elementZSurface + channelNeighbors[neighborProxyIndex].neighborZOffset, elementArea, surfacewaterDepth,
                                               channelNeighbors[neighborProxyIndex].neighborZBank, channelNeighbors[neighborProxyIndex].neighborZBed,
                                               channelNeighbors[neighborProxyIndex].neighborBaseWidth, channelNeighbors[neighborProxyIndex].neighborSideSlope,
                                               neighborSurfacewaterDepth);

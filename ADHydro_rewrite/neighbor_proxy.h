@@ -175,6 +175,8 @@ public:
                           // the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to satisfy all
                           // outflows.
   
+  // FIXME store cumulative flow with neighbor?
+  
   std::list<MaterialTransfer> incomingMaterial; // Material that will be received as Element::currentTime advances.  The list should only be non-empty when
                                                 // nominalFlowRate is an inflow.  The list is maintained sorted with the earliest transfers at the front.  All
                                                 // transfers in the list must be non-overlapping and be between Element::currentTime and expirationTime.  When

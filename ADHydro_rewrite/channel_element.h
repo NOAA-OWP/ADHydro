@@ -15,6 +15,9 @@ public:
   
   // Geometric coordinates.
   double neighborZSurface; // Elevation in meters.
+  double neighborZOffset;  // Meters.  The Z coordinate at the center of a mesh element is not the same as the Z coordinate at the edge of the element next to
+                           // its channel neighbor.  This Z offset, which can be positive or negative, is added to mesh element center Z surface, Z bottom, and
+                           // groundwater head elevations when used for interaction with this channel neighbor.
   double neighborArea;     // Square meters.
   double edgeLength;       // Meters.  2-D distance ignoring Z coordinates.
 };
@@ -55,6 +58,9 @@ public:
   // Geometric coordinates.
   double neighborZSurface;     // Elevation in meters.
   double neighborLayerZBottom; // Elevation in meters.
+  double neighborZOffset;      // Meters.  The Z coordinate at the center of a mesh element is not the same as the Z coordinate at the edge of the element next
+                               // to its channel neighbor.  This Z offset, which can be positive or negative, is added to mesh element center Z surface,
+                               // Z bottom, and groundwater head elevations when used for interaction with this channel neighbor.
   double edgeLength;           // Meters.  2-D distance ignoring Z coordinates.
 };
 
