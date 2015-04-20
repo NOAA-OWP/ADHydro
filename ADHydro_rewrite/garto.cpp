@@ -2057,10 +2057,11 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
 /*
    See .h file.
 */
-int get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
+void get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
 {
-  int ii, jj;       // Loop counter.
-  int jj_start = 0; // Loop start index for loop over soil_depth_z.
+  int    ii, jj;             // Loop counter.
+  int    jj_start     = 0;   // Loop start index for loop over soil_depth_z.
+  double water_amount = 0.0; // Amount of water in each layer in meter.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
   assert(NULL != domain);
 #endif
@@ -2073,11 +2074,33 @@ int get_garto_domain_water_content(garto_domain* domain, double* water_content, 
               {
                 if (soil_depth_z[jj] <= domain->surface_front_depth[ii])
                   {
-                    water_content[jj] = domain->surface_front_theta[ii];
+                    if (0 == jj)
+                      {
+                        water_amount     += (domain->surface_front_theta[ii] - domain->surface_front_theta[ii - 1]) * 
+                                            (soil_depth_z[jj] - domain->top_depth);
+                        water_content[jj] = domain->surface_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - domain->top_depth);
+                      }
+                    else 
+                      {
+                        water_amount     += (domain->surface_front_theta[ii] - domain->surface_front_theta[ii - 1]) * 
+                                            (soil_depth_z[jj] - soil_depth_z[jj - 1]);
+                        water_content[jj] = domain->surface_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);          
+                      }
+                    water_amount          = 0.0;
                   }
                 else
                   {
-                    jj_start = jj;
+                    if (0 == jj)
+                      {
+                        water_amount += (domain->surface_front_theta[ii] - domain->surface_front_theta[ii - 1]) * 
+                                        (domain->surface_front_depth[ii] - domain->top_depth);
+                      }
+                    else 
+                      {
+                        water_amount += (domain->surface_front_theta[ii] - domain->surface_front_theta[ii - 1]) * 
+                                        (domain->surface_front_depth[ii] - soil_depth_z[jj - 1]);
+                      }
+                    jj_start          = jj;
                     break;
                   }
               }
@@ -2094,11 +2117,21 @@ int get_garto_domain_water_content(garto_domain* domain, double* water_content, 
                   {
                     if (soil_depth_z[jj] <= domain->groundwater_front_depth[ii])
                       {
-                        water_content[jj] = domain->groundwater_front_theta[ii - 1];
+                        if (0 == jj)
+                          {
+                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - domain->top_depth);
+                          }
+                        else
+                          {
+                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
+                          }
+                        water_amount          = 0.0;
                       }
                     else
                       {
-                        jj_start = jj;
+                        water_amount         += (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii - 1]) * 
+                                                (soil_depth_z[jj] - domain->groundwater_front_depth[ii]);
+                        jj_start              = jj;
                         break;
                       }
                   }
@@ -2113,9 +2146,34 @@ int get_garto_domain_water_content(garto_domain* domain, double* water_content, 
     { // FALSE = domain->yes_groundwater, no groundwater front, set water content to saturated bin.
       for (jj = jj_start; jj < num_elements; jj++)
          {
-           water_content[jj] = domain->surface_front_theta[0];
+           if (0 == jj)
+             {
+               water_content[jj] = domain->surface_front_theta[0] + water_amount / (soil_depth_z[jj] - domain->top_depth);
+             }
+           else
+             {
+               water_content[jj] = domain->surface_front_theta[0] + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
+             }
+           water_amount = 0.0;
          }
     }
-  
-  return 0;
 } // End of get_gar_domain_water_content().
+
+/*
+ * See .h file.
+*/
+double garto_equilibrium_water_content(garto_domain* domain, double depth_above_water_table)
+{
+  double equilibrium_water_content;
+  if (depth_above_water_table  <= domain->parameters->bc_psib)
+    { // Below air entry head, saturated.
+      equilibrium_water_content = domain->parameters->theta_s;
+    }
+  else
+    { // Using Brooks-Corey retention curve.
+      equilibrium_water_content = domain->parameters->theta_r + (domain->parameters->theta_s - domain->parameters->theta_r) * 
+                                  pow(depth_above_water_table / domain->parameters->bc_psib,  -domain->parameters->bc_lambda);
+    }
+  
+  return equilibrium_water_content;
+}

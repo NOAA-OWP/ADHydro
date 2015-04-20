@@ -218,20 +218,17 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
-              // FIXME is this necessary?  From the comments waterContent is an output of get_garto_domain_water_content, but Wencong put this here so is it
-              // actually an in/out parameter, or did he just do this while get_garto_domain_water_content is commented out?
-              waterContent[ii] = porosity;
-              
-              // soilDepthZ is positive downward, zSnso is negative downward.
-              // FIXME this is wrong if the comment in garto.h is correct that it should contain each element's lower bound
-              soilDepthZ[ii]   = -0.5 * (zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] + zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
+              soilDepthZ[ii]   = -zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // soilDepthZ is positive downward.
             }
           
           get_garto_domain_water_content((garto_domain*)vadoseZoneState, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
-              evapoTranspirationSoilMoisture.smcEq[ii] = waterContent[ii]; // FIXME no, GARTO is not necessarily at equilibrium.
+              layerMiddleDepth                         = 0.5 * (zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] +
+                                                                zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
+              distanceAboveWaterTable                  = evapoTranspirationSoilMoisture.zwt + layerMiddleDepth; // Plus because layerMiddleDepth is negative.
+              evapoTranspirationSoilMoisture.smcEq[ii] = garto_equilibrium_water_content((garto_domain*)vadoseZoneState, distanceAboveWaterTable);
               evapoTranspirationSoilMoisture.sh2o[ii]  = waterContent[ii];
               evapoTranspirationSoilMoisture.smc[ii]   = waterContent[ii];
             }
