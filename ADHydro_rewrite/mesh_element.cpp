@@ -218,7 +218,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
-              soilDepthZ[ii]   = -zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // soilDepthZ is positive downward.
+              soilDepthZ[ii] = -zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // soilDepthZ is positive downward.
             }
           
           get_garto_domain_water_content((garto_domain*)vadoseZoneState, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
