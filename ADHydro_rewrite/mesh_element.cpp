@@ -864,8 +864,11 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // FIXME implement
       
       // Do point process for infiltration and send groundwater outflows.
-      underground.doInfiltrationAndSendGroundwaterOutflows(currentTime, timestepEndTime, elementZSurface, elementArea, surfacewaterDepth, region);
-      
+      error = underground.doInfiltrationAndSendGroundwaterOutflows(currentTime, timestepEndTime, elementZSurface, elementArea, surfacewaterDepth, region);
+    }
+  
+  if (!error)
+    {
       // Limit surfacewater outflows.
       for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
         {

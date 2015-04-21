@@ -34,13 +34,13 @@ typedef struct RegionMessageStruct
   }
   
   // Constructor.
-  RegionMessageStruct(RegionMessageTypeEnum messageTypeInit, int recipientElementNumberInit, int recipientNeighborProxyIndexInit, double surfacewaterDepthInit,
-                      double groundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit) :
+  RegionMessageStruct(RegionMessageTypeEnum messageTypeInit, int recipientElementNumberInit, int recipientNeighborProxyIndexInit,
+                      double senderSurfacewaterDepthInit, double senderGroundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit) :
     messageType(messageTypeInit),
     recipientElementNumber(recipientElementNumberInit),
     recipientNeighborProxyIndex(recipientNeighborProxyIndexInit),
-    surfacewaterDepth(surfacewaterDepthInit),
-    groundwaterHead(groundwaterHeadInit),
+    senderSurfacewaterDepth(senderSurfacewaterDepthInit),
+    senderGroundwaterHead(senderGroundwaterHeadInit),
     water(waterInit)
   {
     // Initialization handled by initialization list.
@@ -49,8 +49,8 @@ typedef struct RegionMessageStruct
   RegionMessageTypeEnum                 messageType;                 // The types of the element, neighbor, and interaction.
   int                                   recipientElementNumber;      // The element ID number of the message recipient.
   int                                   recipientNeighborProxyIndex; // The index in the recipient's neighbor proxy vector of the proxy for the sender.
-  double                                surfacewaterDepth;           // The surfacewater depth of the sender in meters.  Unused for water messages.
-  double                                groundwaterHead;             // The groundwater head of the sender in meters.  Unused for surfacewater state messages
+  double                                senderSurfacewaterDepth;     // The surfacewater depth of the sender in meters.  Unused for water messages.
+  double                                senderGroundwaterHead;       // The groundwater head of the sender in meters.  Unused for surfacewater state messages
                                                                      // or water messages.
   SimpleNeighborProxy::MaterialTransfer water;                       // The water sent to the recipient.  Unused for state messages.
 } RegionMessageStruct;

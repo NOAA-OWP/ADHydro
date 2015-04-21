@@ -146,12 +146,14 @@ void Region::sendStateToExternalNeighbors()
 
 void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
 {
+  bool error = false; // Error flag.
+  
   // Loop over all neighbor proxies of all elements.  If the neighbor's region is me it is an internal neighbor, otherwise it is an external neighbor.  For
   // internal neighbors, we always calculate a new nominal flow rate each timestep because we can be sure the neighbors are synced up, and it is inexpensive
   // since it doesn't require any messages.  In these loops we calculate the nominal flow rates for internal neighbors.
-  for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+  for (itMesh = meshElements.begin(); !error && itMesh != meshElements.end(); ++itMesh)
     {
-      for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin();
+      for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin(); !error &&
            itMeshSurfacewaterMeshNeighbor != (*itMesh).second.meshNeighbors.end(); ++itMeshSurfacewaterMeshNeighbor)
         {
           if ((*itMeshSurfacewaterMeshNeighbor).region == thisIndex && (*itMeshSurfacewaterMeshNeighbor).expirationTime == currentTime)
@@ -162,22 +164,23 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                     .meshNeighbors[(*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itMesh).second.calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
-                                                                                    itMeshSurfacewaterMeshNeighbor -
-                                                                                    (*itMesh).second.meshNeighbors.begin(),
-                                                                                    meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor]
-                                                                                                 .surfacewaterDepth);
+              error = (*itMesh).second.calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+                  itMeshSurfacewaterMeshNeighbor - (*itMesh).second.meshNeighbors.begin(),
+                  meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor].surfacewaterDepth);
 
-              meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor]
-                           .meshNeighbors[(*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
-                                          .nominalFlowRate = -(*itMeshSurfacewaterMeshNeighbor).nominalFlowRate;
-              meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor]
-                           .meshNeighbors[(*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
-                                          .expirationTime = (*itMeshSurfacewaterMeshNeighbor).expirationTime;
+              if (!error)
+                {
+                  meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor]
+                               .meshNeighbors[(*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
+                                              .nominalFlowRate = -(*itMeshSurfacewaterMeshNeighbor).nominalFlowRate;
+                  meshElements[(*itMeshSurfacewaterMeshNeighbor).neighbor]
+                               .meshNeighbors[(*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
+                                              .expirationTime = (*itMeshSurfacewaterMeshNeighbor).expirationTime;
+                }
             }
         }
       
-      for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
+      for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin(); !error &&
            itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
         {
           if ((*itMeshSurfacewaterChannelNeighbor).region == thisIndex && (*itMeshSurfacewaterChannelNeighbor).expirationTime == currentTime)
@@ -188,22 +191,23 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                        .meshNeighbors[(*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itMesh).second.calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
-                                                                                       itMeshSurfacewaterChannelNeighbor -
-                                                                                       (*itMesh).second.channelNeighbors.begin(),
-                                                                                       channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor]
-                                                                                                       .surfacewaterDepth);
+              error = (*itMesh).second.calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+                  itMeshSurfacewaterChannelNeighbor - (*itMesh).second.channelNeighbors.begin(),
+                  channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor].surfacewaterDepth);
 
-              channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor]
-                              .meshNeighbors[(*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
-                                             .nominalFlowRate = -(*itMeshSurfacewaterChannelNeighbor).nominalFlowRate;
-              channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor]
-                              .meshNeighbors[(*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
-                                             .expirationTime = (*itMeshSurfacewaterChannelNeighbor).expirationTime;
+              if (!error)
+                {
+                  channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor]
+                                  .meshNeighbors[(*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
+                                                 .nominalFlowRate = -(*itMeshSurfacewaterChannelNeighbor).nominalFlowRate;
+                  channelElements[(*itMeshSurfacewaterChannelNeighbor).neighbor]
+                                  .meshNeighbors[(*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
+                                                 .expirationTime = (*itMeshSurfacewaterChannelNeighbor).expirationTime;
+                }
             }
         }
       
-      for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
+      for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin(); !error &&
            itMeshGroundwaterMeshNeighbor != (*itMesh).second.underground.meshNeighbors.end(); ++itMeshGroundwaterMeshNeighbor)
         {
           if ((*itMeshGroundwaterMeshNeighbor).region == thisIndex && (*itMeshGroundwaterMeshNeighbor).expirationTime == currentTime)
@@ -214,27 +218,25 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                     .underground.meshNeighbors[(*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itMesh).second.underground.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
-                                                                                               itMeshGroundwaterMeshNeighbor -
-                                                                                               (*itMesh).second.underground.meshNeighbors.begin(),
-                                                                                               (*itMesh).second.elementX, (*itMesh).second.elementY,
-                                                                                               (*itMesh).second.elementZSurface, (*itMesh).second.elementArea,
-                                                                                               (*itMesh).second.surfacewaterDepth,
-                                                                                               meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
-                                                                                                            .surfacewaterDepth,
-                                                                                               meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
-                                                                                                            .underground.groundwaterHead);
+              error = (*itMesh).second.underground.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
+                  itMeshGroundwaterMeshNeighbor - (*itMesh).second.underground.meshNeighbors.begin(), (*itMesh).second.elementX, (*itMesh).second.elementY,
+                  (*itMesh).second.elementZSurface, (*itMesh).second.elementArea, (*itMesh).second.surfacewaterDepth,
+                  meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor].surfacewaterDepth,
+                  meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor].underground.groundwaterHead);
 
-              meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
-                           .underground.meshNeighbors[(*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy]
-                                                      .nominalFlowRate = -(*itMeshGroundwaterMeshNeighbor).nominalFlowRate;
-              meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
-                           .underground.meshNeighbors[(*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy]
-                                                      .expirationTime = (*itMeshGroundwaterMeshNeighbor).expirationTime;
+              if (!error)
+                {
+                  meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
+                               .underground.meshNeighbors[(*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy]
+                                                          .nominalFlowRate = -(*itMeshGroundwaterMeshNeighbor).nominalFlowRate;
+                  meshElements[(*itMeshGroundwaterMeshNeighbor).neighbor]
+                               .underground.meshNeighbors[(*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy]
+                                                          .expirationTime = (*itMeshGroundwaterMeshNeighbor).expirationTime;
+                }
             }
         }
       
-      for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+      for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin(); !error &&
            itMeshGroundwaterChannelNeighbor != (*itMesh).second.underground.channelNeighbors.end(); ++itMeshGroundwaterChannelNeighbor)
         {
           if ((*itMeshGroundwaterChannelNeighbor).region == thisIndex && (*itMeshGroundwaterChannelNeighbor).expirationTime == currentTime)
@@ -245,27 +247,26 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                        .undergroundMeshNeighbors[(*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itMesh).second.underground.calculateNominalFlowRateWithGroundwaterChannelNeighbor(currentTime, regionalDtLimit,
-                                                                                                  itMeshGroundwaterChannelNeighbor -
-                                                                                                  (*itMesh).second.underground.channelNeighbors.begin(),
-                                                                                                  (*itMesh).second.elementZSurface,
-                                                                                                  (*itMesh).second.surfacewaterDepth,
-                                                                                                  channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor]
-                                                                                                                  .surfacewaterDepth);
+              error = (*itMesh).second.underground.calculateNominalFlowRateWithGroundwaterChannelNeighbor(currentTime, regionalDtLimit,
+                  itMeshGroundwaterChannelNeighbor - (*itMesh).second.underground.channelNeighbors.begin(), (*itMesh).second.elementZSurface,
+                  (*itMesh).second.surfacewaterDepth, channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor].surfacewaterDepth);
 
-              channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor]
-                              .undergroundMeshNeighbors[(*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy]
-                                                        .nominalFlowRate = -(*itMeshGroundwaterChannelNeighbor).nominalFlowRate;
-              channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor]
-                              .undergroundMeshNeighbors[(*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy]
-                                                        .expirationTime = (*itMeshGroundwaterChannelNeighbor).expirationTime;
+              if (!error)
+                {
+                  channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor]
+                                  .undergroundMeshNeighbors[(*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy]
+                                                            .nominalFlowRate = -(*itMeshGroundwaterChannelNeighbor).nominalFlowRate;
+                  channelElements[(*itMeshGroundwaterChannelNeighbor).neighbor]
+                                  .undergroundMeshNeighbors[(*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy]
+                                                            .expirationTime = (*itMeshGroundwaterChannelNeighbor).expirationTime;
+                }
             }
         }
     }
   
-  for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+  for (itChannel = channelElements.begin(); !error && itChannel != channelElements.end(); ++itChannel)
     {
-      for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin();
+      for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin(); !error &&
            itChannelSurfacewaterMeshNeighbor != (*itChannel).second.meshNeighbors.end(); ++itChannelSurfacewaterMeshNeighbor)
         {
           if ((*itChannelSurfacewaterMeshNeighbor).region == thisIndex && (*itChannelSurfacewaterMeshNeighbor).expirationTime == currentTime)
@@ -276,22 +277,23 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                     .channelNeighbors[(*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itChannel).second.calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
-                                                                                       itChannelSurfacewaterMeshNeighbor -
-                                                                                       (*itChannel).second.meshNeighbors.begin(),
-                                                                                       meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor]
-                                                                                                    .surfacewaterDepth);
+              error = (*itChannel).second.calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+                  itChannelSurfacewaterMeshNeighbor - (*itChannel).second.meshNeighbors.begin(),
+                  meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor].surfacewaterDepth);
 
-              meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor]
-                           .channelNeighbors[(*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
-                                             .nominalFlowRate = -(*itChannelSurfacewaterMeshNeighbor).nominalFlowRate;
-              meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor]
-                           .channelNeighbors[(*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
-                                             .expirationTime = (*itChannelSurfacewaterMeshNeighbor).expirationTime;
+              if (!error)
+                {
+                  meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor]
+                               .channelNeighbors[(*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
+                                                 .nominalFlowRate = -(*itChannelSurfacewaterMeshNeighbor).nominalFlowRate;
+                  meshElements[(*itChannelSurfacewaterMeshNeighbor).neighbor]
+                               .channelNeighbors[(*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy]
+                                                 .expirationTime = (*itChannelSurfacewaterMeshNeighbor).expirationTime;
+                }
             }
         }
       
-      for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
+      for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin(); !error &&
            itChannelSurfacewaterChannelNeighbor != (*itChannel).second.channelNeighbors.end(); ++itChannelSurfacewaterChannelNeighbor)
         {
           if ((*itChannelSurfacewaterChannelNeighbor).region == thisIndex && (*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)
@@ -302,22 +304,23 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                        .channelNeighbors[(*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itChannel).second.calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
-                                                                                          itChannelSurfacewaterChannelNeighbor -
-                                                                                          (*itChannel).second.channelNeighbors.begin(),
-                                                                                          channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor]
-                                                                                                          .surfacewaterDepth);
+              error = (*itChannel).second.calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+                  itChannelSurfacewaterChannelNeighbor - (*itChannel).second.channelNeighbors.begin(),
+                  channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor].surfacewaterDepth);
 
-              channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor]
-                              .channelNeighbors[(*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
-                                                .nominalFlowRate = -(*itChannelSurfacewaterChannelNeighbor).nominalFlowRate;
-              channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor]
-                              .channelNeighbors[(*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
-                                                .expirationTime = (*itChannelSurfacewaterChannelNeighbor).expirationTime;
+              if (!error)
+                {
+                  channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor]
+                                  .channelNeighbors[(*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
+                                                    .nominalFlowRate = -(*itChannelSurfacewaterChannelNeighbor).nominalFlowRate;
+                  channelElements[(*itChannelSurfacewaterChannelNeighbor).neighbor]
+                                  .channelNeighbors[(*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy]
+                                                    .expirationTime = (*itChannelSurfacewaterChannelNeighbor).expirationTime;
+                }
             }
         }
       
-      for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin();
+      for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin(); !error &&
            itChannelGroundwaterMeshNeighbor != (*itChannel).second.undergroundMeshNeighbors.end(); ++itChannelGroundwaterMeshNeighbor)
         {
           if ((*itChannelGroundwaterMeshNeighbor).region == thisIndex && (*itChannelGroundwaterMeshNeighbor).expirationTime == currentTime)
@@ -328,45 +331,53 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                                     .underground.channelNeighbors[(*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              (*itChannel).second.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
-                                                                                      itChannelGroundwaterMeshNeighbor -
-                                                                                      (*itChannel).second.undergroundMeshNeighbors.begin(),
-                                                                                      meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
-                                                                                                   .surfacewaterDepth,
-                                                                                      meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
-                                                                                                   .underground.groundwaterHead);
+              error = (*itChannel).second.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
+                  itChannelGroundwaterMeshNeighbor - (*itChannel).second.undergroundMeshNeighbors.begin(),
+                  meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor].surfacewaterDepth,
+                  meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor].underground.groundwaterHead);
 
-              meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
-                           .underground.channelNeighbors[(*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy]
-                                                         .nominalFlowRate = -(*itChannelGroundwaterMeshNeighbor).nominalFlowRate;
-              meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
-                           .underground.channelNeighbors[(*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy]
-                                                         .expirationTime = (*itChannelGroundwaterMeshNeighbor).expirationTime;
+              if (!error)
+                {
+                  meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
+                               .underground.channelNeighbors[(*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy]
+                                                             .nominalFlowRate = -(*itChannelGroundwaterMeshNeighbor).nominalFlowRate;
+                  meshElements[(*itChannelGroundwaterMeshNeighbor).neighbor]
+                               .underground.channelNeighbors[(*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy]
+                                                             .expirationTime = (*itChannelGroundwaterMeshNeighbor).expirationTime;
+                }
             }
         }
     }
   
-  // Set up iterators for the incremental scan that detects when all nominal flow rates are calculated because all state messages have arrived.
-  itMesh    = meshElements.begin();
-  itChannel = channelElements.begin();
-  
-  if (itMesh != meshElements.end())
+  if (!error)
     {
-      itMeshSurfacewaterMeshNeighbor    = (*itMesh).second.meshNeighbors.begin();
-      itMeshSurfacewaterChannelNeighbor = (*itMesh).second.channelNeighbors.begin();
-      itMeshGroundwaterMeshNeighbor     = (*itMesh).second.underground.meshNeighbors.begin();
-      itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+      // Set up iterators for the incremental scan that detects when all nominal flow rates are calculated because all state messages have arrived.
+      itMesh    = meshElements.begin();
+      itChannel = channelElements.begin();
+
+      if (itMesh != meshElements.end())
+        {
+          itMeshSurfacewaterMeshNeighbor    = (*itMesh).second.meshNeighbors.begin();
+          itMeshSurfacewaterChannelNeighbor = (*itMesh).second.channelNeighbors.begin();
+          itMeshGroundwaterMeshNeighbor     = (*itMesh).second.underground.meshNeighbors.begin();
+          itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+        }
+
+      if (itChannel != channelElements.end())
+        {
+          itChannelSurfacewaterMeshNeighbor    = (*itChannel).second.meshNeighbors.begin();
+          itChannelSurfacewaterChannelNeighbor = (*itChannel).second.channelNeighbors.begin();
+          itChannelGroundwaterMeshNeighbor     = (*itChannel).second.undergroundMeshNeighbors.begin();
+        }
+
+      // The incremental scan also selects the next timestep end time as the minimum of nextSyncTime and all nominal flow rate expiration times.
+      timestepEndTime = nextSyncTime;
     }
   
-  if (itChannel != channelElements.end())
+  if (error)
     {
-      itChannelSurfacewaterMeshNeighbor    = (*itChannel).second.meshNeighbors.begin();
-      itChannelSurfacewaterChannelNeighbor = (*itChannel).second.channelNeighbors.begin();
-      itChannelGroundwaterMeshNeighbor     = (*itChannel).second.undergroundMeshNeighbors.begin();
+      CkExit();
     }
-  
-  // The incremental scan also selects the next timestep end time as the minimum of nextSyncTime and all nominal flow rate expiration times.
-  timestepEndTime = nextSyncTime;
 }
 
 bool Region::allNominalFlowRatesCalculated()
@@ -563,11 +574,14 @@ bool Region::allNominalFlowRatesCalculated()
 
 void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMessageStruct>& stateMessages)
 {
+  bool                                       error = false; // Error flag.
+  std::vector<RegionMessageStruct>::iterator it;            // Loop iterator.
+  
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(senderCurrentTime >= currentTime))
     {
       CkError("ERROR in Region::processStateMessages, region %d: senderCurrentTime must be greater than or equal to currentTime.\n", thisIndex);
-      CkExit();
+      error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
@@ -582,7 +596,138 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
     }
   else
     {
-      // FIXME calculate nominal flow rates.
+      // Calculate nominal flow rates.
+      for (it = stateMessages.begin(); !error && it != stateMessages.end(); ++it)
+        {
+          switch ((*it).messageType)
+          {
+          case MESH_SURFACEWATER_MESH_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(meshElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
+            break;
+          case MESH_SURFACEWATER_CHANNEL_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(meshElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
+            break;
+          case MESH_GROUNDWATER_MESH_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(meshElements[(*it).recipientElementNumber].underground.meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementX, meshElements[(*it).recipientElementNumber].elementY,
+                meshElements[(*it).recipientElementNumber].elementZSurface, meshElements[(*it).recipientElementNumber].elementArea,
+                meshElements[(*it).recipientElementNumber].surfacewaterDepth, (*it).senderSurfacewaterDepth, (*it).senderGroundwaterHead);
+            break;
+          case MESH_GROUNDWATER_CHANNEL_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(meshElements[(*it).recipientElementNumber].underground.channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterChannelNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementZSurface,
+                meshElements[(*it).recipientElementNumber].surfacewaterDepth, (*it).senderSurfacewaterDepth);
+            break;
+          case CHANNEL_SURFACEWATER_MESH_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(channelElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
+            break;
+          case CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(channelElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
+            break;
+          case CHANNEL_GROUNDWATER_MESH_NEIGHBOR:
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+            // The nominal flow rate must be expired.
+            CkAssert(channelElements[(*it).recipientElementNumber].undergroundMeshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
+                (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth, (*it).senderGroundwaterHead);
+            break;
+          }
+        }
+    }
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void Region::doPointProcessesAndSendOutflows()
+{
+  bool                                                       error = false; // Error flag.
+  std::map<int, std::vector<RegionMessageStruct> >::iterator it;            // Loop iterator.
+  
+  
+  for (itMesh = meshElements.begin(); !error && itMesh != meshElements.end(); ++itMesh)
+    {
+      error = (*itMesh).second.doPointProcessesAndSendOutflows(referenceDate, currentTime, timestepEndTime, *this);
+    }
+  
+  for (itChannel = channelElements.begin(); !error && itChannel != channelElements.end(); ++itChannel)
+    {
+      error = (*itChannel).second.doPointProcessesAndSendOutflows(referenceDate, currentTime, timestepEndTime, *this);
+    }
+  
+  if (!error)
+    {
+      // Send aggregated messages to other regions and clear outgoing message buffers.
+      for (it = outgoingMessages.begin(); it != outgoingMessages.end(); ++it)
+        {
+          if (!(*it).second.empty())
+            {
+              thisProxy[(*it).first].sendWaterMessages((*it).second);
+              (*it).second.clear();
+            }
+        }
+      
+      // Set up iterators for the incremental scan that detects when all inflow water messages have arrived.
+      itMesh    = meshElements.begin();
+      itChannel = channelElements.begin();
+
+      if (itMesh != meshElements.end())
+        {
+          itMeshSurfacewaterMeshNeighbor    = (*itMesh).second.meshNeighbors.begin();
+          itMeshSurfacewaterChannelNeighbor = (*itMesh).second.channelNeighbors.begin();
+          itMeshGroundwaterMeshNeighbor     = (*itMesh).second.underground.meshNeighbors.begin();
+          itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+        }
+
+      if (itChannel != channelElements.end())
+        {
+          itChannelSurfacewaterMeshNeighbor    = (*itChannel).second.meshNeighbors.begin();
+          itChannelSurfacewaterChannelNeighbor = (*itChannel).second.channelNeighbors.begin();
+          itChannelGroundwaterMeshNeighbor     = (*itChannel).second.undergroundMeshNeighbors.begin();
+        }
+    }
+  
+  if (error)
+    {
+      CkExit();
     }
 }
 
