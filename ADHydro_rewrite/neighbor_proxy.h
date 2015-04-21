@@ -159,7 +159,7 @@ public:
   bool checkInvariant();
   
   // Insert a new MaterialTransfer into incomingMaterial.  This keeps the list
-  // sorted and checks that the time range of the newly inserted element is
+  // sorted and checks that the time range of the newly inserted material is
   // non-overlapping.  Exit on error.
   void insertMaterial(MaterialTransfer newMaterial);
   
@@ -174,6 +174,8 @@ public:
   double nominalFlowRate; // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow into
                           // the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to satisfy all
                           // outflows.
+  
+  // FIXME store cumulative flow with neighbor?
   
   std::list<MaterialTransfer> incomingMaterial; // Material that will be received as Element::currentTime advances.  The list should only be non-empty when
                                                 // nominalFlowRate is an inflow.  The list is maintained sorted with the earliest transfers at the front.  All

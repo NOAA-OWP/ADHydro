@@ -1,0 +1,78 @@
+module region
+{
+  array [1D] Region
+  {
+    entry void runUntilSimulationEnd()
+    {
+      // FIXME do initialization.
+      
+      while (currentTime < simulationEndTime)
+      {
+        // Step 1: Calculate nominal flow rates with neighbors.
+        serial
+        {
+          sendStateToExternalNeighbors();
+        }
+        
+        // Continue step 1 by calculating nominal flow rates with internal neighbors.
+        when calculateNominalFlowRatesForInternalNeighbors()
+        {
+          serial
+          {
+            handleCalculateNominalFlowRatesForInternalNeighbors();
+          }
+        }
+        
+        // Finish step 1 by receiving state messages until all nominal flow rates are calculated.
+        // Step 2: Select timestep is accomplished while scanning to see if all nominal flow rates are calculated.  That scan also finds the minimum expiration
+        // time, which is chosen as the next timestep end time.
+        while (!allNominalFlowRatesCalculated())
+        {
+          when sendStateMessages(double senderCurrentTime, std::vector<RegionMessageStruct> stateMessages)
+          {
+            serial
+            {
+              processStateMessages(senderCurrentTime, stateMessages);
+            }
+          }
+        }
+        
+        // Step 3: Send outflows of material to neighbors.
+        serial
+        {
+          doPointProcessesAndSendOutflows();
+        }
+        
+        // Step 4: Receive inflows of material from neighbors.
+        while (!allInflowsArrived())
+        {
+          when sendWaterMessages(std::vector<RegionMessageStruct> waterMessages)
+          {
+            serial
+            {
+              processWaterMessages(waterMessages);
+            }
+          }
+        }
+        
+        // Finish step 4 by moving water from incoming material lists to element state variables.
+        // Step 5: Advance time.
+        serial
+        {
+          receiveInflowsAndAdvanceTime();
+        }
+        
+        // FIXME do output.
+      } // End while (currentTime < simulationEndTime).
+      
+      serial
+      {
+        contribute();
+      }
+    }; // End entry void runUntilSimulationEnd();
+    
+    entry void calculateNominalFlowRatesForInternalNeighbors();
+    entry void sendStateMessages(double senderCurrentTime, std::vector<RegionMessageStruct> stateMessages);
+    entry void sendWaterMessages(std::vector<RegionMessageStruct> waterMessages);
+  }; // End array [1D] Region.
+}; // End module region.

@@ -68,20 +68,49 @@ adhydro.decl.h \
 adhydro.def.h: adhydro.ci
 	$(CHARMC) $<
 
+region.o: region.cpp            \
+          region.h              \
+          region.decl.h         \
+          region.def.h          \
+          mesh_element.h        \
+          channel_element.h     \
+          element.h             \
+          neighbor_proxy.h      \
+          evapo_transpiration.h \
+          all_charm.h           \
+          all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+region.decl.h \
+region.def.h: region.ci
+	$(CHARMC) $<
+
 mesh_element.o : mesh_element.cpp      \
                  mesh_element.h        \
                  adhydro.h             \
                  adhydro.decl.h        \
-                 element.h             \
                  neighbor_proxy.h      \
+                 surfacewater.h        \
+                 groundwater.h         \
                  evapo_transpiration.h \
+                 garto.h               \
                  all_charm.h           \
                  all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
+channel_element.o : channel_element.cpp \
+                    channel_element.h   \
+                    adhydro.h           \
+                    adhydro.decl.h      \
+                    neighbor_proxy.h    \
+                    surfacewater.h      \
+                    groundwater.h       \
+                    all_charm.h         \
+                    all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
 element.o: element.cpp      \
            element.h        \
-           neighbor_proxy.h \
            all_charm.h      \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
@@ -90,6 +119,22 @@ neighbor_proxy.o: neighbor_proxy.cpp \
                   neighbor_proxy.h   \
                   all_charm.h        \
                   all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+surfacewater.o: surfacewater.cpp \
+                surfacewater.h   \
+                adhydro.h        \
+                adhydro.decl.h   \
+                all_charm.h      \
+                all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+groundwater.o: groundwater.cpp \
+               groundwater.h   \
+               adhydro.h       \
+               adhydro.decl.h  \
+               all_charm.h     \
+               all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 evapo_transpiration.o: evapo_transpiration.cpp \
