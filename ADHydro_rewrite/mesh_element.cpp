@@ -1,5 +1,6 @@
 #include "mesh_element.h"
 #include "adhydro.h"
+#include "region.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 #include "garto.h"
@@ -59,7 +60,7 @@ bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterMeshNeig
     {
       if (isBoundary(meshNeighbors[neighborProxyIndex].neighbor))
         {
-          // FIXME what to do about inflowHeight?
+          // FIXLATER what to do about inflowHeight?
           error = groundwaterMeshBoundaryFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &regionalDtLimit,
                                                   (BoundaryConditionEnum)meshNeighbors[neighborProxyIndex].neighbor, 0.0,
                                                   meshNeighbors[neighborProxyIndex].edgeLength, meshNeighbors[neighborProxyIndex].edgeNormalX,
@@ -192,7 +193,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
                                                zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
               distanceAboveWaterTable = evapoTranspirationSoilMoisture.zwt + layerMiddleDepth; // Plus because layerMiddleDepth is negative.
 
-              // FIXME use Van Genutchen or Brooks-Corey?
+              // FIXLATER use Van Genutchen or Brooks-Corey?
               if (0.1 >= distanceAboveWaterTable)
                 {
                   relativeSaturation = 1.0;
@@ -309,7 +310,7 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
 }
 
 bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
-                                                                          double elementArea, double& surfacewaterDepth)
+                                                                          double elementArea, double& surfacewaterDepth, Region& region)
 {
   bool   error                   = false;                               // Error flag.
   std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;    // Loop iterator.
@@ -409,9 +410,11 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   waterSent            = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
-                  // FIXME call the region's function to send the water.
-                  //region->sendGroundwaterToMeshElement((*itMesh).region, (*itMesh).neighbor, (*itMesh).reciprocalNeighborProxy,
-                  //                                     MeshGroundwaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, waterSent));
+                  region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                                          (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                          SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                                timestepEndTime,
+                                                                                                                                waterSent)));
                 }
             }
 
@@ -422,9 +425,11 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   waterSent            = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
-                  // FIXME call the region's function to send the water.
-                  //region->sendWaterToChannelElement((*itChannel).region, (*itChannel).neighbor, (*itChannel).reciprocalNeighborProxy,
-                  //                                  MeshGroundwaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, waterSent));
+                  region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                                             (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                             SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                                   timestepEndTime,
+                                                                                                                                   waterSent)));
                 }
             }
 
@@ -608,7 +613,7 @@ bool MeshElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double cu
     {
       if (isBoundary(meshNeighbors[neighborProxyIndex].neighbor))
         {
-          // FIXME what to do about inflowXVelocity, inflowYVelocity, and inflowHeight?
+          // FIXLATER what to do about inflowXVelocity, inflowYVelocity, and inflowHeight?
           error = surfacewaterMeshBoundaryFlowRate(&meshNeighbors[neighborProxyIndex].nominalFlowRate, &regionalDtLimit,
                                                    (BoundaryConditionEnum)meshNeighbors[neighborProxyIndex].neighbor, 0.0, 0.0, 0.0,
                                                    meshNeighbors[neighborProxyIndex].edgeLength, meshNeighbors[neighborProxyIndex].edgeNormalX,
@@ -681,7 +686,7 @@ bool MeshElement::calculateNominalFlowRateWithSurfacewaterChannelNeighbor(double
   return error;
 }
 
-bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime)
+bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region)
 {
   bool   error                   = false;                                // Error flag.
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;    // Loop iterator.
@@ -859,7 +864,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // FIXME implement
       
       // Do point process for infiltration and send groundwater outflows.
-      underground.doInfiltrationAndSendGroundwaterOutflows(currentTime, timestepEndTime, elementZSurface, elementArea, surfacewaterDepth);
+      underground.doInfiltrationAndSendGroundwaterOutflows(currentTime, timestepEndTime, elementZSurface, elementArea, surfacewaterDepth, region);
       
       // Limit surfacewater outflows.
       for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
@@ -895,8 +900,11 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
               waterSent          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
-              // FIXME call the region's function to send the water.
-              //region->sendWater(MeshSurfacewaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                                      (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                      SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                            timestepEndTime,
+                                                                                                                            waterSent)));
             }
         }
 
@@ -907,8 +915,11 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
               waterSent          = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
-              // FIXME call the region's function to send the water.
-              //region->sendWater(MeshSurfacewaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                                         (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                         SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                               timestepEndTime,
+                                                                                                                               waterSent)));
             }
         }
 

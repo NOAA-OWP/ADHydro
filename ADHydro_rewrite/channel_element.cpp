@@ -1,5 +1,6 @@
 #include "channel_element.h"
 #include "adhydro.h"
+#include "region.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 
@@ -84,7 +85,7 @@ bool ChannelElement::calculateNominalFlowRateWithSurfacewaterChannelNeighbor(dou
     {
       if (isBoundary(channelNeighbors[neighborProxyIndex].neighbor))
         {
-          // FIXME what to do about inflowVelocity and inflowHeight?
+          // FIXLATER what to do about inflowVelocity and inflowHeight?
           error = surfacewaterChannelBoundaryFlowRate(&channelNeighbors[neighborProxyIndex].nominalFlowRate, &regionalDtLimit,
                                                       (BoundaryConditionEnum)channelNeighbors[neighborProxyIndex].neighbor, 0.0, 0.0, elementLength, baseWidth,
                                                       sideSlope, surfacewaterDepth);
@@ -169,7 +170,7 @@ bool ChannelElement::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double 
   return error;
 }
 
-bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime)
+bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region)
 {
   bool   error                   = false;                                                           // Error flag.
   std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator    itMesh;                            // Loop iterator.
@@ -243,8 +244,11 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
               waterSent  = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              // FIXME call the region's function to send the water.
-              //region->sendWater(MeshSurfacewaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itMesh).neighbor,
+                                                                                      (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                      SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                            timestepEndTime,
+                                                                                                                            waterSent)));
             }
         }
 
@@ -255,8 +259,11 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
               waterSent  = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              // FIXME call the region's function to send the water.
-              //region->sendWater(MeshSurfacewaterChannelNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR, (*itChannel).neighbor,
+                                                                                         (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                         SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                               timestepEndTime,
+                                                                                                                               waterSent)));
             }
         }
 
@@ -267,8 +274,12 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
               waterSent  = (*itUndergroundMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              // FIXME call the region's function to send the water.
-              //region->sendWater(MeshSurfacewaterMeshNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction));
+              region.outgoingMessages[(*itUndergroundMesh).region].push_back(RegionMessageStruct(MESH_GROUNDWATER_CHANNEL_NEIGHBOR,
+                                                                                                 (*itUndergroundMesh).neighbor,
+                                                                                                 (*itUndergroundMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime,
+                                                                                                                                       timestepEndTime,
+                                                                                                                                       waterSent)));
             }
         }
       

@@ -3,6 +3,10 @@
 
 #include "neighbor_proxy.h"
 
+// channel_element.h needs to know about the Region class, but region.h includes channel_element.h so we just do a forward declaration of the Region class to
+// break the circularity.
+class Region;
+
 // Proxy for a channel element's surfacewater neighbor that is a mesh element.
 class ChannelSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
@@ -156,7 +160,8 @@ public:
   // currentTime     - Current simulation time in seconds since referenceDate.
   // timestepEndTime - Simulation time at the end of the current timestep in
   //                   seconds since referenceDate.
-  bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime);
+  // region          - This element's region for sending water messages.
+  bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region);
   
   // Returns: whether all inflows have arrived that are required to advance
   // time to timestepEndTime.

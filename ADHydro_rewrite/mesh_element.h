@@ -4,6 +4,10 @@
 #include "neighbor_proxy.h"
 #include "evapo_transpiration.h"
 
+// mesh_element.h needs to know about the Region class, but region.h includes mesh_element.h so we just do a forward declaration of the Region class to
+// break the circularity.
+class Region;
+
 // Proxy for a mesh element's surfacewater neighbor that is a mesh element.
 class MeshSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
@@ -244,8 +248,9 @@ public:
   //                     surfacewater available for infiltration in meters.
   //                     Will be updated to the new amount of surfacewater
   //                     after infiltration or exfiltration.
+  // region            - This element's region for sending water messages.
   bool doInfiltrationAndSendGroundwaterOutflows(double currentTime, double timestepEndTime, double elementZSurface,
-                                                double elementArea, double& surfacewaterDepth);
+                                                double elementArea, double& surfacewaterDepth, Region& region);
   
   // Returns: whether all inflows have arrived that are required to advance
   // time to timestepEndTime.
@@ -372,7 +377,8 @@ public:
   // currentTime     - Current simulation time in seconds since referenceDate.
   // timestepEndTime - Simulation time at the end of the current timestep in
   //                   seconds since referenceDate.
-  bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime);
+  // region          - This element's region for sending water messages.
+  bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region);
   
   // Returns: whether all inflows have arrived that are required to advance
   //          time to timestepEndTime.  Handles surfacewater and calls
@@ -456,7 +462,7 @@ public:
   // pointer because the linked list has to have at least one object and if you
   // are doing a simple simulation with just one layer everywhere then you
   // don't have to mess with pointers at all.
-  // FIXME currently the code is implemented for only a single layer.
+  // FIXLATER currently the code is implemented for only a single layer.
   InfiltrationAndGroundwater underground;
 };
 

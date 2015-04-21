@@ -89,6 +89,10 @@ mesh_element.o : mesh_element.cpp      \
                  mesh_element.h        \
                  adhydro.h             \
                  adhydro.decl.h        \
+                 region.h              \
+                 region.decl.h         \
+                 channel_element.h     \
+                 element.h             \
                  neighbor_proxy.h      \
                  surfacewater.h        \
                  groundwater.h         \
@@ -98,14 +102,19 @@ mesh_element.o : mesh_element.cpp      \
                  all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
-channel_element.o : channel_element.cpp \
-                    channel_element.h   \
-                    adhydro.h           \
-                    adhydro.decl.h      \
-                    neighbor_proxy.h    \
-                    surfacewater.h      \
-                    groundwater.h       \
-                    all_charm.h         \
+channel_element.o : channel_element.cpp   \
+                    channel_element.h     \
+                    adhydro.h             \
+                    adhydro.decl.h        \
+                    region.h              \
+                    region.decl.h         \
+                    mesh_element.h        \
+                    element.h             \
+                    neighbor_proxy.h      \
+                    surfacewater.h        \
+                    groundwater.h         \
+                    evapo_transpiration.h \
+                    all_charm.h           \
                     all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
