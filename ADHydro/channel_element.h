@@ -28,9 +28,9 @@ class ChannelElement : public CBase_ChannelElement
   
 public:
   
-  static const int channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-  static const int channelNeighborsSize = 18; // Maximum number of channel neighbors.
-  static const int meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
+  static const int channelVerticesSize  = 600; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+  static const int channelNeighborsSize = 150; // Maximum number of channel neighbors.
+  static const int meshNeighborsSize    = 600; // Maximum number of mesh neighbors.
   
   // Constructor.  All the constructor does is start the runForever function in
   // the SDAG code.  The constructor does not initialize or perform an

@@ -2271,9 +2271,9 @@ void ChannelElement::handleCheckInvariant()
       error = true;
     }
   
-  if (!(0 < reachCode))
+  if (!(0 <= reachCode))
     {
-      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: reachCode must be greater than zero.\n", thisIndex);
+      CkError("ERROR in ChannelElement::handleCheckInvariant, element %d: reachCode must be greater than or equal to zero.\n", thisIndex);
       error = true;
     }
   
