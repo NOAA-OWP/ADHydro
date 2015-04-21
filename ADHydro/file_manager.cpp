@@ -3877,7 +3877,7 @@ void FileManager::meshMassage()
               
               if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] >= channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
@@ -3922,7 +3922,7 @@ void FileManager::meshMassage()
               
               if (!isBoundary(neighbor))
                 {
-                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] > channelElementZBed[neighbor])
+                  if (channelChannelNeighborsDownstream[ii][jj] && channelElementZBed[ii] >= channelElementZBed[neighbor])
                     {
                       hasLowerNeighbor = true;
                     }
