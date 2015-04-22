@@ -28,11 +28,16 @@ VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_rout
 
 EXES := adhydro
 
-ADHYDRO_OBJS := adhydro.o        \
-                mesh_element.o   \
-                element.o        \
-                neighbor_proxy.o \
-                evapo_transpiration.o
+ADHYDRO_OBJS := adhydro.o             \
+                region.o              \
+                mesh_element.o        \
+                channel_element.o     \
+                element.o             \
+                neighbor_proxy.o      \
+                surfacewater.o        \
+                groundwater.o         \
+                evapo_transpiration.o \
+#                garto.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
                module_sf_noahmplsm.o          \

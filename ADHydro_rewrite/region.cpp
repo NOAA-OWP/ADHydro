@@ -708,21 +708,106 @@ void Region::doPointProcessesAndSendOutflows()
       // Set up iterators for the incremental scan that detects when all inflow water messages have arrived.
       itMesh    = meshElements.begin();
       itChannel = channelElements.begin();
+    }
+  
+  if (error)
+    {
+      CkExit();
+    }
+}
 
-      if (itMesh != meshElements.end())
+bool Region::allInflowsArrived()
+{
+  bool allArrived = true; // Stays true until we find one that has not arrived.
+  
+  while (allArrived && itMesh != meshElements.end())
+    {
+      if (!(*itMesh).second.allInflowsArrived(currentTime, timestepEndTime))
         {
-          itMeshSurfacewaterMeshNeighbor    = (*itMesh).second.meshNeighbors.begin();
-          itMeshSurfacewaterChannelNeighbor = (*itMesh).second.channelNeighbors.begin();
-          itMeshGroundwaterMeshNeighbor     = (*itMesh).second.underground.meshNeighbors.begin();
-          itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+          allArrived = false;
         }
+      else
+        {
+          ++itMesh;
+        }
+    }
+  
+  while (allArrived && itChannel != channelElements.end())
+    {
+      if (!(*itChannel).second.allInflowsArrived(currentTime, timestepEndTime))
+        {
+          allArrived = false;
+        }
+      else
+        {
+          ++itChannel;
+        }
+    }
+  
+  return allArrived;
+}
 
-      if (itChannel != channelElements.end())
-        {
-          itChannelSurfacewaterMeshNeighbor    = (*itChannel).second.meshNeighbors.begin();
-          itChannelSurfacewaterChannelNeighbor = (*itChannel).second.channelNeighbors.begin();
-          itChannelGroundwaterMeshNeighbor     = (*itChannel).second.undergroundMeshNeighbors.begin();
-        }
+void Region::processWaterMessages(std::vector<RegionMessageStruct>& waterMessages)
+{
+  bool                                       error = false; // Error flag.
+  std::vector<RegionMessageStruct>::iterator it;            // Loop iterator.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  // FIXME check RegionMessageStruct invariant.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  
+  // Place water in recipient's incoming material list.
+  for (it = waterMessages.begin(); !error && it != waterMessages.end(); ++it)
+    {
+      switch ((*it).messageType)
+      {
+      case MESH_SURFACEWATER_MESH_NEIGHBOR:
+        error = meshElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case MESH_SURFACEWATER_CHANNEL_NEIGHBOR:
+        error = meshElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case MESH_GROUNDWATER_MESH_NEIGHBOR:
+        error = meshElements[(*it).recipientElementNumber].underground.meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case MESH_GROUNDWATER_CHANNEL_NEIGHBOR:
+        error = meshElements[(*it).recipientElementNumber].underground.channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case CHANNEL_SURFACEWATER_MESH_NEIGHBOR:
+        error = channelElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR:
+        error = channelElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      case CHANNEL_GROUNDWATER_MESH_NEIGHBOR:
+        error = channelElements[(*it).recipientElementNumber].undergroundMeshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
+        break;
+      }
+    }
+
+  if (error)
+    {
+      CkExit();
+    }
+}
+
+void Region::receiveInflowsAndAdvanceTime()
+{
+  bool error = false;
+  
+  for (itMesh = meshElements.begin(); !error && itMesh != meshElements.end(); ++itMesh)
+    {
+      error = (*itMesh).second.receiveInflows(currentTime, timestepEndTime);
+    }
+  
+  for (itChannel = channelElements.begin(); !error && itChannel != channelElements.end(); ++itChannel)
+    {
+      error = (*itChannel).second.receiveInflows(currentTime, timestepEndTime);
+    }
+  
+  if (!error)
+    {
+      currentTime = timestepEndTime;
     }
   
   if (error)

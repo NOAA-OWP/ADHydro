@@ -149,48 +149,57 @@ bool SimpleNeighborProxy::checkInvariant()
   return error;
 }
 
-void SimpleNeighborProxy::insertMaterial(MaterialTransfer newMaterial)
+bool SimpleNeighborProxy::insertMaterial(MaterialTransfer newMaterial)
 {
-  std::list<MaterialTransfer>::reverse_iterator it = incomingMaterial.rbegin(); // Loop iterator.
+  bool                                          error = false;                     // Error flag.
+  std::list<MaterialTransfer>::reverse_iterator it    = incomingMaterial.rbegin(); // Loop iterator.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   if (newMaterial.checkInvariant())
     {
-      CkExit();
+      error = true;
     }
 
   if (!(0.0 > nominalFlowRate))
     {
       CkError("ERROR in SimpleNeighborProxy::insertMaterial: If inserting material nominalFlowRate must be an inflow.\n");
-      CkExit();
+      error = true;
     }
 
   if (!(newMaterial.endTime <= expirationTime))
     {
       CkError("ERROR in SimpleNeighborProxy::insertMaterial: newMaterial.endTime must be less than or equal to expirationTime.\n");
-      CkExit();
+      error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 
-  // Find the last element in the list that ends before this new element starts.
-  while (it != incomingMaterial.rend() && (*it).endTime > newMaterial.startTime)
+  if (!error)
     {
-      ++it;
-    }
+      // Find the last element in the list that ends before this new element starts.
+      while (it != incomingMaterial.rend() && (*it).endTime > newMaterial.startTime)
+        {
+          ++it;
+        }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-  // Check that the next one in the list does not overlap the new element.
-  if (it.base() != incomingMaterial.end())
-    {
-      if (!(newMaterial.endTime <= (*it.base()).startTime))
+      // Check that the next one in the list does not overlap the new element.
+      if (it.base() != incomingMaterial.end())
         {
-          CkError("ERROR in SimpleNeighborProxy::insertMaterial: elements of incomingMaterial must be non-overlapping.\n");
-          CkExit();
+          if (!(newMaterial.endTime <= (*it.base()).startTime))
+            {
+              CkError("ERROR in SimpleNeighborProxy::insertMaterial: elements of incomingMaterial must be non-overlapping.\n");
+              error = true;
+            }
         }
-    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    }
 
-  incomingMaterial.insert(it.base(), newMaterial);
+  if (!error)
+    {
+      incomingMaterial.insert(it.base(), newMaterial);
+    }
+
+  return error;
 }
 
 bool SimpleNeighborProxy::allMaterialHasArrived(double currentTime, double timestepEndTime)

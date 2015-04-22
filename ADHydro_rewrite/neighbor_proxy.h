@@ -160,8 +160,10 @@ public:
   
   // Insert a new MaterialTransfer into incomingMaterial.  This keeps the list
   // sorted and checks that the time range of the newly inserted material is
-  // non-overlapping.  Exit on error.
-  void insertMaterial(MaterialTransfer newMaterial);
+  // non-overlapping.
+  //
+  // Returns: true if there is an error, false otherwise.
+  bool insertMaterial(MaterialTransfer newMaterial);
   
   // Returns: true if all material flows have arrived between currentTime and
   //          timestepEndTime, false otherwise.  Exit on error.
