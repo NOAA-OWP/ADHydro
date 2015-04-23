@@ -1,12 +1,13 @@
 #include "adhydro.h"
 
 // Global read-only variables.
-double ADHydro::centralMeridian;
-double ADHydro::falseEasting;
-double ADHydro::falseNorthing;
-bool   ADHydro::drainDownMode;
-double ADHydro::drainDownTime;
-int    ADHydro::verbosityLevel;
+double        ADHydro::centralMeridian;
+double        ADHydro::falseEasting;
+double        ADHydro::falseNorthing;
+bool          ADHydro::drainDownMode;
+double        ADHydro::drainDownTime;
+int           ADHydro::verbosityLevel;
+CProxy_Region ADHydro::regionProxy;
 
 bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude)
 {
@@ -33,9 +34,56 @@ bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude
   return error;
 }
 
+double ADHydro::newExpirationTime(double currentTime, double dtNew)
+{
+  int          ii;                                                                                                                          // Loop counter.
+  const int    numberOfDts               = 15;                                                                                              // Unitless.
+  const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 180.0, 300.0, 600.0, 900.0, 1800.0, 3600.0}; // Seconds.
+  double       selectedDt;                                                                                                                  // Seconds.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in ADHydro::newExpirationTime: dtNew must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  if (dtNew < allowableDts[0])
+    {
+      selectedDt = allowableDts[0];
+      
+      while (dtNew < selectedDt)
+        {
+          selectedDt *= 0.5;
+        }
+    }
+  else
+    {
+      ii = 0;
+      
+      while (ii + 1 < numberOfDts && dtNew < allowableDts[ii + 1])
+        {
+          ++ii;
+        }
+      
+      selectedDt = allowableDts[ii];
+    }
+  
+  ii = floor(currentTime / selectedDt);
+  
+  while ((ii + 1) * selectedDt < currentTime + dtNew)
+    {
+      ++ii;
+    }
+  
+  return ii * selectedDt;
+}
+
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  thisProxy.FIXMEdeleteme();
+  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 10.0, 3);
+  CkExit();
 }
 
 #include "adhydro.def.h"

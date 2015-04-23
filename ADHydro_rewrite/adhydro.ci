@@ -1,22 +1,17 @@
 mainmodule adhydro
 {
+  extern module region;
+  
   mainchare ADHydro
   {
-    readonly double centralMeridian;
-    readonly double falseEasting;
-    readonly double falseNorthing;
-    readonly bool   drainDownMode;
-    readonly double drainDownTime;
-    readonly int    verbosityLevel;
+    readonly double        centralMeridian;
+    readonly double        falseEasting;
+    readonly double        falseNorthing;
+    readonly bool          drainDownMode;
+    readonly double        drainDownTime;
+    readonly int           verbosityLevel;
+    readonly CProxy_Region regionProxy;
     
     entry ADHydro(CkArgMsg* msg);
-    
-    entry void FIXMEdeleteme()
-    {
-      serial
-      {
-        CkExit();
-      }
-    };
   }; // End mainchare ADHydro.
 }; // End mainmodule adhydro.

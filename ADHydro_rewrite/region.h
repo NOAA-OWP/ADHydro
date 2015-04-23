@@ -75,7 +75,10 @@ class Region : public CBase_Region, Element
   
 public:
   
-  // FIXME constructor, pup, and initialization
+  // FIXME comment
+  Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
+  
+  // FIXME pup, and initialization
   
   // Charm++ migration constructor.
   //

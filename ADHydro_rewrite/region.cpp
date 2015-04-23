@@ -1,5 +1,17 @@
 #include "region.h"
 
+Region::Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit) :
+  Element(referenceDateInit, currentTimeInit, simulationEndTimeInit)
+{
+  // FIXME implement.
+}
+
+Region::Region(CkMigrateMessage* msg) :
+  Element(1721425.5, 0.0, 0.0) // Dummy values will be overwritten by pup.
+{
+  // Do nothing.
+}
+
 void Region::sendStateToExternalNeighbors()
 {
   std::map<int, std::vector<RegionMessageStruct> >::iterator it; // Loop iterator.

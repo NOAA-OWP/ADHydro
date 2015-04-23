@@ -2,6 +2,8 @@ module region
 {
   array [1D] Region
   {
+    entry Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
+    
     entry void runUntilSimulationEnd()
     {
       // FIXME do initialization.

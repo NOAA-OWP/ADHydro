@@ -61,16 +61,24 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
 
-adhydro.o: adhydro.cpp    \
-           adhydro.h      \
-           adhydro.decl.h \
-           adhydro.def.h  \
-           all_charm.h    \
+adhydro.o: adhydro.cpp           \
+           adhydro.h             \
+           adhydro.decl.h        \
+           adhydro.def.h         \
+           region.h              \
+           region.decl.h         \
+           mesh_element.h        \
+           channel_element.h     \
+           element.h             \
+           neighbor_proxy.h      \
+           evapo_transpiration.h \
+           all_charm.h           \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 adhydro.decl.h \
-adhydro.def.h: adhydro.ci
+adhydro.def.h: adhydro.ci \
+               region.ci
 	$(CHARMC) $<
 
 region.o: region.cpp            \
