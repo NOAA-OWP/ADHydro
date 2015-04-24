@@ -67,8 +67,9 @@ void garto_parameters_dealloc(garto_parameters** parameters);
 
 /* Create a garto_domain struct and initialize it.
  * Return TRUE if there is an error, FALSE otherwise.
- * If yes_groundwater is TRUE and initialize_to_hydrostatic is TRUE, then the domain is initialized to hydrostatic equilibrium with the given water table.
- * Else, the domain is initialized to have no water other than initial_water_content.
+ * If yes_groundwater is TRUE and initialize_to_hydrostatic is TRUE, then the domain is initialized to hydrostatic equilibrium with the given value of
+ * water_table and initial_water_content is ignored.  Otherwise, the domain is initialized to have no water other than initial_water_content and water_table is
+ * ignored.
  *
  * Parameters:
  *
@@ -79,7 +80,8 @@ void garto_parameters_dealloc(garto_parameters** parameters);
  * yes_groundwater           - Whether to simulate groundwater.
  * initial_water_content     - Initial water content used when yes_groundwater or initialize_to_hydrostatic is FALSE.
  * initialize_to_hydrostatic - Whether to initialize the groundwater front to hydrostatic equilibrium with the given water table.
- * water_table               - The depth in meters of the water table to use to initialize the groundwater front.
+ * water_table               - The depth in meters of the water table to use to initialize the groundwater front when yes_groundwater and
+ *                             initialize_to_hydrostatic are TRUE.
  */
 int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, double layer_top_depth, double layer_bottom_depth, int yes_groundwater,
                        double initial_water_content, int initialize_to_hydrostatic, double water_table);

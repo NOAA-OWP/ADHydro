@@ -1,12 +1,5 @@
-#include <new>
-//#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <assert.h>
 #include "garto.h"
-#include "all.h"
-//#include "epsilon.h"
-//#include "memfunc.h"
+#include "all_charm.h"
 
 /* Comment in .h file. */
 int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double conductivity, double porosity, double residual_saturation,
@@ -15,87 +8,94 @@ int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double c
   int    error = false; // Error flag.
   double m, p;          // Derived parameters.
 
-  if (NULL == parameters)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != parameters))
     {
-      fprintf(stderr, "ERROR: garto parameters must not be NULL\n");
+      CkError("ERROR in garto_parameters_alloc: parameters must not be NULL.\n");
       error = true;
     }
   else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
       *parameters = NULL; // Prevent deallocating a random pointer.
     }
 
-  if (0 >= num_bins)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0 < num_bins))
     {
-      fprintf(stderr, "ERROR: num_bins in GARTO must be greater than 0\n");
+      CkError("ERROR in garto_parameters_alloc: num_bins must be greater than zero.\n");
       error = true;
     }
 
-  if (0.0 >= conductivity)
+  if (!(0.0 < conductivity))
     {
-      fprintf(stderr, "ERROR: conductivity in GARTO must be greater than 0\n");
+      CkError("ERROR in garto_parameters_alloc: conductivity must be greater than zero.\n");
       error = true;
     }
 
-  if (0.0 >= residual_saturation)
+  if (!(0.0 < residual_saturation))
     {
-      fprintf(stderr, "ERROR: residual_saturation must be greater than 0\n");
+      CkError("ERROR in garto_parameters_alloc: residual_saturation must be greater than zero.\n");
       error = true;
     }
 
-  if (residual_saturation >= porosity)
+  if (!(residual_saturation < porosity))
     {
-      fprintf(stderr, "ERROR: porosity in GARTO must be greater than residual_saturation\n");
+      CkError("ERROR in garto_parameters_alloc: porosity must be greater than residual_saturation.\n");
       error = true;
     }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
   if (van_genutchen)
     {
-      // If given Van Genutchen parameters calculate bc_lambda and bc_psib.
-      if (1.0 < vg_n && 0.0 < vg_alpha)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      if (!(1.0 < vg_n))
+        {
+          CkError("ERROR in garto_parameters_alloc: vg_n must be greater than one.\n");
+          error = true;
+        }
+      
+      if (!(0.0 < vg_alpha))
+        {
+          CkError("ERROR in garto_parameters_alloc: vg_alpha must be greater than zero.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      
+      // If given Van Genutchen parameters calculate Brooks-Corey parameters.
+      if (!error)
         {
           m         = 1.0 - 1.0 / vg_n;
           p         = 1.0 + 2.0 / m;
           bc_lambda = 2.0 / (p - 3.0);
           bc_psib   = (p + 3.0) * (147.8 + 8.1 * p + 0.092 * p * p) / (2.0 * vg_alpha * p * (p - 1.0) * (55.6 + 7.4 * p + p * p));
         }
-      else
-        {
-          fprintf(stderr, "ERROR: Van Genutchen parameter n must be greater than 1.0, alpha must be greater than 0.\n");
-          error = true;
-        }
     }
   else
     {
-      // If given Brook-Corey parameters calculate vg_alpha and vg_n.
-      if (0.0 < bc_psib)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      if (!(0.0 < bc_psib))
+        {
+          CkError("ERROR in garto_parameters_alloc: bc_psib must be greater than zero.\n");
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      
+      // If given Brooks-Corey parameters calculate Van Genutchen parameters.
+      if (!error)
         {
           p        = 3.0 + 2.0 / bc_lambda;
           m        = 2.0 / (p - 1.0);
           vg_alpha = (p + 3.0) * (147.8 + 8.1 * p + 0.092 * p * p) / (2.0 * bc_psib * p * (p - 1.0) * (55.6 + 7.4 * p + p * p));
           vg_n     = 1.0 / (1.0 - m);
         }
-      else
-        {
-          fprintf(stderr, "ERROR: Brook-Corey parameter psib must be greater than 0\n");
-          error = true;
-        }
     }
 
-  // Allocate the garto_parameters struct.
+  // Allocate and initialize the garto_parameters struct.
   if (!error)
     {
-      //error = v_alloc((void**)parameters, sizeof(garto_parameters));
-      (*parameters) = new garto_parameters;
-      if (NULL == ((*parameters)))
-        {
-          error = true;
-        }
-    }
-
-  // Initialize the garto_parameters struct.
-  if (!error)
-    {
+      *parameters = new garto_parameters;
+      
       (*parameters)->num_bins                = num_bins;
       (*parameters)->theta_r                 = residual_saturation;
       (*parameters)->theta_s                 = porosity;
@@ -113,7 +113,6 @@ int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double c
         {
           (*parameters)->effective_capillary_suction = bc_psib * (2.0 + 3.0 * bc_lambda) / (1.0 + 3.0 * bc_lambda);
         }
-      
     }
 
   if (error)
@@ -127,21 +126,21 @@ int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double c
 /* Comment in .h file. */
 void garto_parameters_dealloc(garto_parameters** parameters)
 {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
-  assert(NULL != parameters);
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(NULL != parameters);
 #endif
 
   if (NULL != parameters && NULL != *parameters)
-    {      
+    {
       // Deallocate the garto_parameters struct.
-      // v_dealloc((void**)parameters, sizeof(garto_parameters));
-      delete (*parameters);
+      delete *parameters;
+      
+      *parameters = NULL;
     }
-  
 }
 
 /* Comment in .h file. */
-int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters,double layer_top_depth, double layer_bottom_depth, int yes_groundwater,
+int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, double layer_top_depth, double layer_bottom_depth, int yes_groundwater,
                        double initial_water_content, int initialize_to_hydrostatic, double water_table)
 {
   int    error = false;       // Error flag.
@@ -150,60 +149,60 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters,doubl
   double relative_saturation;
   double suction_head;
   
-  if (NULL == domain)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != domain))
     {
-      fprintf(stderr, "ERROR: garto domain must not be NULL\n");
+      CkError("ERROR in garto_domain_alloc: domain must not be NULL.\n");
       error = true;
     }
   else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
       *domain = NULL; // Prevent deallocating a random pointer.
     }
 
-  if (NULL == parameters)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != parameters))
     {
-      fprintf(stderr, "ERROR: parameters pointer in garto must not be NULL\n");
+      CkError("ERROR in garto_domain_alloc: parameters must not be NULL.\n");
       error = true;
     }
 
-  if (0.0 > layer_top_depth)
+  if (!(0.0 <= layer_top_depth))
     {
-      fprintf(stderr, "ERROR: layer_top_depth in garto must be greater than or equal to 0\n");
+      CkError("ERROR in garto_domain_alloc: layer_top_depth must be greater than or equal to zero.\n");
       error = true;
     }
     
-  if (layer_top_depth >= layer_bottom_depth)
+  if (!(layer_top_depth < layer_bottom_depth))
     {
-      fprintf(stderr, "ERROR: in garto layer_bottom_depth must be greater than layer_top_depth\n");
+      CkError("ERROR in garto_domain_alloc: layer_bottom_depth must be greater than layer_top_depth.\n");
       error = true;
     }
 
-  if (!yes_groundwater && 0.0 >= initial_water_content)
+  if (yes_groundwater && initialize_to_hydrostatic)
     {
-      fprintf(stderr, "ERROR: in garto initial_water_content must be greater than 0\n");
-      error = true;
-    }
-
-  if (yes_groundwater && initialize_to_hydrostatic && 0.0 > water_table)
-    {
-      fprintf(stderr, "ERROR: in garto water_table must be greater than or equal to 0\n");
-      error = true;
-    }
-
-  // Allocate the garto_domain struct.
-  if (!error)
-    {
-      //error = v_alloc((void**)domain, sizeof(garto_domain));
-      (*domain) = new garto_domain;
-      if (NULL == ((*domain)))
+      if (!(0.0 <= water_table))
         {
+          CkError("ERROR in garto_domain_alloc: if yes_groundwater and initialize_to_hydrostatic are true water_table must be greater than or equal to zero.\n");
           error = true;
         }
     }
+  else
+    {
+      if (!(0.0 < initial_water_content))
+        {
+          CkError("ERROR in garto_domain_alloc: if yes_groundwater or initialize_to_hydrostatic are false initial_water_content must be greater than zero.\n");
+          error = true;
+        }
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // Initialize the garto_domain struct.
   if (!error)
     {
+      // Allocate and initialize the garto_domain struct.
+      *domain = new garto_domain;
+
       (*domain)->parameters              = parameters;
       (*domain)->top_depth               = layer_top_depth;
       (*domain)->bottom_depth            = layer_bottom_depth;
@@ -215,134 +214,81 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters,doubl
       (*domain)->yes_groundwater         = yes_groundwater;
 
       if (yes_groundwater && initialize_to_hydrostatic)
-        { // Yes_groundwater, and initialize to hydrostatic, calculate surface initial_water_content using water_table.
+        {
+          // Calculate surface initial_water_content using water_table.
           if ((water_table - (*domain)->top_depth) > parameters->bc_psib)
             {
-              initial_water_content = parameters->theta_r + (parameters->theta_s - parameters->theta_r) * 
-                                      pow((water_table - (*domain)->top_depth) / parameters->bc_psib, -parameters->bc_lambda);
+              initial_water_content = parameters->theta_r + (parameters->theta_s - parameters->theta_r) *
+                  pow((water_table - (*domain)->top_depth) / parameters->bc_psib, -parameters->bc_lambda);
             }
           else
             {
               initial_water_content = parameters->theta_s;
             }
         }
-        
+
       if (initial_water_content >= parameters->theta_r)
         {
           (*domain)->initial_water_content = initial_water_content;
         }
       else
         {
-          fprintf(stderr, "WARNING: initial_water_content less than the residual water content, using the residual water content instead.\n");
+          CkError("WARNING in garto_domain_alloc: initial_water_content less than the residual water content, using the residual water content instead.\n");
+
           (*domain)->initial_water_content = parameters->theta_r;
-        }        
-    }
-
-  // Allocate d_theta.
-  if (!error)
-    {
-      //error = d_alloc(&(*domain)->d_theta, parameters->num_bins);
-      ((*domain)->d_theta) = new double[parameters->num_bins + 1];
-      if (NULL == ((*domain)->d_theta))
-        {
-          error = true;
         }
-    }
 
-  // Initialize d_theta.
-  if (!error)
-    {
+      // Allocate and initialize d_theta.
+      (*domain)->d_theta = new double[parameters->num_bins + 1];
+
       for (ii = 1; ii <= parameters->num_bins; ii++)
         {
           (*domain)->d_theta[ii] = 0.0;
         }
-    }
-  
-  // Allocate surface_front_theta.
-  if (!error)
-    {
-      //error = d_alloc(&(*domain)->surface_front_theta, parameters->num_bins);
-      ((*domain)->surface_front_theta) = new double[parameters->num_bins + 1];
-      if (NULL == ((*domain)->surface_front_theta))
-        {
-          error = true;
-        }
-    }
 
-  // Initialize surface_front_theta.
-  if (!error)
-    {
+      // Allocate and initialize surface_front_theta.
+      (*domain)->surface_front_theta = new double[parameters->num_bins + 1];
+
       // (*domain)->surface_front_theta[0] will be used in the simulation.
       for (ii = 0; ii <= parameters->num_bins; ii++)
         {
           (*domain)->surface_front_theta[ii] = (*domain)->initial_water_content;
         }
-    }
-  
-  // Allocate surface_front_depth.
-  if (!error)
-    {
-      //error = d_alloc(&(*domain)->surface_front_depth, parameters->num_bins);
-      ((*domain)->surface_front_depth) = new double[parameters->num_bins + 1];
-      if (NULL == ((*domain)->surface_front_depth))
-        {
-          error = true;
-        }
-    }
 
-  // Initialize surface_front_theta.
-  if (!error)
-    {
+      // Allocate and initialize surface_front_depth.
+      (*domain)->surface_front_depth = new double[parameters->num_bins + 1];
+
+      // (*domain)->surface_front_depth[0] will be used in the simulation.
       (*domain)->surface_front_depth[0] = layer_bottom_depth;
+
       for (ii = 1; ii <= parameters->num_bins; ii++)
         {
           (*domain)->surface_front_depth[ii] = layer_top_depth;
         }
-    }
-    
-  // Allocate groundwater_front_theta.
-  if (!error)
-    {
-      //error = d_alloc(&(*domain)->groundwater_front_theta, parameters->num_bins);
-      ((*domain)->groundwater_front_theta) = new double[parameters->num_bins + 1];
-      if (NULL == ((*domain)->groundwater_front_theta))
-        {
-          error = true;
-        }
-    }
 
-  // Initialize groundwater_front_theta.
-  if (!error)
-    {
+      // Allocate and initialize groundwater_front_theta.
+      (*domain)->groundwater_front_theta = new double[parameters->num_bins + 1];
+
+      // (*domain)->groundwater_front_theta[0] will be used in the simulation.
       (*domain)->groundwater_front_theta[0] = initial_water_content;
       delta_water_content                   = (parameters->theta_s - initial_water_content) / parameters->num_bins;
+
       for (ii = 1; ii <= parameters->num_bins; ii++)
-         {
-           (*domain)->groundwater_front_theta[ii] = initial_water_content + ii * delta_water_content;
-         }
-    }      
-        
-  // Allocate groundwater_front.
-  if (!error)
-    {
-      //error = d_alloc(&(*domain)->groundwater_front_depth, parameters->num_bins);
-      ((*domain)->groundwater_front_depth) = new double[parameters->num_bins + 1];
-      if (NULL == ((*domain)->groundwater_front_depth))
         {
-          error = true;
+          (*domain)->groundwater_front_theta[ii] = initial_water_content + ii * delta_water_content;
         }
-    }
-  
-  if (!error)
-    {
+
+      // Allocate and initialize groundwater_front_depth.
+      (*domain)->groundwater_front_depth = new double[parameters->num_bins + 1];
+      
       if (yes_groundwater && initialize_to_hydrostatic)
         {
-          // Initialize groundwater_front to hydrostatic.
+          // Initialize groundwater_front_depth to hydrostatic.
           for (ii = 1; ii <= parameters->num_bins; ii++)
             {
               relative_saturation = ((*domain)->groundwater_front_theta[ii] - parameters->theta_r) / (parameters->theta_s - parameters->theta_r);
               suction_head        = parameters->bc_psib * pow(relative_saturation, -1.0 / parameters->bc_lambda);
-                  
+
               (*domain)->groundwater_front_depth[ii] = water_table - suction_head;
 
               if ((*domain)->groundwater_front_depth[ii] < layer_top_depth)
@@ -357,12 +303,13 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters,doubl
         }
       else
         {
+          // Initialize groundwater_front_depth to empty.
           for (ii = 1; ii <= parameters->num_bins; ii++)
-             {
-               (*domain)->groundwater_front_depth[ii] = layer_bottom_depth;
-             }
+            {
+              (*domain)->groundwater_front_depth[ii] = layer_bottom_depth;
+            }
         }
-    }      
+    }
 
   if (error)
     {
@@ -376,59 +323,28 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters,doubl
 void garto_domain_dealloc(garto_domain** domain)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert(NULL != domain);
+  CkAssert(NULL != domain);
 #endif
 
   if (NULL != domain && NULL != *domain)
     {
-      // Deallocate d_theta.
-      if (NULL != (*domain)->d_theta)
-        {
-          //d_dealloc(&(*domain)->d_theta, (*domain)->parameters->num_bins);
-          delete[] (*domain)->d_theta;
-        }
-        
-      // Deallocate surface_front_theta.
-      if (NULL != (*domain)->surface_front_theta)
-        {
-          //d_dealloc(&(*domain)->surface_front_theta, (*domain)->parameters->num_bins);]
-          delete[] (*domain)->surface_front_theta;
-        }
-      
-      // Deallocate surface_front_depth.
-      if (NULL != (*domain)->surface_front_depth)
-        {
-          //d_dealloc(&(*domain)->surface_front_depth, (*domain)->parameters->num_bins);
-          delete[] (*domain)->surface_front_depth;
-        }
+      delete[] (*domain)->d_theta;
+      delete[] (*domain)->surface_front_theta;
+      delete[] (*domain)->surface_front_depth;
+      delete[] (*domain)->groundwater_front_theta;
+      delete[] (*domain)->groundwater_front_depth;
+      delete *domain;
 
-      // Deallocate groundwater_front_theta.
-      if (NULL != (*domain)->groundwater_front_theta)
-        {
-          //d_dealloc(&(*domain)->groundwater_front_theta, (*domain)->parameters->num_bins);
-          delete[] (*domain)->groundwater_front_theta;
-        }
-      
-      // Deallocate groundwater_front_depth.
-      if (NULL != (*domain)->groundwater_front_depth)
-        {
-          //d_dealloc(&(*domain)->groundwater_front_depth, (*domain)->parameters->num_bins);
-          delete[] (*domain)->groundwater_front_depth;
-        }
-
-      // Deallocate the garto_domain struct.
-      //v_dealloc((void**)domain, sizeof(garto_domain));
-      delete (*domain);
-    }   
+      *domain = NULL;
+    }
 }
 
 /* Comment in .h file. */
 void garto_check_invariant(garto_domain* domain)
 {
-#ifndef NDEBUG
   int ii; // Loop counter.
 
-  assert(NULL != domain);
+  CkAssert(NULL != domain);
   
   if (NULL != domain)
     {
@@ -436,38 +352,37 @@ void garto_check_invariant(garto_domain* domain)
          {
            if (epsilonGreater(domain->surface_front_theta[ii], domain->surface_front_theta[0]))
              {
-               assert(domain->surface_front_depth[ii] >= domain->top_depth); 
+               CkAssert(domain->surface_front_depth[ii] >= domain->top_depth); 
                
                if (domain->yes_groundwater)
                  {
-                   assert(domain->surface_front_depth[ii] <= domain->groundwater_front_depth[1]);
+                   CkAssert(domain->surface_front_depth[ii] <= domain->groundwater_front_depth[1]);
                  } 
                else
                  {
-                   assert(domain->surface_front_depth[ii] <= domain->bottom_depth); 
+                   CkAssert(domain->surface_front_depth[ii] <= domain->bottom_depth); 
                  }
                
                if (ii >= 2)
                  {
-                   assert(domain->surface_front_depth[ii - 1] >= domain->surface_front_depth[ii]); 
+                   CkAssert(domain->surface_front_depth[ii - 1] >= domain->surface_front_depth[ii]); 
                  }
              }
          } 
          
       if (domain->yes_groundwater)
         {
-          assert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
+          CkAssert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
           for (ii = 1; ii <= domain->parameters->num_bins && domain->groundwater_front_theta[ii] > domain->groundwater_front_theta[0]; ii++)
              {
-               assert(domain->groundwater_front_depth[ii] <= domain->bottom_depth);
+               CkAssert(domain->groundwater_front_depth[ii] <= domain->bottom_depth);
                if (ii >= 2)
                  {
-                   assert(domain->groundwater_front_depth[ii - 1] <= domain->groundwater_front_depth[ii]); 
+                   CkAssert(domain->groundwater_front_depth[ii - 1] <= domain->groundwater_front_depth[ii]); 
                  } 
              }
         }
     }
-#endif // NDEBUG
 }
 
 /* Comment in .h file. */
@@ -479,10 +394,10 @@ double garto_total_water_in_domain(garto_domain* domain)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
   if (domain->yes_groundwater)
     {
-      assert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
+      CkAssert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
     }
   
-  assert(NULL != domain);
+  CkAssert(NULL != domain);
 #endif
 
   if (NULL != domain)
@@ -602,7 +517,7 @@ int garto_check_surface_front_overshoot(garto_domain* domain)
 double garto_find_dry_depth(garto_domain* domain, double dt)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert(domain->parameters->theta_s > domain->surface_front_theta[0]);
+  CkAssert(domain->parameters->theta_s > domain->surface_front_theta[0]);
 #endif
   
   double tau       = dt * domain->parameters->saturated_conductivity / (domain->parameters->theta_s - domain->surface_front_theta[0]);
@@ -620,7 +535,7 @@ double garto_find_dry_depth(garto_domain* domain, double dt)
 double conductivity_brooks_corey(garto_domain* domain, double water_content)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert((water_content >= domain->parameters->theta_r && water_content <= domain->parameters->theta_s) ||
+  CkAssert((water_content >= domain->parameters->theta_r && water_content <= domain->parameters->theta_s) ||
          epsilonEqual(water_content, domain->parameters->theta_s)  || epsilonEqual(water_content, domain->parameters->theta_r));
 #endif
  
@@ -639,7 +554,7 @@ double conductivity_brooks_corey(garto_domain* domain, double water_content)
 double pressure_head_brooks_corey(garto_domain* domain, double water_content)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert((water_content >= domain->parameters->theta_r && water_content <= domain->parameters->theta_s) ||
+  CkAssert((water_content >= domain->parameters->theta_r && water_content <= domain->parameters->theta_s) ||
           epsilonEqual(water_content, domain->parameters->theta_s) || epsilonEqual(water_content, domain->parameters->theta_r));
 #endif
 
@@ -657,7 +572,7 @@ double pressure_head_brooks_corey(garto_domain* domain, double water_content)
 double capillary_drive_brooks_corey(garto_domain* domain, double water_content_1, double water_content_2)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert((domain->parameters->theta_r <= water_content_1 && water_content_1 < water_content_2 && water_content_2 <= domain->parameters->theta_s) ||
+  CkAssert((domain->parameters->theta_r <= water_content_1 && water_content_1 < water_content_2 && water_content_2 <= domain->parameters->theta_s) ||
           epsilonEqual(water_content_2, domain->parameters->theta_s) || epsilonEqual(water_content_1, domain->parameters->theta_r));
 #endif
   
@@ -777,7 +692,7 @@ int find_surface_last_bin(garto_domain* domain)
 int find_groundwater_last_bin(garto_domain* domain)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert(domain->yes_groundwater);
+  CkAssert(domain->yes_groundwater);
 #endif  
   int ii, last_bin = 0;
   
@@ -791,7 +706,7 @@ int find_groundwater_last_bin(garto_domain* domain)
          }
      }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE) 
-  assert(last_bin >= 0);
+  CkAssert(last_bin >= 0);
 #endif
   return last_bin;
 }
@@ -806,7 +721,7 @@ int find_groundwater_last_bin(garto_domain* domain)
 int t_o_advance_front(garto_domain* domain, double dt, double* surfacewater_depth, int bin, double surfacewater_depth_old)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE) 
-  assert((domain->surface_front_theta[bin + 1] > domain->surface_front_theta[bin]) || 
+  CkAssert((domain->surface_front_theta[bin + 1] > domain->surface_front_theta[bin]) || 
          epsilonEqual(domain->surface_front_theta[bin], domain->parameters->theta_s));
 #endif 
   int    error                = false;  
@@ -1113,7 +1028,7 @@ int garto_merge_groundwater_front(garto_domain* domain, int bin)
   int    error             = false;
   double water_in_two_bins = 0.0;
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)   
-  assert(bin >= 2);
+  CkAssert(bin >= 2);
 #endif  
   if (bin >= 2)
     {
@@ -1511,7 +1426,7 @@ void garto_saturated_bin(garto_domain* domain, double dt, double* surfacewater_d
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   if (domain->yes_groundwater)
     {
-      assert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
+      CkAssert(epsilonEqual(domain->surface_front_theta[0], domain->groundwater_front_theta[0]));
     }
 #endif
   if (domain->yes_groundwater)
@@ -1583,7 +1498,7 @@ int garto_timestep(garto_domain* domain, double dt, double* surfacewater_depth, 
 void garto_add_groundwater(garto_domain* domain, double* groundwater_recharge)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert(NULL != domain && NULL != groundwater_recharge && 0.0 <= *groundwater_recharge);
+  CkAssert(NULL != domain && NULL != groundwater_recharge && 0.0 <= *groundwater_recharge);
 #endif  
   int    last_groundwater_bin = find_groundwater_last_bin(domain);
   int    ii                   = last_groundwater_bin;
@@ -2063,7 +1978,7 @@ void get_garto_domain_water_content(garto_domain* domain, double* water_content,
   int    jj_start     = 0;   // Loop start index for loop over soil_depth_z.
   double water_amount = 0.0; // Amount of water in each layer in meter.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
-  assert(NULL != domain);
+  CkAssert(NULL != domain);
 #endif
   // Loop over gar_domain surface front.
   for (ii = domain->parameters->num_bins; ii >= 1; ii--)

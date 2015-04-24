@@ -37,7 +37,7 @@ ADHYDRO_OBJS := adhydro.o             \
                 surfacewater.o        \
                 groundwater.o         \
                 evapo_transpiration.o \
-#                garto.o
+                garto.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
                module_sf_noahmplsm.o          \
@@ -165,6 +165,12 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        adhydro.decl.h          \
                        all_charm.h             \
                        all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+garto.o: garto.cpp   \
+         garto.h     \
+         all_charm.h \
+         all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 clean:
