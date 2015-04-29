@@ -3,7 +3,209 @@
 Region::Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit) :
   Element(referenceDateInit, currentTimeInit, simulationEndTimeInit)
 {
-  // FIXME implement.
+  // FIXME only needed for hardcoded mesh
+  EvapoTranspirationForcingStruct evapoTranspirationForcingInit;
+  EvapoTranspirationStateStruct   evapoTranspirationStateInit;
+  
+  evapoTranspirationForcingInit.dz8w   = 20.0;
+  evapoTranspirationForcingInit.sfcTmp = 300.0;
+  evapoTranspirationForcingInit.sfcPrs = 101300.0;
+  evapoTranspirationForcingInit.psfc   = 101200.0;
+  evapoTranspirationForcingInit.uu     = 0.0;
+  evapoTranspirationForcingInit.vv     = 0.0;
+  evapoTranspirationForcingInit.q2     = 0.0;
+  evapoTranspirationForcingInit.qc     = 0.0;
+  evapoTranspirationForcingInit.solDn  = 1000.0;
+  evapoTranspirationForcingInit.lwDn   = 300.0;
+  evapoTranspirationForcingInit.prcp   = 1.0;
+  evapoTranspirationForcingInit.tBot   = 300.0;
+  evapoTranspirationForcingInit.pblh   = 10000.0;
+  
+  evapoTranspirationStateInit.fIceOld[0] = 0.0;
+  evapoTranspirationStateInit.fIceOld[1] = 0.0;
+  evapoTranspirationStateInit.fIceOld[2] = 0.0;
+  evapoTranspirationStateInit.albOld     = 1.0;
+  evapoTranspirationStateInit.snEqvO     = 0.0;
+  evapoTranspirationStateInit.stc[0]     = 0.0;
+  evapoTranspirationStateInit.stc[1]     = 0.0;
+  evapoTranspirationStateInit.stc[2]     = 0.0;
+  evapoTranspirationStateInit.stc[3]     = 300.0;
+  evapoTranspirationStateInit.stc[4]     = 300.0;
+  evapoTranspirationStateInit.stc[5]     = 300.0;
+  evapoTranspirationStateInit.stc[6]     = 300.0;
+  evapoTranspirationStateInit.tah        = 300.0;
+  evapoTranspirationStateInit.eah        = 0.0;
+  evapoTranspirationStateInit.fWet       = 0.0;
+  evapoTranspirationStateInit.canLiq     = 0.0;
+  evapoTranspirationStateInit.canIce     = 0.0;
+  evapoTranspirationStateInit.tv         = 300.0;
+  evapoTranspirationStateInit.tg         = 300.0;
+  evapoTranspirationStateInit.iSnow      = 0;
+  evapoTranspirationStateInit.zSnso[0]   = 0.0;
+  evapoTranspirationStateInit.zSnso[1]   = 0.0;
+  evapoTranspirationStateInit.zSnso[2]   = 0.0;
+  evapoTranspirationStateInit.zSnso[3]   = -0.05;
+  evapoTranspirationStateInit.zSnso[4]   = -0.2;
+  evapoTranspirationStateInit.zSnso[5]   = -0.5;
+  evapoTranspirationStateInit.zSnso[6]   = -1.0;
+  evapoTranspirationStateInit.snowH      = 0.0;
+  evapoTranspirationStateInit.snEqv      = 0.0;
+  evapoTranspirationStateInit.snIce[0]   = 0.0;
+  evapoTranspirationStateInit.snIce[1]   = 0.0;
+  evapoTranspirationStateInit.snIce[2]   = 0.0;
+  evapoTranspirationStateInit.snLiq[0]   = 0.0;
+  evapoTranspirationStateInit.snLiq[1]   = 0.0;
+  evapoTranspirationStateInit.snLiq[2]   = 0.0;
+  evapoTranspirationStateInit.lfMass     = 100000.0;
+  evapoTranspirationStateInit.rtMass     = 100000.0;
+  evapoTranspirationStateInit.stMass     = 100000.0;
+  evapoTranspirationStateInit.wood       = 200000.0;
+  evapoTranspirationStateInit.stblCp     = 200000.0;
+  evapoTranspirationStateInit.fastCp     = 200000.0;
+  evapoTranspirationStateInit.lai        = 4.6;
+  evapoTranspirationStateInit.sai        = 0.6;
+  evapoTranspirationStateInit.cm         = 0.002;
+  evapoTranspirationStateInit.ch         = 0.002;
+  evapoTranspirationStateInit.tauss      = 0.0;
+  evapoTranspirationStateInit.deepRech   = 0.0;
+  evapoTranspirationStateInit.rech       = 0.0;
+  
+  // FIXME Create hardcoded mesh.
+  switch (thisIndex)
+  {
+  case 0:
+    meshElements.insert(std::pair<int, MeshElement>(0, MeshElement(0, 0, 8, 1,  200.0, 200.0,  2.0, 1.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0,  2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[0].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 1, 0, 400.0, 400.0, 4.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>(1, MeshElement(1, 0, 8, 1,  400.0, 400.0,  4.0, 3.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0,  4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[1].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 0, 0, 200.0, 200.0, 2.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    meshElements[1].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 2, 0, 800.0, 200.0, 8.0, 180000.0, 600.0,             1.0,              0.0,              0.038));
+    meshElements.insert(std::pair<int, MeshElement>(2, MeshElement(2, 0, 8, 1,  800.0, 200.0,  8.0, 7.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0,  8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[2].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 1, 1,  400.0, 400.0,  4.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
+    meshElements[2].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 3, 0, 1000.0, 400.0, 10.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>(3, MeshElement(3, 0, 8, 1, 1000.0, 400.0, 10.0, 9.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[3].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 2, 1,  800.0, 200.0,  8.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    meshElements[3].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 4, 0, 1400.0, 200.0, 14.0, 180000.0, 600.0,             1.0,              0.0,              0.038));
+    channelElements.insert(std::pair<int, ChannelElement>(0, ChannelElement(0, STREAM, 0, 4.5, 3.5, 900.0, 1.0, 1.0, 4.66E-5, 1.0, 0.038, 0.0, 0.0)));
+    break;
+  case 1:
+    meshElements.insert(std::pair<int, MeshElement>(4, MeshElement(4, 1, 8, 1, 1400.0, 200.0, 14.0, 13.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 14.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[4].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 0, 3, 1, 1000.0, 400.0, 10.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
+    meshElements[4].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 5, 0, 1600.0, 400.0, 16.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>(5, MeshElement(5, 1, 8, 1, 1600.0, 400.0, 16.0, 15.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[5].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 4, 1, 1400.0, 200.0, 14.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    meshElements[5].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 6, 0, 2000.0, 200.0, 20.0, 180000.0, 600.0,             1.0,              0.0,              0.038));
+    meshElements.insert(std::pair<int, MeshElement>(6, MeshElement(6, 1, 8, 1, 2000.0, 200.0, 20.0, 19.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[6].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 5, 1, 1600.0, 400.0, 16.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
+    meshElements[6].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 7, 0, 2200.0, 400.0, 22.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>(7, MeshElement(7, 1, 8, 1, 2200.0, 400.0, 22.0, 21.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 22.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[7].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 6, 1, 2000.0, 200.0, 20.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    meshElements[7].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 8, 0, 2600.0, 200.0, 26.0, 180000.0, 600.0,             1.0,              0.0,              0.038));
+    channelElements.insert(std::pair<int, ChannelElement>(1, ChannelElement(1, STREAM, 1, 13.5, 12.5, 900.0, 1.0, 1.0, 4.66E-5, 1.0, 0.038, 0.0, 0.0)));
+    channelElements.insert(std::pair<int, ChannelElement>(2, ChannelElement(2, STREAM, 1, 22.5, 21.5, 900.0, 1.0, 1.0, 4.66E-5, 1.0, 0.038, 0.0, 0.0)));
+    break;
+  case 2:
+    meshElements.insert(std::pair<int, MeshElement>( 8, MeshElement( 8, 2, 8, 1, 2600.0, 200.0, 26.0, 25.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 26.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[8].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 1, 7, 1, 2200.0, 400.0, 22.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
+    meshElements[8].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 9, 0, 2800.0, 400.0, 28.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>( 9, MeshElement( 9, 2, 8, 1, 2800.0, 400.0, 28.0, 27.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 28.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[9].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2,  8, 1, 2600.0, 200.0, 26.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    meshElements[9].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 10, 0, 3200.0, 200.0, 32.0, 180000.0, 600.0,             1.0,              0.0,              0.038));
+    meshElements.insert(std::pair<int, MeshElement>(10, MeshElement(10, 2, 8, 1, 3200.0, 200.0, 32.0, 31.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 32.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[10].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2,  9, 1, 2800.0, 400.0, 28.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
+    meshElements[10].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 11, 0, 3400.0, 400.0, 34.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    meshElements.insert(std::pair<int, MeshElement>(11, MeshElement(10, 2, 8, 1, 3400.0, 400.0, 34.0, 33.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 34.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
+    meshElements[11].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 10, 1, 3200.0, 200.0, 32.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
+    channelElements.insert(std::pair<int, ChannelElement>(3, ChannelElement(3, STREAM, 2, 31.5, 30.5, 900.0, 1.0, 1.0, 4.66E-5, 1.0, 0.038, 0.0, 0.0)));
+    break;
+  }
+  
+  // Add empty vectors to outgoingMessages.
+  for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+    {
+      for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin();
+           itMeshSurfacewaterMeshNeighbor != (*itMesh).second.meshNeighbors.end(); ++itMeshSurfacewaterMeshNeighbor)
+        {
+          if ((*itMeshSurfacewaterMeshNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itMeshSurfacewaterMeshNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshSurfacewaterMeshNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+      
+      for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
+           itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
+        {
+          if ((*itMeshSurfacewaterChannelNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itMeshSurfacewaterChannelNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshSurfacewaterChannelNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+      
+      for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
+           itMeshGroundwaterMeshNeighbor != (*itMesh).second.underground.meshNeighbors.end(); ++itMeshGroundwaterMeshNeighbor)
+        {
+          if ((*itMeshGroundwaterMeshNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itMeshGroundwaterMeshNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshGroundwaterMeshNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+      
+      for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+           itMeshGroundwaterChannelNeighbor != (*itMesh).second.underground.channelNeighbors.end(); ++itMeshGroundwaterChannelNeighbor)
+        {
+          if ((*itMeshGroundwaterChannelNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itMeshGroundwaterChannelNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshGroundwaterChannelNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+    }
+  
+  for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+    {
+      for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin();
+           itChannelSurfacewaterMeshNeighbor != (*itChannel).second.meshNeighbors.end(); ++itChannelSurfacewaterMeshNeighbor)
+        {
+          if ((*itChannelSurfacewaterMeshNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itChannelSurfacewaterMeshNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelSurfacewaterMeshNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+      
+      for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
+           itChannelSurfacewaterChannelNeighbor != (*itChannel).second.channelNeighbors.end(); ++itChannelSurfacewaterChannelNeighbor)
+        {
+          if ((*itChannelSurfacewaterChannelNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itChannelSurfacewaterChannelNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelSurfacewaterChannelNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+      
+      for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin();
+           itChannelGroundwaterMeshNeighbor != (*itChannel).second.undergroundMeshNeighbors.end(); ++itChannelGroundwaterMeshNeighbor)
+        {
+          if ((*itChannelGroundwaterMeshNeighbor).region != thisIndex &&
+              outgoingMessages.find((*itChannelGroundwaterMeshNeighbor).region) == outgoingMessages.end())
+            {
+              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelGroundwaterMeshNeighbor).region,
+                                                                                        std::vector<RegionMessageStruct>()));
+            }
+        }
+    }
+  
+  regionalDtLimit = 10.0;
+  
+  thisProxy[thisIndex].runUntilSimulationEnd();
 }
 
 Region::Region(CkMigrateMessage* msg) :

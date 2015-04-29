@@ -13,6 +13,12 @@ class MeshSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
+  // FIXME comment
+  MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
+                                    double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
+                                    double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit);
+  
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
   int neighbor;                // Mesh element ID number of the neighbor.
@@ -35,6 +41,12 @@ public:
 class MeshSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
+  
+  // FIXME comment
+  MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
+                                       double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
+                                       double neighborBaseWidthInit, double neighborSideSlopeInit);
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -60,6 +72,13 @@ class MeshGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
+  // FIXME comment
+  MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+                                   int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
+                                   double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
+                                   double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
+                                   double neighborConductivityInit, double neighborPorosityInit);
+  
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
   int neighbor;                // Mesh element ID number of the neighbor.
@@ -84,6 +103,13 @@ public:
 class MeshGroundwaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
+  
+  // FIXME comment
+  MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                      int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
+                                      double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
+                                      double neighborBaseWidthInit, double neighborSideSlopeInit,
+                                      double neighborBedConductivityInit, double neighborBedThicknessInit);
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -136,7 +162,17 @@ public:
                      // groundwaterHead may flow laterally to neighboring elements.
   };
   
-  // FIXME constructor
+  // Default constructor.  Only needed for pup_stl.h code.
+  InfiltrationAndGroundwater();
+  
+  // FIXME comment
+  InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
+                             int soilTypeInit, double layerZBottomInit, double slopeXInit, double slopeYInit,
+                             double conductivityInit, double porosityInit, double groundwaterHeadInit,
+                             double groundwaterRechargeInit, double groundwaterErrorInit, void* vadoseZoneStateInit);
+  
+  // FIXME comment
+  ~InfiltrationAndGroundwater();
   
   // FIXME pup
   
@@ -281,6 +317,9 @@ public:
   InfiltrationMethodEnum infiltrationMethod;
   GroundwaterMethodEnum  groundwaterMethod;
   
+  // Identification parameters.
+  int soilType; // Soil type form Noah-MP SOILPARM.TBL file.
+  
   // Geometric coordinates.
   double layerZBottom; // Elevation in meters.
   double slopeX;       // Layer bottom slope in X direction, unitless.
@@ -316,7 +355,20 @@ class MeshElement
 {
 public:
   
-  // FIXME constructor
+  // Default constructor.  Only needed for pup_stl.h code.
+  MeshElement();
+  
+  // FIXME comment
+  MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
+              double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
+              double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
+              double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
+              double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
+              double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
+              double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
+              double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+              EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+              InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit);
   
   // FIXME pup
   
@@ -410,7 +462,6 @@ public:
   int elementNumber;  // Mesh element ID number of this element.
   int catchment;      // Catchment ID number that this element belongs to.
   int vegetationType; // Vegetation type from Noah-MP VEGPARM.TBL file.
-  int soilType;       // Soil type form Noah-MP SOILPARM.TBL file.
   
   // Geometric coordinates.
   double elementX;        // Meters.
@@ -452,10 +503,6 @@ public:
   EvapoTranspirationForcingStruct evapoTranspirationForcing; // Input variables that come from forcing data.
   EvapoTranspirationStateStruct   evapoTranspirationState;   // State variables whose values are updated and passed to the next timestep.
   
-  // Neighbors.
-  std::vector<MeshSurfacewaterMeshNeighborProxy>    meshNeighbors;
-  std::vector<MeshSurfacewaterChannelNeighborProxy> channelNeighbors;
-  
   // This is the first element of a linked list of objects that represent the
   // infiltration and groundwater layers below ground.  There is a linked list
   // because there can be multiple layers.  This one is an object and not a
@@ -464,6 +511,10 @@ public:
   // don't have to mess with pointers at all.
   // FIXLATER currently the code is implemented for only a single layer.
   InfiltrationAndGroundwater underground;
+  
+  // Neighbors.
+  std::vector<MeshSurfacewaterMeshNeighborProxy>    meshNeighbors;
+  std::vector<MeshSurfacewaterChannelNeighborProxy> channelNeighbors;
 };
 
 #endif // __MESH_ELEMENT_H__

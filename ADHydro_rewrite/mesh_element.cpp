@@ -5,6 +5,168 @@
 #include "groundwater.h"
 #include "garto.h"
 
+MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+                                                                     int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
+                                                                     double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
+                                                                     double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  region(regionInit),
+  neighbor(neighborInit),
+  reciprocalNeighborProxy(reciprocalNeighborProxyInit),
+  neighborX(neighborXInit),
+  neighborY(neighborYInit),
+  neighborZSurface(neighborZSurfaceInit),
+  neighborArea(neighborAreaInit),
+  edgeLength(edgeLengthInit),
+  edgeNormalX(edgeNormalXInit),
+  edgeNormalY(edgeNormalYInit),
+  neighborManningsN(neighborManningsNInit)
+{
+  // FIXME error check
+}
+
+MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                                                           int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
+                                                                           double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
+                                                                           double neighborBaseWidthInit, double neighborSideSlopeInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  region(regionInit),
+  neighbor(neighborInit),
+  reciprocalNeighborProxy(reciprocalNeighborProxyInit),
+  neighborZBank(neighborZBankInit),
+  neighborZBed(neighborZBedInit),
+  neighborZOffset(neighborZOffsetInit),
+  edgeLength(edgeLengthInit),
+  neighborBaseWidth(neighborBaseWidthInit),
+  neighborSideSlope(neighborSideSlopeInit)
+{
+  // FIXME error check
+}
+
+MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+                                                                   int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
+                                                                   double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
+                                                                   double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
+                                                                   double neighborConductivityInit, double neighborPorosityInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  region(regionInit),
+  neighbor(neighborInit),
+  reciprocalNeighborProxy(reciprocalNeighborProxyInit),
+  neighborX(neighborXInit),
+  neighborY(neighborYInit),
+  neighborZSurface(neighborZSurfaceInit),
+  neighborLayerZBottom(neighborLayerZBottomInit),
+  neighborArea(neighborAreaInit),
+  edgeLength(edgeLengthInit),
+  edgeNormalX(edgeNormalXInit),
+  edgeNormalY(edgeNormalYInit),
+  neighborConductivity(neighborConductivityInit),
+  neighborPorosity(neighborPorosityInit)
+{
+  // FIXME error check
+}
+
+MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                                                         int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
+                                                                         double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
+                                                                         double neighborBaseWidthInit, double neighborSideSlopeInit,
+                                                                         double neighborBedConductivityInit, double neighborBedThicknessInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  region(regionInit),
+  neighbor(neighborInit),
+  reciprocalNeighborProxy(reciprocalNeighborProxyInit),
+  neighborZBank(neighborZBankInit),
+  neighborZBed(neighborZBedInit),
+  neighborZOffset(neighborZOffsetInit),
+  edgeLength(edgeLengthInit),
+  neighborBaseWidth(neighborBaseWidthInit),
+  neighborSideSlope(neighborSideSlopeInit),
+  neighborBedConductivity(neighborBedConductivityInit),
+  neighborBedThickness(neighborBedThicknessInit)
+{
+  // FIXME error check
+}
+
+InfiltrationAndGroundwater::InfiltrationAndGroundwater()
+{
+  // No initialization.
+}
+
+InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
+                                                       int soilTypeInit, double layerZBottomInit, double slopeXInit, double slopeYInit,
+                                                       double conductivityInit, double porosityInit, double groundwaterHeadInit,
+                                                       double groundwaterRechargeInit, double groundwaterErrorInit, void* vadoseZoneStateInit) :
+  infiltrationMethod(infiltrationMethodInit),
+  groundwaterMethod(groundwaterMethodInit),
+  soilType(soilTypeInit),
+  layerZBottom(layerZBottomInit),
+  slopeX(slopeXInit),
+  slopeY(slopeYInit),
+  conductivity(conductivityInit),
+  porosity(porosityInit),
+  groundwaterHead(groundwaterHeadInit),
+  groundwaterRecharge(groundwaterRechargeInit),
+  groundwaterError(groundwaterErrorInit),
+  vadoseZoneState(vadoseZoneStateInit),
+  meshNeighbors(),   // Initialized to empty (no neighbors).
+  channelNeighbors() // Initialized to empty (no neighbors).
+{
+  // FIXME error check
+  
+  /* FIXME initialize garto in file manager if not read from file
+  bool              error = false; // Error flag.
+  double            residualSaturation;
+  double            bcLambda;
+  double            bcPsib;
+  double            initialWaterContent;
+  garto_parameters* parameters;    // For creating GARTO domain.
+  
+  if (!error)
+    {
+      switch (infiltrationMethod)
+      {
+      case NO_INFILTRATION:
+        // Fallthrough.
+      case TRIVIAL_INFILTRATION:
+        vadoseZoneState = NULL;
+        break;
+      case GARTO_INFILTRATION:
+        if (NULL != vadoseZoneStateInit)
+          {
+            // If the caller passes in a vadose zone state use it.  This might happen if it was loaded from a file.
+            vadoseZoneState = vadoseZoneStateInit;
+          }
+        else
+          {
+            // If the caller does not pass in a vadose zone state initialize a new one.
+            // FIXME
+            error = garto_parameters_alloc(&parameters, NUMBER_OF_GARTO_BINS, conductivity, porosity, double residual_saturation, false, 0.0, 0.0, double bc_lambda, double bc_psib);
+
+            if (!error)
+              {
+                // FIXME
+                error = garto_domain_alloc(&vadoseZoneState, parameters, 0.0, elementZSurface - layerZBottom, SHALLOW_AQUIFER == groundwaterMethod, double initial_water_content, true, elementZSurface - groundwaterHead);
+              }
+          }
+      }
+    }
+  
+  if (error)
+    {
+      CkExit();
+    }
+    */
+}
+
+InfiltrationAndGroundwater::~InfiltrationAndGroundwater()
+{
+  if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      garto_parameters_dealloc(&((garto_domain*)vadoseZoneState)->parameters);
+      garto_domain_dealloc((garto_domain**)&vadoseZoneState);
+    }
+}
+
 bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double currentTime, double regionalDtLimit,
                                                                                      std::vector<MeshGroundwaterMeshNeighborProxy>::size_type
                                                                                      neighborProxyIndex, double elementX, double elementY,
@@ -580,6 +742,52 @@ bool InfiltrationAndGroundwater::receiveInflows(double currentTime, double times
   return error;
 }
 
+MeshElement::MeshElement()
+{
+  // No initialization.
+}
+
+MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
+                         double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
+                         double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
+                         double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
+                         double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
+                         double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
+                         double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
+                         double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                         EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+                         InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit) :
+  elementNumber(elementNumberInit),
+  catchment(catchmentInit),
+  vegetationType(vegetationTypeInit),
+  elementX(elementXInit),
+  elementY(elementYInit),
+  elementZSurface(elementZSurfaceInit),
+  elementArea(elementAreaInit),
+  latitude(latitudeInit),
+  longitude(longitudeInit),
+  manningsN(manningsNInit),
+  surfacewaterDepth(surfacewaterDepthInit),
+  surfacewaterError(surfacewaterErrorInit),
+  precipitationRate(precipitationRateInit),
+  precipitationCumulativeShortTerm(precipitationCumulativeShortTermInit),
+  precipitationCumulativeLongTerm(precipitationCumulativeLongTermInit),
+  evaporationRate(evaporationRateInit),
+  evaporationCumulativeShortTerm(evaporationCumulativeShortTermInit),
+  evaporationCumulativeLongTerm(evaporationCumulativeLongTermInit),
+  transpirationRate(transpirationRateInit),
+  transpirationCumulativeShortTerm(transpirationCumulativeShortTermInit),
+  transpirationCumulativeLongTerm(transpirationCumulativeLongTermInit),
+  evapoTranspirationForcing(evapoTranspirationForcingInit),
+  evapoTranspirationState(evapoTranspirationStateInit),
+  underground(infiltrationMethodInit, groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit,
+              groundwaterHeadInit, groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneStateInit),
+  meshNeighbors(),   // Initialized to empty (no neighbors).
+  channelNeighbors() // Initialized to empty (no neighbors).
+{
+  // FIXME error check
+}
+
 bool MeshElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double currentTime, double regionalDtLimit,
                                                                        std::vector<MeshSurfacewaterMeshNeighborProxy>::size_type neighborProxyIndex,
                                                                        double neighborSurfacewaterDepth)
@@ -762,6 +970,10 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // Calculate the ordinal day of the year by subtracting the Julian date of Jan 1 beginning midnight.
       julian = localSolarDateTime - gregorianToJulian(year, 1, 1, 0, 0, 0);
 
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(julian <= yearlen);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
       // FIXME if this element is shaded set cosZ to zero.
 
       // FIXME handle slope and aspect effects on solar radiation.
@@ -788,7 +1000,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       underground.fillInEvapoTranspirationSoilMoistureStruct(elementZSurface, evapoTranspirationState.zSnso, evapoTranspirationSoilMoisture);
 
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
-      error = evapoTranspirationSoil(vegetationType, soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
+      error = evapoTranspirationSoil(vegetationType, underground.soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
                                      &evapoTranspirationSoilMoisture, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow,
                                      &evaporationFromGround, &transpirationFromVegetation, &waterError);
     }

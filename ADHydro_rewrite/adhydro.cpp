@@ -62,7 +62,7 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
     {
       ii = 0;
       
-      while (ii + 1 < numberOfDts && dtNew < allowableDts[ii + 1])
+      while (ii + 1 < numberOfDts && dtNew >= allowableDts[ii + 1])
         {
           ++ii;
         }
@@ -72,7 +72,7 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
   
   ii = floor(currentTime / selectedDt);
   
-  while ((ii + 1) * selectedDt < currentTime + dtNew)
+  while ((ii + 1) * selectedDt <= currentTime + dtNew)
     {
       ++ii;
     }
@@ -82,8 +82,14 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 10.0, 3);
-  CkExit();
+  evapoTranspirationInit("/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/MPTABLE.TBL",
+                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/VEGPARM.TBL",
+                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/SOILPARM.TBL",
+                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/GENPARM.TBL");
+  
+  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 25.0, 3);
+  
+  regionProxy.ckSetReductionClient(new CkCallback(CkCallback::ckExit));
 }
 
 #include "adhydro.def.h"

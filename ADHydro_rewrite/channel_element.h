@@ -78,7 +78,13 @@ class ChannelElement
 {
 public:
   
-  // FIXME constructor
+  // Default constructor.  Only needed for pup_stl.h code.
+  ChannelElement();
+  
+  // FIXME comment
+  ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementZBankInit,
+                 double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                 double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit);
   
   // FIXME pup
   

@@ -4,6 +4,34 @@
 #include "surfacewater.h"
 #include "groundwater.h"
 
+ChannelElement::ChannelElement()
+{
+  // No initialization.
+}
+
+ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementZBankInit,
+                               double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                               double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit) :
+  elementNumber(elementNumberInit),
+  channelType(channelTypeInit),
+  reachCode(reachCodeInit),
+  elementZBank(elementZBankInit),
+  elementZBed(elementZBedInit),
+  elementLength(elementLengthInit),
+  baseWidth(baseWidthInit),
+  sideSlope(sideSlopeInit),
+  bedConductivity(bedConductivityInit),
+  bedThickness(bedThicknessInit),
+  manningsN(manningsNInit),
+  surfacewaterDepth(surfacewaterDepthInit),
+  surfacewaterError(surfacewaterErrorInit),
+  meshNeighbors(),           // Initialized to empty (no neighbors).
+  channelNeighbors(),        // Initialized to empty (no neighbors).
+  undergroundMeshNeighbors() // Initialized to empty (no neighbors).
+{
+  // FIXME error check
+}
+
 bool ChannelElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double currentTime, double regionalDtLimit,
                                                                           std::vector<ChannelSurfacewaterMeshNeighborProxy>::size_type neighborProxyIndex,
                                                                           double neighborSurfacewaterDepth)
