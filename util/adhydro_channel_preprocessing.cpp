@@ -36,11 +36,11 @@ const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/small_gree
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 74; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 18; // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 48; // Maximum number of mesh neighbors.
+const int ChannelElement_channelVerticesSize  = 130; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 18;  // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 66;  // Maximum number of mesh neighbors.
 
-#define SHAPES_SIZE     (2)  // Size of array of shapes in ChannelLinkStruct.
+#define SHAPES_SIZE     (3)  // Size of array of shapes in ChannelLinkStruct.
 #define UPSTREAM_SIZE   (13) // Size of array of upstream links in ChannelLinkStruct.
 #define DOWNSTREAM_SIZE (5)  // Size of array of downstream links in ChannelLinkStruct.
 
@@ -1305,7 +1305,11 @@ void tryToPruneLink(ChannelLinkStruct* channels, int size, int linkNo)
               allowNonReciprocalUpstreamDownstreamLinks = true;
               
               removeUpstreamConnection(channels, size, linkNo, channels[linkNo].downstream[ii]);
-              tryToPruneLink(channels, size, channels[linkNo].downstream[ii]);
+              
+              if (!isBoundary(channels[linkNo].downstream[ii]))
+                {
+                  tryToPruneLink(channels, size, channels[linkNo].downstream[ii]);
+                }
             }
           
           // We have to detach all downstream links before we can set the type to PRUNED_STREAM, but that will temporarily leave a non-pruned stream with
@@ -2601,7 +2605,7 @@ void addStreamMeshEdge(ChannelLinkStruct* channels, int size, int linkNo, double
               newLocation = (location2 * element2Length + element2BeginLocation * length) / (element2Length + length);
               
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-              assert(element2BeginLocation < newLocation && newLocation < location2);
+              assert(element2BeginLocation <= newLocation && newLocation <= location2);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
               fprintf(stderr, "WARNING in addStreamMeshEdge: Overlap on channel link %d.  Mesh edge %d moved from (%lf to %lf) to (%lf to %lf).  Mesh edge %d "
