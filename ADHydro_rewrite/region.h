@@ -110,11 +110,13 @@ public:
   //
   // Parameters:
   //
-  // senderCurrentTime - Simulation time when state occured at the sender in
-  //                     seconds since referenceDate.
-  // stateMessages     - Vector of state messages from neighbors of elements in
-  //                     this region.
-  void processStateMessages(double senderCurrentTime, std::vector<RegionMessageStruct>& stateMessages);
+  // senderCurrentTime     - Simulation time when state occured at the sender
+  //                         in seconds since referenceDate.
+  // senderRegionalDtLimit - Maximum duration in seconds for expiration times
+  //                         in the neighboring region.
+  // stateMessages         - Vector of state messages from neighbors of
+  //                         elements in this region.
+  void processStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessageStruct>& stateMessages);
   
   // Loop over all elements calling their functions to do point processes and
   // send outflows.  Initialize iterators and other variables for the
@@ -127,6 +129,12 @@ public:
   //
   // Returns: true if all inflows have arrived, false otherwise.
   bool allInflowsArrived();
+  
+  // FIXME comment
+  bool receiveWater(RegionMessageStruct waterMessage);
+  
+  // FIXME comment
+  bool sendWater(int recipientRegion, RegionMessageStruct waterMessage);
   
   // Receive a vector of water messages and for each message place the water in
   // the recipient neighbor proxy's incoming material list.

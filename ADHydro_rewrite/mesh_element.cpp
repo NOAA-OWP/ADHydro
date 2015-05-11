@@ -565,92 +565,93 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
             }
 
           // Send groundwater outflows taking water from groundwaterRecharge.
-          for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+          for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
             {
               if (0.0 < (*itMesh).nominalFlowRate)
                 {
                   waterSent            = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
-                  region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                                          (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                          SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                                timestepEndTime,
-                                                                                                                                waterSent)));
+                  error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                                 (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                       waterSent)));
                 }
             }
 
-          for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+          for (itChannel = channelNeighbors.begin(); !error && itChannel != channelNeighbors.end(); ++itChannel)
             {
               if (0.0 < (*itChannel).nominalFlowRate)
                 {
                   waterSent            = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
-                  region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
-                                                                                             (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                             SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                                   timestepEndTime,
-                                                                                                                                   waterSent)));
+                  error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                                    (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                    SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                          waterSent)));
                 }
             }
 
           // Update groundwaterHead based on net groundwaterRecharge and take or put groundwaterRecharge water back into the domain, or if the domain is full put it
           // back in surfacewaterDepth.
           // NO_INFILTRATION cannot be used with SHALLOW_AQUIFER.
-          if (TRIVIAL_INFILTRATION == infiltrationMethod)
+          if (!error)
             {
-              groundwaterHead += groundwaterRecharge / porosity;
-
-              if (groundwaterHead < layerZBottom)
+              if (TRIVIAL_INFILTRATION == infiltrationMethod)
                 {
-                  // Even though we are limiting outflows, groundwaterHead can go below layerZBottom due to roundoff error.
+                  groundwaterHead += groundwaterRecharge / porosity;
+
+                  if (groundwaterHead < layerZBottom)
+                    {
+                      // Even though we are limiting outflows, groundwaterHead can go below layerZBottom due to roundoff error.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-                  CkAssert(epsilonEqual(groundwaterHead, layerZBottom));
+                      CkAssert(epsilonEqual(groundwaterHead, layerZBottom));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-                  groundwaterError += (layerZBottom - groundwaterHead) * porosity;
-                  groundwaterHead   = layerZBottom;
+                      groundwaterError += (layerZBottom - groundwaterHead) * porosity;
+                      groundwaterHead   = layerZBottom;
+                    }
+                  else if (groundwaterHead > elementZSurface)
+                    {
+                      // Exfiltration.
+                      surfacewaterDepth += (groundwaterHead - elementZSurface) * porosity;
+                      groundwaterHead    = elementZSurface;
+                    }
                 }
-              else if (groundwaterHead > elementZSurface)
+              else if (GARTO_INFILTRATION == infiltrationMethod)
                 {
-                  // Exfiltration.
-                  surfacewaterDepth += (groundwaterHead - elementZSurface) * porosity;
-                  groundwaterHead    = elementZSurface;
-                }
-            }
-          else if (GARTO_INFILTRATION == infiltrationMethod)
-            {
-              groundwaterHead += groundwaterRecharge / garto_specific_yield((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead);
+                  groundwaterHead += groundwaterRecharge / garto_specific_yield((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead);
 
-              // Cap groundwaterHead at the surface.  Do not limit groundwaterHead from going below layerZBottom.
-              if (groundwaterHead > elementZSurface)
-                {
-                  groundwaterHead = elementZSurface;
-                }
-              
-              if (epsilonLess(0.0, groundwaterRecharge))
-                {
-                  // If there is excess water put it immediately into the groundwater front of the GARTO domain.
-                  garto_add_groundwater((garto_domain*)vadoseZoneState, &groundwaterRecharge);
+                  // Cap groundwaterHead at the surface.  Do not limit groundwaterHead from going below layerZBottom.
+                  if (groundwaterHead > elementZSurface)
+                    {
+                      groundwaterHead = elementZSurface;
+                    }
 
                   if (epsilonLess(0.0, groundwaterRecharge))
                     {
-                      // Not all of the water could fit in to the GARTO domain because the domain is full.  Put the excess water on the surface and the
-                      // groundwater head moves up to the surface.  The real groundwater head is at the top of the surfacewater, but we set groundwaterHead to
-                      // be at the surface and add surfacewaterDepth as needed because if we set groundwaterHead to be at the top of the surfacewater we would
-                      // need to update it any time the value of surfacewaterDepth changed.
-                      surfacewaterDepth   += groundwaterRecharge;
-                      groundwaterRecharge  = 0.0;
-                      groundwaterHead      = elementZSurface;
-                    }
-                }
-              else if (epsilonGreater(0.0, groundwaterRecharge))
-                {
-                  // If there is a water deficit take it immediately from the groundwater front of the GARTO domain.
-                  garto_take_groundwater((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead, &groundwaterRecharge);
+                      // If there is excess water put it immediately into the groundwater front of the GARTO domain.
+                      garto_add_groundwater((garto_domain*)vadoseZoneState, &groundwaterRecharge);
 
-                  // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+                      if (epsilonLess(0.0, groundwaterRecharge))
+                        {
+                          // Not all of the water could fit in to the GARTO domain because the domain is full.  Put the excess water on the surface and the
+                          // groundwater head moves up to the surface.  The real groundwater head is at the top of the surfacewater, but we set groundwaterHead
+                          // to be at the surface and add surfacewaterDepth as needed because if we set groundwaterHead to be at the top of the surfacewater we
+                          // would need to update it any time the value of surfacewaterDepth changed.
+                          surfacewaterDepth   += groundwaterRecharge;
+                          groundwaterRecharge  = 0.0;
+                          groundwaterHead      = elementZSurface;
+                        }
+                    }
+                  else if (epsilonGreater(0.0, groundwaterRecharge))
+                    {
+                      // If there is a water deficit take it immediately from the groundwater front of the GARTO domain.
+                      garto_take_groundwater((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead, &groundwaterRecharge);
+
+                      // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
+                    }
                 }
             }
         }
@@ -1108,38 +1109,36 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         }
 
       // Send surfacewater outflows taking water from surfacewaterDepth.
-      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+      for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
         {
           if (0.0 < (*itMesh).nominalFlowRate)
             {
               waterSent          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
-              region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                                      (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                      SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                            timestepEndTime,
-                                                                                                                            waterSent)));
+              error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                             (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                             SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                   waterSent)));
             }
         }
 
-      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+      for (itChannel = channelNeighbors.begin(); !error && itChannel != channelNeighbors.end(); ++itChannel)
         {
           if (0.0 < (*itChannel).nominalFlowRate)
             {
               waterSent          = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
-              region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
-                                                                                         (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                         SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                               timestepEndTime,
-                                                                                                                               waterSent)));
+              error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                                (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                      waterSent)));
             }
         }
 
       // Even though we are limiting outflows, surfacewaterDepth can go below zero due to roundoff error.
-      if (0.0 > surfacewaterDepth)
+      if (!error && 0.0 > surfacewaterDepth)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(0.0, surfacewaterDepth));

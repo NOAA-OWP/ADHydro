@@ -17,7 +17,7 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
   evapoTranspirationForcingInit.qc     = 0.0;
   evapoTranspirationForcingInit.solDn  = 1000.0;
   evapoTranspirationForcingInit.lwDn   = 300.0;
-  evapoTranspirationForcingInit.prcp   = 1.0;
+  evapoTranspirationForcingInit.prcp   = 0.0;
   evapoTranspirationForcingInit.tBot   = 300.0;
   evapoTranspirationForcingInit.pblh   = 10000.0;
   
@@ -113,97 +113,17 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
     meshElements.insert(std::pair<int, MeshElement>(10, MeshElement(10, 2, 8, 1, 3200.0, 200.0, 32.0, 31.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 32.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
     meshElements[10].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2,  9, 1, 2800.0, 400.0, 28.0, 180000.0, 600.0,             -1.0,            0.0,             0.038));
     meshElements[10].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 11, 0, 3400.0, 400.0, 34.0, 180000.0, 600.0 * sqrt(2.0), sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.038));
+    
+    // Precipitation only in element 11.
+    evapoTranspirationForcingInit.prcp   = 10.0;
+    
     meshElements.insert(std::pair<int, MeshElement>(11, MeshElement(10, 2, 8, 1, 3400.0, 400.0, 34.0, 33.0, 180000.0, 1.0, 0.0, 0.7, -1.9, 0.038, 4.66E-5, 0.339, 0.0, 0.0, 34.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, evapoTranspirationForcingInit, evapoTranspirationStateInit, InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, InfiltrationAndGroundwater::DEEP_AQUIFER, NULL)));
     meshElements[11].meshNeighbors.push_back(MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, 2, 10, 1, 3200.0, 200.0, 32.0, 180000.0, 600.0 * sqrt(2.0), -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.038));
     channelElements.insert(std::pair<int, ChannelElement>(3, ChannelElement(3, STREAM, 2, 31.5, 30.5, 900.0, 1.0, 1.0, 4.66E-5, 1.0, 0.038, 0.0, 0.0)));
     break;
   }
   
-  // Add empty vectors to outgoingMessages.
-  for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
-    {
-      for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin();
-           itMeshSurfacewaterMeshNeighbor != (*itMesh).second.meshNeighbors.end(); ++itMeshSurfacewaterMeshNeighbor)
-        {
-          if ((*itMeshSurfacewaterMeshNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itMeshSurfacewaterMeshNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshSurfacewaterMeshNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-      
-      for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
-           itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
-        {
-          if ((*itMeshSurfacewaterChannelNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itMeshSurfacewaterChannelNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshSurfacewaterChannelNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-      
-      for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
-           itMeshGroundwaterMeshNeighbor != (*itMesh).second.underground.meshNeighbors.end(); ++itMeshGroundwaterMeshNeighbor)
-        {
-          if ((*itMeshGroundwaterMeshNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itMeshGroundwaterMeshNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshGroundwaterMeshNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-      
-      for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
-           itMeshGroundwaterChannelNeighbor != (*itMesh).second.underground.channelNeighbors.end(); ++itMeshGroundwaterChannelNeighbor)
-        {
-          if ((*itMeshGroundwaterChannelNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itMeshGroundwaterChannelNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itMeshGroundwaterChannelNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-    }
-  
-  for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
-    {
-      for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin();
-           itChannelSurfacewaterMeshNeighbor != (*itChannel).second.meshNeighbors.end(); ++itChannelSurfacewaterMeshNeighbor)
-        {
-          if ((*itChannelSurfacewaterMeshNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itChannelSurfacewaterMeshNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelSurfacewaterMeshNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-      
-      for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
-           itChannelSurfacewaterChannelNeighbor != (*itChannel).second.channelNeighbors.end(); ++itChannelSurfacewaterChannelNeighbor)
-        {
-          if ((*itChannelSurfacewaterChannelNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itChannelSurfacewaterChannelNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelSurfacewaterChannelNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-      
-      for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin();
-           itChannelGroundwaterMeshNeighbor != (*itChannel).second.undergroundMeshNeighbors.end(); ++itChannelGroundwaterMeshNeighbor)
-        {
-          if ((*itChannelGroundwaterMeshNeighbor).region != thisIndex &&
-              outgoingMessages.find((*itChannelGroundwaterMeshNeighbor).region) == outgoingMessages.end())
-            {
-              outgoingMessages.insert(std::pair<int, std::vector<RegionMessageStruct> >((*itChannelGroundwaterMeshNeighbor).region,
-                                                                                        std::vector<RegionMessageStruct>()));
-            }
-        }
-    }
-  
-  regionalDtLimit = 10.0;
+  regionalDtLimit = 1.0;
   
   thisProxy[thisIndex].runUntilSimulationEnd();
 }
@@ -348,7 +268,7 @@ void Region::sendStateToExternalNeighbors()
     {
       if (!(*it).second.empty())
         {
-          thisProxy[(*it).first].sendStateMessages(currentTime, (*it).second);
+          thisProxy[(*it).first].sendStateMessages(currentTime, regionalDtLimit, (*it).second);
           (*it).second.clear();
         }
     }
@@ -786,7 +706,7 @@ bool Region::allNominalFlowRatesCalculated()
   return allCalculated;
 }
 
-void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMessageStruct>& stateMessages)
+void Region::processStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessageStruct>& stateMessages)
 {
   bool                                       error = false; // Error flag.
   std::vector<RegionMessageStruct>::iterator it;            // Loop iterator.
@@ -795,6 +715,12 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
   if (!(senderCurrentTime >= currentTime))
     {
       CkError("ERROR in Region::processStateMessages, region %d: senderCurrentTime must be greater than or equal to currentTime.\n", thisIndex);
+      error = true;
+    }
+  
+  if (!(0.0 < senderRegionalDtLimit))
+    {
+      CkError("ERROR in Region::processStateMessages, region %d: senderRegionalDtLimit must be greater than zero.\n", thisIndex);
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -806,10 +732,16 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
   if (senderCurrentTime > currentTime)
     {
       // This is a message from the future, don't receive it yet.
-      thisProxy[thisIndex].sendStateMessages(senderCurrentTime, stateMessages);
+      thisProxy[thisIndex].sendStateMessages(senderCurrentTime, senderRegionalDtLimit, stateMessages);
     }
   else
     {
+      // Use the minimum of my or my neighbor's regionalDtLimit.
+      if (senderRegionalDtLimit > regionalDtLimit)
+        {
+          senderRegionalDtLimit = regionalDtLimit;
+        }
+      
       // Calculate nominal flow rates.
       for (it = stateMessages.begin(); !error && it != stateMessages.end(); ++it)
         {
@@ -821,7 +753,7 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(meshElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, senderRegionalDtLimit,
                 (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
             break;
           case MESH_SURFACEWATER_CHANNEL_NEIGHBOR:
@@ -830,7 +762,7 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(meshElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+            error = meshElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, senderRegionalDtLimit,
                 (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
             break;
           case MESH_GROUNDWATER_MESH_NEIGHBOR:
@@ -839,10 +771,11 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(meshElements[(*it).recipientElementNumber].underground.meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
-                (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementX, meshElements[(*it).recipientElementNumber].elementY,
-                meshElements[(*it).recipientElementNumber].elementZSurface, meshElements[(*it).recipientElementNumber].elementArea,
-                meshElements[(*it).recipientElementNumber].surfacewaterDepth, (*it).senderSurfacewaterDepth, (*it).senderGroundwaterHead);
+            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime,
+                senderRegionalDtLimit, (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementX,
+                meshElements[(*it).recipientElementNumber].elementY, meshElements[(*it).recipientElementNumber].elementZSurface,
+                meshElements[(*it).recipientElementNumber].elementArea, meshElements[(*it).recipientElementNumber].surfacewaterDepth,
+                (*it).senderSurfacewaterDepth, (*it).senderGroundwaterHead);
             break;
           case MESH_GROUNDWATER_CHANNEL_NEIGHBOR:
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -850,8 +783,8 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(meshElements[(*it).recipientElementNumber].underground.channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterChannelNeighbor(currentTime, regionalDtLimit,
-                (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementZSurface,
+            error = meshElements[(*it).recipientElementNumber].underground.calculateNominalFlowRateWithGroundwaterChannelNeighbor(currentTime,
+                senderRegionalDtLimit, (*it).recipientNeighborProxyIndex, meshElements[(*it).recipientElementNumber].elementZSurface,
                 meshElements[(*it).recipientElementNumber].surfacewaterDepth, (*it).senderSurfacewaterDepth);
             break;
           case CHANNEL_SURFACEWATER_MESH_NEIGHBOR:
@@ -860,7 +793,7 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(channelElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, regionalDtLimit,
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterMeshNeighbor(currentTime, senderRegionalDtLimit,
                 (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
             break;
           case CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR:
@@ -869,7 +802,7 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(channelElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, senderRegionalDtLimit,
                 (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth);
             break;
           case CHANNEL_GROUNDWATER_MESH_NEIGHBOR:
@@ -878,7 +811,7 @@ void Region::processStateMessages(double senderCurrentTime, std::vector<RegionMe
             CkAssert(channelElements[(*it).recipientElementNumber].undergroundMeshNeighbors[(*it).recipientNeighborProxyIndex].expirationTime == currentTime);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, regionalDtLimit,
+            error = channelElements[(*it).recipientElementNumber].calculateNominalFlowRateWithGroundwaterMeshNeighbor(currentTime, senderRegionalDtLimit,
                 (*it).recipientNeighborProxyIndex, (*it).senderSurfacewaterDepth, (*it).senderGroundwaterHead);
             break;
           }
@@ -961,6 +894,71 @@ bool Region::allInflowsArrived()
   return allArrived;
 }
 
+bool Region::receiveWater(RegionMessageStruct waterMessage)
+{
+  bool error = false; // Error flag.
+
+  // FIXME error check inputs
+
+  if (!error)
+    {
+      switch (waterMessage.messageType)
+      {
+      case MESH_SURFACEWATER_MESH_NEIGHBOR:
+        error = meshElements[waterMessage.recipientElementNumber].meshNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                .insertMaterial(waterMessage.water);
+        break;
+      case MESH_SURFACEWATER_CHANNEL_NEIGHBOR:
+        error = meshElements[waterMessage.recipientElementNumber].channelNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                   .insertMaterial(waterMessage.water);
+        break;
+      case MESH_GROUNDWATER_MESH_NEIGHBOR:
+        error = meshElements[waterMessage.recipientElementNumber].underground.meshNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                            .insertMaterial(waterMessage.water);
+        break;
+      case MESH_GROUNDWATER_CHANNEL_NEIGHBOR:
+        error = meshElements[waterMessage.recipientElementNumber].underground.channelNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                               .insertMaterial(waterMessage.water);
+        break;
+      case CHANNEL_SURFACEWATER_MESH_NEIGHBOR:
+        error = channelElements[waterMessage.recipientElementNumber].meshNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                   .insertMaterial(waterMessage.water);
+        break;
+      case CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR:
+        error = channelElements[waterMessage.recipientElementNumber].channelNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                      .insertMaterial(waterMessage.water);
+        break;
+      case CHANNEL_GROUNDWATER_MESH_NEIGHBOR:
+        error = channelElements[waterMessage.recipientElementNumber].undergroundMeshNeighbors[waterMessage.recipientNeighborProxyIndex]
+                                                                                              .insertMaterial(waterMessage.water);
+        break;
+      }
+    }
+
+  return error;
+}
+
+bool Region::sendWater(int recipientRegion, RegionMessageStruct waterMessage)
+{
+  bool error = false; // Error flag.
+
+  // FIXME error check inputs
+
+  if (!error)
+    {
+      if (recipientRegion == thisIndex)
+        {
+          error = receiveWater(waterMessage);
+        }
+      else
+        {
+          outgoingMessages[recipientRegion].push_back(waterMessage);
+        }
+    }
+
+  return error;
+}
+
 void Region::processWaterMessages(std::vector<RegionMessageStruct>& waterMessages)
 {
   bool                                       error = false; // Error flag.
@@ -973,30 +971,7 @@ void Region::processWaterMessages(std::vector<RegionMessageStruct>& waterMessage
   // Place water in recipient's incoming material list.
   for (it = waterMessages.begin(); !error && it != waterMessages.end(); ++it)
     {
-      switch ((*it).messageType)
-      {
-      case MESH_SURFACEWATER_MESH_NEIGHBOR:
-        error = meshElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case MESH_SURFACEWATER_CHANNEL_NEIGHBOR:
-        error = meshElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case MESH_GROUNDWATER_MESH_NEIGHBOR:
-        error = meshElements[(*it).recipientElementNumber].underground.meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case MESH_GROUNDWATER_CHANNEL_NEIGHBOR:
-        error = meshElements[(*it).recipientElementNumber].underground.channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case CHANNEL_SURFACEWATER_MESH_NEIGHBOR:
-        error = channelElements[(*it).recipientElementNumber].meshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR:
-        error = channelElements[(*it).recipientElementNumber].channelNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      case CHANNEL_GROUNDWATER_MESH_NEIGHBOR:
-        error = channelElements[(*it).recipientElementNumber].undergroundMeshNeighbors[(*it).recipientNeighborProxyIndex].insertMaterial((*it).water);
-        break;
-      }
+      error = receiveWater(*it);
     }
 
   if (error)
@@ -1021,7 +996,9 @@ void Region::receiveInflowsAndAdvanceTime()
   
   if (!error)
     {
-      currentTime = timestepEndTime;
+      // Set regionalDtLimit to twice the previous timestep duration and advance time.
+      regionalDtLimit = 2.0 * (timestepEndTime - currentTime);
+      currentTime     = timestepEndTime;
     }
   
   if (error)

@@ -265,65 +265,64 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
         }
 
       // Send surfacewater and groundwater outflows taking water from area.
-      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+      for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
         {
           if (0.0 < (*itMesh).nominalFlowRate)
             {
               waterSent  = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              region.outgoingMessages[(*itMesh).region].push_back(RegionMessageStruct(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itMesh).neighbor,
-                                                                                      (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                      SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                            timestepEndTime,
-                                                                                                                            waterSent)));
+              error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itMesh).neighbor,
+                                                                             (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                             SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                   waterSent)));
             }
         }
 
-      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+      for (itChannel = channelNeighbors.begin(); !error && itChannel != channelNeighbors.end(); ++itChannel)
         {
           if (0.0 < (*itChannel).nominalFlowRate)
             {
               waterSent  = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              region.outgoingMessages[(*itChannel).region].push_back(RegionMessageStruct(CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR, (*itChannel).neighbor,
-                                                                                         (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                         SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                               timestepEndTime,
-                                                                                                                               waterSent)));
+              error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR, (*itChannel).neighbor,
+                                                                                (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                      waterSent)));
             }
         }
 
-      for (itUndergroundMesh = undergroundMeshNeighbors.begin(); itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
+      for (itUndergroundMesh = undergroundMeshNeighbors.begin(); !error && itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
         {
           if (0.0 < (*itUndergroundMesh).nominalFlowRate)
             {
               waterSent  = (*itUndergroundMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               area      -= waterSent / elementLength;
 
-              region.outgoingMessages[(*itUndergroundMesh).region].push_back(RegionMessageStruct(MESH_GROUNDWATER_CHANNEL_NEIGHBOR,
-                                                                                                 (*itUndergroundMesh).neighbor,
-                                                                                                 (*itUndergroundMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime,
-                                                                                                                                       timestepEndTime,
-                                                                                                                                       waterSent)));
+              error = region.sendWater((*itUndergroundMesh).region, RegionMessageStruct(MESH_GROUNDWATER_CHANNEL_NEIGHBOR, (*itUndergroundMesh).neighbor,
+                                                                                        (*itUndergroundMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                        SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                              waterSent)));
             }
         }
       
-      // Even though we are limiting outflows, area can go below zero due to roundoff error.
-      if (0.0 > area)
+      if (!error)
         {
-    #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonEqual(0.0, area));
-    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
-          surfacewaterError -= area * elementLength;
-          area               = 0.0;
-        }
+          // Even though we are limiting outflows, area can go below zero due to roundoff error.
+          if (0.0 > area)
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              CkAssert(epsilonEqual(0.0, area));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-      // Convert cross sectional area back to water depth.
-      calculateSurfacewaterDepthFromArea(area);
+              surfacewaterError -= area * elementLength;
+              area               = 0.0;
+            }
+
+          // Convert cross sectional area back to water depth.
+          calculateSurfacewaterDepthFromArea(area);
+        }
     }
   
   return error;
