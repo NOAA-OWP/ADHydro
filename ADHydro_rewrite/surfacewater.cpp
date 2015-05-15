@@ -354,13 +354,14 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
                                      double channelZBank, double channelZBed, double channelBaseWidth, double channelSideSlope,
                                      double channelSurfacewaterDepth)
 {
-  bool   error                        = false;                                                       // Error flag.
-  double meshSurfacewaterElevation    = meshZSurface + meshSurfacewaterDepth;                        // The elevation in meters of the mesh surfacewater.
-  double channelSurfacewaterElevation = channelZBed + channelSurfacewaterDepth;                      // The elevation in meters of the channel surfacewater.
-  double weirElevation                = (meshZSurface > channelZBank) ? meshZSurface : channelZBank; // The elevation in meters of the thing that water has to
-                                                                                                     // flow over.
-  double topWidth;                                                                                   // Width of channel at water surface in meters.
-  double dtTemp;                                                                                     // Temporary variable for suggesting new timestep.
+  bool   error                   = false;                                  // Error flag.
+  double meshSurfacewaterHead    = meshSurfacewaterDepth + meshZSurface;   // The elevation in meters of the mesh surfacewater.
+  double channelSurfacewaterHead = channelSurfacewaterDepth + channelZBed; // The elevation in meters of the channel surfacewater.
+  double weirElevation           = (meshZSurface > channelZBank) ?         // The elevation in meters of the thing that water has to flow over.
+                                   meshZSurface : channelZBank;
+  double channelTopWidth         = channelBaseWidth +                      // Width of channel at water surface in meters.
+                                   2.0 * channelSideSlope * channelSurfacewaterDepth;
+  double dtTemp;                                                           // Temporary variable for suggesting new timestep.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -432,15 +433,15 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
 
   if (!error)
     {
-      if (meshSurfacewaterElevation > channelSurfacewaterElevation)
+      if (meshSurfacewaterHead > channelSurfacewaterHead && PONDED_DEPTH < meshSurfacewaterDepth)
         {
-          // Flow from the mesh to the channel.  If the channel water is over bank set weirElevation no lower than channelSurfacewaterElevation.
-          if (weirElevation < channelSurfacewaterElevation)
+          // Flow from the mesh to the channel.  If the channel water is over bank set weirElevation no lower than channelSurfacewaterHead.
+          if (weirElevation < channelSurfacewaterHead)
             {
-              weirElevation = channelSurfacewaterElevation;
+              weirElevation = channelSurfacewaterHead;
             }
           
-          meshSurfacewaterDepth = meshSurfacewaterElevation - weirElevation;
+          meshSurfacewaterDepth = meshSurfacewaterHead - weirElevation;
           
           if (0.0 < meshSurfacewaterDepth)
             {
@@ -457,15 +458,15 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
             }
           // else if water elevation is below the weir there is no flow.  flowRate has already been assigned to zero above.
         }
-      else if (channelSurfacewaterElevation > meshSurfacewaterElevation)
+      else if (channelSurfacewaterHead > meshSurfacewaterHead && PONDED_DEPTH < channelSurfacewaterDepth)
         {
-          // Flow from the channel to the mesh.  If the mesh water is over bank set weirElevation no lower than meshSurfacewaterElevation.
-          if (weirElevation < meshSurfacewaterElevation)
+          // Flow from the channel to the mesh.  If the mesh water is over bank set weirElevation no lower than meshSurfacewaterHead.
+          if (weirElevation < meshSurfacewaterHead)
             {
-              weirElevation = meshSurfacewaterElevation;
+              weirElevation = meshSurfacewaterHead;
             }
           
-          channelSurfacewaterDepth = channelSurfacewaterElevation - weirElevation;
+          channelSurfacewaterDepth = channelSurfacewaterHead - weirElevation;
           
           if (0.0 < channelSurfacewaterDepth)
             {
@@ -473,8 +474,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
               *flowRate = -sqrt(GRAVITY * channelSurfacewaterDepth) * channelSurfacewaterDepth * edgeLength;
               
               // Suggest new timestep.
-              topWidth = channelBaseWidth + 2.0 * channelSideSlope * channelSurfacewaterDepth;
-              dtTemp   = COURANT_DIFFUSIVE * topWidth / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
+              dtTemp = COURANT_DIFFUSIVE * channelTopWidth / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
               
               if (*dtNew > dtTemp)
                 {

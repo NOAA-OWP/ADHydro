@@ -12,6 +12,11 @@ class ChannelSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
+  // FIXME comment
+  ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
+                                       double neighborZOffsetInit, double neighborAreaInit, double edgeLengthInit);
+  
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
   int neighbor;                // Mesh element ID number of the neighbor.
@@ -30,6 +35,14 @@ public:
 class ChannelSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
+  
+  // FIXME comment
+  ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                          int neighborInit, int reciprocalNeighborProxyInit,
+                                          ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
+                                          double neighborZBedInit, double neighborLengthInit,
+                                          double neighborBaseWidthInit, double neighborSideSlopeInit,
+                                          double neighborManningsNInit);
   
   // Identification parameters.
   int             region;                  // Region number where the neighbor is.
@@ -53,6 +66,11 @@ public:
 class ChannelGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
+  
+  // FIXME comment
+  ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+                                      int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
+                                      double neighborLayerZBottomInit, double neighborZOffsetInit, double edgeLengthInit);
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.

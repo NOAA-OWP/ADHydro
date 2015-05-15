@@ -567,15 +567,24 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
           // Send groundwater outflows taking water from groundwaterRecharge.
           for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
             {
-              if (0.0 < (*itMesh).nominalFlowRate)
+              if (isBoundary((*itMesh).neighbor) && 0.0 > (*itMesh).nominalFlowRate)
                 {
+                  // Water for an inflow boundary arrives immediately.
+                  error = (*itMesh).insertMaterial(SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, -(*itMesh).nominalFlowRate * dt));
+                }
+              else if (0.0 < (*itMesh).nominalFlowRate)
+                {
+                  // Send water for an outflow.
                   waterSent            = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
-                  error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                                 (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                       waterSent)));
+                  if (!isBoundary((*itMesh).neighbor))
+                    {
+                      error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                                     (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                     SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                           waterSent)));
+                    }
                 }
             }
 
@@ -583,6 +592,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
             {
               if (0.0 < (*itChannel).nominalFlowRate)
                 {
+                  // Send water for an outflow.
                   waterSent            = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
                   groundwaterRecharge -= waterSent / elementArea;
 
@@ -1111,15 +1121,24 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // Send surfacewater outflows taking water from surfacewaterDepth.
       for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
         {
-          if (0.0 < (*itMesh).nominalFlowRate)
+          if (isBoundary((*itMesh).neighbor) && 0.0 > (*itMesh).nominalFlowRate)
             {
+              // Water for an inflow boundary arrives immediately.
+              error = (*itMesh).insertMaterial(SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, -(*itMesh).nominalFlowRate * dt));
+            }
+          else if (0.0 < (*itMesh).nominalFlowRate)
+            {
+              // Send water for an outflow.
               waterSent          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
-              error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                             (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                             SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                   waterSent)));
+              if (!isBoundary((*itMesh).neighbor))
+                {
+                  error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                                 (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                       waterSent)));
+                }
             }
         }
 
@@ -1127,6 +1146,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         {
           if (0.0 < (*itChannel).nominalFlowRate)
             {
+              // Send water for an outflow.
               waterSent          = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               surfacewaterDepth -= waterSent / elementArea;
 
