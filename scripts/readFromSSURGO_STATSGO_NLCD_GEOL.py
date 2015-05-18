@@ -56,7 +56,7 @@ input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projecte
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
+input_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
 
 # This script will write its output to this directory
 # the files it will write are:
@@ -64,7 +64,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -835,6 +835,7 @@ def get_GEOLOGIC_UNITS(s):
             feature  = QgsFeature()
             GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
             
+            found = False
             index = QgsSpatialIndex()
             while GEOL_perState_provider.nextFeature(feature):
                 index.insertFeature(feature)
