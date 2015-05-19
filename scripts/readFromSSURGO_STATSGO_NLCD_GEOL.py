@@ -64,7 +64,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/test/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -96,7 +96,39 @@ GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix 
                                    'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
                                    'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
 
-
+#Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
+#Since this function uses a per state shapefile, it is more efficient to create
+#the large spatial index once, and search through each time rather than
+#re-create the spatial index for each call to get_GEOLOGIC_UNITS
+"""
+            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
+            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
+            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
+            
+            feature  = QgsFeature()
+            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
+            
+            found = False
+            index = QgsSpatialIndex()
+            while GEOL_perState_provider.nextFeature(feature):
+                index.insertFeature(feature)
+"""
+GEOL_spatial_index = {}
+#iterate over the geology vector layers
+for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
+    #get the layer's data provider and index of its rocktype field
+    provider = layer.dataProvider()
+    ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+    #select the rocktype features to work with
+    provider.select([ROCKTYPE])
+    #Initialize the spatial index
+    GEOL_spatial_index[state] = QgsSpatialIndex()
+    #Build the spatial index
+    feature = QgsFeature()
+    while provider.nextFeature(feature):
+        GEOL_spatial_index[state].insertFeature(feature)
+    
+    
 def writeSoilFile(s, f, bugFix):
     """
       This function writes a line to the soil output file for each element.
@@ -544,15 +576,24 @@ def getCOKEY(s):
       comp_metadata = STATSGO_comp_dict[AreaSym]
 
    mu_key_rows = comp_metadata[comp_metadata['mukey'] == MUKEY]
-   if not mu_key_rows.empty:
-      #Found a valid cokey based on mukey, get largest percent entry
-      max_perc = mu_key_rows.ix[mu_key_rows['comppct_r'].idxmax()]
-      s['COKEY'] = max_perc['cokey']
-      s['compname'] = max_perc['compname']
-   else:
-      #no cokey found
-      s['COKEY'] = np.nan
-      s['compname'] = np.nan
+   try:
+       if not mu_key_rows.empty:
+          #Found a valid cokey based on mukey, get largest percent entry if konwn
+          index = mu_key_rows['comppct_r'].idxmax()
+          #It is possible that a relative percent doesn't exist.  If it doesn't,
+          #we use the first in the list of mukey entries
+          if pd.np.isnan(index):
+            index = 0
+          max_perc = mu_key_rows.ix[index]
+          s['COKEY'] = max_perc['cokey']
+          s['compname'] = max_perc['compname']
+       else:
+          #no cokey found
+          s['COKEY'] = np.nan
+          s['compname'] = np.nan
+   except Exception, e:
+        print mu_key_rows
+        raise
    return s
 
 #Helper function to modify totals if rel_percent is not 100
@@ -825,21 +866,17 @@ def get_GEOLOGIC_UNITS(s):
             point = QgsPoint(x, y)
             pointBox = QgsRectangle(point, point)
             
-            # AreaSym string name starts with the state abbreviation and it is used to access the GEOL_Unit_State_VectorLayer_dict
-            #GEOL_Unit_State_VectorLayer_dict[ Source[0] + Source[1] ]
-            
-            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
-            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
-            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
-            
-            feature  = QgsFeature()
-            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
-            
+            # AreaSym string name starts with the state abbreviation.
+            #It is used to access the GEOL_spatial_index dictionary and GEOL_Unit_State_VectorLayer_dict
+            #i.e. GEOL_spatial_index[ Source[0:2] ]
+            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[ Source[0:2] ]
+            GEOL_perState_provider = GEOL_perState_layer.dataProvider()
+            GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+            #select the rocktype features to work with
+            provider.select([GEOL_State_ROCKTYPE]) 
+                           
             found = False
-            index = QgsSpatialIndex()
-            while GEOL_perState_provider.nextFeature(feature):
-                index.insertFeature(feature)
-            ids = index.intersects(pointBox)
+            ids = GEOL_spatial_index[Source[0:2]].intersects(pointBox)
             for i in ids:
                 GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
                 geom = feature.geometry()
