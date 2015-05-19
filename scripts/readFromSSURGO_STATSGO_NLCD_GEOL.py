@@ -583,8 +583,9 @@ def getCOKEY(s):
           #It is possible that a relative percent doesn't exist.  If it doesn't,
           #we use the first in the list of mukey entries
           if pd.np.isnan(index):
-            index = 0
-          max_perc = mu_key_rows.ix[index]
+            max_perc = mu_key_rows.iloc[0]
+          else:
+            max_perc = mu_key_rows.ix[index]
           s['COKEY'] = max_perc['cokey']
           s['compname'] = max_perc['compname']
        else:
