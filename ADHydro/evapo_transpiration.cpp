@@ -1132,12 +1132,32 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
-          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe));
-        }
+          // If canLiq falls below 1e-6 mm then Noah-MP sets it to zero and the water is lost.  It does the same for canIce.  I cannot think of a good way to
+          // detect when this happens.  I can't do a should be mass balance check like I do for snEqv because I don't know the correct value of
+          // rainfallInterceptedByCanopy or rainfallBelowCanopy.  In fact, I am using the old and new values of canLiq and canIce to calculate
+          // rainfallInterceptedByCanopy and rainfallBelowCanopy so they will always be consistent with them.
+          //
+          // One pernicious aspect of this problem is that our timesteps are smaller than what the Noah-MP code developers expected so we can see accumulations
+          // on the canopy of less than 1e-6 mm per timestep.  This water will be thrown away every timestep and nothing will ever accumulate.  This only
+          // happens for very light precipitation, and it only throws away a nanometer of water each timestep so it's not too bad, but I wish they hadn't coded
+          // it this way.
+          //
+          // This problem went undetected for a long time because our epsilon for single precision floats is 1e-6 so when Noah-MP threw away less than 1e-6 it
+          // was still epsilon equal.  The problem only became visible when canLiq and canIce were both set to zero during the same timestep and the water
+          // thrown away added up to more than 1e-6.
+          //
+          // The solution I have decided on is just to put the difference between snEqv and snEqvShouldBe into waterError.  I also need to change the assertion
+          // so that it's okay for the error to be up to 2e-6 if canLiq and canIce are both zero and thus water could have been thrown away from both.
+          *waterError += evapoTranspirationState->snEqv - snEqvShouldBe;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe) ||
+                   (0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce &&       // Using std::abs instead of fabs so that the
+                    epsilonGreaterOrEqual(2.0e-6f, std::abs(evapoTranspirationState->snEqv - snEqvShouldBe)))); // result is a float and not a double
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       CkAssert(!checkEvapoTranspirationStateStructInvariant(evapoTranspirationState));
