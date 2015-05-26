@@ -984,10 +984,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
   float  evaporationFromGround;                                          // Output of evapoTranspirationSoil in millimeters.
   float  transpirationFromVegetation;                                    // Output of evapoTranspirationSoil in millimeters.
   float  waterError;                                                     // Output of evapoTranspirationSoil in millimeters.
-  float  originalEvapoTranspirationStateWaterStorage;                    // For mass balance check.
-  float  finalEvapoTranspirationStateWaterStorage;                       // For mass balance check.
-  float  noahMPWaterFloat;                                               // For mass balance check.
-  double noahMPWaterDouble;                                              // For mass balance check.
+  double originalEvapoTranspirationTotalWaterInDomain;                   // For mass balance check.
   double evaporation;                                                    // Meters.
   double transpiration;                                                  // Meters.
   double unsatisfiedEvaporation;                                         // Meters.
@@ -1066,29 +1063,21 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       underground.fillInEvapoTranspirationSoilMoistureStruct(elementZSurface, evapoTranspirationState.zSnso, evapoTranspirationSoilMoisture);
 
       // Save the original amount of water stored in evapoTranspirationState for mass balance check.
-      originalEvapoTranspirationStateWaterStorage = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
+      originalEvapoTranspirationTotalWaterInDomain = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
       
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
       error = evapoTranspirationSoil(vegetationType, underground.soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
                                      &evapoTranspirationSoilMoisture, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow,
                                      &evaporationFromGround, &transpirationFromVegetation, &waterError);
       
-      // The amount of water that goes into Noah-MP through precipitation has to equal the change in water stored in evapoTranspirationState plus the amount
-      // that goes out to surfacewaterAdd, evaporationFromCanopy, and evaporationFromSnow.  evaporationFromGround and transpirationFromVegetation are not
-      // included in this computation because Noah-MP doesn't actually take that water out.  That water gets taken below.  The mass flows balance when
-      // calculated as floats.  However, when we convert some of those values to double before adding them up there is a roundoff error that appears to be
-      // biased and we slowly gain water.  I'm fixing this by putting the difference in surfacewaterError.
-      finalEvapoTranspirationStateWaterStorage = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
-      noahMPWaterFloat                         = (finalEvapoTranspirationStateWaterStorage - originalEvapoTranspirationStateWaterStorage) +
-                                                 surfacewaterAdd + evaporationFromCanopy + evaporationFromSnow;
-      noahMPWaterDouble                        = (finalEvapoTranspirationStateWaterStorage - originalEvapoTranspirationStateWaterStorage) +
-                                                 (double)surfacewaterAdd + (double)evaporationFromCanopy + (double)evaporationFromSnow;
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(epsilonEqual(evapoTranspirationForcing.prcp * (float)dt, noahMPWaterFloat));
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      
-      surfacewaterError += (noahMPWaterDouble - noahMPWaterFloat) / 1000.0;
+      // Because Noah-MP uses single precision floats, its roundoff error is much higher than for doubles.  However, we can calculate the mass error using
+      // doubles and account for it in surfacewaterError.  The mass error is the amount of water at the end (water stored in evapoTranspirationState plus water
+      // that came out in the form of surfacewaterAdd, evaporationFromCanopy, and evaporationFromSnow minus water error) minus the amount of water at the
+      // beginning (water stored in evapoTranspirationState plus water that went in in the form of precipitation).  evaporationFromGround and
+      // transpirationFromVegetation are not used in this computation because that water is not taken out by Noah-MP.  It is taken below.
+      surfacewaterError += (((double)evapoTranspirationTotalWaterInDomain(&evapoTranspirationState) + (double)surfacewaterAdd + (double)evaporationFromCanopy +
+                             (double)evaporationFromSnow - (double)waterError) -
+                            (originalEvapoTranspirationTotalWaterInDomain + (double)evapoTranspirationForcing.prcp * dt)) / 1000.0;
     }
   
   if (!error)
