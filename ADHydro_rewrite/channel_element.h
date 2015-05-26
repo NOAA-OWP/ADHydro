@@ -13,9 +13,11 @@ class ChannelSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
-                                       double neighborZOffsetInit, double neighborAreaInit, double edgeLengthInit);
+  ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                       double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                       int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
+                                       double neighborZSurfaceInit, double neighborZOffsetInit, double neighborAreaInit,
+                                       double edgeLengthInit);
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -37,8 +39,9 @@ class ChannelSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                          int neighborInit, int reciprocalNeighborProxyInit,
+  ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                          double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                          int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                           ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
                                           double neighborZBedInit, double neighborLengthInit,
                                           double neighborBaseWidthInit, double neighborSideSlopeInit,
@@ -68,7 +71,8 @@ class ChannelGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+  ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                      double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
                                       double neighborLayerZBottomInit, double neighborZOffsetInit, double edgeLengthInit);
   
@@ -210,6 +214,39 @@ public:
   // timestepEndTime - Simulation time at the end of the current timestep in
   //                   seconds since referenceDate.
   bool receiveInflows(double currentTime, double timestepEndTime);
+  
+  // Compute values relevant to the mass balance calculation.  To calculate the
+  // mass balance take waterInDomain and add externalFlows and subtract
+  // waterError.  This will undo any insertion or removal of water from the
+  // "black box" of the simulation domain leaving the amount of water that was
+  // present when externalFlows and waterError were both zero.  This value
+  // summed over all elements should be invariant except for floating point
+  // roundoff error.
+  //
+  // For all three parameters the value for this element is added to whatever
+  // value already exists in the passed-in variable.  It is done this way to
+  // make it easy to accumulate values from multiple elements.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // waterInDomain - Scalar passed by reference.  The amount of water in cubic
+  //                 meters in this element will be added to the existing
+  //                 value in this variable.  Positive means the existance of
+  //                 water.  Must be non-negative.
+  // externalFlows - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that has flowed to or from external sources and
+  //                 sinks (boundary conditions, precipitation, E-T, etc.) will
+  //                 be added to the existing value in this variable.  Positive
+  //                 means flow out of the element.  Negative means flow into
+  //                 the element.
+  // waterError    - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that was created or destroyed be error will be
+  //                 added to the existing value in this variable.  Positive
+  //                 means water was created.  Negative means water was
+  //                 destroyed.
+  bool massBalance(double& waterInDomain, double& externalFlows, double& waterError);
   
   // Identification parameters.
   int             elementNumber; // Channel element ID number of this element.

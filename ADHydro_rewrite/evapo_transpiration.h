@@ -113,6 +113,15 @@ PUPbytes(EvapoTranspirationStateStruct);
 // genParmFile  - The path to the GENPARM.TBL file.
 bool evapoTranspirationInit(const char* mpTableFile, const char* vegParmFile, const char* soilParmFile, const char* genParmFile);
 
+// Returns: the total water in the evapo-transpiration domain in millimeters of
+//          water.
+//
+// Parameters:
+//
+// evapoTranspirationState - a pointer to the state of the evapo-transpiration
+//                           domain.
+float evapoTranspirationTotalWaterInDomain(EvapoTranspirationStateStruct* evapoTranspirationState);
+
 // Calculate evapo-transpiration for a location with a soil surface.  The soil
 // might be currently covered with surfacewater or snow, but it is not
 // permanently covered with surfacewater or ice such as a waterbody or icemass.

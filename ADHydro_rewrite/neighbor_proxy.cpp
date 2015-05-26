@@ -92,9 +92,11 @@ bool SimpleNeighborProxy::MaterialTransfer::checkInvariant()
   return error;
 }
 
-SimpleNeighborProxy::SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit) :
+SimpleNeighborProxy::SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit, double flowCumulativeLongTermInit) :
   NeighborProxy::NeighborProxy(expirationTimeInit),
   nominalFlowRate(nominalFlowRateInit),
+  flowCumulativeShortTerm(flowCumulativeShortTermInit),
+  flowCumulativeLongTerm(flowCumulativeLongTermInit),
   incomingMaterial()
 {
   // Initialization handled by initialization list.
@@ -296,6 +298,9 @@ double SimpleNeighborProxy::getMaterial(double currentTime, double timestepEndTi
           incomingMaterial.front().startTime = timestepEndTime;
         }
     }
+  
+  // Record cumulative flow.
+  flowCumulativeShortTerm -= material;
   
   return material;
 }

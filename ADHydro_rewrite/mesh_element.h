@@ -14,7 +14,8 @@ class MeshSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+  MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                                    double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                     int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                     double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
                                     double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit);
@@ -43,10 +44,11 @@ class MeshSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
-                                       double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
-                                       double neighborBaseWidthInit, double neighborSideSlopeInit);
+  MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                       double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                       int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
+                                       double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
+                                       double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit);
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -73,7 +75,8 @@ class MeshGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+  MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                                   double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                    double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
                                    double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
@@ -105,7 +108,8 @@ class MeshGroundwaterChannelNeighborProxy : public SimpleNeighborProxy
 public:
   
   // FIXME comment
-  MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+  MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                      double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
                                       double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
                                       double neighborBaseWidthInit, double neighborSideSlopeInit,
@@ -313,6 +317,40 @@ public:
   // elementArea     - Pass value from MeshElement object.
   bool receiveInflows(double currentTime, double timestepEndTime, double elementArea);
   
+  // Compute values relevant to the mass balance calculation.  To calculate the
+  // mass balance take waterInDomain and add externalFlows and subtract
+  // waterError.  This will undo any insertion or removal of water from the
+  // "black box" of the simulation domain leaving the amount of water that was
+  // present when externalFlows and waterError were both zero.  This value
+  // summed over all elements should be invariant except for floating point
+  // roundoff error.
+  //
+  // For all three parameters the value for this element is added to whatever
+  // value already exists in the passed-in variable.  It is done this way to
+  // make it easy to accumulate values from multiple elements.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // waterInDomain - Scalar passed by reference.  The amount of water in cubic
+  //                 meters in this element will be added to the existing
+  //                 value in this variable.  Positive means the existance of
+  //                 water.  Must be non-negative.
+  // externalFlows - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that has flowed to or from external sources and
+  //                 sinks (boundary conditions, precipitation, E-T, etc.) will
+  //                 be added to the existing value in this variable.  Positive
+  //                 means flow out of the element.  Negative means flow into
+  //                 the element.
+  // waterError    - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that was created or destroyed be error will be
+  //                 added to the existing value in this variable.  Positive
+  //                 means water was created.  Negative means water was
+  //                 destroyed.
+  // elementArea   - Pass value from MeshElement object.
+  bool massBalance(double& waterInDomain, double& externalFlows, double& waterError, double elementArea);
+  
   // The methods to use to calculate infiltration and groundwater flow.
   InfiltrationMethodEnum infiltrationMethod;
   GroundwaterMethodEnum  groundwaterMethod;
@@ -457,6 +495,39 @@ public:
   // timestepEndTime - Simulation time at the end of the current timestep in
   //                   seconds since referenceDate.
   bool receiveInflows(double currentTime, double timestepEndTime);
+  
+  // Compute values relevant to the mass balance calculation.  To calculate the
+  // mass balance take waterInDomain and add externalFlows and subtract
+  // waterError.  This will undo any insertion or removal of water from the
+  // "black box" of the simulation domain leaving the amount of water that was
+  // present when externalFlows and waterError were both zero.  This value
+  // summed over all elements should be invariant except for floating point
+  // roundoff error.
+  //
+  // For all three parameters the value for this element is added to whatever
+  // value already exists in the passed-in variable.  It is done this way to
+  // make it easy to accumulate values from multiple elements.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // waterInDomain - Scalar passed by reference.  The amount of water in cubic
+  //                 meters in this element will be added to the existing
+  //                 value in this variable.  Positive means the existance of
+  //                 water.  Must be non-negative.
+  // externalFlows - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that has flowed to or from external sources and
+  //                 sinks (boundary conditions, precipitation, E-T, etc.) will
+  //                 be added to the existing value in this variable.  Positive
+  //                 means flow out of the element.  Negative means flow into
+  //                 the element.
+  // waterError    - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that was created or destroyed be error will be
+  //                 added to the existing value in this variable.  Positive
+  //                 means water was created.  Negative means water was
+  //                 destroyed.
+  bool massBalance(double& waterInDomain, double& externalFlows, double& waterError);
   
   // Identification parameters.
   int elementNumber;  // Mesh element ID number of this element.

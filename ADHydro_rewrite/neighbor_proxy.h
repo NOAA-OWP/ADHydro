@@ -140,11 +140,16 @@ public:
   //
   // Parameters:
   //
-  // expirationTimeInit  - Simulation time in seconds since
-  //                       Element::referenceDate to initialize expirationTime.
-  // nominalFlowRateInit - Material flow rate in quantity per second to
-  //                       initialize nominalFlowRate.
-  SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit);
+  // expirationTimeInit          - Simulation time in seconds since
+  //                               Element::referenceDate to initialize
+  //                               expirationTime.
+  // nominalFlowRateInit         - Material flow rate in quantity per second to
+  //                               initialize nominalFlowRate.
+  // flowCumulativeShortTermInit - Cumulative flow quantity to initialize
+  //                               flowCumulativeShortTerm.
+  // flowCumulativeLongTermInit  - Cumulative flow quantity to initialize
+  //                               flowCumulativeLongTerm
+  SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit, double flowCumulativeLongTermInit);
   
   // Charm++ pack/unpack method.
   //
@@ -173,11 +178,15 @@ public:
   //          material is also removed from incomingMaterial.  Exit on error.
   double getMaterial(double currentTime, double timestepEndTime);
   
-  double nominalFlowRate; // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow into
-                          // the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to satisfy all
-                          // outflows.
-  
-  // FIXME store cumulative flow with neighbor?
+  double nominalFlowRate;         // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow
+                                  // into the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to
+                                  // satisfy all outflows.
+  double flowCumulativeShortTerm; // flowCumulativeShortTerm plus flowCumulativeLongTerm together are the cumulative material flow quantity with the neighbor.
+  double flowCumulativeLongTerm;  // Positive means flow out of the element into the neighbor.  Negative means flow into the element out of the neighbor.  Two
+                                  // variables are used because over a long simulation this value could become quite large, and the amount of material moved
+                                  // each timestep can be quite small so roundoff error becomes a concern.  New flow is added to flowCumulativeShortTerm each
+                                  // timestep, and occasionally flowCumulativeShortTerm is added to flowCumulativeLongTerm and flowCumulativeShortTerm is reset
+                                  // to zero.
   
   std::list<MaterialTransfer> incomingMaterial; // Material that will be received as Element::currentTime advances.  The list should only be non-empty when
                                                 // nominalFlowRate is an inflow.  The list is maintained sorted with the earliest transfers at the front.  All

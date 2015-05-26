@@ -4,10 +4,12 @@
 #include "surfacewater.h"
 #include "groundwater.h"
 
-ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                                                           int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
-                                                                           double neighborZOffsetInit, double neighborAreaInit, double edgeLengthInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                                                           double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                                                           int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
+                                                                           double neighborZSurfaceInit, double neighborZOffsetInit, double neighborAreaInit,
+                                                                           double edgeLengthInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -19,13 +21,14 @@ ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(doubl
   // FIXME error check
 }
 
-ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                                                                 int neighborInit, int reciprocalNeighborProxyInit,
+ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                                                                 double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                                                                 int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                                                                  ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
                                                                                  double neighborZBedInit, double neighborLengthInit,
                                                                                  double neighborBaseWidthInit, double neighborSideSlopeInit,
                                                                                  double neighborManningsNInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -40,10 +43,11 @@ ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy
   // FIXME error check
 }
 
-ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                                                         double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                                                          int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
                                                                          double neighborLayerZBottomInit, double neighborZOffsetInit, double edgeLengthInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -321,8 +325,9 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           if (0.0 < (*itMesh).nominalFlowRate)
             {
               // Send water for an outflow.
-              waterSent  = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-              area      -= waterSent / elementLength;
+              waterSent                          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+              area                              -= waterSent / elementLength;
+              (*itMesh).flowCumulativeShortTerm += waterSent;
 
               error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itMesh).neighbor,
                                                                              (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
@@ -341,8 +346,9 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           else if (0.0 < (*itChannel).nominalFlowRate)
             {
               // Send water for an outflow.
-              waterSent  = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
-              area      -= waterSent / elementLength;
+              waterSent                             = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
+              area                                 -= waterSent / elementLength;
+              (*itChannel).flowCumulativeShortTerm += waterSent;
 
               if (!isBoundary((*itChannel).neighbor))
                 {
@@ -359,8 +365,9 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           if (0.0 < (*itUndergroundMesh).nominalFlowRate)
             {
               // Send water for an outflow.
-              waterSent  = (*itUndergroundMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-              area      -= waterSent / elementLength;
+              waterSent                                     = (*itUndergroundMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+              area                                         -= waterSent / elementLength;
+              (*itUndergroundMesh).flowCumulativeShortTerm += waterSent;
 
               error = region.sendWater((*itUndergroundMesh).region, RegionMessageStruct(MESH_GROUNDWATER_CHANNEL_NEIGHBOR, (*itUndergroundMesh).neighbor,
                                                                                         (*itUndergroundMesh).reciprocalNeighborProxy, 0.0, 0.0,
@@ -491,6 +498,37 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
         }
     }
   
+  return error;
+}
+
+bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, double& waterError)
+{
+  bool                                                           error = false; // Error flag.
+  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 <= waterInDomain))
+    {
+      CkError("ERROR in ChannelElement::massBalance: waterInDomain must be greater than or equal to zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      waterInDomain += surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength;
+
+      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+        {
+          if (isBoundary((*itChannel).neighbor))
+            {
+              externalFlows += (*itChannel).flowCumulativeShortTerm + (*itChannel).flowCumulativeLongTerm;
+            }
+        }
+
+      waterError += surfacewaterError;
+    }
+
   return error;
 }
 

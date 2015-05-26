@@ -5,11 +5,12 @@
 #include "groundwater.h"
 #include "garto.h"
 
-MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                                                                     double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                                                      int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                                                      double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
                                                                      double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -25,11 +26,12 @@ MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expi
   // FIXME error check
 }
 
-MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
-                                                                           int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
-                                                                           double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
-                                                                           double neighborBaseWidthInit, double neighborSideSlopeInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                                                           double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
+                                                                           int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
+                                                                           double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
+                                                                           double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit) :
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -43,12 +45,13 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(doubl
   // FIXME error check
 }
 
-MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit, int neighborInit,
+MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                                                                   double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                                                    double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
                                                                    double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
                                                                    double neighborConductivityInit, double neighborPorosityInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -66,12 +69,13 @@ MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expira
   // FIXME error check
 }
 
-MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, int regionInit,
+MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+                                                                         double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                                                          int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
                                                                          double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
                                                                          double neighborBaseWidthInit, double neighborSideSlopeInit,
                                                                          double neighborBedConductivityInit, double neighborBedThicknessInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -575,8 +579,9 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
               else if (0.0 < (*itMesh).nominalFlowRate)
                 {
                   // Send water for an outflow.
-                  waterSent            = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-                  groundwaterRecharge -= waterSent / elementArea;
+                  waterSent                          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+                  groundwaterRecharge               -= waterSent / elementArea;
+                  (*itMesh).flowCumulativeShortTerm += waterSent;
 
                   if (!isBoundary((*itMesh).neighbor))
                     {
@@ -593,8 +598,9 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
               if (0.0 < (*itChannel).nominalFlowRate)
                 {
                   // Send water for an outflow.
-                  waterSent            = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
-                  groundwaterRecharge -= waterSent / elementArea;
+                  waterSent                             = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
+                  groundwaterRecharge                  -= waterSent / elementArea;
+                  (*itChannel).flowCumulativeShortTerm += waterSent;
 
                   error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
                                                                                     (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
@@ -605,12 +611,13 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
 
           // Update groundwaterHead based on net groundwaterRecharge and take or put groundwaterRecharge water back into the domain, or if the domain is full put it
           // back in surfacewaterDepth.
-          // NO_INFILTRATION cannot be used with SHALLOW_AQUIFER.
           if (!error)
             {
+              // NO_INFILTRATION cannot be used with SHALLOW_AQUIFER.
               if (TRIVIAL_INFILTRATION == infiltrationMethod)
                 {
-                  groundwaterHead += groundwaterRecharge / porosity;
+                  groundwaterHead    += groundwaterRecharge / porosity;
+                  groundwaterRecharge = 0.0;
 
                   if (groundwaterHead < layerZBottom)
                     {
@@ -750,6 +757,50 @@ bool InfiltrationAndGroundwater::receiveInflows(double currentTime, double times
         }
     }
   
+  return error;
+}
+
+bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& externalFlows, double& waterError, double elementArea)
+{
+  bool                                                    error = false; // Error flag.
+  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator itMesh;        // Loop iterator.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 <= waterInDomain))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::massBalance: waterInDomain must be greater than or equal to zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      // For NO_INFILTRATION there is no groundwater in the domain.
+      if (TRIVIAL_INFILTRATION == infiltrationMethod)
+        {
+          if (SHALLOW_AQUIFER == groundwaterMethod && groundwaterHead > layerZBottom)
+            {
+              waterInDomain += (groundwaterHead - layerZBottom) * porosity * elementArea;
+            }
+          
+          waterInDomain += groundwaterRecharge * elementArea;
+        }
+      else if (GARTO_INFILTRATION == infiltrationMethod)
+        {
+          waterInDomain += garto_total_water_in_domain((garto_domain*)vadoseZoneState) * elementArea;
+        }
+
+      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+        {
+          if (isBoundary((*itMesh).neighbor))
+            {
+              externalFlows += (*itMesh).flowCumulativeShortTerm + (*itMesh).flowCumulativeLongTerm;
+            }
+        }
+
+      waterError += groundwaterError * elementArea;
+    }
+
   return error;
 }
 
@@ -933,6 +984,10 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
   float  evaporationFromGround;                                          // Output of evapoTranspirationSoil in millimeters.
   float  transpirationFromVegetation;                                    // Output of evapoTranspirationSoil in millimeters.
   float  waterError;                                                     // Output of evapoTranspirationSoil in millimeters.
+  float  originalEvapoTranspirationStateWaterStorage;                    // For mass balance check.
+  float  finalEvapoTranspirationStateWaterStorage;                       // For mass balance check.
+  float  noahMPWaterFloat;                                               // For mass balance check.
+  double noahMPWaterDouble;                                              // For mass balance check.
   double evaporation;                                                    // Meters.
   double transpiration;                                                  // Meters.
   double unsatisfiedEvaporation;                                         // Meters.
@@ -982,7 +1037,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       julian = localSolarDateTime - gregorianToJulian(year, 1, 1, 0, 0, 0);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(julian <= yearlen);
+      CkAssert(0.0f <= julian && julian <= yearlen);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
       // FIXME if this element is shaded set cosZ to zero.
@@ -1010,10 +1065,30 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // Fill in the Noah-MP soil moisture struct from groundwater and vadose zone state.
       underground.fillInEvapoTranspirationSoilMoistureStruct(elementZSurface, evapoTranspirationState.zSnso, evapoTranspirationSoilMoisture);
 
+      // Save the original amount of water stored in evapoTranspirationState for mass balance check.
+      originalEvapoTranspirationStateWaterStorage = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
+      
       // Do point processes for rainfall, snowmelt, and evapo-transpiration.
       error = evapoTranspirationSoil(vegetationType, underground.soilType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
                                      &evapoTranspirationSoilMoisture, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow,
                                      &evaporationFromGround, &transpirationFromVegetation, &waterError);
+      
+      // The amount of water that goes into Noah-MP through precipitation has to equal the change in water stored in evapoTranspirationState plus the amount
+      // that goes out to surfacewaterAdd, evaporationFromCanopy, and evaporationFromSnow.  evaporationFromGround and transpirationFromVegetation are not
+      // included in this computation because Noah-MP doesn't actually take that water out.  That water gets taken below.  The mass flows balance when
+      // calculated as floats.  However, when we convert some of those values to double before adding them up there is a roundoff error that appears to be
+      // biased and we slowly gain water.  I'm fixing this by putting the difference in surfacewaterError.
+      finalEvapoTranspirationStateWaterStorage = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
+      noahMPWaterFloat                         = (finalEvapoTranspirationStateWaterStorage - originalEvapoTranspirationStateWaterStorage) +
+                                                 surfacewaterAdd + evaporationFromCanopy + evaporationFromSnow;
+      noahMPWaterDouble                        = (finalEvapoTranspirationStateWaterStorage - originalEvapoTranspirationStateWaterStorage) +
+                                                 (double)surfacewaterAdd + (double)evaporationFromCanopy + (double)evaporationFromSnow;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(epsilonEqual(evapoTranspirationForcing.prcp * (float)dt, noahMPWaterFloat));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      surfacewaterError += (noahMPWaterDouble - noahMPWaterFloat) / 1000.0;
     }
   
   if (!error)
@@ -1129,8 +1204,9 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
           else if (0.0 < (*itMesh).nominalFlowRate)
             {
               // Send water for an outflow.
-              waterSent          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-              surfacewaterDepth -= waterSent / elementArea;
+              waterSent                          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
+              surfacewaterDepth                 -= waterSent / elementArea;
+              (*itMesh).flowCumulativeShortTerm += waterSent;
 
               if (!isBoundary((*itMesh).neighbor))
                 {
@@ -1147,8 +1223,9 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
           if (0.0 < (*itChannel).nominalFlowRate)
             {
               // Send water for an outflow.
-              waterSent          = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
-              surfacewaterDepth -= waterSent / elementArea;
+              waterSent                             = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
+              surfacewaterDepth                    -= waterSent / elementArea;
+              (*itChannel).flowCumulativeShortTerm += waterSent;
 
               error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
                                                                                 (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
@@ -1248,5 +1325,47 @@ bool MeshElement::receiveInflows(double currentTime, double timestepEndTime)
       underground.receiveInflows(currentTime, timestepEndTime, elementArea);
     }
   
+  return error;
+}
+
+bool MeshElement::massBalance(double& waterInDomain, double& externalFlows, double& waterError)
+{
+  bool                                                     error = false; // Error flag.
+  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator itMesh;        // Loop iterator.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 <= waterInDomain))
+    {
+      CkError("ERROR in MeshElement::massBalance: waterInDomain must be greater than or equal to zero.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+
+  if (!error)
+    {
+      error = underground.massBalance(waterInDomain, externalFlows, waterError, elementArea);
+    }
+  
+  if (!error)
+    {
+      waterInDomain += surfacewaterDepth * elementArea;
+      waterInDomain += (evapoTranspirationTotalWaterInDomain(&evapoTranspirationState) / 1000.0) * elementArea; // Divide by one thousand to convert from
+                                                                                                                // millimeters to meters.
+
+      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+        {
+          if (isBoundary((*itMesh).neighbor))
+            {
+              externalFlows += (*itMesh).flowCumulativeShortTerm + (*itMesh).flowCumulativeLongTerm;
+            }
+        }
+      
+      externalFlows += (precipitationCumulativeShortTerm + precipitationCumulativeLongTerm) * elementArea;
+      externalFlows += (evaporationCumulativeShortTerm   + evaporationCumulativeLongTerm)   * elementArea;
+      externalFlows += (transpirationCumulativeShortTerm + transpirationCumulativeLongTerm) * elementArea;
+
+      waterError += surfacewaterError * elementArea;
+    }
+
   return error;
 }

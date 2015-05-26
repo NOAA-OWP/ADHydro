@@ -176,6 +176,11 @@ bool evapoTranspirationInit(const char* mpTableFile, const char* vegParmFile, co
   return error;
 }
 
+float evapoTranspirationTotalWaterInDomain(EvapoTranspirationStateStruct* evapoTranspirationState)
+{
+  return evapoTranspirationState->canLiq + evapoTranspirationState->canIce + evapoTranspirationState->snEqv;
+}
+
 bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, float julian, float cosZ, float dt, float dx,
                             EvapoTranspirationForcingStruct* evapoTranspirationForcing, EvapoTranspirationSoilMoistureStruct* evapoTranspirationSoilMoisture,
                             EvapoTranspirationStateStruct* evapoTranspirationState, float* surfacewaterAdd, float* evaporationFromCanopy,
@@ -765,17 +770,24 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       rainfallInterceptedByCanopy = changeInCanopyIce + changeInCanopyLiquid + *evaporationFromCanopy - snowfallInterceptedByCanopy;
       rainfallBelowCanopy         = rainfallAboveCanopy - rainfallInterceptedByCanopy;
       
-      if (0.0f > rainfallBelowCanopy)
+      // FIXLATER There appears to be a mass balance bug.  When the canopy completely empties of water the total outflow of (qSnow * dt + eCan * dt) can be
+      // greater than the total water available.  When you calculate snowfallInterceptedByCanopy, rainfallInterceptedByCanopy, and rainfallBelowCanopy from
+      // mass conservation it results in a negative value for rainfallBelowCanopy.  My first thought was to take the missing water back from
+      // snowfallBelowCanopy and evaporationFromCanopy.  However, the mass balance check for the snow pack only works with the unaltered value of
+      // snowfallBelowCanopy so I would have to take the missing water back from the snowpack too.  And what if the snowpack happened to disappear as well
+      // during the exact same timestep as the canopy emptying.  It started to get complicated so I have decided to just create the water and record it in
+      // waterError.  The canopy completely emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only
+      // created 0.1 micron of water.
+      if (0.0f != rainfallBelowCanopy && epsilonEqual(0.0f, rainfallBelowCanopy))
         {
-          // FIXLATER There appears to be a mass balance bug.  When the canopy completely empties of water the total outflow of (qSnow * dt + eCan * dt) can be
-          // greater than the total water available.  When you calculate snowfallInterceptedByCanopy, rainfallInterceptedByCanopy, and rainfallBelowCanopy from
-          // mass conservation it results in a negative value for rainfallBelowCanopy.  It's also possible for rainfallBelowCanopy to be negative at other
-          // times due to round off error.  That is not a mass balance bug.  My first thought was to take the missing water back from snowfallBelowCanopy and
-          // evaporationFromCanopy.  However, the mass balance check for the snow pack only works with the unaltered value of snowfallBelowCanopy so I would
-          // have to take the missing water back from the snowpack too.  And what if the snowpack happened to disappear as well during the exact same timestep
-          // as the canopy emptying.  It started to get complicated so I have decided to just create the water and record it in waterError.  The canopy
-          // completely emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only created 0.1 micron of
-          // water.
+          // It's also possible for rainfallBelowCanopy to be negative at other times due to round off error.  This is not a mass balance bug.  However, I
+          // can't proceed with rainfallBelowCanopy negative so I have to set it to zero.  But if I only set it to zero when it is negative the roundoff error
+          // becomes biased because a small positive value due to round off error will not be set to zero, but a negative one will.  This sets both positive
+          // and negative roundoff error to zero without adding them to waterError.
+          rainfallBelowCanopy = 0.0f;
+        }
+      else if (0.0f > rainfallBelowCanopy)
+        {
           *waterError         -= rainfallBelowCanopy;
           rainfallBelowCanopy  = 0.0f;
         }
@@ -842,12 +854,32 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
-          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe));
-        }
+          // If canLiq falls below 1e-6 mm then Noah-MP sets it to zero and the water is lost.  It does the same for canIce.  I cannot think of a good way to
+          // detect when this happens.  I can't do a should be mass balance check like I do for snEqv because I don't know the correct value of
+          // rainfallInterceptedByCanopy or rainfallBelowCanopy.  In fact, I am using the old and new values of canLiq and canIce to calculate
+          // rainfallInterceptedByCanopy and rainfallBelowCanopy so they will always be consistent with them.
+          //
+          // One pernicious aspect of this problem is that our timesteps are smaller than what the Noah-MP code developers expected so we can see accumulations
+          // on the canopy of less than 1e-6 mm per timestep.  This water will be thrown away every timestep and nothing will ever accumulate.  This only
+          // happens for very light precipitation, and it only throws away less than a nanometer of water each timestep so it's not too bad, but I wish they
+          // hadn't coded it this way.
+          //
+          // This problem went undetected for a long time because our epsilon for single precision floats is 1e-6 so when Noah-MP threw away less than 1e-6 it
+          // was still epsilon equal.  The problem only became visible when canLiq and canIce were both set to zero during the same timestep and the water
+          // thrown away added up to more than 1e-6.
+          //
+          // The solution I have decided on is just to put the difference between snEqv and snEqvShouldBe into waterError.  I also changed the assertion so
+          // that it's okay for the error to be up to 2e-6 if canLiq and canIce are both zero and thus water could have been thrown away from both.
+          *waterError += evapoTranspirationState->snEqv - snEqvShouldBe;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe) ||
+                   (0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce &&       // Using std::abs instead of fabs so that the
+                    epsilonGreaterOrEqual(2.0e-6f, std::abs(evapoTranspirationState->snEqv - snEqvShouldBe)))); // result is a float and not a double
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       CkAssert(!checkEvapoTranspirationStateStructInvariant(evapoTranspirationState));

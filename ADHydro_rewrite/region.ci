@@ -8,6 +8,25 @@ module region
     {
       // FIXME do initialization.
       
+      // Do an initial mass balance.
+      // FIXME decide what to do about this.
+      serial
+      {
+        bool   error                = false;
+        double massBalanceValues[3] = {0.0, 0.0, 0.0};
+        
+        error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
+        
+        if (!error)
+          {
+            contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+          }
+        else
+          {
+            CkExit();
+          }
+      }
+      
       while (currentTime < simulationEndTime)
       {
         // Step 1: Calculate nominal flow rates with neighbors.
@@ -65,11 +84,41 @@ module region
         }
         
         // FIXME do output.
+        
+        // Do a periodic mass balance.
+        // FIXME decide what to do about this.
+        // FIXME the last one of these never gets a chance to finish before we call CkExit.
+        serial
+        {
+          if (currentTime == nextSyncTime)
+            {
+              bool   error                = false;
+              double massBalanceValues[3] = {0.0, 0.0, 0.0};
+              
+              error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
+              
+              if (!error)
+                {
+                  contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+                }
+              else
+                {
+                  CkExit();
+                }
+              
+              nextSyncTime += 100.0;
+              
+              if (nextSyncTime > simulationEndTime)
+                {
+                  nextSyncTime = simulationEndTime;
+                }
+            }
+        }
       } // End while (currentTime < simulationEndTime).
       
       serial
       {
-        contribute();
+        contribute(CkCallback(CkCallback::ckExit));
       }
     }; // End entry void runUntilSimulationEnd();
     

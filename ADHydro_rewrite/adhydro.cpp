@@ -80,6 +80,20 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
   return ii * selectedDt;
 }
 
+void ADHydro::printOutMassBalance(double waterInDomain, double externalFlows, double waterError)
+{
+  static double massBalanceShouldBe = NAN; // This stores the first value received and uses it as the "should be" value for the rest of the simulation.
+  double        massBalance         = waterInDomain + externalFlows - waterError;
+  
+  if (isnan(massBalanceShouldBe))
+    {
+      massBalanceShouldBe = massBalance;
+    }
+  
+  CkPrintf("waterInDomain = %lg, externalFlows = %lg, waterError = %lg, massBalance = %lg, massBalanceError = %lg, all values in cubic meters.\n",
+           waterInDomain, externalFlows, waterError, massBalance, massBalance - massBalanceShouldBe);
+}
+
 ADHydro::ADHydro(CkArgMsg* msg)
 {
   evapoTranspirationInit("/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/MPTABLE.TBL",
@@ -87,9 +101,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
                          "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/SOILPARM.TBL",
                          "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/GENPARM.TBL");
   
-  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 25.0, 3);
+  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 1000.0, 3);
   
-  regionProxy.ckSetReductionClient(new CkCallback(CkCallback::ckExit));
+  regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, printOutMassBalance), thisProxy));
 }
 
 #include "adhydro.def.h"

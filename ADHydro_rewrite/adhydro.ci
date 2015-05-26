@@ -12,6 +12,8 @@ mainmodule adhydro
     readonly int           verbosityLevel;
     readonly CProxy_Region regionProxy;
     
+    entry [reductiontarget] void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+    
     entry ADHydro(CkArgMsg* msg);
   }; // End mainchare ADHydro.
 }; // End mainmodule adhydro.

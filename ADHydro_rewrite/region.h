@@ -150,6 +150,39 @@ public:
   // end of the timestep.
   void receiveInflowsAndAdvanceTime();
   
+  // Compute values relevant to the mass balance calculation.  To calculate the
+  // mass balance take waterInDomain and add externalFlows and subtract
+  // waterError.  This will undo any insertion or removal of water from the
+  // "black box" of the simulation domain leaving the amount of water that was
+  // present when externalFlows and waterError were both zero.  This value
+  // summed over all regions should be invariant except for floating point
+  // roundoff error.
+  //
+  // For all three parameters the value for this element is added to whatever
+  // value already exists in the passed-in variable.  It is done this way to
+  // make it easy to accumulate values from multiple regions.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // waterInDomain - Scalar passed by reference.  The amount of water in cubic
+  //                 meters in this region will be added to the existing
+  //                 value in this variable.  Positive means the existance of
+  //                 water.  Must be non-negative.
+  // externalFlows - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that has flowed to or from external sources and
+  //                 sinks (boundary conditions, precipitation, E-T, etc.) will
+  //                 be added to the existing value in this variable.  Positive
+  //                 means flow out of the element.  Negative means flow into
+  //                 the element.
+  // waterError    - Scalar passed by reference.  The amount of water in cubic
+  //                 meters that was created or destroyed be error will be
+  //                 added to the existing value in this variable.  Positive
+  //                 means water was created.  Negative means water was
+  //                 destroyed.
+  bool massBalance(double& waterInDomain, double& externalFlows, double& waterError);
+  
   // Elements.  Key is element ID number.
   std::map<int, MeshElement>    meshElements;
   std::map<int, ChannelElement> channelElements;

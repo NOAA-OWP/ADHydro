@@ -89,6 +89,9 @@ public:
   // dtNew       - Desired timestep duration in seconds.
   static double newExpirationTime(double currentTime, double dtNew);
   
+  // FIXME comment
+  static void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+  
   // Constructor.  This is the mainchare constructor where the program starts.
   //
   // Parameters:
