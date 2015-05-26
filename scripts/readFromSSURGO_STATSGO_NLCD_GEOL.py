@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import glob
 from math import acos, cos
+
+import time #Can be removed, only for timing various functions of this script
+
 #import cython #Maybe try to cythonize some functions for better performance???
 
 # This script is set up to run from the command line and not from inside the QGIS python console.
@@ -64,7 +67,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/test2/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -96,6 +99,65 @@ GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix 
                                    'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
                                    'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
 
+#Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
+#Since this function uses a per state shapefile, it is more efficient to create
+#the large spatial index once, and search through each time rather than
+#re-create the spatial index for each call to get_GEOLOGIC_UNITS
+"""
+            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
+            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
+            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
+            
+            feature  = QgsFeature()
+            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
+            
+            found = False
+            index = QgsSpatialIndex()
+            while GEOL_perState_provider.nextFeature(feature):
+                index.insertFeature(feature)
+"""
+t0 = time.time()
+GEOL_spatial_index = {}
+#iterate over the geology vector layers
+for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
+    #get the layer's data provider and index of its rocktype field
+    provider = layer.dataProvider()
+    ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+    #select the rocktype features to work with
+    provider.select([ROCKTYPE])
+    #Initialize the spatial index
+    GEOL_spatial_index[state] = QgsSpatialIndex()
+    #Build the spatial index
+    feature = QgsFeature()
+    while provider.nextFeature(feature):
+        GEOL_spatial_index[state].insertFeature(feature)
+        
+#Now we similarly pre-populate the SSURGO spatial index.
+#To find the MUKEYS, we first have to look through all the SSURGO features to find
+#the AreaSYM that a point lie in.  We can create that spatial index once and reference
+#it instead of creating it once for each element.
+SSURGO_spatial_index = QgsSpatialIndex()
+feature  = QgsFeature()
+SSURGO_provider.select([SSURGO_AreaSymInd])
+#Populate the spatial index with each feature in the SSURGO provided
+while SSURGO_provider.nextFeature(feature):
+    SSURGO_spatial_index.insertFeature(feature)    
+
+#We also look up county information inside SSURGO, using yet another spatial index
+#Store these in a dict the first time and avoid re-creating them every call.  These
+#will get populated in the getMUKEY function
+SSURGO_county_index = {}
+
+#If using STATSGO, we also use a spatial index, but only one on one layer
+#We can initilize this spatial index and save a lot of overhead
+eature  = QgsFeature()
+STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+STATSGO_index = QgsSpatialIndex()  
+while STATSGO_provider.nextFeature(feature):
+    STATSGO_index.insertFeature(feature)
+
+t1 = time.time()
+print "Time to initialize spatial indicies: "+str(t1 - t0)
 
 def writeSoilFile(s, f, bugFix):
     """
@@ -193,7 +255,7 @@ def getSoilTypDRV():
    output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
 
    print 'Reading element file.'
-
+   t0 = time.time()
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
    
    elements['V1'] = elements['V1'].astype(int)
@@ -263,13 +325,16 @@ def getSoilTypDRV():
     these values.  On really large meshes, this might be required to do.
    """
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
-     
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0)  
    print 'Finding MUKEY.'
    
    #find the MUKEY for each element, this adds the following columns to elements:
    #MUKEY, AreaSym, inSSURGO
+   t0 = time.time()
    elements = elements.apply(getMUKEY, axis=1)
-   
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0) 
    #Write the element data serialized file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
    elements.to_pickle(output_element_data_file)
    
@@ -280,7 +345,10 @@ def getSoilTypDRV():
 
    #find the geologic unit for each element, this adds the following columns to elements:
    #ROCKTYPE
+   t0 = time.time()
    elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0) 
    
    #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
    elements.to_pickle(output_element_data_file)
@@ -292,19 +360,28 @@ def getSoilTypDRV():
 
    #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
    #COKEY, compname
+   t0 = time.time()
    elements = elements.apply(getCOKEY, axis=1)
-
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0) 
+   
    print 'Finding soil type.'
 
    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
    #SoilType
+   t0 = time.time()
    elements = elements.apply(getSoilContent, axis=1)
-
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0) 
+   
    print 'Finding vegetation type.'
 
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
    #VegParm
+   t0 = time.time()
    elements = elements.apply(getVegParm, axis=1)
+   t1 = time.time()
+   print "Time: "+ str(t1 - t0) 
    
    print 'Writing element data file.'
    
@@ -388,20 +465,15 @@ def getMUKEY(s):
     y = s['long_center'] 
     #Get setup for building the spatial index, and initialize the booleans used to indicate if
     #a MUKEY was found in SSURGO or not
-    feature  = QgsFeature()
     inSSURGO = False
     found = False
+    #Select features and build bounding box
     SSURGO_provider.select([SSURGO_AreaSymInd])
-
-    index = QgsSpatialIndex()
-    #Populate the spatial index with each feature in the SSURGO provided
-    while SSURGO_provider.nextFeature(feature):
-        index.insertFeature(feature)
     point = QgsPoint(x, y)
     pointBox = QgsRectangle(point, point)
-    #Use the spatial index to find features that intersect with the point box build from the elements coordiantes
-    ids = index.intersects(pointBox)
-    
+    #Use the SSURGO spatial index to find features that intersect with the point box build from the elements coordiantes
+    ids = SSURGO_spatial_index.intersects(pointBox)
+    feature = QgsFeature()
     #Intersects returns a list of features intesecting the point
     #So we still have to search using .contains(), but we search
     #a lot less then using .contains() on all features
@@ -409,17 +481,24 @@ def getMUKEY(s):
         SSURGO_provider.featureAtId(i, feature, True, [SSURGO_AreaSymInd])
         geom = feature.geometry()
         if geom.contains(point):
-            #This should really only get set if the next shape file is found to contain the coordinates as well
-            #inSSURGO = True # True if the x,y coordinates are inside any shape in SSURGO. False otherwise
+            #Found an intersecting shape, get the AreaSym
             attribute = feature.attributeMap()
             AreaSym = attribute[SSURGO_AreaSymInd].toString()
-
-            #TODO Maybe load all these into memory initally then lookup from dict???
+            #See if we have this layer loaded, if not load the layer and create a corresponding spatial index
             if AreaSym not in SSURGO_county_dict:
                 input_SSURGOperCounty_file = os.path.join(input_SSURGO_County_prefix, "soilmu_a_") + AreaSym.toLower() + ".shp"
                 SSURGO_perCounty_layer  = QgsVectorLayer(input_SSURGOperCounty_file, "SSURGOperCounty",  "ogr")
                 SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
                 SSURGO_county_dict[AreaSym] = SSURGO_perCounty_layer
+                #To avoid re-creating the per county spatial index, create it the first time we need it and
+                #put it into a dict to access later.  The trade-off here is increased memory usage versus time
+                #However, the number of these indicies should be relatively small compared to the number of 
+                #mesh elements that must be processed, and this should remain some what proportional even as the
+                #mesh size increases
+                SSURGO_county_index[AreaSym] = QgsSpatialIndex()
+                feature = QgsFeature()
+                while SSURGO_perCounty_provider.nextFeature(feature):
+                    SSURGO_county_index[AreaSym].insertFeature(feature)
             else:
                 SSURGO_perCounty_layer = SSURGO_county_dict[AreaSym]
                 SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
@@ -427,13 +506,10 @@ def getMUKEY(s):
             SSURGO_county_AreaSymInd  = SSURGO_perCounty_provider.fieldNameIndex("AREASYMBOL")
             SSURGO_county_MUKEYInd    = SSURGO_perCounty_provider.fieldNameIndex("MUKEY")
             SSURGO_county_MUKEYSymInd = SSURGO_perCounty_provider.fieldNameIndex("MUSYM")
-            feature  = QgsFeature()
+
             SSURGO_perCounty_provider.select([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
-            
-            index = QgsSpatialIndex()
-            while SSURGO_perCounty_provider.nextFeature(feature):
-                index.insertFeature(feature)
-            ids = index.intersects(pointBox)
+            #Find the intersecting geometries         
+            ids = SSURGO_county_index[AreaSym].intersects(pointBox)
             for i in ids:
                 SSURGO_perCounty_provider.featureAtId(i, feature, True, [SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
                 geom = feature.geometry()
@@ -451,13 +527,9 @@ def getMUKEY(s):
     if (inSSURGO == False) or ( MUSYM == 'NOTCOM'):
         inSSURGO = False # In the case MUSYM == NOTCOM, inSSURGO was = True
         found = False
-
-        STATSGOfeature  = QgsFeature()
+        STATSGOfeature = QgsFeature()
         STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
-        index = QgsSpatialIndex()  
-        while STATSGO_provider.nextFeature(STATSGOfeature):
-            index.insertFeature(STATSGOfeature)
-        ids = index.intersects(pointBox)
+        ids = STATSGO_index.intersects(pointBox)
         for i in ids:
             STATSGO_provider.featureAtId(i, STATSGOfeature, True, [STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
             geom = STATSGOfeature.geometry()
@@ -544,15 +616,23 @@ def getCOKEY(s):
       comp_metadata = STATSGO_comp_dict[AreaSym]
 
    mu_key_rows = comp_metadata[comp_metadata['mukey'] == MUKEY]
+
    if not mu_key_rows.empty:
-      #Found a valid cokey based on mukey, get largest percent entry
-      max_perc = mu_key_rows.ix[mu_key_rows['comppct_r'].idxmax()]
+      #Found a valid cokey based on mukey, get largest percent entry if konwn
+      index = mu_key_rows['comppct_r'].idxmax()
+      #It is possible that a relative percent doesn't exist.  If it doesn't,
+      #we use the first in the list of mukey entries
+      if pd.np.isnan(index):
+        max_perc = mu_key_rows.iloc[0]
+      else:
+        max_perc = mu_key_rows.ix[index]
       s['COKEY'] = max_perc['cokey']
       s['compname'] = max_perc['compname']
    else:
       #no cokey found
       s['COKEY'] = np.nan
       s['compname'] = np.nan
+
    return s
 
 #Helper function to modify totals if rel_percent is not 100
@@ -759,6 +839,7 @@ def getVegParm(s):
       # 90	woody wetland	               18            'Wooded Wetland' 
       # 95	herbaceous wetland	       17            'Herbaceous Wetland' 
    if success:
+      #TODO/FIXME This is a static mapping!!! Treat it as such and use a dict!
       if (data == '11'):
          val = 16
       elif (data == '12'):
@@ -825,21 +906,17 @@ def get_GEOLOGIC_UNITS(s):
             point = QgsPoint(x, y)
             pointBox = QgsRectangle(point, point)
             
-            # AreaSym string name starts with the state abbreviation and it is used to access the GEOL_Unit_State_VectorLayer_dict
-            #GEOL_Unit_State_VectorLayer_dict[ Source[0] + Source[1] ]
-            
-            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
-            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
-            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
-            
-            feature  = QgsFeature()
-            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
-            
+            # AreaSym string name starts with the state abbreviation.
+            #It is used to access the GEOL_spatial_index dictionary and GEOL_Unit_State_VectorLayer_dict
+            #i.e. GEOL_spatial_index[ Source[0:2] ]
+            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[ Source[0:2] ]
+            GEOL_perState_provider = GEOL_perState_layer.dataProvider()
+            GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+            #select the rocktype features to work with
+            provider.select([GEOL_State_ROCKTYPE]) 
+            feature = QgsFeature()               
             found = False
-            index = QgsSpatialIndex()
-            while GEOL_perState_provider.nextFeature(feature):
-                index.insertFeature(feature)
-            ids = index.intersects(pointBox)
+            ids = GEOL_spatial_index[Source[0:2]].intersects(pointBox)
             for i in ids:
                 GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
                 geom = feature.geometry()
