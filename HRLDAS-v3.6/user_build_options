@@ -10,22 +10,10 @@
 # CPP		=	cpp
 # CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
 # LIBS		=	
-#
-# Use these values for Mt. Moran
-#
 # LIBJASPER      =       -ljpeg -L/apps/JASPER/intel-15.0/1.900.1/lib -ljasper
 # INCJASPER      =       -I/apps/JASPER/intel-15.0/1.900.1/include
 # NETCDFMOD	=	-I/apps/NetCDF-mpi/intel/15.0.0/4.3.2/include
 # NETCDFLIB	=	-L/apps/NetCDF-mpi/intel/15.0.0/4.3.2/lib -L/apps/HDF5-mpi/intel/15.0.0/1.8.13/lib -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-#
-# Use these values for Yellowstone
-#
-# LIBJASPER      =       -ljpeg -L/glade/p/work/rsteinke/tools/lib -ljasper
-# INCJASPER      =       -I/glade/p/work/rsteinke/tools/include/jasper
-# NETCDFMOD      =       $(INC_NCAR)
-# LIB_NCAR_FIXED =       -L/glade/apps/opt/netcdf-mpi/4.3.3-rc3/intel/12.1.5/lib -L/glade/apps/opt/hdf5-mpi/1.8.9/intel/default/lib -Wl,-Bstatic -lnetcdff -lnetcdf -lsz -lcurl -lidn -lssl -lcrypto -lz -Wl,-Bdynamic -lgpfs -Wl,-rpath,/glade/apps/opt/netcdf-mpi/4.3.3-rc3/intel/12.1.5/lib -L/ncar/opt/intel/12.1.0.233/impi/4.0.3.008/intel64/lib -Wl,-rpath,/ncar/opt/intel/12.1.0.233/impi/4.0.3.008/intel64/lib -Wl,-rpath,/ncar/opt/intel/12.1.0.233/composer_xe_2011_sp1.11.339/compiler/lib/intel64 -Wl,-rpath,/ncar/opt/intel/12.1.0.233/composer_xe_2011_sp1.11.339/compiler/lib/ia32 -L/glade/apps/opt/usr/lib -Wl,-rpath,/glade/apps/opt/usr/lib -L/glade/apps/opt/hdf5-mpi/1.8.9/intel/default/lib -lhdf5 -lhdf5_hl -lhdf5_fortran -lhdf5hl_fortran -Wl,-rpath,/glade/apps/opt/hdf5-mpi/1.8.9/intel/default/lib
-# NETCDFLIB      =       $(LIB_NCAR_FIXED)
-#
 # BZIP2          =       YES
 # BZIP2_INCLUDE  =       
 # BZIP2_LIB      =       -lbz2
