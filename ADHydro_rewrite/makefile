@@ -90,6 +90,7 @@ region.o: region.cpp            \
           element.h             \
           neighbor_proxy.h      \
           evapo_transpiration.h \
+          garto.h               \
           all_charm.h           \
           all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@

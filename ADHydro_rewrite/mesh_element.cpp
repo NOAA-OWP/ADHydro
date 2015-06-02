@@ -166,8 +166,9 @@ InfiltrationAndGroundwater::~InfiltrationAndGroundwater()
 {
   if (GARTO_INFILTRATION == infiltrationMethod)
     {
-      garto_parameters_dealloc(&((garto_domain*)vadoseZoneState)->parameters);
-      garto_domain_dealloc((garto_domain**)&vadoseZoneState);
+      // FIXME uncomment
+      //garto_parameters_dealloc(&((garto_domain*)vadoseZoneState)->parameters);
+      //garto_domain_dealloc((garto_domain**)&vadoseZoneState);
     }
 }
 
@@ -423,12 +424,8 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
   // if (NO_INFILTRATION == infiltrationMethod) return zero.
   if (TRIVIAL_INFILTRATION == infiltrationMethod)
     {
-      if (DEEP_AQUIFER == groundwaterMethod)
-        {
-          evaporation          = unsatisfiedEvaporation;
-          groundwaterRecharge -= unsatisfiedEvaporation;
-        }
-      else if (SHALLOW_AQUIFER == groundwaterMethod)
+      // if (DEEP_AQUIFER == groundwaterMethod) return zero.
+      if (SHALLOW_AQUIFER == groundwaterMethod)
         {
           if (groundwaterHead - unsatisfiedEvaporation / porosity >= layerZBottom)
             {
