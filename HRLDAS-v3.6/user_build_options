@@ -1,5 +1,24 @@
 #
-#  Options for Linux with Intel Fortran
+#  Options for Linux with Intel Fortran for Yellowstone
+#
+
+# COMPILERF90	=	mpif90
+# FREESOURCE	=	-free
+# F90FLAGS	=       -convert big_endian -g -O0 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
+# MODFLAG	=	-I
+# LDFLAGS	=	
+# CPP		=	cpp
+# CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+# LIBS		=	
+# LIBJASPER      =       -ljpeg -ljasper
+# BZIP2          =       YES
+# BZIP2_INCLUDE  =       
+# BZIP2_LIB      =       -lbz2
+# RM		= 	rm -f
+# CC		=	mpicc
+
+#
+#  Options for Linux with Intel Fortran for Mt Moran
 #
 
 # COMPILERF90	=	ifort
@@ -21,7 +40,7 @@
 # CC		=	mpicc
 
 #
-#  Options for Linux with gfortran
+#  Options for Linux with gfortran for EN3038 lab
 #
 
  COMPILERF90	=	mpif90
