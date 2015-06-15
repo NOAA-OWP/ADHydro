@@ -1,3 +1,10 @@
+# Use these values for Yellowstone.
+
+#CHARMDIR   := /glade/p/work/rsteinke/tools/build/charm
+#METISDIR   := /glade/p/work/rsteinke/tools
+#LIBDIRNAME := lib
+#EXTRAFLAGS := -DINTEL_COMPILER -ld++ mpif90 -ld++-option -nofor_main
+
 # Use these values for Mt Moran.
 
 #CHARMDIR   := /project/CI-WATER/tools/build/charm
@@ -13,16 +20,19 @@ HDF5DIR    := /opt
 NETCDFDIR  := /opt
 METISDIR   := /opt
 LIBDIRNAME := lib64
-EXTRAFLAGS := -fdiagnostics-show-option
+EXTRAFLAGS := -fdiagnostics-show-option -lgfortran
+
+# Use these values for Mt Moran and EN3038 lab.
+
+NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 
 # Use these values for all.
 
 CHARMC         := $(CHARMDIR)/bin/charmc
-NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS)  -I/usr/include/libshp -I../inih/cpp -g -Wall
-LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I/usr/include/libshp -I../inih/cpp -g -Wall
+LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -g -Wall -language charm++
 
 VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
