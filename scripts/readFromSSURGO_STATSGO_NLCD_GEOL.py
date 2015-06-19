@@ -67,7 +67,7 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/test2/"
+output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/test3/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -234,6 +234,40 @@ def writeGeolFile(s, f, bugFix):
   """
   f.write('  '+str(s.name)+'  '+str(s['ROCKTYPE'])+'\n')
 
+
+#Need to make sure latitude and longitude coordinates are projected correctly to match
+#the coordinate system used by SSURGO/STATSGO and NLCD (found by using gdalsrsinfo on the .prj file in statsgo dir
+STATSGO_PROJ_WKT = 'GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563, AUTHORITY["EPSG","7030"]], AUTHORITY["EPSG","6326"]], PRIMEM["Greenwich",0, AUTHORITY["EPSG","8901"]], UNIT["degree",0.01745329251994328, AUTHORITY["EPSG","9122"]], AUTHORITY["EPSG","4326"]]'
+
+SSURGO_PROJ_WKT = 'GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]]'
+"""
+
+Only difference in the SSURGO and STATSGO projections is that STATSGO provides athority info...I think we can use just one and get proper transformations
+
+"""
+AD_HYDRO_PROJ_WKT = 'PROJCS["Sinusoidal", GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]], PROJECTION["Sinusoidal"], PARAMETER["longitude_of_center",-109], PARAMETER["false_easting",20000000], PARAMETER["false_northing",10000000], UNIT["Meter",1]]'
+
+#Create the references for the two different coordinate systems
+src_crs = QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT)
+dest_crs = QgsCoordinateReferenceSystem(STATSGO_PROJ_WKT)
+#Create a transform object to transform between the coordinate systems
+xform = QgsCoordinateTransform(src_crs, dest_crs)
+
+def coordTransform(s):
+    """
+        Helper function to apply a coordinate transformation between the sinusoidal and spheroid projections
+        Required Arguements:
+             s -- pandas series containing element coordinate information, specficially 'X_center' and 'Y_center'
+        Returns:
+            Series s with transformed coordinates 'lat_center' and 'long_center' added
+    """
+    #Transform the ADHydro coordinates since they have the false northing and false easting already
+    point = xform.transform(QgsPoint(s['AD_X'], s['AD_Y']))
+    s['lat_center'] = point.x()
+    s['long_center'] = point.y()
+    return s
+
+
 def getSoilTypDRV():
    """
      This is the user entry point to process the mesh, lookup the soil and vegitation information, and write the output files.
@@ -306,17 +340,21 @@ def getSoilTypDRV():
    elements['AD_X'] = elements['X_center'] + 20000000.0
    elements['AD_Y'] = elements['Y_center'] + 10000000.0
    
+   """ Incorrect projection!!!
    # Changing from x,y sinusoidal projection to latitude and longitude coordinates
    elements['long_center'] = elements['Y_center']/R
    elements['lat_center'] = elements['X_center'] / (R*np.cos(elements['long_center']))
    elements['lat_center'] = (elements['lat_center'] + origin)*(180/pi)
    elements['long_center'] = elements['long_center']*180/pi
+   """
+    #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
+   elements = elements.apply(coordTransform, axis=1) #Slower since it is not vectorizable, but more accurate!
    
    #elements now contains coordinates for the center of each element in three different coordinates:
    #  X, Y sinusoidal projection X_center, Y_center
    #  AdHydro Coordinates AD_X, AD_Y
    #  Lat, Long x,y coordinates lat_center, long_center
-   
+
    #Using this information we can now lookup various metadata using the MUKEY and AREASYM keys in the dataframe
    """
     By getting MUKEY and COKEY piecies here for all elements before any further processing
@@ -324,6 +362,7 @@ def getSoilTypDRV():
     knowing that we are finished with the shape files and comp.txt files needed to get
     these values.  On really large meshes, this might be required to do.
    """
+   
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
    t1 = time.time()
    print "Time: "+ str(t1 - t0)  
@@ -422,6 +461,7 @@ def getSoilTypDRV():
    #Write each element
    elements.apply(writeGeolFile, axis=1, args=(GeolFile, None))
    GeolFile.close()
+   
    
 #TODO If really need to specify which dataset to search( SSURGO or STATSGO ) then make two functions, one for each
 #Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results    
