@@ -5,7 +5,7 @@
 # Use these values for EN3038 lab.
 
 EXTRACPPFLAGS := -I/usr/include/libshp -fdiagnostics-show-option
-EXTRALDFLAGS  := -lshp -fdiagnostics-show-option
+EXTRALDFLAGS  := -lnetcdf -lshp -fdiagnostics-show-option
 
 # Use these values for all.
 
@@ -18,9 +18,10 @@ CHARMLDFLAGS  := $(LDFLAGS) -language charm++
 
 VPATH := ../ADHydro_rewrite
 
-EXES := adhydro_channel_preprocessing \
-        adhydro_mesh_check            \
-        test_date_functions           \
+EXES := adhydro_channel_preprocessing    \
+        adhydro_mesh_check               \
+        adhydro_create_channel_shapefile \
+        test_date_functions              \
         test_random_simulation
 
 TEST_RANDOM_SIMULATION_OBJS := test_random_simulation.o \
@@ -34,6 +35,8 @@ all: $(EXES)
 adhydro_channel_preprocessing: all.h # Uses implicit rule to compile from adhydro_channel_preprocessing.cpp.  This just adds the header file dependency.
 
 adhydro_mesh_check: all.h # Uses implicit rule to compile from adhydro_mesh_check.cpp.  This just adds the header file dependency.
+
+adhydro_create_channel_shapefile: all.h # Uses implicit rule to compile from adhydro_create_channel_shapefile.cpp.  This just adds the header file dependency.
 
 test_date_functions: all.h # Uses implicit rule to compile from test_date_functions.cpp.  This just adds the header file dependency.
 
