@@ -48,4 +48,4 @@ elements['WKT'] = 'POLYGON(('
 #Complete the polygon information
 elements = elements.apply(addWKT, axis=1)
 
-elements['WKT'].to_csv(output_element_wkt_file, index=False)
+elements['WKT'].to_csv(output_element_wkt_file, index=False, header=['Polygon'])
