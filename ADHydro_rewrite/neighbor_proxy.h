@@ -22,12 +22,8 @@ public:
     
     // Constructor.
     //
-    // Parameters:
-    //
-    // startTimeInit - Simulation time in seconds since Element::referenceDate
-    //                 to initialize startTime.
-    // endTimeInit   - Simulation time in seconds since Element::referenceDate
-    //                 to initialize endTime.
+    // All parameters directly initialize member variables.  For description
+    // see member variables.
     MaterialTransfer(double startTimeInit, double endTimeInit);
     
     // Charm++ pack/unpack method.
@@ -56,10 +52,8 @@ public:
   
   // Constructor.
   //
-  // Parameters:
-  //
-  // expirationTimeInit - Simulation time in seconds since
-  //                      Element::referenceDate to initialize expirationTime.
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
   explicit NeighborProxy(double expirationTimeInit);
   
   // Charm++ pack/unpack method.
@@ -112,13 +106,8 @@ public:
     
     // Constructor.
     //
-    // Parameters:
-    //
-    // startTimeInit - Simulation time in seconds since Element::referenceDate
-    //                 to initialize startTime.
-    // endTimeInit   - Simulation time in seconds since Element::referenceDate
-    //                 to initialize endTime.
-    // materialInit  - Quantity of material to initialize material.
+    // All parameters directly initialize superclass and member variables.  For
+    // description see superclass and member variables.
     MaterialTransfer(double startTimeInit, double endTimeInit, double materialInit);
     
     // Charm++ pack/unpack method.
@@ -136,19 +125,12 @@ public:
     double material; // Quantity of material being transferred.
   }; // End class MaterialTransfer.
   
-  // Constructor.  incomingMaterial is initialized to empty.
+  // Constructor.
   //
-  // Parameters:
+  // All parameters directly initialize superclass and member variables.  For
+  // description see superclass and member variables.
   //
-  // expirationTimeInit          - Simulation time in seconds since
-  //                               Element::referenceDate to initialize
-  //                               expirationTime.
-  // nominalFlowRateInit         - Material flow rate in quantity per second to
-  //                               initialize nominalFlowRate.
-  // flowCumulativeShortTermInit - Cumulative flow quantity to initialize
-  //                               flowCumulativeShortTerm.
-  // flowCumulativeLongTermInit  - Cumulative flow quantity to initialize
-  //                               flowCumulativeLongTerm
+  // incomingMaterial is initialized to empty.
   SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit, double flowCumulativeLongTermInit);
   
   // Charm++ pack/unpack method.

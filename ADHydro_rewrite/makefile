@@ -144,19 +144,33 @@ neighbor_proxy.o: neighbor_proxy.cpp \
                   all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
-surfacewater.o: surfacewater.cpp \
-                surfacewater.h   \
-                adhydro.h        \
-                adhydro.decl.h   \
-                all_charm.h      \
+surfacewater.o: surfacewater.cpp      \
+                surfacewater.h        \
+                adhydro.h             \
+                adhydro.decl.h        \
+                region.h              \
+                region.decl.h         \
+                mesh_element.h        \
+                channel_element.h     \
+                element.h             \
+                neighbor_proxy.h      \
+                evapo_transpiration.h \
+                all_charm.h           \
                 all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
-groundwater.o: groundwater.cpp \
-               groundwater.h   \
-               adhydro.h       \
-               adhydro.decl.h  \
-               all_charm.h     \
+groundwater.o: groundwater.cpp       \
+               groundwater.h         \
+               adhydro.h             \
+               adhydro.decl.h        \
+               region.h              \
+               region.decl.h         \
+               mesh_element.h        \
+               channel_element.h     \
+               element.h             \
+               neighbor_proxy.h      \
+               evapo_transpiration.h \
+               all_charm.h           \
                all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
@@ -164,6 +178,12 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        adhydro.h               \
                        adhydro.decl.h          \
+                       region.h                \
+                       region.decl.h           \
+                       mesh_element.h          \
+                       channel_element.h       \
+                       element.h               \
+                       neighbor_proxy.h        \
                        all_charm.h             \
                        all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@

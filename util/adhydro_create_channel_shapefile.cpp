@@ -45,8 +45,8 @@ bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dime
 
 int main(void)
 {
-  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/yampa_mesh/geometry.nc";
-  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/yampa_mesh/channel_elements";
+  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
+  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
 
   bool       error            = false; // Error flag.
   size_t     ii;                       // Loop counter.
@@ -137,7 +137,7 @@ int main(void)
   
   if (!error)
     {
-      printf("instances = %lu, elements = %lu, verticves = %lu.\n", instancesSize, channelElementsSize, channelVerticesSize);
+      printf("instances = %lu, elements = %lu, vertices = %lu.\n", instancesSize, channelElementsSize, channelVerticesSize);
       
       channelVertexX = new double[channelVerticesSize];
       channelVertexY = new double[channelVerticesSize];
@@ -208,13 +208,14 @@ int main(void)
       
       if (!error)
         {
-          numberOfUniqueVertices = 1;
+          numberOfUniqueVertices = channelVerticesSize;
           
-          while (numberOfUniqueVertices < channelVerticesSize && !(channelVertexX[numberOfUniqueVertices] == channelVertexX[numberOfUniqueVertices - 1] && 
-                                                                   channelVertexY[numberOfUniqueVertices] == channelVertexY[numberOfUniqueVertices - 1] && 
-                                                                   channelVertexZ[numberOfUniqueVertices] == channelVertexZ[numberOfUniqueVertices - 1]))
+          while (2 < numberOfUniqueVertices &&
+                 channelVertexX[numberOfUniqueVertices - 1] == channelVertexX[numberOfUniqueVertices - 2] && 
+                 channelVertexY[numberOfUniqueVertices - 1] == channelVertexY[numberOfUniqueVertices - 2] && 
+                 channelVertexZ[numberOfUniqueVertices - 1] == channelVertexZ[numberOfUniqueVertices - 2])
             {
-              ++numberOfUniqueVertices;
+              --numberOfUniqueVertices;
             }
           
           shape = SHPCreateSimpleObject(SHPT_ARCZ, numberOfUniqueVertices, channelVertexX, channelVertexY, channelVertexZ);

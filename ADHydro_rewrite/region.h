@@ -5,10 +5,10 @@
 #include "channel_element.h"
 #include "element.h"
 
-// Because I'm passing RegionMessageStruct as a parameter in Charm++ messages I
-// have to have a forward declaration of it before including region.decl.h.  I
-// can't have a forward declaration of it if it is defined within the scope of
-// the Region class.  Therefore, I am just defining it here.
+// Because I'm passing RegionMessage as a parameter in Charm++ messages I have
+// to have a forward declaration of it before including region.decl.h.  I can't
+// have a forward declaration of it if it is defined within the scope of the
+// Region class.  Therefore, I am just defining it here.
 enum RegionMessageTypeEnum
 {
   MESH_SURFACEWATER_MESH_NEIGHBOR,       // A message sent to a mesh    element containing surfacewater info from its neighbor that is a mesh    element.
@@ -25,26 +25,31 @@ PUPbytes(RegionMessageTypeEnum);
 // This struct holds a neighbor element's state being sent to an element for
 // calculating the nominal flow rate between them or inflow water being sent
 // to an element.
-typedef struct RegionMessageStruct
+class RegionMessage
 {
+public:
+  
   // Default constructor.  Only needed for pup_stl.h code.
-  RegionMessageStruct()
-  {
-    // Do nothing.
-  }
+  RegionMessage();
   
   // Constructor.
-  RegionMessageStruct(RegionMessageTypeEnum messageTypeInit, int recipientElementNumberInit, int recipientNeighborProxyIndexInit,
-                      double senderSurfacewaterDepthInit, double senderGroundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit) :
-    messageType(messageTypeInit),
-    recipientElementNumber(recipientElementNumberInit),
-    recipientNeighborProxyIndex(recipientNeighborProxyIndexInit),
-    senderSurfacewaterDepth(senderSurfacewaterDepthInit),
-    senderGroundwaterHead(senderGroundwaterHeadInit),
-    water(waterInit)
-  {
-    // Initialization handled by initialization list.
-  }
+  //
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
+  RegionMessage(RegionMessageTypeEnum messageTypeInit, int recipientElementNumberInit, int recipientNeighborProxyIndexInit,
+                      double senderSurfacewaterDepthInit, double senderGroundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   RegionMessageTypeEnum                 messageType;                 // The types of the element, neighbor, and interaction.
   int                                   recipientElementNumber;      // The element ID number of the message recipient.
@@ -53,9 +58,7 @@ typedef struct RegionMessageStruct
   double                                senderGroundwaterHead;       // The groundwater head of the sender in meters.  Unused for surfacewater state messages
                                                                      // or water messages.
   SimpleNeighborProxy::MaterialTransfer water;                       // The water sent to the recipient.  Unused for state messages.
-} RegionMessageStruct;
-
-PUPbytes(RegionMessageStruct);
+};
 
 #include "region.decl.h"
 
@@ -75,10 +78,25 @@ class Region : public CBase_Region, Element
   
 public:
   
-  // FIXME comment
+  // Constructor.  timestepEndTime is initialized to be currentTimeInit
+  // indicating that a new value for timestepEndTime needs to be selected in
+  // step 2 of the simulation.  nextSyncTime is initialized to be
+  // simulationEndTimeInit indicating that the element will sync up with other
+  // elements at the end of the simulation.
+  //
+  // meshElements, channelElements, and outgoingMessages are initialized to
+  // empty.  All iterators are initialized to invalid.
+  //
+  // FIXME what is regionalDtLimit initialized to?
+  //
+  // Parameters:
+  //
+  // referenceDateInit     - Julian date to initialize referenceDate.
+  // currentTimeInit       - Simulation time in seconds since referenceDateInit
+  //                         to initialize currentTime and timestepEndTime.
+  // simulationEndTimeInit - Simulation time in seconds since referenceDateInit
+  //                         to initialize simulationEndTime and nextSyncTime.
   Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
-  
-  // FIXME pup, and initialization
   
   // Charm++ migration constructor.
   //
@@ -86,6 +104,30 @@ public:
   //
   // msg - Charm++ migration message.
   Region(CkMigrateMessage* msg);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
+  
+  // FIXME initialization
+  void initializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
+      double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
+      double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
+      double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
+      double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
+      double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
+      double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
+      double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+      EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+      InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, void* vadoseZoneStateInit);
   
   // For external nominal flow rates that have expired send the element's state
   // to the neighbor.
@@ -116,7 +158,7 @@ public:
   //                         in the neighboring region.
   // stateMessages         - Vector of state messages from neighbors of
   //                         elements in this region.
-  void processStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessageStruct>& stateMessages);
+  void processStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage>& stateMessages);
   
   // Loop over all elements calling their functions to do point processes and
   // send outflows.  Initialize iterators and other variables for the
@@ -130,11 +172,27 @@ public:
   // Returns: true if all inflows have arrived, false otherwise.
   bool allInflowsArrived();
   
-  // FIXME comment
-  bool receiveWater(RegionMessageStruct waterMessage);
+  // Place waterMessage in the incoming material list of a neighborProxy.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // waterMessage - The water to receive and the identity of the neighbor proxy
+  //                receiving it.
+  bool receiveWater(RegionMessage waterMessage);
   
-  // FIXME comment
-  bool sendWater(int recipientRegion, RegionMessageStruct waterMessage);
+  // Send water to a recipient neighborProxy.  If recipientRegion is me just
+  // call receiveWater, otherwise send a Charm++ message.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // recipientRegion - The region where the recipient is.
+  // waterMessage    - The water to send and the identity of the neighbor proxy
+  //                   to send it to.
+  bool sendWater(int recipientRegion, RegionMessage waterMessage);
   
   // Receive a vector of water messages and for each message place the water in
   // the recipient neighbor proxy's incoming material list.
@@ -143,7 +201,7 @@ public:
   //
   // waterMessages - Vector of water messages from neighbors of elements in
   //                 this region.
-  void processWaterMessages(std::vector<RegionMessageStruct>& waterMessages);
+  void processWaterMessages(std::vector<RegionMessage>& waterMessages);
   
   // Loop over all elements calling their functions to move water from incoming
   // material lists to element state variables.  Advance current time to the
@@ -188,14 +246,19 @@ public:
   std::map<int, ChannelElement> channelElements;
   
   // Aggregator for messages going out to other regions.  Key is region ID number.
-  std::map<int, std::vector<RegionMessageStruct> > outgoingMessages;
+  std::map<int, std::vector<RegionMessage> > outgoingMessages;
   
   // When we are waiting for state or water messages to arrive we need to scan
   // to see if they have all arrived.  Rather than re-scan all neighbor proxies
   // every time, we save these iterators pointing to the first neighbor proxy
   // that is waiting.  That way we can start scanning from the end of the last
   // scan.  When we are not in the waiting loops these iterators can be used
-  // locally within functions.
+  // locally within functions.  We can't pup iterators directly so we are
+  // pupping index values, but we can't even get index values safely if the
+  // iterators are not set so we have flags to say whether the iterators are
+  // in use and thus are properly set and need to be pupped.
+  bool                                                             pupItMeshAndItChannel;
+  bool                                                             pupItNeighbor;
   std::map<int, MeshElement>::iterator                             itMesh;
   std::map<int, ChannelElement>::iterator                          itChannel;
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator         itMeshSurfacewaterMeshNeighbor;

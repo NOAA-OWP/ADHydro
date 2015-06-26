@@ -53,7 +53,7 @@ bool NeighborProxy::checkInvariant()
 }
 
 SimpleNeighborProxy::MaterialTransfer::MaterialTransfer() :
-  NeighborProxy::MaterialTransfer(0.0, 1.0),
+  NeighborProxy::MaterialTransfer(0.0, 1.0), // Dummy values will be overwritten by pup_stl.h code.
   material(0.0)
 {
   // Initialization handled by initialization list.
@@ -107,6 +107,8 @@ void SimpleNeighborProxy::pup(PUP::er &p)
   NeighborProxy::pup(p);
   
   p | nominalFlowRate;
+  p | flowCumulativeShortTerm;
+  p | flowCumulativeLongTerm;
   p | incomingMaterial;
 }
 
@@ -157,10 +159,7 @@ bool SimpleNeighborProxy::insertMaterial(MaterialTransfer newMaterial)
   std::list<MaterialTransfer>::reverse_iterator it    = incomingMaterial.rbegin(); // Loop iterator.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-  if (newMaterial.checkInvariant())
-    {
-      error = true;
-    }
+  error = newMaterial.checkInvariant() || error;
 
   if (!(0.0 > nominalFlowRate))
     {

@@ -1,9 +1,27 @@
 #include "mesh_element.h"
 #include "adhydro.h"
-#include "region.h"
 #include "surfacewater.h"
 #include "groundwater.h"
 #include "garto.h"
+
+MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy() :
+  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  region(0),
+  neighbor(0),
+  reciprocalNeighborProxy(0),
+  neighborX(0.0),
+  neighborY(0.0),
+  neighborZSurface(0.0),
+  neighborArea(0.0),
+  edgeLength(0.0),
+  edgeNormalX(0.0),
+  edgeNormalY(0.0),
+  neighborManningsN(0.0),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
+{
+  // Initialization handled by initialization list.
+}
 
 MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
                                                                      double flowCumulativeLongTermInit, int regionInit, int neighborInit,
@@ -21,9 +39,196 @@ MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expi
   edgeLength(edgeLengthInit),
   edgeNormalX(edgeNormalXInit),
   edgeNormalY(edgeNormalYInit),
-  neighborManningsN(neighborManningsNInit)
+  neighborManningsN(neighborManningsNInit),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
 {
-  // FIXME error check
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= regionInit))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: neighborInit must be a boundary condition code or greater than "
+              "or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxyInit))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: reciprocalNeighborProxyInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (isBoundary(neighborInit))
+    {
+      if (!(0.0 == neighborAreaInit))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: for boundary condition codes neighborAreaInit must be "
+                  "zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborAreaInit))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: for non-boundary neighbors neighborAreaInit must be greater "
+                  "than zero.\n");
+          CkExit();
+        }
+    }
+  
+  if (!(0.0 < edgeLengthInit))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: edgeLengthInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!epsilonEqual(1.0, edgeNormalXInit * edgeNormalXInit + edgeNormalYInit * edgeNormalYInit))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: edgeNormalXInit and edgeNormalYInit must be a unit vector.\n");
+      CkExit();
+    }
+  
+  if (isBoundary(neighborInit))
+    {
+      if (!(0.0 == neighborManningsNInit))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: for boundary condition codes neighborManningsNInit must be "
+                  "zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborManningsNInit))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: for non-boundary neighbors neighborManningsNInit must be "
+                  "greater than zero.\n");
+          CkExit();
+        }
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+}
+
+void MeshSurfacewaterMeshNeighborProxy::pup(PUP::er &p)
+{
+  SimpleNeighborProxy::pup(p);
+  
+  p | region;
+  p | neighbor;
+  p | reciprocalNeighborProxy;
+  p | neighborX;
+  p | neighborY;
+  p | neighborZSurface;
+  p | neighborArea;
+  p | edgeLength;
+  p | edgeNormalX;
+  p | edgeNormalY;
+  p | neighborManningsN;
+  p | neighborInitialized;
+  p | neighborInvariantChecked;
+}
+
+bool MeshSurfacewaterMeshNeighborProxy::checkInvariant()
+{
+  bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
+  
+  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= region))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(isBoundary(neighbor) || 0 <= neighbor))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (isBoundary(neighbor))
+    {
+      if (!(0.0 == neighborArea))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: for boundary condition codes neighborArea must be zero.\n");
+          error = true;
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborArea))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: for non-boundary neighbors neighborArea must be greater than zero.\n");
+          error = true;
+        }
+    }
+  
+  if (!(0.0 < edgeLength))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: edgeLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY))
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: edgeNormalX and edgeNormalY must be a unit vector.\n");
+      error = true;
+    }
+  
+  if (isBoundary(neighbor))
+    {
+      if (!(0.0 == neighborManningsN))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: for boundary condition codes neighborManningsN must be zero.\n");
+          error = true;
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborManningsN))
+        {
+          CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: for non-boundary neighbors neighborManningsN must be greater than zero.\n");
+          error = true;
+        }
+    }
+  
+  if (!neighborInitialized)
+    {
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: neighborInitialized must be true before checking invariant.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy() :
+  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  region(0),
+  neighbor(0),
+  reciprocalNeighborProxy(0),
+  neighborZBank(0.0),
+  neighborZBed(0.0),
+  neighborZOffset(0.0),
+  edgeLength(0.0),
+  neighborBaseWidth(0.0),
+  neighborSideSlope(0.0),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
+{
+  // Initialization handled by initialization list.
 }
 
 MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
@@ -40,9 +245,165 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(doubl
   neighborZOffset(neighborZOffsetInit),
   edgeLength(edgeLengthInit),
   neighborBaseWidth(neighborBaseWidthInit),
-  neighborSideSlope(neighborSideSlopeInit)
+  neighborSideSlope(neighborSideSlopeInit),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
 {
-  // FIXME error check
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= regionInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= neighborInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxyInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: reciprocalNeighborProxyInit must be greater than or equal "
+              "to zero.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZBankInit >= neighborZBedInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborZBankInit must be greater than or equal to "
+              "neighborZBedInit.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < edgeLengthInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: edgeLengthInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborBaseWidthInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborBaseWidthInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborSideSlopeInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborSideSlopeInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBaseWidthInit || 0.0 < neighborSideSlopeInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: one of neighborBaseWidthInit or neighborSideSlopeInit "
+              "must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+}
+
+void MeshSurfacewaterChannelNeighborProxy::pup(PUP::er &p)
+{
+  SimpleNeighborProxy::pup(p);
+  
+  p | region;
+  p | neighbor;
+  p | reciprocalNeighborProxy;
+  p | neighborZBank;
+  p | neighborZBed;
+  p | neighborZOffset;
+  p | edgeLength;
+  p | neighborBaseWidth;
+  p | neighborSideSlope;
+  p | neighborInitialized;
+  p | neighborInvariantChecked;
+}
+
+bool MeshSurfacewaterChannelNeighborProxy::checkInvariant()
+{
+  bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
+  
+  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= region))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= neighbor))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighborZBank must be greater than or equal to neighborZBed.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < edgeLength))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: edgeLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighborBaseWidth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= neighborSideSlope))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighborSideSlope must be greater than or equal to  zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborBaseWidth || 0.0 < neighborSideSlope))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: one of neighborBaseWidth or neighborSideSlope must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!neighborInitialized)
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighborInitialized must be true before checking invariant.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy() :
+  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  region(0),
+  neighbor(0),
+  reciprocalNeighborProxy(0),
+  neighborX(0.0),
+  neighborY(0.0),
+  neighborZSurface(0.0),
+  neighborLayerZBottom(0.0),
+  neighborArea(0.0),
+  edgeLength(0.0),
+  edgeNormalX(0.0),
+  edgeNormalY(0.0),
+  neighborConductivity(0.0),
+  neighborPorosity(0.0),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
+{
+  // Initialization handled by initialization list.
 }
 
 MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
@@ -64,9 +425,249 @@ MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expira
   edgeNormalX(edgeNormalXInit),
   edgeNormalY(edgeNormalYInit),
   neighborConductivity(neighborConductivityInit),
-  neighborPorosity(neighborPorosityInit)
+  neighborPorosity(neighborPorosityInit),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
 {
-  // FIXME error check
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= regionInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: neighborInit must be a boundary condition code or greater than "
+              "or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxyInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: reciprocalNeighborProxyInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZSurfaceInit >= neighborLayerZBottomInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: neighborZSurfaceInit must be greater than or equal to "
+              "neighborLayerZBottomInit.\n");
+      CkExit();
+    }
+  
+  if (isBoundary(neighborInit))
+    {
+      if (!(0.0 == neighborAreaInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for boundary condition codes neighborAreaInit must be "
+                  "zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborAreaInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for non-boundary neighbors neighborAreaInit must be greater "
+                  "than zero.\n");
+          CkExit();
+        }
+    }
+  
+  if (!(0.0 < edgeLengthInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: edgeLengthInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!epsilonEqual(1.0, edgeNormalXInit * edgeNormalXInit + edgeNormalYInit * edgeNormalYInit))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: edgeNormalXInit and edgeNormalYInit must be a unit vector.\n");
+      CkExit();
+    }
+  
+  if (isBoundary(neighborInit))
+    {
+      if (!(0.0 == neighborConductivityInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for boundary condition codes neighborConductivityInit must be "
+                  "zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborConductivityInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for non-boundary neighbors neighborConductivityInit must be "
+                  "greater than zero.\n");
+          CkExit();
+        }
+    }
+  
+  if (isBoundary(neighborInit))
+    {
+      if (!(0.0 == neighborPorosityInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for boundary condition codes neighborPorosityInit must be "
+                  "zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborPorosityInit))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: for non-boundary neighbors neighborPorosityInit must be "
+                  "greater than zero.\n");
+          CkExit();
+        }
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+}
+
+void MeshGroundwaterMeshNeighborProxy::pup(PUP::er &p)
+{
+  SimpleNeighborProxy::pup(p);
+  
+  p | region;
+  p | neighbor;
+  p | reciprocalNeighborProxy;
+  p | neighborX;
+  p | neighborY;
+  p | neighborZSurface;
+  p | neighborLayerZBottom;
+  p | neighborArea;
+  p | edgeLength;
+  p | edgeNormalX;
+  p | edgeNormalY;
+  p | neighborConductivity;
+  p | neighborPorosity;
+  p | neighborInitialized;
+  p | neighborInvariantChecked;
+}
+
+bool MeshGroundwaterMeshNeighborProxy::checkInvariant()
+{
+  bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
+  
+  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= region))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(isBoundary(neighbor) || 0 <= neighbor))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(neighborZSurface >= neighborLayerZBottom))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: neighborZSurface must be greater than or equal to neighborLayerZBottom.\n");
+      error = true;
+    }
+  
+  if (isBoundary(neighbor))
+    {
+      if (!(0.0 == neighborArea))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for boundary condition codes neighborArea must be zero.\n");
+          error = true;
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborArea))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for non-boundary neighbors neighborArea must be greater than zero.\n");
+          error = true;
+        }
+    }
+  
+  if (!(0.0 < edgeLength))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: edgeLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY))
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: edgeNormalX and edgeNormalY must be a unit vector.\n");
+      error = true;
+    }
+  
+  if (isBoundary(neighbor))
+    {
+      if (!(0.0 == neighborConductivity))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for boundary condition codes neighborConductivity must be zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborConductivity))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for non-boundary neighbors neighborConductivity must be greater than zero.\n");
+          CkExit();
+        }
+    }
+  
+  if (isBoundary(neighbor))
+    {
+      if (!(0.0 == neighborPorosity))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for boundary condition codes neighborPorosity must be zero.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0.0 < neighborPorosity))
+        {
+          CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: for non-boundary neighbors neighborPorosity must be greater than zero.\n");
+          CkExit();
+        }
+    }
+  
+  if (!neighborInitialized)
+    {
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: neighborInitialized must be true before checking invariant.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy() :
+  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  region(0),
+  neighbor(0),
+  reciprocalNeighborProxy(0),
+  neighborZBank(0.0),
+  neighborZBed(0.0),
+  neighborZOffset(0.0),
+  edgeLength(0.0),
+  neighborBaseWidth(0.0),
+  neighborSideSlope(0.0),
+  neighborBedConductivity(0.0),
+  neighborBedThickness(0.0),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
+{
+  // Initialization handled by initialization list.
 }
 
 MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
@@ -86,14 +687,189 @@ MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double 
   neighborBaseWidth(neighborBaseWidthInit),
   neighborSideSlope(neighborSideSlopeInit),
   neighborBedConductivity(neighborBedConductivityInit),
-  neighborBedThickness(neighborBedThicknessInit)
+  neighborBedThickness(neighborBedThicknessInit),
+  neighborInitialized(false),
+  neighborInvariantChecked(false)
 {
-  // FIXME error check
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= regionInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= neighborInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxyInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: reciprocalNeighborProxyInit must be greater than or equal "
+              "to zero.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZBankInit >= neighborZBedInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborZBankInit must be greater than or equal to "
+              "neighborZBedInit.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < edgeLengthInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: edgeLengthInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborBaseWidthInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborBaseWidthInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborSideSlopeInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborSideSlopeInit must be greater than or equal to "
+              "zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBaseWidthInit || 0.0 < neighborSideSlopeInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: one of neighborBaseWidthInit or neighborSideSlopeInit "
+              "must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBedConductivityInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborBedConductivityInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBedThicknessInit))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborBedThicknessInit must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 }
 
-InfiltrationAndGroundwater::InfiltrationAndGroundwater()
+void MeshGroundwaterChannelNeighborProxy::pup(PUP::er &p)
 {
-  // No initialization.
+  SimpleNeighborProxy::pup(p);
+  
+  p | region;
+  p | neighbor;
+  p | reciprocalNeighborProxy;
+  p | neighborZBank;
+  p | neighborZBed;
+  p | neighborZOffset;
+  p | edgeLength;
+  p | neighborBaseWidth;
+  p | neighborSideSlope;
+  p | neighborBedConductivity;
+  p | neighborBedThickness;
+  p | neighborInitialized;
+  p | neighborInvariantChecked;
+}
+
+bool MeshGroundwaterChannelNeighborProxy::checkInvariant()
+{
+  bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
+  
+  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
+  if (!(0 <= region))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= neighbor))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborZBank must be greater than or equal to neighborZBed.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < edgeLength))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: edgeLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborBaseWidth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= neighborSideSlope))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborSideSlope must be greater than or equal to  zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborBaseWidth || 0.0 < neighborSideSlope))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: one of neighborBaseWidth or neighborSideSlope must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborBedConductivity))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborBedConductivity must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < neighborBedThickness))
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborBedThickness must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!neighborInitialized)
+    {
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighborInitialized must be true before checking invariant.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+InfiltrationAndGroundwater::InfiltrationAndGroundwater() :
+      infiltrationMethod(NO_INFILTRATION), // Dummy values will be overwritten by pup_stl.h code.
+      groundwaterMethod(NO_AQUIFER),
+      soilType(0),
+      layerZBottom(0.0),
+      slopeX(0.0),
+      slopeY(0.0),
+      conductivity(0.0),
+      porosity(0.0),
+      groundwaterHead(0.0),
+      groundwaterRecharge(0.0),
+      groundwaterError(0.0),
+      vadoseZoneState(NULL),
+      meshNeighbors(),
+      channelNeighbors()
+{
+  // Initialization handled by initialization list.
 }
 
 InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
@@ -112,64 +888,311 @@ InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum in
   groundwaterRecharge(groundwaterRechargeInit),
   groundwaterError(groundwaterErrorInit),
   vadoseZoneState(vadoseZoneStateInit),
-  meshNeighbors(),   // Initialized to empty (no neighbors).
-  channelNeighbors() // Initialized to empty (no neighbors).
+  meshNeighbors(),
+  channelNeighbors()
 {
-  // FIXME error check
-  
-  /* FIXME initialize garto in file manager if not read from file
-  bool              error = false; // Error flag.
-  double            residualSaturation;
-  double            bcLambda;
-  double            bcPsib;
-  double            initialWaterContent;
-  garto_parameters* parameters;    // For creating GARTO domain.
-  
-  if (!error)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NO_INFILTRATION == infiltrationMethodInit || TRIVIAL_INFILTRATION == infiltrationMethodInit || GARTO_INFILTRATION== infiltrationMethodInit))
     {
-      switch (infiltrationMethod)
-      {
-      case NO_INFILTRATION:
-        // Fallthrough.
-      case TRIVIAL_INFILTRATION:
-        vadoseZoneState = NULL;
-        break;
-      case GARTO_INFILTRATION:
-        if (NULL != vadoseZoneStateInit)
-          {
-            // If the caller passes in a vadose zone state use it.  This might happen if it was loaded from a file.
-            vadoseZoneState = vadoseZoneStateInit;
-          }
-        else
-          {
-            // If the caller does not pass in a vadose zone state initialize a new one.
-            // FIXME
-            error = garto_parameters_alloc(&parameters, NUMBER_OF_GARTO_BINS, conductivity, porosity, double residual_saturation, false, 0.0, 0.0, double bc_lambda, double bc_psib);
-
-            if (!error)
-              {
-                // FIXME
-                error = garto_domain_alloc(&vadoseZoneState, parameters, 0.0, elementZSurface - layerZBottom, SHALLOW_AQUIFER == groundwaterMethod, double initial_water_content, true, elementZSurface - groundwaterHead);
-              }
-          }
-      }
-    }
-  
-  if (error)
-    {
+      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: infiltrationMethodInit must be a valid enum value.\n");
       CkExit();
     }
-    */
+  
+  if (!(NO_AQUIFER == groundwaterMethodInit || DEEP_AQUIFER == groundwaterMethodInit || SHALLOW_AQUIFER== groundwaterMethodInit))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: groundwaterMethodInit must be a valid enum value.\n");
+      CkExit();
+    }
+  
+  if (NO_INFILTRATION == infiltrationMethodInit)
+    {
+      if (!(NO_AQUIFER == groundwaterMethodInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is NO_INFILTRATION groundwaterMethodInit must "
+                  "be NO_AQUIFER.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(NO_AQUIFER != groundwaterMethodInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is not NO_INFILTRATION groundwaterMethodInit "
+                  "must not be NO_AQUIFER.\n");
+          CkExit();
+        }
+    }
+  
+  if (DEEP_AQUIFER == groundwaterMethodInit)
+    {
+      if (!(groundwaterHeadInit < layerZBottomInit))
+        {
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in InfiltrationAndGroundwater::InfiltrationAndGroundwater: groundwaterMethodInit is DEEP_AQUIFER, but groundwaterHeadInit is "
+                      "not below layerZBottomInit.\n");
+            }
+        }
+    }
+
+  if (!(1 <= soilTypeInit && 19 >= soilTypeInit))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: soilTypeInit must be greater than or equal to 1 and less than or equal to "
+              "19.\n");
+      CkExit();
+    }
+  else if (14 == soilTypeInit)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in InfiltrationAndGroundwater::InfiltrationAndGroundwater: soilTypeInit is 'WATER'.  Should be a waterbody instead.\n");
+        }
+    }
+  else if (16 == soilTypeInit)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in InfiltrationAndGroundwater::InfiltrationAndGroundwater: soilTypeInit is 'OTHER(land-ice)'.  Should be an icemass instead.\n");
+        }
+    }
+  
+  if (!(0.0 < conductivityInit))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: conductivityInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < porosityInit))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: porosityInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (NO_INFILTRATION == infiltrationMethodInit || TRIVIAL_INFILTRATION == infiltrationMethodInit)
+    {
+      if (!(NULL == vadoseZoneStateInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is NO_INFILTRATION or TRIVIAL_INFILTRATION then "
+                  "vadoseZoneStateInit must be NULL.\n");
+          CkExit();
+        }
+    }
+  else if (GARTO_INFILTRATION == infiltrationMethodInit)
+    {
+      if (!(NULL != vadoseZoneStateInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is GARTO_INFILTRATION then vadoseZoneStateInit "
+                  "must not be NULL.\n");
+          CkExit();
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+      else
+        {
+          garto_check_invariant((garto_domain*)vadoseZoneStateInit);
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 }
 
-InfiltrationAndGroundwater::~InfiltrationAndGroundwater()
+void InfiltrationAndGroundwater::pup(PUP::er &p)
 {
-  if (GARTO_INFILTRATION == infiltrationMethod)
+  p | infiltrationMethod;
+  p | groundwaterMethod;
+  p | soilType;
+  p | layerZBottom;
+  p | slopeX;
+  p | slopeY;
+  p | conductivity;
+  p | porosity;
+  p | groundwaterHead;
+  p | groundwaterRecharge;
+  p | groundwaterError;
+  
+  if (NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod)
     {
-      // FIXME uncomment
-      //garto_parameters_dealloc(&((garto_domain*)vadoseZoneState)->parameters);
-      //garto_domain_dealloc((garto_domain**)&vadoseZoneState);
+      if (p.isUnpacking())
+        {
+          vadoseZoneState = NULL;
+        }
     }
+  else if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      // FIXME pull this out as a separate function to pup garto_domains?
+      if (p.isUnpacking())
+        {
+          vadoseZoneState                              = new garto_domain;
+          ((garto_domain*)vadoseZoneState)->parameters = new garto_parameters;
+        }
+      
+      p | ((garto_domain*)vadoseZoneState)->parameters->num_bins;
+      
+      if (p.isUnpacking())
+        {
+          // num_bins + 1 because garto_domain uses one-based array indices.
+          ((garto_domain*)vadoseZoneState)->d_theta                 = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
+          ((garto_domain*)vadoseZoneState)->surface_front_theta     = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
+          ((garto_domain*)vadoseZoneState)->surface_front_depth     = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
+          ((garto_domain*)vadoseZoneState)->groundwater_front_theta = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
+          ((garto_domain*)vadoseZoneState)->groundwater_front_depth = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
+        }
+      
+      p | ((garto_domain*)vadoseZoneState)->parameters->theta_r;
+      p | ((garto_domain*)vadoseZoneState)->parameters->theta_s;
+      p | ((garto_domain*)vadoseZoneState)->parameters->vg_alpha;
+      p | ((garto_domain*)vadoseZoneState)->parameters->vg_n;
+      p | ((garto_domain*)vadoseZoneState)->parameters->bc_lambda;
+      p | ((garto_domain*)vadoseZoneState)->parameters->bc_psib;
+      p | ((garto_domain*)vadoseZoneState)->parameters->saturated_conductivity;
+      p | ((garto_domain*)vadoseZoneState)->parameters->effective_capillary_suction;
+      p | ((garto_domain*)vadoseZoneState)->top_depth;
+      p | ((garto_domain*)vadoseZoneState)->bottom_depth;
+      PUParray(p, ((garto_domain*)vadoseZoneState)->d_theta,                 ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
+      PUParray(p, ((garto_domain*)vadoseZoneState)->surface_front_theta,     ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
+      PUParray(p, ((garto_domain*)vadoseZoneState)->surface_front_depth,     ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
+      PUParray(p, ((garto_domain*)vadoseZoneState)->groundwater_front_theta, ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
+      PUParray(p, ((garto_domain*)vadoseZoneState)->groundwater_front_depth, ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
+      p | ((garto_domain*)vadoseZoneState)->initial_water_content;
+      p | ((garto_domain*)vadoseZoneState)->yes_groundwater;
+    }
+  
+  p | meshNeighbors;
+  p | channelNeighbors;
+}
+
+// FIXME we are currently not deleting any garto_domains.  There is a problem with doing it in the destructor of InfiltrationAndGroundwater.  When we add an
+// InfiltrationAndGroundwater to a container (as part of a MeshElement) we create a temporary one that is then copy constructed or copy assigned into the
+// container.  Then the temporary one is destructed, and we don't want to delete the garto_domain at that point.  The standard C++ way of handling this is to
+// use a copy constructor and copy assignment operator to do a deep copy, or use reference counting smart pointers so that it only gets deleted when the last
+// reference goes away.  Right now we're not doing either of those things.  This is a memory leak, but it doesn't impact the correctness of the program.
+
+bool InfiltrationAndGroundwater::checkInvariant()
+{
+  bool                                                       error = false; // Error flag.
+  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
+  std::vector<MeshGroundwaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
+  
+  if (!(NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod || GARTO_INFILTRATION== infiltrationMethod))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: infiltrationMethod must be a valid enum value.\n");
+      error = true;
+    }
+  
+  if (!(NO_AQUIFER == groundwaterMethod || DEEP_AQUIFER == groundwaterMethod || SHALLOW_AQUIFER== groundwaterMethod))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: groundwaterMethod must be a valid enum value.\n");
+      error = true;
+    }
+  
+  if (NO_INFILTRATION == infiltrationMethod)
+    {
+      if (!(NO_AQUIFER == groundwaterMethod))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is NO_INFILTRATION groundwaterMethod must be NO_AQUIFER.\n");
+          error = true;
+        }
+    }
+  else
+    {
+      if (!(NO_AQUIFER != groundwaterMethod))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is not NO_INFILTRATION groundwaterMethod must not be "
+                  "NO_AQUIFER.\n");
+          error = true;
+        }
+    }
+  
+  if (NO_AQUIFER == groundwaterMethod || DEEP_AQUIFER == groundwaterMethod)
+    {
+      if (!meshNeighbors.empty())
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if groundwaterMethod is NO_AQUIFER or DEEP_AQUIFER meshNeighbors must be empty.\n");
+          error = true;
+        }
+      
+      if (!channelNeighbors.empty())
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if groundwaterMethod is NO_AQUIFER or DEEP_AQUIFER channelNeighbors must be empty.\n");
+          error = true;
+        }
+    }
+  
+  if (DEEP_AQUIFER == groundwaterMethod)
+    {
+      if (!(groundwaterHead < layerZBottom))
+        {
+          if (2 <= ADHydro::verbosityLevel)
+            {
+              CkError("WARNING in InfiltrationAndGroundwater::checkInvariant: groundwaterMethod is DEEP_AQUIFER, but groundwaterHead is not below layerZBottom.\n");
+            }
+        }
+    }
+
+  if (!(1 <= soilType && 19 >= soilType))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: soilType must be greater than or equal to 1 and less than or equal to 19.\n");
+      error = true;
+    }
+  else if (14 == soilType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in InfiltrationAndGroundwater::checkInvariant: soilType is 'WATER'.  Should be a waterbody instead.\n");
+        }
+    }
+  else if (16 == soilType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in InfiltrationAndGroundwater::checkInvariant: soilType is 'OTHER(land-ice)'.  Should be an icemass instead.\n");
+        }
+    }
+  
+  if (!(0.0 < conductivity))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: conductivity must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < porosity))
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: porosity must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod)
+    {
+      if (!(NULL == vadoseZoneState))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is NO_INFILTRATION or TRIVIAL_INFILTRATION then vadoseZoneState "
+                  "must be NULL.\n");
+          error = true;
+        }
+    }
+  else if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      if (!(NULL != vadoseZoneState))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is GARTO_INFILTRATION then vadoseZoneState must not be NULL.\n");
+          error = true;
+        }
+      else
+        {
+          garto_check_invariant((garto_domain*)vadoseZoneState);
+        }
+    }
+  
+  for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+    {
+      error = (*itMesh).checkInvariant() || error;
+    }
+  
+  for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+    {
+      error = (*itChannel).checkInvariant() || error;
+    }
+  
+  return error;
 }
 
 bool InfiltrationAndGroundwater::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double currentTime, double regionalDtLimit,
@@ -582,10 +1605,10 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
 
                   if (!isBoundary((*itMesh).neighbor))
                     {
-                      error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                                     (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                     SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                           waterSent)));
+                      error = region.sendWater((*itMesh).region, RegionMessage(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                               (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                               SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                     waterSent)));
                     }
                 }
             }
@@ -599,10 +1622,10 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   groundwaterRecharge                  -= waterSent / elementArea;
                   (*itChannel).flowCumulativeShortTerm += waterSent;
 
-                  error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
-                                                                                    (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                    SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                          waterSent)));
+                  error = region.sendWater((*itChannel).region, RegionMessage(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                              (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                              SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                    waterSent)));
                 }
             }
 
@@ -801,9 +1824,35 @@ bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& exte
   return error;
 }
 
-MeshElement::MeshElement()
+MeshElement::MeshElement() :
+  elementNumber(0), // Dummy values will be overwritten by pup_stl.h code.
+  catchment(0),
+  vegetationType(0),
+  elementX(0.0),
+  elementY(0.0),
+  elementZSurface(0.0),
+  elementArea(0.0),
+  latitude(0.0),
+  longitude(0.0),
+  manningsN(0.0),
+  surfacewaterDepth(0.0),
+  surfacewaterError(0.0),
+  precipitationRate(0.0),
+  precipitationCumulativeShortTerm(0.0),
+  precipitationCumulativeLongTerm(0.0),
+  evaporationRate(0.0),
+  evaporationCumulativeShortTerm(0.0),
+  evaporationCumulativeLongTerm(0.0),
+  transpirationRate(0.0),
+  transpirationCumulativeShortTerm(0.0),
+  transpirationCumulativeLongTerm(0.0),
+  evapoTranspirationForcing(),
+  evapoTranspirationState(),
+  underground(),
+  meshNeighbors(),
+  channelNeighbors()
 {
-  // No initialization.
+  // Initialization handled by initialization list.
 }
 
 MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
@@ -841,10 +1890,276 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   evapoTranspirationState(evapoTranspirationStateInit),
   underground(infiltrationMethodInit, groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit,
               groundwaterHeadInit, groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneStateInit),
-  meshNeighbors(),   // Initialized to empty (no neighbors).
-  channelNeighbors() // Initialized to empty (no neighbors).
+  meshNeighbors(),
+  channelNeighbors()
 {
-  // FIXME error check
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
+  if (!(0 <= elementNumberInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: elementNumberInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+
+  if (!(1 <= vegetationTypeInit && 27 >= vegetationTypeInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: vegetationTypeInit must be greater than or equal to 1 and less than or equal to 27.\n");
+      CkExit();
+    }
+  else if (16 == vegetationTypeInit)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::MeshElement: vegetationTypeInit is 'Water Bodies'.  Should be a waterbody instead.\n");
+        }
+    }
+  else if (24 == vegetationTypeInit)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::MeshElement: vegetationTypeInit is 'Snow or Ice'.  Should be an icemass instead.\n");
+        }
+    }
+  
+  if (!(elementZSurfaceInit >= layerZBottomInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: elementZSurfaceInit must be greater than or equal to layerZBottomInit.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < elementAreaInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: elementAreaInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(-M_PI / 2.0 <= latitudeInit && M_PI / 2.0 >= latitudeInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: latitudeInit must be greater than or equal to negative PI over two and less than or equal to PI over "
+              "two.\n");
+      CkExit();
+    }
+  
+  if (!(-M_PI * 2.0 <= longitudeInit && M_PI * 2.0 >= longitudeInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: longitudeInit must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < manningsNInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: manningsNInit must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= surfacewaterDepthInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: surfacewaterDepthInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 >= precipitationRateInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: precipitationRateInit must be less than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 >= precipitationCumulativeShortTermInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: precipitationCumulativeShortTermInit must be less than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 >= precipitationCumulativeLongTermInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: precipitationCumulativeLongTermInit must be less than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= transpirationRateInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: transpirationRateInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= transpirationCumulativeShortTermInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: transpirationCumulativeShortTermInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= transpirationCumulativeLongTermInit))
+    {
+      CkError("ERROR in MeshElement::MeshElement: transpirationCumulativeLongTermInit must be greater than or equal to zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationForcingStructInvariant(&evapoTranspirationForcingInit))
+    {
+      CkExit();
+    }
+  
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationStateInit))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+}
+
+void MeshElement::pup(PUP::er &p)
+{
+  p | elementNumber;
+  p | catchment;
+  p | vegetationType;
+  p | elementX;
+  p | elementY;
+  p | elementZSurface;
+  p | elementArea;
+  p | latitude;
+  p | longitude;
+  p | manningsN;
+  p | surfacewaterDepth;
+  p | surfacewaterError;
+  p | precipitationRate;
+  p | precipitationCumulativeShortTerm;
+  p | precipitationCumulativeLongTerm;
+  p | evaporationRate;
+  p | evaporationCumulativeShortTerm;
+  p | evaporationCumulativeLongTerm;
+  p | transpirationRate;
+  p | transpirationCumulativeShortTerm;
+  p | transpirationCumulativeLongTerm;
+  p | evapoTranspirationForcing;
+  p | evapoTranspirationState;
+  p | underground;
+  p | meshNeighbors;
+  p | channelNeighbors;
+}
+
+bool MeshElement::checkInvariant()
+{
+  bool                                                        error = false; // Error flag.
+  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
+  std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
+  
+  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
+  if (!(0 <= elementNumber))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: elementNumber must be greater than or equal to zero.\n");
+      error = true;
+    }
+
+  if (!(1 <= vegetationType && 27 >= vegetationType))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: vegetationType must be greater than or equal to 1 and less than or equal to 27.\n");
+      error = true;
+    }
+  else if (16 == vegetationType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::checkInvariant: vegetationType is 'Water Bodies'.  Should be a waterbody instead.\n");
+        }
+    }
+  else if (24 == vegetationType)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in MeshElement::checkInvariant: vegetationType is 'Snow or Ice'.  Should be an icemass instead.\n");
+        }
+    }
+  
+  if (!(elementZSurface >= underground.layerZBottom))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: elementZSurface must be greater than or equal to underground.layerZBottom.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < elementArea))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: elementArea must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(-M_PI / 2.0 <= latitude && M_PI / 2.0 >= latitude))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: latitude must be greater than or equal to negative PI over two and less than or equal to PI over two.\n");
+      error = true;
+    }
+  
+  if (!(-M_PI * 2.0 <= longitude && M_PI * 2.0 >= longitude))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: longitude must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+      error = true;
+    }
+  
+  if (!(0.0 < manningsN))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: manningsN must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= surfacewaterDepth))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: surfacewaterDepth must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 >= precipitationRate))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: precipitationRate must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 >= precipitationCumulativeShortTerm))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: precipitationCumulativeShortTerm must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 >= precipitationCumulativeLongTerm))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: precipitationCumulativeLongTerm must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= transpirationRate))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: transpirationRate must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= transpirationCumulativeShortTerm))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: transpirationCumulativeShortTerm must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 <= transpirationCumulativeLongTerm))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: transpirationCumulativeLongTerm must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  error = checkEvapoTranspirationForcingStructInvariant(&evapoTranspirationForcing) || error;
+  
+  error = checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState) || error;
+  
+  error = underground.checkInvariant() || error;
+  
+  for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+    {
+      error = (*itMesh).checkInvariant() || error;
+    }
+  
+  for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+    {
+      error = (*itChannel).checkInvariant() || error;
+    }
+  
+  return error;
 }
 
 bool MeshElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double currentTime, double regionalDtLimit,
@@ -1196,10 +2511,10 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
 
               if (!isBoundary((*itMesh).neighbor))
                 {
-                  error = region.sendWater((*itMesh).region, RegionMessageStruct(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
-                                                                                 (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                 SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                       waterSent)));
+                  error = region.sendWater((*itMesh).region, RegionMessage(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMesh).neighbor,
+                                                                           (*itMesh).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                           SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                 waterSent)));
                 }
             }
         }
@@ -1213,10 +2528,10 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
               surfacewaterDepth                    -= waterSent / elementArea;
               (*itChannel).flowCumulativeShortTerm += waterSent;
 
-              error = region.sendWater((*itChannel).region, RegionMessageStruct(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
-                                                                                (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
-                                                                                SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
-                                                                                                                      waterSent)));
+              error = region.sendWater((*itChannel).region, RegionMessage(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itChannel).neighbor,
+                                                                          (*itChannel).reciprocalNeighborProxy, 0.0, 0.0,
+                                                                          SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
+                                                                                                                waterSent)));
             }
         }
 

@@ -13,16 +13,39 @@ class MeshSurfacewaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment
+  // Default constructor.  Only needed for pup_stl.h code.
+  MeshSurfacewaterMeshNeighborProxy();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize superclass and member variables.  For
+  // description see superclass and member variables.
+  //
+  // incomingMaterial is initialized to empty.  neighborInitialized and
+  // neighborInvariantChecked are initialized to false.
   MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
                                     double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                     int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                     double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
                                     double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit);
   
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.  Does not check that neighbor values are the
+  // same as the values stored at the neighbor.  That is done elsewhere with
+  // messages.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
+  
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
-  int neighbor;                // Mesh element ID number of the neighbor.
+  int neighbor;                // Mesh element ID number of the neighbor or boundary condition code.
   int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
   
   // Geometric coordinates.
@@ -36,6 +59,10 @@ public:
   
   // Hydraulic parameters.
   double neighborManningsN; // Roughness parameter in seconds/(meters^(1/3)).
+  
+  // Flags
+  bool neighborInitialized;      // Whether the information for this neighbor has been initialized.
+  bool neighborInvariantChecked; // Whether the information for this neighbor has been invariant checked.
 };
 
 // Proxy for a mesh element's surfacewater neighbor that is a channel element.
@@ -43,12 +70,35 @@ class MeshSurfacewaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment
+  // Default constructor.  Only needed for pup_stl.h code.
+  MeshSurfacewaterChannelNeighborProxy();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize superclass and member variables.  For
+  // description see superclass and member variables.
+  //
+  // incomingMaterial is initialized to empty.  neighborInitialized and
+  // neighborInvariantChecked are initialized to false.
   MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
                                        double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                        int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                        double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
                                        double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.  Does not check that neighbor values are the
+  // same as the values stored at the neighbor.  That is done elsewhere with
+  // messages.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -67,6 +117,10 @@ public:
   double neighborBaseWidth; // Width of channel base in meters.
   double neighborSideSlope; // Widening of each side of the channel for each unit increase in water depth.  It is delta-x over delta-y, the inverse of the
                             // traditional definition of slope, unitless.
+  
+  // Flags
+  bool neighborInitialized;      // Whether the information for this neighbor has been initialized.
+  bool neighborInvariantChecked; // Whether the information for this neighbor has been invariant checked.
 };
 
 // Proxy for a mesh element's groundwater neighbor that is a mesh element.
@@ -74,13 +128,36 @@ class MeshGroundwaterMeshNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment
+  // Default constructor.  Only needed for pup_stl.h code.
+  MeshGroundwaterMeshNeighborProxy();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize superclass and member variables.  For
+  // description see superclass and member variables.
+  //
+  // incomingMaterial is initialized to empty.  neighborInitialized and
+  // neighborInvariantChecked are initialized to false.
   MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
                                    double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                    double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
                                    double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
                                    double neighborConductivityInit, double neighborPorosityInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.  Does not check that neighbor values are the
+  // same as the values stored at the neighbor.  That is done elsewhere with
+  // messages.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -100,6 +177,10 @@ public:
   // Hydraulic parameters.
   double neighborConductivity; // Meters per second.
   double neighborPorosity;     // Unitless.
+  
+  // Flags
+  bool neighborInitialized;      // Whether the information for this neighbor has been initialized.
+  bool neighborInvariantChecked; // Whether the information for this neighbor has been invariant checked.
 };
 
 // Proxy for a mesh element's groundwater neighbor that is a channel element.
@@ -107,13 +188,36 @@ class MeshGroundwaterChannelNeighborProxy : public SimpleNeighborProxy
 {
 public:
   
-  // FIXME comment
+  // Default constructor.  Only needed for pup_stl.h code.
+  MeshGroundwaterChannelNeighborProxy();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize superclass and member variables.  For
+  // description see superclass and member variables.
+  //
+  // incomingMaterial is initialized to empty.  neighborInitialized and
+  // neighborInvariantChecked are initialized to false.
   MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
                                       double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
                                       double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
                                       double neighborBaseWidthInit, double neighborSideSlopeInit,
                                       double neighborBedConductivityInit, double neighborBedThicknessInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.  Does not check that neighbor values are the
+  // same as the values stored at the neighbor.  That is done elsewhere with
+  // messages.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   // Identification parameters.
   int region;                  // Region number where the neighbor is.
@@ -134,6 +238,10 @@ public:
                                   // the traditional definition of slope, unitless.
   double neighborBedConductivity; // Meters per second.
   double neighborBedThickness;    // Meters.
+  
+  // Flags
+  bool neighborInitialized;      // Whether the information for this neighbor has been initialized.
+  bool neighborInvariantChecked; // Whether the information for this neighbor has been invariant checked.
 };
 
 // An InfiltrationAndGroundwater simulates the groundwater and vadose zone
@@ -169,18 +277,28 @@ public:
   // Default constructor.  Only needed for pup_stl.h code.
   InfiltrationAndGroundwater();
   
-  // FIXME comment
+  // Constructor.
+  //
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
+  //
+  // meshNeighbors and channelNeighbors are initialized to empty.
   InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
                              int soilTypeInit, double layerZBottomInit, double slopeXInit, double slopeYInit,
                              double conductivityInit, double porosityInit, double groundwaterHeadInit,
                              double groundwaterRechargeInit, double groundwaterErrorInit, void* vadoseZoneStateInit);
   
-  // FIXME comment
-  ~InfiltrationAndGroundwater();
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
   
-  // FIXME pup
-  
-  // FIXME checkInvariant
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   // Calculate new values for nominalFlowRate and expirationTime for a proxy in
   // meshNeighbors.
@@ -396,7 +514,12 @@ public:
   // Default constructor.  Only needed for pup_stl.h code.
   MeshElement();
   
-  // FIXME comment
+  // Constructor.
+  //
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
+  //
+  // meshNeighbors and channelNeighbors are initialized to empty.
   MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
               double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
               double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
@@ -406,11 +529,19 @@ public:
               double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
               double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
               EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-              InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit);
+              InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, void* vadoseZoneStateInit);
   
-  // FIXME pup
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
   
-  // FIXME checkInvariant
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
   
   // Calculate new values for nominalFlowRate and expirationTime for a proxy in
   // meshNeighbors.

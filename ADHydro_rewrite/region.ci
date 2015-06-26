@@ -49,7 +49,7 @@ module region
         // time, which is chosen as the next timestep end time.
         while (!allNominalFlowRatesCalculated())
         {
-          when sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessageStruct> stateMessages)
+          when sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages)
           {
             serial
             {
@@ -67,7 +67,7 @@ module region
         // Step 4: Receive inflows of material from neighbors.
         while (!allInflowsArrived())
         {
-          when sendWaterMessages(std::vector<RegionMessageStruct> waterMessages)
+          when sendWaterMessages(std::vector<RegionMessage> waterMessages)
           {
             serial
             {
@@ -123,7 +123,7 @@ module region
     }; // End entry void runUntilSimulationEnd();
     
     entry void calculateNominalFlowRatesForInternalNeighbors();
-    entry void sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessageStruct> stateMessages);
-    entry void sendWaterMessages(std::vector<RegionMessageStruct> waterMessages);
+    entry void sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages);
+    entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);
   }; // End array [1D] Region.
 }; // End module region.
