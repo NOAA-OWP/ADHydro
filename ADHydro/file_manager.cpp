@@ -8521,6 +8521,12 @@ void FileManager::handleReadForcingData(const char* directory, CProxy_MeshElemen
       
       for (ii = localMeshElementStart; ii < localMeshElementStart + localNumberOfMeshElements; ii++)
         {
+          // FIXME this is a kludge until we get the WRF precipitation figured out.  Remove eventually.
+          if (!ADHydro::drainDownMode && 3.0e-7 < tPrec[ii - localMeshElementStart])
+            {
+              tPrec[ii - localMeshElementStart] *= 20.0;
+            }
+          
           meshProxy[ii].forcingDataMessage(20.0f, 0.0f /*vegFra[ii - localMeshElementStart]*/, 0.0f /*maxVegFra[ii - localMeshElementStart]*/, t2[ii - localMeshElementStart],
                                            psfc[ii - localMeshElementStart], psfc[ii - localMeshElementStart] - 120.0f, u[ii - localMeshElementStart],
                                            v[ii - localMeshElementStart], qVapor[ii - localMeshElementStart], qCloud[ii - localMeshElementStart],

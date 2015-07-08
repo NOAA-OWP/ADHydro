@@ -1,7 +1,7 @@
 #include "surfacewater.h"
 #include "adhydro.h"
 
-#define COURANT_DIFFUSIVE (0.9)
+#define COURANT_DIFFUSIVE (0.2)
 
 bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity, double inflowHeight,
                                       double edgeLength, double edgeNormalX, double edgeNormalY, double surfacewaterDepth)

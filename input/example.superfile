@@ -25,6 +25,8 @@ outputDirectory          = /localstore/output
 ;drainDownMode            = false     ; If drainDownMode is true the simulation will operate in a special mode to generate a groundwater initial condition.
                                       ; In this mode, there will be no precipitation, and water level in the channels will be capped at zBank.
                                       ; If drainDownMode is not in the superfile it defaults to false.
+;drainDownTime            = 0.0       ; The value to use instead of currentTime for forcing data in drainDownMode.  If drainDownMode is true this value should
+                                      ; always be defined.
 ;doMeshMassage            = false     ; If doMeshMassage is true the simulation will run mesh massage to fix digital pits and similar problems.
                                       ; If doMeshMassage is not in the superfile it defaults to false.
 ;verbosityLevel           = 2         ; Controls how much is printed to the display.  Least verbose is zero.  Most verbose is four.
