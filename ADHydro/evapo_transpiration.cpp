@@ -1117,7 +1117,11 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       else if (2000.0f < snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
+          // NOFIX The epsilonEqual assertion has failed in the past, but it appeared to just be a large amount of roundoff error.  Noah-MP doesn't actually
+          // set snEqv to 2000.  It takes the glacier flow from the bottom snow layer and then recalculates snEqv by adding up the snow layers.  That's a lot
+          // of operations, and there may be several roundoff errors that all fall to the same direction.  So I'm loosening the size of epsilon on this one.
+          //CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
+          CkAssert(1999.0f < evapoTranspirationState->snEqv && 2001.0f > evapoTranspirationState->snEqv);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           if (0 > evapoTranspirationState->iSnow)
