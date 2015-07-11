@@ -6831,6 +6831,17 @@ contains
         zsnso(iz) = 0.
    enddo
 
+! sum up snow mass for layered snow
+! RCS at this point in the code SNEQV is not necessarily equal to the sum of SNICE and SNLIQ because it's possible some processes like evaporation have been
+! applied to SNICE and SNLIQ, but not to SNEQV.  I'm making sure SNEQV is consistent with SNICE and SNLIQ before checking the value of SNEQV for glacier flow.
+
+   IF(ISNOW < 0) THEN  ! MB: only do for multi-layer
+       SNEQV = 0.
+       DO IZ = ISNOW+1,0
+             SNEQV = SNEQV + SNICE(IZ) + SNLIQ(IZ)
+       ENDDO
+   END IF
+
 !to obtain equilibrium state of snow in glacier region
        
    IF(SNEQV > 2000.) THEN   ! 2000 mm -> maximum water depth
