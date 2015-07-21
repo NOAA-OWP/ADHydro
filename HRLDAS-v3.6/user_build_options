@@ -33,9 +33,9 @@
 # INCJASPER      =       -I/apps/JASPER/intel-15.0/1.900.1/include
 # NETCDFMOD	=	-I/apps/NetCDF-mpi/intel/15.0.0/4.3.2/include
 # NETCDFLIB	=	-L/apps/NetCDF-mpi/intel/15.0.0/4.3.2/lib -L/apps/HDF5-mpi/intel/15.0.0/1.8.13/lib -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
-# BZIP2          =       YES
+# BZIP2          =       NO
 # BZIP2_INCLUDE  =       
-# BZIP2_LIB      =       -lbz2
+# BZIP2_LIB      =       # -lbz2
 # RM		= 	rm -f
 # CC		=	mpicc
 

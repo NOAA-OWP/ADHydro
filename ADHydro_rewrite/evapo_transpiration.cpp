@@ -201,9 +201,9 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   int   iLoc    = 1;                                           // Grid location index, unused.
   int   jLoc    = 1;                                           // Grid location index, unused.
   int   nSnow   = EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS;   // Maximum number of snow layers.  Always pass 3.
-  float shdFac  = 0.0;                                         // Fraction of land area shaded by vegetation, 0.0 to 1.0.  Since we use dveg = 3 shdFac is
+  float shdFac  = 0.0f;                                        // Fraction of land area shaded by vegetation, 0.0 to 1.0.  Since we use dveg = 3 shdFac is
                                                                // unused.  Always pass 0.0.
-  float shdMax  = 0.0;                                         // Yearly maximum fraction of land area shaded by vegetation, 0.0 to 1.0.  Since we use dveg = 3
+  float shdMax  = 0.0f;                                        // Yearly maximum fraction of land area shaded by vegetation, 0.0 to 1.0.  Since we use dveg = 3
                                                                // shdMax is unused.  Always pass 0.0.
   int   ice     = 0;                                           // Flag to indicate permanent ice cover, 0 for no, 1 for yes.  Always pass 0.  If permanent ice
                                                                // cover call evapoTranspirationGlacier instead.
@@ -317,6 +317,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float snEqvShouldBe;               // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't
                                      // want this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
                                      // instead performs a mass balance check.
+  float runoff;                      // Quantity of water that runs off from the soil in millimeters of water.  We don't use Noah-MP's infiltration and
+                                     // groundwater simulation so this is merely for a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -778,15 +780,12 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // during the exact same timestep as the canopy emptying.  It started to get complicated so I have decided to just create the water and record it in
       // waterError.  The canopy completely emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only
       // created 0.1 micron of water.
-      if (0.0f != rainfallBelowCanopy && epsilonEqual(0.0f, rainfallBelowCanopy))
-        {
-          // It's also possible for rainfallBelowCanopy to be negative at other times due to round off error.  This is not a mass balance bug.  However, I
-          // can't proceed with rainfallBelowCanopy negative so I have to set it to zero.  But if I only set it to zero when it is negative the roundoff error
-          // becomes biased because a small positive value due to round off error will not be set to zero, but a negative one will.  This sets both positive
-          // and negative roundoff error to zero without adding them to waterError.
-          rainfallBelowCanopy = 0.0f;
-        }
-      else if (0.0f > rainfallBelowCanopy)
+      //
+      // It's also possible for rainfallBelowCanopy to be negative at other times due to round off error.  This is not a mass balance bug.  However, I
+      // can't proceed with rainfallBelowCanopy negative so I have to set it to zero.  But if I only set it to zero when it is negative the roundoff error
+      // becomes biased because a small positive value due to round off error will not be set to zero, but a negative one will.  This sets both positive
+      // and negative roundoff error to zero in addition to the large negative values caused by the mass balance bug.
+      if (epsilonGreaterOrEqual(0.0f, rainfallBelowCanopy))
         {
           *waterError         -= rainfallBelowCanopy;
           rainfallBelowCanopy  = 0.0f;
@@ -821,8 +820,9 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is lost.  We are calculating what snEqv should be and putting the water back.
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfallBelowCanopy + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
+      runoff        = (runSrf + runSub) * dt;
       
       if (0.0f == evapoTranspirationState->snEqv)
         {
@@ -833,10 +833,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           evapoTranspirationState->snEqv = snEqvShouldBe;
           evapoTranspirationState->snowH = snEqvShouldBe / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
         }
-      else if (epsilonEqual(2000.0f, evapoTranspirationState->snEqv))
+      else if (2000.0f < snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonLessOrEqual(2000.0f, snEqvShouldBe));
+          CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           if (0 > evapoTranspirationState->iSnow)
@@ -852,6 +852,14 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
               evapoTranspirationState->snIce[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] += snEqvShouldBe - evapoTranspirationState->snEqv;
             }
           
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonGreaterOrEqual(evapoTranspirationState->snEqv + runoff, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          // Take the glacier flow back from runSub.
+          runoff -= snEqvShouldBe - evapoTranspirationState->snEqv;
+          
+          // Put the water back in snEqv.
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
       else
@@ -909,11 +917,11 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       soilMoistureNew += wa;
       
       // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
-      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual
-      // were both small so epsilon was small and this check failed even though the difference was less than soilMoistureOriginal.  So I added the second check
-      // That would use epsilon based on soilMoistureOriginal.
-      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runSrf * dt - runSub * dt,  soilMoistureNew) ||
-               epsilonEqual(soilMoistureOriginal,  *evaporationFromGround + *transpiration - *surfacewaterAdd + runSrf * dt + runSub * dt + soilMoistureNew));
+      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
+      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
+      // the second check That would use epsilon based on soilMoistureOriginal.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runoff,  soilMoistureNew) ||
+               epsilonEqual(soilMoistureOriginal,  *evaporationFromGround + *transpiration - *surfacewaterAdd + runoff + soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -1049,6 +1057,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float snEqvShouldBe;             // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't want
                                    // this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
                                    // instead performs a mass balance check.
+  float runoff;                    // Quantity of water that runs off from the soil in millimeters of water.  We don't use Noah-MP's infiltration and
+                                   // groundwater simulation so this is merely for a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -1150,13 +1160,13 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
     }
   else
     {
-      if (!(0.0 == evapoTranspirationState->canLiq))
+      if (!(0.0f == evapoTranspirationState->canLiq))
         {
           CkError("ERROR in evapoTranspirationWater: canLiq must be zero.\n");
           error = true;
         }
 
-      if (!(0.0 == evapoTranspirationState->canIce))
+      if (!(0.0f == evapoTranspirationState->canIce))
         {
           CkError("ERROR in evapoTranspirationWater: canIce must be zero.\n");
           error = true;
@@ -1414,8 +1424,9 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is lost.  We are calculating what snEqv should be and putting the water back.
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
+      runoff        = (runSrf + runSub) * dt;
       
       if (0.0f == evapoTranspirationState->snEqv)
         {
@@ -1426,10 +1437,10 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           evapoTranspirationState->snEqv = snEqvShouldBe;
           evapoTranspirationState->snowH = snEqvShouldBe / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
         }
-      else if (epsilonEqual(2000.0f, evapoTranspirationState->snEqv))
+      else if (2000.0f < snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonLessOrEqual(2000.0f, snEqvShouldBe));
+          CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           if (0 > evapoTranspirationState->iSnow)
@@ -1445,6 +1456,14 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
               evapoTranspirationState->snIce[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] += snEqvShouldBe - evapoTranspirationState->snEqv;
             }
           
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonGreaterOrEqual(evapoTranspirationState->snEqv + runoff, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          // Take the glacier flow back from runSub.
+          runoff -= snEqvShouldBe - evapoTranspirationState->snEqv;
+          
+          // Put the water back in snEqv.
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1479,8 +1498,12 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // Include water in the aquifer in the mass balance check.
       soilMoistureNew += wa;
       
-      // Verify that soil moisture balances.
-      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runSrf * dt - runSub * dt, soilMoistureNew));
+      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
+      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
+      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
+      // the second check That would use epsilon based on soilMoistureOriginal.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff,  soilMoistureNew) ||
+               epsilonEqual(soilMoistureOriginal,  *evaporationFromGround - *surfacewaterAdd + runoff + soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -1558,6 +1581,8 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
   float snEqvShouldBe;             // If snEqv falls below 0.001 Noah-MP sets it to zero, or if it rises above 2000.0 Noah-MP sets it to 2000.0.  We don't want
                                    // this behavior so in this variable we calculate what snEqv should be and set it back.  If snEqv is not changed this
                                    // instead performs a mass balance check.
+  float runoff;                    // Quantity of water that runs off from the soil in millimeters of water.  We don't use Noah-MP's infiltration and
+                                   // groundwater simulation so this is merely for a mass balance check.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Variables used for assertions.
@@ -1609,13 +1634,13 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
     }
   else
     {
-      if (!(0.0 == evapoTranspirationState->canLiq))
+      if (!(0.0f == evapoTranspirationState->canLiq))
         {
           CkError("ERROR in evapoTranspirationGlacier: canLiq must be zero.\n");
           error = true;
         }
 
-      if (!(0.0 == evapoTranspirationState->canIce))
+      if (!(0.0f == evapoTranspirationState->canIce))
         {
           CkError("ERROR in evapoTranspirationGlacier: canIce must be zero.\n");
           error = true;
@@ -1666,7 +1691,7 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
   else
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-      *waterError = 0.0;
+      *waterError = 0.0f;
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
@@ -1845,8 +1870,9 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is lost.  We are calculating what snEqv should be and putting the water back.
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
+      runoff        = (runSrf + runSub) * dt;
       
       if (0.0 == evapoTranspirationState->snEqv)
         {
@@ -1857,10 +1883,10 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           evapoTranspirationState->snEqv = snEqvShouldBe;
           evapoTranspirationState->snowH = snEqvShouldBe / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
         }
-      else if (epsilonEqual(2000.0f, evapoTranspirationState->snEqv))
+      else if (2000.0f < snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonLessOrEqual(2000.0f, snEqvShouldBe));
+          CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           if (0 > evapoTranspirationState->iSnow)
@@ -1876,6 +1902,14 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
               evapoTranspirationState->snIce[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] += snEqvShouldBe - evapoTranspirationState->snEqv;
             }
           
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonGreaterOrEqual(evapoTranspirationState->snEqv + runoff, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          // Take the glacier flow back from runSub.
+          runoff -= snEqvShouldBe - evapoTranspirationState->snEqv;
+          
+          // Put the water back in snEqv.
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1907,8 +1941,12 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
             }
         }
       
-      // Verify that soil moisture balances.
-      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runSrf * dt - runSub * dt, soilMoistureNew));
+      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
+      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
+      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
+      // the second check That would use epsilon based on soilMoistureOriginal.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff,  soilMoistureNew) ||
+               epsilonEqual(soilMoistureOriginal,  *evaporationFromGround - *surfacewaterAdd + runoff + soilMoistureNew));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
