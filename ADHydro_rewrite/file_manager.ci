@@ -1,0 +1,64 @@
+module file_manager
+{
+  group FileManager
+  {
+    entry [reductiontarget] void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+    
+    entry FileManager();
+    
+    // Dummy function for structured dagger infinite loop.
+    entry void runUntilSimulationEnd()
+    {
+      serial
+      {
+        // Initialize Noah-MP.
+        evapoTranspirationInit(ADHydro::evapoTranspirationInitMpTableFilePath.c_str(),  ADHydro::evapoTranspirationInitVegParmFilePath.c_str(),
+                               ADHydro::evapoTranspirationInitSoilParmFilePath.c_str(), ADHydro::evapoTranspirationInitGenParmFilePath.c_str());
+        
+        // Read input files.
+        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+          {
+            CkPrintf("Reading input files.\n");
+          }
+        
+        if (ADHydro::initializeFromASCIIFiles)
+          {
+            initializeFromASCIIFiles();
+          }
+        else
+          {
+            initializeFromNetCDFFiles();
+          }
+        
+        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+          {
+            CkPrintf("Finished reading input files.\n");
+          }
+        
+        // File manager 0 creates the region array, sets up its default reduction client, and sends its proxy out to all of the file managers.
+        if (0 == CkMyPe())
+          {
+            ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, ADHydro::currentTime, ADHydro::currentTime + ADHydro::simulationDuration,
+                                                        globalNumberOfRegions);
+            
+            ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy));
+            
+            thisProxy.sendInitializationMessages(ADHydro::regionProxy);
+          }
+      }
+      
+      // Send out messages to initialize all elements.
+      when sendInitializationMessages(CProxy_Region regionProxy)
+      {
+        serial
+        {
+          handleSendInitializationMessages(regionProxy);
+        }
+      }
+      
+      // FIXME receive state updates and output to file until simulation is finished.
+    }; // End entry void runUntilSimulationEnd().
+    
+    entry void sendInitializationMessages(CProxy_Region regionProxy);
+  }; // End group FileManager.
+}; // End module file_manager.

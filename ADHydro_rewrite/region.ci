@@ -4,124 +4,381 @@ module region
   {
     entry Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
     
+    // Dummy function for structured dagger infinite loop.
     entry void runUntilSimulationEnd()
     {
-      // FIXME do initialization.
-      
-      // Do an initial mass balance.
-      // FIXME decide what to do about this.
-      serial
+      // Do initialization.  First receive all elements.
+      // FIXME initialize numberOfMeshElements and numberOfChannelElements
+      while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements)
       {
-        bool   error                = false;
-        double massBalanceValues[3] = {0.0, 0.0, 0.0};
-        
-        error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
-        
-        if (!error)
-          {
-            contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
-          }
-        else
-          {
-            CkExit();
-          }
-      }
-      
-      while (currentTime < simulationEndTime)
-      {
-        // Step 1: Calculate nominal flow rates with neighbors.
-        serial
+        case
         {
-          sendStateToExternalNeighbors();
-        }
-        
-        // Continue step 1 by calculating nominal flow rates with internal neighbors.
-        when calculateNominalFlowRatesForInternalNeighbors()
+          when sendInitializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3],
+                                         double vertexYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit,
+                                         double elementAreaInit, double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit,
+                                         double manningsNInit, double conductivityInit, double porosityInit, double surfacewaterDepthInit,
+                                         double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit, double groundwaterErrorInit,
+                                         double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
+                                         double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                                         double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                         EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
+                                         std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                         std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                         std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors)
+          {
+            serial
+            {
+              handleInitializeMeshElement(elementNumberInit, catchmentInit, vegetationTypeInit, soilTypeInit, vertexXInit, vertexYInit, elementXInit,
+                                          elementYInit, elementZSurfaceInit, layerZBottomInit, elementAreaInit, slopeXInit, slopeYInit, latitudeInit,
+                                          longitudeInit, manningsNInit, conductivityInit, porosityInit, surfacewaterDepthInit, surfacewaterErrorInit,
+                                          groundwaterHeadInit, groundwaterRechargeInit, groundwaterErrorInit, precipitationRateInit,
+                                          precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
+                                          evaporationCumulativeShortTermInit, evaporationCumulativeLongTermInit, transpirationRateInit,
+                                          transpirationCumulativeShortTermInit, transpirationCumulativeLongTermInit, evapoTranspirationForcingInit,
+                                          evapoTranspirationStateInit, infiltrationMethodInit, groundwaterMethodInit, /* FIXME vadoseZoneStateInit, */
+                                          surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
+            }
+          }
+          
+          when sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+                                            double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
+                                            double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
+                                            double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                            std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                            std::vector<simpleNeighborInfo> groundwaterMeshNeighbors)
+          {
+            serial
+            {
+              handleInitializeChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, elementXInit, elementYInit, elementZBankInit, elementZBedInit,
+                                             elementLengthInit, baseWidthInit, sideSlopeInit, bedConductivityInit, bedThicknessInit, manningsNInit,
+                                             surfacewaterDepthInit, surfacewaterErrorInit, surfacewaterMeshNeighbors, surfacewaterChannelNeighbors,
+                                             groundwaterMeshNeighbors);
+            }
+          }
+        } // End case inside of while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements).
+      } // End while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements).
+      
+      // Receive until all neighbor proxies are initialized.
+      while (!allNeighborsInitialized())
+      {
+        case
+        {
+          when sendMeshSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                           double neighborZSurface, double neighborArea, double neighborManningsN)
+          {
+            serial
+            {
+              handleMeshSurfacewaterMeshNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborX, neighborY, neighborZSurface, neighborArea,
+                                                            neighborManningsN);
+            }
+          }
+          
+          when sendMeshSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                              double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                              double neighborBaseWidth, double neighborSideSlope)
+          {
+            serial
+            {
+              handleMeshSurfacewaterChannelNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborChannelType, neighborX, neighborY,
+                                                               neighborZBank, neighborZBed, neighborBaseWidth, neighborSideSlope);
+            }
+          }
+          
+          when sendMeshGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                          double neighborZSurface, double neighborLayerZBottom, double neighborArea,
+                                                          double neighborConductivity, double neighborPorosity)
+          {
+            serial
+            {
+              handleMeshGroundwaterMeshNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborX, neighborY, neighborZSurface,
+                                                           neighborLayerZBottom, neighborArea, neighborConductivity, neighborPorosity);
+            }
+          }
+          
+          when sendMeshGroundwaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                             double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                             double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                                             double neighborBedThickness)
+          {
+            serial
+            {
+              handleMeshGroundwaterChannelNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborChannelType, neighborX, neighborY,
+                                                              neighborZBank, neighborZBed, neighborBaseWidth, neighborSideSlope, neighborBedConductivity,
+                                                              neighborBedThickness);
+            }
+          }
+          
+          when sendChannelSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                              double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                              double neighborArea, double neighborSlopeX, double neighborSlopeY)
+          {
+            serial
+            {
+              handleChannelSurfacewaterMeshNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborVertexX, neighborVertexY, neighborX,
+                                                               neighborY, neighborZSurface, neighborArea, neighborSlopeX, neighborSlopeY);
+            }
+          }
+          
+          when sendChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                                 double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
+                                                                 double neighborSideSlope, double neighborManningsN)
+          {
+            serial
+            {
+              handleChannelSurfacewaterChannelNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborChannelType, neighborZBank, neighborZBed,
+                                                                  neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN);
+            }
+          }
+          
+          when sendChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                             double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                             double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY)
+          {
+            serial
+            {
+              handleChannelGroundwaterMeshNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborVertexX, neighborVertexY, neighborX,
+                                                              neighborY, neighborZSurface, neighborLayerZBottom, neighborSlopeX, neighborSlopeY);
+            }
+          }
+        } // End case inside of while (!allNeighborsInitialized()).
+      } // End while (!allNeighborsInitialized()).
+      
+      // Run the simulation.
+      while (!simulationFinished)
+      {
+        if (currentTime == nextSyncTime)
         {
           serial
           {
-            handleCalculateNominalFlowRatesForInternalNeighbors();
+            // Do output including a mass balance.
+            // FIXME do output of state
+            bool   error                = false;
+            double massBalanceValues[3] = {0.0, 0.0, 0.0};
+            
+            error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
+            
+            if (!error)
+              {
+                contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+              }
+            else
+              {
+                CkExit();
+              }
+            
+            // Advance nextSyncTime.
+            nextSyncTime += 100.0; // FIXME have sync period be a parameter
+            
+            if (nextSyncTime > simulationEndTime)
+              {
+                nextSyncTime = simulationEndTime;
+              }
+          } // End serial inside of if (currentTime == nextSyncTime).
+          
+// FIXME can't use #if in sdag code
+//#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          // Check the invariant.
+          serial
+          {
+            if (checkInvariant())
+              {
+                CkExit();
+              }
+          }
+          
+          while (!allNeighborInvariantsChecked())
+          {
+            case
+            {
+              when sendMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleMeshSurfacewaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleMeshSurfacewaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleMeshGroundwaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleMeshGroundwaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy)
+             {
+                serial
+                {
+                  handleChannelSurfacewaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleChannelSurfacewaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+              
+              when sendChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy)
+              {
+                serial
+                {
+                  handleChannelGroundwaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                }
+              }
+            } // End case inside of while (!allNeighborInvariantsChecked()).
+          } // End while (!allNeighborInvariantsChecked()).
+// FIXME can't use #if in sdag code
+//#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+        } // End if (currentTime == nextSyncTime).
+        
+        if (currentTime == simulationEndTime)
+        {
+          serial
+          {
+            simulationFinished = true;
           }
         }
-        
-        // Finish step 1 by receiving state messages until all nominal flow rates are calculated.
-        // Step 2: Select timestep is accomplished while scanning to see if all nominal flow rates are calculated.  That scan also finds the minimum expiration
-        // time, which is chosen as the next timestep end time.
-        while (!allNominalFlowRatesCalculated())
+        else // if (currentTime < simulationEndTime)
         {
-          when sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages)
+          // Advance time.
+          
+          // Step 1: Calculate nominal flow rates with neighbors.
+          serial
+          {
+            sendStateToExternalNeighbors();
+          }
+          
+          // Continue step 1 by calculating nominal flow rates with internal neighbors.
+          when calculateNominalFlowRatesForInternalNeighbors()
           {
             serial
             {
-              processStateMessages(senderCurrentTime, senderRegionalDtLimit, stateMessages);
+              handleCalculateNominalFlowRatesForInternalNeighbors();
             }
           }
-        }
-        
-        // Step 3: Send outflows of material to neighbors.
-        serial
-        {
-          doPointProcessesAndSendOutflows();
-        }
-        
-        // Step 4: Receive inflows of material from neighbors.
-        while (!allInflowsArrived())
-        {
-          when sendWaterMessages(std::vector<RegionMessage> waterMessages)
+          
+          // Finish step 1 by receiving state messages until all nominal flow rates are calculated.
+          // Step 2: Select timestep is accomplished while scanning to see if all nominal flow rates are calculated.  That scan also finds the minimum expiration
+          // time, which is chosen as the next timestep end time.
+          while (!allNominalFlowRatesCalculated())
           {
-            serial
+            when sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages)
             {
-              processWaterMessages(waterMessages);
+              serial
+              {
+                processStateMessages(senderCurrentTime, senderRegionalDtLimit, stateMessages);
+              }
             }
           }
-        }
-        
-        // Finish step 4 by moving water from incoming material lists to element state variables.
-        // Step 5: Advance time.
-        serial
-        {
-          receiveInflowsAndAdvanceTime();
-        }
-        
-        // FIXME do output.
-        
-        // Do a periodic mass balance.
-        // FIXME decide what to do about this.
-        // FIXME the last one of these never gets a chance to finish before we call CkExit.
-        serial
-        {
-          if (currentTime == nextSyncTime)
+          
+          // Step 3: Send outflows of material to neighbors.
+          serial
+          {
+            doPointProcessesAndSendOutflows();
+          }
+          
+          // Step 4: Receive inflows of material from neighbors.
+          while (!allInflowsArrived())
+          {
+            when sendWaterMessages(std::vector<RegionMessage> waterMessages)
             {
-              bool   error                = false;
-              double massBalanceValues[3] = {0.0, 0.0, 0.0};
-              
-              error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
-              
-              if (!error)
-                {
-                  contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
-                }
-              else
-                {
-                  CkExit();
-                }
-              
-              nextSyncTime += 100.0;
-              
-              if (nextSyncTime > simulationEndTime)
-                {
-                  nextSyncTime = simulationEndTime;
-                }
+              serial
+              {
+                processWaterMessages(waterMessages);
+              }
             }
-        }
-      } // End while (currentTime < simulationEndTime).
+          }
+          
+          // Finish step 4 by moving water from incoming material lists to element state variables.
+          // Step 5: Advance time.
+          serial
+          {
+            receiveInflowsAndAdvanceTime();
+          }
+        } // End if (currentTime < simulationEndTime).
+      } // End while (!simulationFinished).
       
       serial
       {
+        // FIXME this does not allow the final output to complete before exiting.
         contribute(CkCallback(CkCallback::ckExit));
       }
     }; // End entry void runUntilSimulationEnd();
     
+    entry void sendMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy);
+    entry void sendChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy);
+    entry void sendChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy);
+    entry void sendChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy);
+    entry void sendInitializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3],
+                                         double vertexYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit,
+                                         double elementAreaInit, double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit,
+                                         double manningsNInit, double conductivityInit, double porosityInit, double surfacewaterDepthInit,
+                                         double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit, double groundwaterErrorInit,
+                                         double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
+                                         double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                                         double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                         EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
+                                         std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                         std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                         std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors);
+    entry void sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+                                            double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
+                                            double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
+                                            double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                            std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                            std::vector<simpleNeighborInfo> groundwaterMeshNeighbors);
+    entry void sendMeshSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                           double neighborZSurface, double neighborArea, double neighborManningsN);
+    entry void sendMeshSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                              double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                              double neighborBaseWidth, double neighborSideSlope);
+    entry void sendMeshGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                          double neighborZSurface, double neighborLayerZBottom, double neighborArea,
+                                                          double neighborConductivity, double neighborPorosity);
+    entry void sendMeshGroundwaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                             double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                             double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                                             double neighborBedThickness);
+    entry void sendChannelSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                              double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                              double neighborArea, double neighborSlopeX, double neighborSlopeY);
+    entry void sendChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                                 double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
+                                                                 double neighborSideSlope, double neighborManningsN);
+    entry void sendChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                             double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                             double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);
     entry void calculateNominalFlowRatesForInternalNeighbors();
     entry void sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages);
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);

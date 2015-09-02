@@ -13,35 +13,36 @@ class ADHydro : public CBase_ADHydro
   
 public:
   
-  // Global read-only variables to specify map projection.  Currently we only
-  // support a sinusoidal projection.
-  static double centralMeridian; // Radians.
-  static double falseEasting;    // Meters.
-  static double falseNorthing;   // Meters.
-  
-  // Global read-only variables to specify whether to run the simulation in
-  // drain down mode.  In this mode, there will be no precipitation, the water
-  // level in the channels will be capped at bank-full depth, and calendar date
-  // and time will stand still.  Forcing data, sun angle, and other things that
-  // depend on absolute time will always be taken from a single point in time
-  // specified by drainDownTime.
-  static bool   drainDownMode; // If true, run in drain down mode.
-  static double drainDownTime; // Seconds since Element::referenceDate.
-  
-  // Global read-only variable specifies how much to print to the display.
-  // Current verbosity levels are:
-  //
-  // 0 - Error messages only.
-  // 1 - Messages about general simulation progress.
-  // 2 - Warning messages about situations that may be a problem.
-  // 3 - Messages about general simulation progress or warning messages about
-  //     situations that may be a problem that just create too many messages
-  //     for levels one and two.
-  // 4 - Warning messages about situations that are probably ok.
-  static int verbosityLevel;
-  
-  // Global read-only variables for chare proxies.
-  static CProxy_Region regionProxy;
+  // Global readonly variables.  For usage see comments in the example superfile.
+  static std::string        evapoTranspirationInitMpTableFilePath;
+  static std::string        evapoTranspirationInitVegParmFilePath;
+  static std::string        evapoTranspirationInitSoilParmFilePath;
+  static std::string        evapoTranspirationInitGenParmFilePath;
+  static std::string        adhydroInputGeometryFilePath;
+  static std::string        adhydroInputParameterFilePath;
+  static std::string        adhydroInputStateFilePath;
+  static std::string        adhydroInputForcingFilePath;
+  static bool               initializeFromASCIIFiles;
+  static std::string        adhydroOutputGeometryFilePath;
+  static std::string        adhydroOutputParameterFilePath;
+  static std::string        adhydroOutputStateFilePath;
+  static std::string        adhydroOutputDisplayFilePath;
+  static double             centralMeridian;    // Radians.
+  static double             falseEasting;       // Meters.
+  static double             falseNorthing;      // Meters.
+  static double             referenceDate;      // Julian date.
+  static double             currentTime;        // Seconds.
+  static double             dt;                 // Seconds.
+  static int                iteration;          // Unitless.
+  static double             simulationDuration; // Seconds.
+  static double             checkpointPeriod;   // Seconds.
+  static double             outputPeriod;       // Seconds.
+  static bool               drainDownMode;      // Flag.
+  static double             drainDownTime;      // Seconds.
+  static bool               doMeshMassage;      // Flag.
+  static int                verbosityLevel;     // Unitless.
+  static CProxy_FileManager fileManagerProxy;
+  static CProxy_Region      regionProxy;
   
   // Calculate latitude and longitude from X,Y coordinates.
   //
@@ -59,10 +60,11 @@ public:
   
   // The simulation runs more efficiently if multiple expiration times expire
   // simultaneously.  In order to increase the likelihood of that happening we
-  // Force expiration times to expire at certain discrete times.  First, choose
-  // the number closest to but not over dtNew from the following divisors of
-  // sixty.  Not all divisors of sixty are present in the list because some
-  // pairs of divisors have a bad synodic period.
+  // force expiration times to expire at certain discrete times.  To choose the
+  // expiration time, first choose the number closest to but not over dtNew
+  // from the following divisors of sixty.  Not all divisors of sixty are
+  // present in the list because some pairs of divisors have a bad synodic
+  // period.
   //
   // 1, 2, 3, 5, 10, 15, 30, 60
   //
@@ -75,6 +77,7 @@ public:
   //
   // Examples:
   //
+  // currentTime = 0.0, dtNew = 3.1, newExpirationTime = 3.0
   // currentTime = 0.0, dtNew = 4.3, newExpirationTime = 3.0
   // currentTime = 2.0, dtNew = 3.1, newExpirationTime = 3.0
   // currentTime = 2.0, dtNew = 4.3, newExpirationTime = 6.0
@@ -88,9 +91,6 @@ public:
   //               Element::referenceDate.
   // dtNew       - Desired timestep duration in seconds.
   static double newExpirationTime(double currentTime, double dtNew);
-  
-  // FIXME comment
-  static void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
   
   // Constructor.  This is the mainchare constructor where the program starts.
   //

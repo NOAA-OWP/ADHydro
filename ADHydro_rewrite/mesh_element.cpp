@@ -1852,18 +1852,24 @@ MeshElement::MeshElement() :
   meshNeighbors(),
   channelNeighbors()
 {
-  // Initialization handled by initialization list.
+  vertexX[0] = 0.0;
+  vertexX[1] = 0.0;
+  vertexX[2] = 0.0;
+  vertexY[0] = 0.0;
+  vertexY[1] = 0.0;
+  vertexY[2] = 0.0;
 }
 
-MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
-                         double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
-                         double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
-                         double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
-                         double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
-                         double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
-                         double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
-                         double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
-                         EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3], double vertexYInit[3],
+                         double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit,
+                         double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit,
+                         double porosityInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                         double groundwaterRechargeInit, double groundwaterErrorInit, double precipitationRateInit,
+                         double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+                         double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
+                         double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
                          InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit) :
   elementNumber(elementNumberInit),
   catchment(catchmentInit),
@@ -2006,6 +2012,13 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  
+  vertexX[0] = vertexXInit[0];
+  vertexX[1] = vertexXInit[1];
+  vertexX[2] = vertexXInit[2];
+  vertexY[0] = vertexYInit[0];
+  vertexY[1] = vertexYInit[1];
+  vertexY[2] = vertexYInit[2];
 }
 
 void MeshElement::pup(PUP::er &p)
@@ -2013,6 +2026,8 @@ void MeshElement::pup(PUP::er &p)
   p | elementNumber;
   p | catchment;
   p | vegetationType;
+  PUParray(p, vertexX, 3);
+  PUParray(p, vertexY, 3);
   p | elementX;
   p | elementY;
   p | elementZSurface;
@@ -2074,6 +2089,12 @@ bool MeshElement::checkInvariant()
   if (!(elementZSurface >= underground.layerZBottom))
     {
       CkError("ERROR in MeshElement::checkInvariant: elementZSurface must be greater than or equal to underground.layerZBottom.\n");
+      error = true;
+    }
+  
+  if (!(elementZSurface >= underground.groundwaterHead))
+    {
+      CkError("ERROR in MeshElement::checkInvariant: elementZSurface must be greater than or equal to underground.groundwaterHead.\n");
       error = true;
     }
   

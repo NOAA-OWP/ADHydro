@@ -520,16 +520,17 @@ public:
   // member variables.
   //
   // meshNeighbors and channelNeighbors are initialized to empty.
-  MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
-              double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
-              double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
-              double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
-              double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
-              double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
-              double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
-              double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
-              EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-              InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, void* vadoseZoneStateInit);
+  MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3], double vertexYInit[3],
+              double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit,
+              double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit,
+              double porosityInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+              double groundwaterRechargeInit, double groundwaterErrorInit, double precipitationRateInit,
+              double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+              double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
+              double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+              EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+              InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+              InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit);
   
   // Charm++ pack/unpack method.
   //
@@ -666,6 +667,8 @@ public:
   int vegetationType; // Vegetation type from Noah-MP VEGPARM.TBL file.
   
   // Geometric coordinates.
+  double vertexX[3];      // Meters
+  double vertexY[3];      // Meters
   double elementX;        // Meters.
   double elementY;        // Meters.
   double elementZSurface; // Elevation in meters.

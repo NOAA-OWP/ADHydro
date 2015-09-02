@@ -29,6 +29,7 @@ VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_rout
 EXES := adhydro
 
 ADHYDRO_OBJS := adhydro.o             \
+                file_manager.o        \
                 region.o              \
                 mesh_element.o        \
                 channel_element.o     \
@@ -65,6 +66,7 @@ adhydro.o: adhydro.cpp           \
            adhydro.h             \
            adhydro.decl.h        \
            adhydro.def.h         \
+           file_manager.decl.h   \
            region.h              \
            region.decl.h         \
            mesh_element.h        \
@@ -77,14 +79,38 @@ adhydro.o: adhydro.cpp           \
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 adhydro.decl.h \
-adhydro.def.h: adhydro.ci \
+adhydro.def.h: adhydro.ci      \
+               file_manager.ci \
                region.ci
+	$(CHARMC) $<
+	
+file_manager.o: file_manager.cpp      \
+                file_manager.h        \
+                file_manager.decl.h   \
+                file_manager.def.h    \
+                adhydro.h             \
+                adhydro.decl.h        \
+                region.h              \
+                region.decl.h         \
+                mesh_element.h        \
+                channel_element.h     \
+                element.h             \
+                neighbor_proxy.h      \
+                evapo_transpiration.h \
+                all_charm.h           \
+                all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+file_manager.decl.h \
+file_manager.def.h: file_manager.ci
 	$(CHARMC) $<
 
 region.o: region.cpp            \
           region.h              \
           region.decl.h         \
           region.def.h          \
+          adhydro.h             \
+          adhydro.decl.h        \
           mesh_element.h        \
           channel_element.h     \
           element.h             \

@@ -191,9 +191,10 @@ public:
   //
   // meshNeighbors, channelNeighbors, and undergroundMeshNeighbors are
   // initialized to empty.
-  ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementZBankInit,
-                 double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
-                 double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit);
+  ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit, double elementYInit,
+                 double elementZBankInit, double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit,
+                 double bedConductivityInit, double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit,
+                 double surfacewaterErrorInit);
   
   // Charm++ pack/unpack method.
   //
@@ -349,6 +350,8 @@ public:
   long long       reachCode;     // For waterbodies, reach code.  For streams, original link number that element came from.
   
   // Geometric coordinates.
+  double elementX;      // Meters.
+  double elementY;      // Meters.
   double elementZBank;  // Elevation in meters.
   double elementZBed;   // Elevation in meters.
   double elementLength; // Meters.

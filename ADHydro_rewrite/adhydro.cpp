@@ -1,13 +1,36 @@
 #include "adhydro.h"
+#include "INIReader.h"
 
-// Global read-only variables.
-double        ADHydro::centralMeridian;
-double        ADHydro::falseEasting;
-double        ADHydro::falseNorthing;
-bool          ADHydro::drainDownMode;
-double        ADHydro::drainDownTime;
-int           ADHydro::verbosityLevel;
-CProxy_Region ADHydro::regionProxy;
+// Global readonly variables.
+std::string        ADHydro::evapoTranspirationInitMpTableFilePath;
+std::string        ADHydro::evapoTranspirationInitVegParmFilePath;
+std::string        ADHydro::evapoTranspirationInitSoilParmFilePath;
+std::string        ADHydro::evapoTranspirationInitGenParmFilePath;
+std::string        ADHydro::adhydroInputGeometryFilePath;
+std::string        ADHydro::adhydroInputParameterFilePath;
+std::string        ADHydro::adhydroInputStateFilePath;
+std::string        ADHydro::adhydroInputForcingFilePath;
+bool               ADHydro::initializeFromASCIIFiles;
+std::string        ADHydro::adhydroOutputGeometryFilePath;
+std::string        ADHydro::adhydroOutputParameterFilePath;
+std::string        ADHydro::adhydroOutputStateFilePath;
+std::string        ADHydro::adhydroOutputDisplayFilePath;
+double             ADHydro::centralMeridian;
+double             ADHydro::falseEasting;
+double             ADHydro::falseNorthing;
+double             ADHydro::referenceDate;
+double             ADHydro::currentTime;
+double             ADHydro::dt;
+int                ADHydro::iteration;
+double             ADHydro::simulationDuration;
+double             ADHydro::checkpointPeriod;
+double             ADHydro::outputPeriod;
+bool               ADHydro::drainDownMode;
+double             ADHydro::drainDownTime;
+bool               ADHydro::doMeshMassage;
+int                ADHydro::verbosityLevel;
+CProxy_FileManager ADHydro::fileManagerProxy;
+CProxy_Region      ADHydro::regionProxy;
 
 bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude)
 {
@@ -36,10 +59,11 @@ bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude
 
 double ADHydro::newExpirationTime(double currentTime, double dtNew)
 {
-  int          ii;                                                                                                                          // Loop counter.
-  const int    numberOfDts               = 15;                                                                                              // Unitless.
-  const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 180.0, 300.0, 600.0, 900.0, 1800.0, 3600.0}; // Seconds.
-  double       selectedDt;                                                                                                                  // Seconds.
+  int          ii;                                                     // Loop counter.
+  const int    numberOfDts               = 15;                         // Unitless.
+  const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 2.0 * 60.0, 3.0 * 60.0, 5.0 * 60.0, 10.0 * 60.0, 15.0 * 60.0,
+                                            30.0 * 60.0, 60.0 * 60.0}; // Seconds.
+  double       selectedDt;                                             // Seconds.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 < dtNew))
@@ -70,7 +94,7 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
       selectedDt = allowableDts[ii];
     }
   
-  ii = floor(currentTime / selectedDt);
+  ii = floor(currentTime / selectedDt) + 1;
   
   while ((ii + 1) * selectedDt <= currentTime + dtNew)
     {
@@ -80,30 +104,101 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
   return ii * selectedDt;
 }
 
-void ADHydro::printOutMassBalance(double waterInDomain, double externalFlows, double waterError)
-{
-  static double massBalanceShouldBe = NAN; // This stores the first value received and uses it as the "should be" value for the rest of the simulation.
-  double        massBalance         = waterInDomain + externalFlows - waterError;
-  
-  if (isnan(massBalanceShouldBe))
-    {
-      massBalanceShouldBe = massBalance;
-    }
-  
-  CkPrintf("waterInDomain = %lg, externalFlows = %lg, waterError = %lg, massBalance = %lg, massBalanceError = %lg, all values in cubic meters.\n",
-           waterInDomain, externalFlows, waterError, massBalance, massBalance - massBalanceShouldBe);
-}
-
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  evapoTranspirationInit("/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/MPTABLE.TBL",
-                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/VEGPARM.TBL",
-                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/SOILPARM.TBL",
-                         "/user2/rsteinke/Desktop/ADHydro/HRLDAS-v3.6/Run/GENPARM.TBL");
+  const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
+  INIReader   superfile(superfileName);                                // Superfile reader object.
+  std::string evapoTranspirationInitDirectoryPath;                     // Directory path to use with default filenames if file paths not specified.
+  std::string adhydroInputDirectoryPath;                               // Directory path to use with default filenames if file paths not specified.
+  std::string adhydroOutputDirectoryPath;                              // Directory path to use with default filenames if file paths not specified.
+  long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
+  long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
+  long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
+  double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
   
-  regionProxy = CProxy_Region::ckNew(gregorianToJulian(2000, 1, 1, 0, 0, 0), 0.0, 1000.0, 3);
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  // If the superfile cannot be read print usage message and exit.
+  if (0 != superfile.ParseError())
+    {
+      if (0 > superfile.ParseError())
+        {
+          CkError("ERROR in ADHydro::ADHydro: cannot open superfile %s.\n", superfileName);
+        }
+      else
+        {
+          CkError("ERROR in ADHydro::ADHydro: parse error on line number %d of superfile %s.\n", superfile.ParseError(), superfileName);
+        }
+      
+      CkError("\nUsage:\n\nadhydro <superfile>\n\n");
+      CkError("E.g.:\n\nadhydro ../input/example_superfile_v2.0.ini\n\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, printOutMassBalance), thisProxy));
+  // Get readonly variables from the superfile.
+  evapoTranspirationInitDirectoryPath    = superfile.Get("", "evapoTranspirationInitDirectoryPath", ".");
+  evapoTranspirationInitMpTableFilePath  = superfile.Get("", "evapoTranspirationInitMpTableFilePath",  evapoTranspirationInitDirectoryPath + "/MPTABLE.TBL");
+  evapoTranspirationInitVegParmFilePath  = superfile.Get("", "evapoTranspirationInitVegParmFilePath",  evapoTranspirationInitDirectoryPath + "/VEGPARM.TBL");
+  evapoTranspirationInitSoilParmFilePath = superfile.Get("", "evapoTranspirationInitSoilParmFilePath", evapoTranspirationInitDirectoryPath + "/SOILPARM.TBL");
+  evapoTranspirationInitGenParmFilePath  = superfile.Get("", "evapoTranspirationInitGenParmFilePath",  evapoTranspirationInitDirectoryPath + "/GENPARM.TBL");
+  adhydroInputDirectoryPath              = superfile.Get("", "adhydroInputDirectoryPath", ".");
+  adhydroInputGeometryFilePath           = superfile.Get("", "adhydroInputGeometryFilePath",  adhydroInputDirectoryPath + "/geometry.nc");
+  adhydroInputParameterFilePath          = superfile.Get("", "adhydroInputParameterFilePath", adhydroInputDirectoryPath + "/parameter.nc");
+  adhydroInputStateFilePath              = superfile.Get("", "adhydroInputStateFilePath",     adhydroInputDirectoryPath + "/state.nc");
+  adhydroInputForcingFilePath            = superfile.Get("", "adhydroInputForcingFilePath",   adhydroInputDirectoryPath + "/forcing.nc");
+  initializeFromASCIIFiles               = superfile.GetBoolean("", "initializeFromASCIIFiles", false);
+  adhydroOutputDirectoryPath             = superfile.Get("", "adhydroOutputDirectoryPath", ".");
+  adhydroOutputGeometryFilePath          = superfile.Get("", "adhydroOutputGeometryFilePath",  adhydroOutputDirectoryPath + "/geometry.nc");
+  adhydroOutputParameterFilePath         = superfile.Get("", "adhydroOutputParameterFilePath", adhydroOutputDirectoryPath + "/parameter.nc");
+  adhydroOutputStateFilePath             = superfile.Get("", "adhydroOutputStateFilePath",     adhydroOutputDirectoryPath + "/state.nc");
+  adhydroOutputDisplayFilePath           = superfile.Get("", "adhydroOutputDisplayFilePath",   adhydroOutputDirectoryPath + "/display.nc");
+  
+  centralMeridian = superfile.GetReal("", "centralMeridianRadians", NAN);
+  
+  if (isnan(centralMeridian))
+    {
+      centralMeridian = superfile.GetReal("", "centralMeridianDegrees", NAN) * M_PI / 180.0;
+    }
+  
+  falseEasting  = superfile.GetReal("", "falseEasting", NAN);
+  falseNorthing = superfile.GetReal("", "falseNorthing", NAN);
+  
+  referenceDate = superfile.GetReal("", "referenceDate", NAN);
+  
+  // If there is no referenceDate read a Gregorian date and convert to Julian date.
+  if (isnan(referenceDate))
+    {
+      referenceDateYear   = superfile.GetInteger("", "referenceDateYear", -1);
+      referenceDateMonth  = superfile.GetInteger("", "referenceDateMonth", -1);
+      referenceDateDay    = superfile.GetInteger("", "referenceDateDay", -1);
+      referenceDateHour   = superfile.GetInteger("", "referenceDateHour", -1);
+      referenceDateMinute = superfile.GetInteger("", "referenceDateMinute", -1);
+      referenceDateSecond = superfile.GetReal("", "referenceDateSecond", -1.0);
+      
+      if (1 <= referenceDateYear && 1 <= referenceDateMonth && 12 >= referenceDateMonth && 1 <= referenceDateDay && 31 >= referenceDateDay &&
+          0 <= referenceDateHour && 23 >= referenceDateHour && 0 <= referenceDateMinute && 59 >= referenceDateMinute && 0.0 <= referenceDateSecond &&
+          60.0 > referenceDateSecond)
+        {
+          referenceDate = gregorianToJulian(referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour, referenceDateMinute,
+                                            referenceDateSecond);
+        }
+    }
+  
+  currentTime        = superfile.GetReal("", "currentTime", NAN);
+  dt                 = superfile.GetReal("", "dt", NAN);
+  iteration          = superfile.GetInteger("", "iteration", -1);
+  simulationDuration = superfile.GetReal("", "simulationDuration", 0.0);
+  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", 0.0);
+  outputPeriod       = superfile.GetReal("", "outputPeriod", 0.0);
+  drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
+  drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
+  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false);
+  verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);
+  
+  // Create file manager.
+  fileManagerProxy = CProxy_FileManager::ckNew();
 }
 
 #include "adhydro.def.h"

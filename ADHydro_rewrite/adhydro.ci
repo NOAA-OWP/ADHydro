@@ -1,18 +1,40 @@
 mainmodule adhydro
 {
+  extern module file_manager;
   extern module region;
   
   mainchare ADHydro
   {
-    readonly double        centralMeridian;
-    readonly double        falseEasting;
-    readonly double        falseNorthing;
-    readonly bool          drainDownMode;
-    readonly double        drainDownTime;
-    readonly int           verbosityLevel;
-    readonly CProxy_Region regionProxy;
-    
-    entry [reductiontarget] void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+    // Global readonly variables.
+    readonly std::string        evapoTranspirationInitMpTableFilePath;
+    readonly std::string        evapoTranspirationInitVegParmFilePath;
+    readonly std::string        evapoTranspirationInitSoilParmFilePath;
+    readonly std::string        evapoTranspirationInitGenParmFilePath;
+    readonly std::string        adhydroInputGeometryFilePath;
+    readonly std::string        adhydroInputParameterFilePath;
+    readonly std::string        adhydroInputStateFilePath;
+    readonly std::string        adhydroInputForcingFilePath;
+    readonly bool               initializeFromASCIIFiles;
+    readonly std::string        adhydroOutputGeometryFilePath;
+    readonly std::string        adhydroOutputParameterFilePath;
+    readonly std::string        adhydroOutputStateFilePath;
+    readonly std::string        adhydroOutputDisplayFilePath;
+    readonly double             centralMeridian;
+    readonly double             falseEasting;
+    readonly double             falseNorthing;
+    readonly double             referenceDate;
+    readonly double             currentTime;
+    readonly double             dt;
+    readonly int                iteration;
+    readonly double             simulationDuration;
+    readonly double             checkpointPeriod;
+    readonly double             outputPeriod;
+    readonly bool               drainDownMode;
+    readonly double             drainDownTime;
+    readonly bool               doMeshMassage;
+    readonly int                verbosityLevel;
+    readonly CProxy_FileManager fileManagerProxy;
+    readonly CProxy_Region      regionProxy;
     
     entry ADHydro(CkArgMsg* msg);
   }; // End mainchare ADHydro.

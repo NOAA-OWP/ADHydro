@@ -60,6 +60,56 @@ public:
   SimpleNeighborProxy::MaterialTransfer water;                       // The water sent to the recipient.  Unused for state messages.
 };
 
+// A simpleNeighborInfo is used to tell an element what neighbors it has.  It
+// contains less information than the neighborProxies because elements get that
+// extra information from their neighbors.  simpleNeighborInfo just has enough
+// information for the element to get in touch with its neighbors to start the
+// information exchange.  The one class simpleNeighborInfo is used for all four
+// types of neighbor relationships.
+class simpleNeighborInfo
+{
+public:
+  
+  // Default constructor.  Only needed for pup_stl.h code.
+  simpleNeighborInfo();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
+  simpleNeighborInfo(double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit, int neighborInit,
+                     double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
+  
+  // Cumulative flow variables.
+  double flowCumulativeShortTerm; // flowCumulativeShortTerm plus flowCumulativeLongTerm together are the cumulative material flow quantity with the neighbor.
+  double flowCumulativeLongTerm;  // Positive means flow out of the element into the neighbor.  Negative means flow into the element out of the neighbor.  Two
+                                  // variables are used because over a long simulation this value could become quite large, and the amount of material moved
+                                  // each timestep can be quite small so roundoff error becomes a concern.  New flow is added to flowCumulativeShortTerm each
+                                  // timestep, and occasionally flowCumulativeShortTerm is added to flowCumulativeLongTerm and flowCumulativeShortTerm is reset
+                                  // to zero.
+  
+  // Identification parameters.
+  int region;   // Region number where the neighbor is.
+  int neighbor; // Element ID number of the neighbor or boundary condition code.
+  
+  // Geometric coordinates.
+  double edgeLength;  // Meters.  2-D distance ignoring Z coordinates.
+  double edgeNormalX; // X component of normal unit vector, unitless.
+  double edgeNormalY; // Y component of normal unit vector, unitless.
+};
+
 #include "region.decl.h"
 
 // A Region is a collection of Elements.  Within a Region, Elements can
@@ -78,6 +128,53 @@ class Region : public CBase_Region, Element
   
 public:
   
+  // We were getting large Z coordinate differences between mesh elements and
+  // neighboring channel elements because if an element is sloped, the Z
+  // coordinate at the center of the mesh element may not be representative of
+  // the Z coordinate at the edge of the mesh element where it connects to the
+  // neighboring channel element.  Depending on how the mesh element is sloped
+  // this can even result in the channel element being higher than the mesh
+  // element even though water should be flowing from the mesh element into the
+  // channel element.
+  //
+  // To solve this, we calculate a Z offset by following the slope of the mesh
+  // element to the point where it connects to the channel element.  This point
+  // can be the center of the channel element or the point on the edge of the
+  // mesh element in the direction of the center of the channel element.
+  //
+  // If the channel element is still higher than the mesh element after
+  // applying the offset we raise the offset to make them level.  We do not do
+  // this for icemasses because there are often real situations where a glacier
+  // on a slope is higher than its neighboring mesh elements.
+  //
+  // The Z offset should be added to the Z coordinate of the mesh element
+  // center for all of its interactions with this channel neighbor.
+  //
+  // Returns: The Z coordinate offset in meters.
+  //
+  // Parameters:
+  //
+  // meshElement         - Element number of mesh element.
+  // meshVertexX         - Array of X coordinates in meters of mesh element
+  //                       vertices.
+  // meshVertexY         - Array of Y coordinates in meters of mesh element
+  //                       vertices.
+  // meshElementX        - X coordinate in meters of center of mesh element.
+  // meshElementY        - Y coordinate in meters of center of mesh element.
+  // meshElementZSurface - Surface Z coordinate in meters of center of mesh
+  //                       element.
+  // meshElementSlopeX   - Slope of mesh element in X direction, unitless.
+  // meshElementSlopeY   - Slope of mesh element in Y direction, unitless.
+  // channelElement      - Element number of channel element.
+  // channelElementX     - X coordinate in meters of center of channel element.
+  // channelElementY     - Y coordinate in meters of center of channel element.
+  // channelElementZBank - Bank Z coordinate in meters of center of channel
+  //                       element.
+  // channelType         - Channel type of channel element.
+  static double calculateZOffset(int meshElement, double meshVertexX[3], double meshVertexY[3], double meshElementX, double meshElementY,
+                                 double meshElementZSurface, double meshElementSlopeX, double meshElementSlopeY, int channelElement, double channelElementX,
+                                 double channelElementY, double channelElementZBank, ChannelTypeEnum channelType);
+  
   // Constructor.  timestepEndTime is initialized to be currentTimeInit
   // indicating that a new value for timestepEndTime needs to be selected in
   // step 2 of the simulation.  nextSyncTime is initialized to be
@@ -88,6 +185,8 @@ public:
   // empty.  All iterators are initialized to invalid.
   //
   // FIXME what is regionalDtLimit initialized to?
+  //
+  // simulationFinished is initialized to false.
   //
   // Parameters:
   //
@@ -117,17 +216,93 @@ public:
   // Returns: true if the invariant is violated, false otherwise.
   bool checkInvariant();
   
-  // FIXME initialization
-  void initializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double elementXInit, double elementYInit,
-      double elementZSurfaceInit, double layerZBottomInit, double elementAreaInit, double slopeXInit, double slopeYInit,
-      double latitudeInit, double longitudeInit, double manningsNInit, double conductivityInit, double porosityInit,
-      double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit,
-      double groundwaterErrorInit, double precipitationRateInit, double precipitationCumulativeShortTermInit,
-      double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
-      double evaporationCumulativeLongTermInit, double transpirationRateInit, double transpirationCumulativeShortTermInit,
-      double transpirationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
-      EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-      InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, void* vadoseZoneStateInit);
+  // FIXME comment
+  void handleMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  void handleChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy);
+  
+  // FIXME comment
+  bool allNeighborInvariantsChecked();
+  
+  // FIXME comment
+  void handleInitializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3],
+                                   double vertexYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit,
+                                   double elementAreaInit, double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit,
+                                   double manningsNInit, double conductivityInit, double porosityInit, double surfacewaterDepthInit,
+                                   double surfacewaterErrorInit, double groundwaterHeadInit, double groundwaterRechargeInit, double groundwaterErrorInit,
+                                   double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
+                                   double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                                   double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                                   EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                   EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                                   InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
+                                   InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
+                                   std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                   std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                   std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors);
+  
+  // FIXME comment
+  void handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+                                      double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
+                                      double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
+                                      double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                      std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                      std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
+                                      std::vector<simpleNeighborInfo> groundwaterMeshNeighbors);
+  
+  // FIXME comment
+  void handleMeshSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                     double neighborZSurface, double neighborArea, double neighborManningsN);
+  
+  // FIXME comment
+  void handleMeshSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                        double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                        double neighborBaseWidth, double neighborSideSlope);
+  
+  // FIXME comment
+  void handleMeshGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
+                                                    double neighborZSurface, double neighborLayerZBottom, double neighborArea,
+                                                    double neighborConductivity, double neighborPorosity);
+  
+  // FIXME comment
+  void handleMeshGroundwaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                       double neighborX, double neighborY, double neighborZBank, double neighborZBed,
+                                                       double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
+                                                       double neighborBedThickness);
+  
+  // FIXME comment
+  void handleChannelSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                        double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                        double neighborArea, double neighborSlopeX, double neighborSlopeY);
+  
+  // FIXME comment
+  void handleChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
+                                                           double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
+                                                           double neighborSideSlope, double neighborManningsN);
+  
+  // FIXME comment
+  void handleChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
+                                                       double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
+                                                       double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);
+  
+  // FIXME comment
+  bool allNeighborsInitialized();
   
   // For external nominal flow rates that have expired send the element's state
   // to the neighbor.
@@ -241,9 +416,11 @@ public:
   //                 destroyed.
   bool massBalance(double& waterInDomain, double& externalFlows, double& waterError);
   
-  // Elements.  Key is element ID number.
-  std::map<int, MeshElement>    meshElements;
-  std::map<int, ChannelElement> channelElements;
+  // Elements.
+  std::map<int, MeshElement>::size_type    numberOfMeshElements;    // During initialization the region waits until it has received this many mesh elements.
+  std::map<int, MeshElement>               meshElements;            // A container for the mesh elements.  Map key is element ID number.
+  std::map<int, ChannelElement>::size_type numberOfChannelElements; // During initialization the region waits until it has received this many channel elements.
+  std::map<int, ChannelElement>            channelElements;         // A container for the channel elements.  Map key is element ID number.
   
   // Aggregator for messages going out to other regions.  Key is region ID number.
   std::map<int, std::vector<RegionMessage> > outgoingMessages;
@@ -269,8 +446,9 @@ public:
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator   itChannelSurfacewaterChannelNeighbor;
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator       itChannelGroundwaterMeshNeighbor;
   
-  // FIXME figure out how to set this limit.
-  double regionalDtLimit;
+  // Time and simulation control variables.
+  double regionalDtLimit; // FIXME figure out how to set this limit.  Currently, it is hard coded to 60 seconds.
+  bool   simulationFinished;
 };
 
 #endif // __REGION_H__
