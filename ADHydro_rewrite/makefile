@@ -111,6 +111,8 @@ region.o: region.cpp            \
           region.def.h          \
           adhydro.h             \
           adhydro.decl.h        \
+          file_manager.h        \
+          file_manager.decl.h   \
           mesh_element.h        \
           channel_element.h     \
           element.h             \
@@ -129,6 +131,7 @@ mesh_element.o : mesh_element.cpp      \
                  mesh_element.h        \
                  adhydro.h             \
                  adhydro.decl.h        \
+                 file_manager.decl.h   \
                  region.h              \
                  region.decl.h         \
                  channel_element.h     \
@@ -146,6 +149,7 @@ channel_element.o : channel_element.cpp   \
                     channel_element.h     \
                     adhydro.h             \
                     adhydro.decl.h        \
+                    file_manager.decl.h   \
                     region.h              \
                     region.decl.h         \
                     mesh_element.h        \
@@ -174,6 +178,7 @@ surfacewater.o: surfacewater.cpp      \
                 surfacewater.h        \
                 adhydro.h             \
                 adhydro.decl.h        \
+                file_manager.decl.h   \
                 region.h              \
                 region.decl.h         \
                 mesh_element.h        \
@@ -189,6 +194,7 @@ groundwater.o: groundwater.cpp       \
                groundwater.h         \
                adhydro.h             \
                adhydro.decl.h        \
+               file_manager.decl.h   \
                region.h              \
                region.decl.h         \
                mesh_element.h        \
@@ -204,6 +210,7 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        adhydro.h               \
                        adhydro.decl.h          \
+                       file_manager.decl.h     \
                        region.h                \
                        region.decl.h           \
                        mesh_element.h          \

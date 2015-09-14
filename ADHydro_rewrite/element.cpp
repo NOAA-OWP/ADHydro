@@ -4,7 +4,7 @@ Element::Element(double referenceDateInit, double currentTimeInit, double simula
   referenceDate(referenceDateInit),
   currentTime(currentTimeInit),
   timestepEndTime(currentTimeInit),
-  nextSyncTime(simulationEndTimeInit),
+  nextSyncTime(currentTimeInit),
   simulationEndTime(simulationEndTimeInit)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

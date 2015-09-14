@@ -54,8 +54,37 @@ int FileManager::home(int item, int globalNumberOfItems)
   return itemHome;
 }
 
+void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
+{
+  int numPes              = CkNumPes();                           // Number of processors.
+  int myPe                = CkMyPe();                             // The processor of this file manager.
+  int numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of file managers that own one extra item.
+  int itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each file manager that owns one extra item.
+  int itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all file managers that own one extra item.
+  int itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each file manager that does not own one extra item.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 <= globalNumberOfItems);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  if (myPe < numberOfFatOwners)
+    {
+      // I am a fat owner.
+      *localItemStart     = myPe * itemsPerFatOwner;
+      *localNumberOfItems = itemsPerFatOwner;
+    }
+  else
+    {
+      // I am a thin owner.
+      *localItemStart     = (myPe - numberOfFatOwners) * itemsPerThinOwner + itemsInAllFatOwners;
+      *localNumberOfItems = itemsPerThinOwner;
+    }
+}
+
 FileManager::FileManager() :
   globalNumberOfRegions(0),
+  localRegionStart(0),
+  localNumberOfRegions(0),
   globalNumberOfMeshNodes(0),
   localMeshNodeStart(0),
   localNumberOfMeshNodes(0),
@@ -68,6 +97,8 @@ FileManager::FileManager() :
   globalNumberOfChannelElements(0),
   localChannelElementStart(0),
   localNumberOfChannelElements(0),
+  regionNumberOfMeshElements(NULL),
+  regionNumberOfChannelElements(NULL),
   meshNodeX(NULL),
   meshNodeY(NULL),
   meshNodeZSurface(NULL),
@@ -177,6 +208,8 @@ FileManager::FileManager() :
 
 FileManager::~FileManager()
 {
+  delete[] regionNumberOfMeshElements;
+  delete[] regionNumberOfChannelElements;
   delete[] meshNodeX;
   delete[] meshNodeY;
   delete[] meshNodeZSurface;
@@ -281,33 +314,6 @@ FileManager::~FileManager()
   delete[] channelGroundwaterMeshNeighborsFlowCumulativeLongTerm;
 }
 
-void FileManager::localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems)
-{
-  int numPes              = CkNumPes();                           // Number of processors.
-  int myPe                = CkMyPe();                             // The processor of this file manager.
-  int numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of file managers that own one extra item.
-  int itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each file manager that owns one extra item.
-  int itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all file managers that own one extra item.
-  int itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each file manager that does not own one extra item.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != localItemStart && NULL != localNumberOfItems && 0 <= globalNumberOfItems);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  
-  if (myPe < numberOfFatOwners)
-    {
-      // I am a fat owner.
-      *localItemStart     = myPe * itemsPerFatOwner;
-      *localNumberOfItems = itemsPerFatOwner;
-    }
-  else
-    {
-      // I am a thin owner.
-      *localItemStart     = (myPe - numberOfFatOwners) * itemsPerThinOwner + itemsInAllFatOwners;
-      *localNumberOfItems = itemsPerThinOwner;
-    }
-}
-
 void FileManager::initializeFromASCIIFiles()
 {
   // FIXME not implemented
@@ -377,6 +383,8 @@ void FileManager::setUpHardcodedMesh()
   if (0 == CkMyPe())
     {
       globalNumberOfRegions         = 3;
+      localRegionStart              = 0;
+      localNumberOfRegions          = 3;
       globalNumberOfMeshNodes       = 0;
       localMeshNodeStart            = 0;
       localNumberOfMeshNodes        = 0;
@@ -389,6 +397,18 @@ void FileManager::setUpHardcodedMesh()
       globalNumberOfChannelElements = 4;
       localChannelElementStart      = 0;
       localNumberOfChannelElements  = 4;
+      
+      regionNumberOfMeshElements = new int[3];
+      
+      regionNumberOfMeshElements[0] = 4;
+      regionNumberOfMeshElements[1] = 4;
+      regionNumberOfMeshElements[2] = 4;
+      
+      regionNumberOfChannelElements = new int[3];
+      
+      regionNumberOfChannelElements[0] = 1;
+      regionNumberOfChannelElements[1] = 2;
+      regionNumberOfChannelElements[2] = 1;
       
       meshVertexX = new DoubleArrayMMN[12];
       meshVertexY = new DoubleArrayMMN[12];
@@ -1005,7 +1025,7 @@ void FileManager::setUpHardcodedMesh()
       meshSurfacewaterMeshNeighborsRegion[4][2]  = 0;
       meshSurfacewaterMeshNeighborsRegion[5][0]  = 1;
       meshSurfacewaterMeshNeighborsRegion[5][1]  = 0;
-      meshSurfacewaterMeshNeighborsRegion[5][2]  = 0;
+      meshSurfacewaterMeshNeighborsRegion[5][2]  = 1;
       meshSurfacewaterMeshNeighborsRegion[6][0]  = 0;
       meshSurfacewaterMeshNeighborsRegion[6][1]  = 1;
       meshSurfacewaterMeshNeighborsRegion[6][2]  = 1;
@@ -1303,54 +1323,54 @@ void FileManager::setUpHardcodedMesh()
       
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm = new DoubleArrayMCN[12];
       
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[0][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[0][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[0][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[1][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[1][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[2][0]  = 300.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[2][1]  = 300.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[2][0]  = 0.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[2][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[3][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[3][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[4][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[4][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[4][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[5][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[5][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[6][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[6][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[6][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[7][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[7][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[8][0]  = 300.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[8][1]  = 300.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[8][0]  = 0.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[8][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[9][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[9][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[10][0] = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[10][0] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[10][1] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[11][0] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[11][1] = 0.0;
       
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm = new DoubleArrayMCN[12];
       
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[0][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[0][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[0][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[1][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[1][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[2][0]  = 300.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[2][1]  = 300.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[2][0]  = 0.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[2][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[3][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[3][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[4][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[4][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[4][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[5][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[5][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[6][0]  = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[6][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[6][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[7][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[7][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[8][0]  = 300.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[8][1]  = 300.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[8][0]  = 0.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[8][1]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[9][0]  = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[9][1]  = 0.0;
-      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[10][0] = 600.0;
+      meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[10][0] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[10][1] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[11][0] = 0.0;
       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[11][1] = 0.0;
@@ -1413,7 +1433,7 @@ void FileManager::setUpHardcodedMesh()
       meshGroundwaterMeshNeighborsRegion[4][2]  = 0;
       meshGroundwaterMeshNeighborsRegion[5][0]  = 1;
       meshGroundwaterMeshNeighborsRegion[5][1]  = 0;
-      meshGroundwaterMeshNeighborsRegion[5][2]  = 0;
+      meshGroundwaterMeshNeighborsRegion[5][2]  = 1;
       meshGroundwaterMeshNeighborsRegion[6][0]  = 0;
       meshGroundwaterMeshNeighborsRegion[6][1]  = 1;
       meshGroundwaterMeshNeighborsRegion[6][2]  = 1;
@@ -1711,54 +1731,54 @@ void FileManager::setUpHardcodedMesh()
       
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm = new DoubleArrayMCN[12];
       
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[0][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[0][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[0][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[1][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[1][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[2][0]  = 300.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[2][1]  = 300.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[2][0]  = 0.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[2][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[3][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[3][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[4][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[4][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[4][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[5][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[5][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[6][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[6][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[6][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[7][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[7][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[8][0]  = 300.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[8][1]  = 300.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[8][0]  = 0.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[8][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[9][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[9][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[10][0] = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[10][0] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[10][1] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[11][0] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[11][1] = 0.0;
       
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm = new DoubleArrayMCN[12];
       
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[0][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[0][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[0][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[1][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[1][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[2][0]  = 300.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[2][1]  = 300.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[2][0]  = 0.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[2][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[3][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[3][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[4][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[4][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[4][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[5][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[5][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[6][0]  = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[6][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[6][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[7][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[7][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[8][0]  = 300.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[8][1]  = 300.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[8][0]  = 0.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[8][1]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[9][0]  = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[9][1]  = 0.0;
-      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[10][0] = 600.0;
+      meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[10][0] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[10][1] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[11][0] = 0.0;
       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[11][1] = 0.0;
@@ -2025,6 +2045,8 @@ void FileManager::setUpHardcodedMesh()
     else
     {
       globalNumberOfRegions         = 3;
+      localRegionStart              = 0;
+      localNumberOfRegions          = 0;
       globalNumberOfMeshNodes       = 0;
       localMeshNodeStart            = 0;
       localNumberOfMeshNodes        = 0;
@@ -2628,7 +2650,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                 {
                   surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshSurfacewaterChannelNeighborsRegion[ii][jj],
-                      meshSurfacewaterChannelNeighbors[ii][jj], meshSurfacewaterChannelNeighborsEdgeLength[ii][jj], 0.0, 0.0));
+                      meshSurfacewaterChannelNeighbors[ii][jj], meshSurfacewaterChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
             }
 
@@ -2649,7 +2671,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                 {
                   groundwaterChannelNeighbors.push_back(simpleNeighborInfo(meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshGroundwaterChannelNeighborsRegion[ii][jj],
-                      meshGroundwaterChannelNeighbors[ii][jj], meshGroundwaterChannelNeighborsEdgeLength[ii][jj], 0.0, 0.0));
+                      meshGroundwaterChannelNeighbors[ii][jj], meshGroundwaterChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
             }
 
@@ -2675,7 +2697,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                 {
                   surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelSurfacewaterMeshNeighborsRegion[ii][jj],
-                      channelSurfacewaterMeshNeighbors[ii][jj], channelSurfacewaterMeshNeighborsEdgeLength[ii][jj], 0.0, 0.0));
+                      channelSurfacewaterMeshNeighbors[ii][jj], channelSurfacewaterMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
             }
 
@@ -2685,7 +2707,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                 {
                   surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], channelSurfacewaterChannelNeighborsRegion[ii][jj],
-                      channelSurfacewaterChannelNeighbors[ii][jj], 0.0, 0.0, 0.0));
+                      channelSurfacewaterChannelNeighbors[ii][jj], 1.0, 1.0, 0.0));
                 }
             }
 
@@ -2695,7 +2717,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                 {
                   groundwaterMeshNeighbors.push_back(simpleNeighborInfo(channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelGroundwaterMeshNeighborsRegion[ii][jj],
-                      channelGroundwaterMeshNeighbors[ii][jj], 0.0, 0.0, 0.0));
+                      channelGroundwaterMeshNeighbors[ii][jj], channelGroundwaterMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
             }
 

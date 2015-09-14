@@ -75,7 +75,7 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
   
   if (dtNew < allowableDts[0])
     {
-      selectedDt = allowableDts[0];
+      selectedDt = allowableDts[0] * 0.5;
       
       while (dtNew < selectedDt)
         {
@@ -165,7 +165,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   falseEasting  = superfile.GetReal("", "falseEasting", NAN);
   falseNorthing = superfile.GetReal("", "falseNorthing", NAN);
   
-  referenceDate = superfile.GetReal("", "referenceDate", NAN);
+  referenceDate = superfile.GetReal("", "referenceDateJulian", NAN);
   
   // If there is no referenceDate read a Gregorian date and convert to Julian date.
   if (isnan(referenceDate))
@@ -190,8 +190,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   dt                 = superfile.GetReal("", "dt", NAN);
   iteration          = superfile.GetInteger("", "iteration", -1);
   simulationDuration = superfile.GetReal("", "simulationDuration", 0.0);
-  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", 0.0);
-  outputPeriod       = superfile.GetReal("", "outputPeriod", 0.0);
+  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", INFINITY);
+  outputPeriod       = superfile.GetReal("", "outputPeriod", INFINITY);
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
   drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
   doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false);
