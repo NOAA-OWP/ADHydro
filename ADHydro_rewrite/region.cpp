@@ -1,5 +1,6 @@
 #include "region.h"
 #include "adhydro.h"
+#include "file_manager.h"
 #include "garto.h"
 
 RegionMessage::RegionMessage() :
@@ -32,11 +33,24 @@ RegionMessage::RegionMessage(RegionMessageTypeEnum messageTypeInit, int recipien
       CkExit();
     }
   
-  // FIXME check that recipientElementNumberInit is less than the number of elements.  I think there will be a global with this sizes.
-  if (!(0 <= recipientElementNumberInit))
+  if (MESH_SURFACEWATER_MESH_NEIGHBOR == messageTypeInit || MESH_SURFACEWATER_CHANNEL_NEIGHBOR == messageTypeInit ||
+      MESH_GROUNDWATER_MESH_NEIGHBOR  == messageTypeInit || MESH_GROUNDWATER_CHANNEL_NEIGHBOR  == messageTypeInit)
     {
-      CkError("ERROR in RegionMessage::RegionMessage: recipientElementNumberInit must be greater than or equal to zero.\n");
-      CkExit();
+      if (!(0 <= recipientElementNumberInit && recipientElementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
+        {
+          CkError("ERROR in RegionMessage::RegionMessage: recipientElementNumberInit must be greater than or equal to zero and less than "
+                  "globalNumberOfMeshElements.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0 <= recipientElementNumberInit && recipientElementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
+        {
+          CkError("ERROR in RegionMessage::RegionMessage: recipientElementNumberInit must be greater than or equal to zero and less than "
+                  "globalNumberOfChannelElements.\n");
+          CkExit();
+        }
     }
   
   if (!(0 <= recipientNeighborProxyIndexInit))
@@ -80,11 +94,24 @@ bool RegionMessage::checkInvariant()
       error = true;
     }
   
-  // FIXME check that recipientElementNumber is less than the number of elements.  I think there will be a global with this sizes.
-  if (!(0 <= recipientElementNumber))
+  if (MESH_SURFACEWATER_MESH_NEIGHBOR == messageType || MESH_SURFACEWATER_CHANNEL_NEIGHBOR == messageType ||
+      MESH_GROUNDWATER_MESH_NEIGHBOR  == messageType || MESH_GROUNDWATER_CHANNEL_NEIGHBOR  == messageType)
     {
-      CkError("ERROR in RegionMessage::checkInvariant: recipientElementNumber must be greater than or equal to zero.\n");
-      error = true;
+      if (!(0 <= recipientElementNumber && recipientElementNumber < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
+        {
+          CkError("ERROR in RegionMessage::checkInvariant: recipientElementNumber must be greater than or equal to zero and less than "
+                  "globalNumberOfMeshElements.\n");
+          CkExit();
+        }
+    }
+  else
+    {
+      if (!(0 <= recipientElementNumber && recipientElementNumber < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
+        {
+          CkError("ERROR in RegionMessage::checkInvariant: recipientElementNumber must be greater than or equal to zero and less than "
+                  "globalNumberOfChannelElements.\n");
+          CkExit();
+        }
     }
   
   if (!(0 <= recipientNeighborProxyIndex))
@@ -127,16 +154,17 @@ simpleNeighborInfo::simpleNeighborInfo(double flowCumulativeShortTermInit, doubl
   edgeNormalY(edgeNormalYInit)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-    // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-    if (!(0 <= regionInit))
+    if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
       {
-        CkError("ERROR in simpleNeighborInfo::simpleNeighborInfo: regionInit must be greater than or equal to zero.\n");
+        CkError("ERROR in simpleNeighborInfo::simpleNeighborInfo: regionInit must be greater than or equal to zero and less than globalNumberOfRegions.\n");
         CkExit();
       }
     
-    if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+    if (!(isBoundary(neighborInit) || (0 <= neighborInit && (neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements ||
+                                                             neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))))
       {
-        CkError("ERROR in simpleNeighborInfo::simpleNeighborInfo: neighborInit must be a boundary condition code or greater than or equal to zero.\n");
+        CkError("ERROR in simpleNeighborInfo::simpleNeighborInfo: neighborInit must be a boundary condition code or greater than or equal to zero and less "
+                "than globalNumberOfMeshElements or globalNumberOfChannelElements.\n");
         CkExit();
       }
     
@@ -169,16 +197,17 @@ bool simpleNeighborInfo::checkInvariant()
 {
   bool error = false; // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in simpleNeighborInfo::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in simpleNeighborInfo::checkInvariant: region must be greater than or equal to zero and less than globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(isBoundary(neighbor) || 0 <= neighbor))
+  if (!(isBoundary(neighbor) || (0 <= neighbor && (neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements ||
+                                                   neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))))
     {
-      CkError("ERROR in simpleNeighborInfo::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero.\n");
+      CkError("ERROR in simpleNeighborInfo::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero and less "
+              "than globalNumberOfMeshElements or globalNumberOfChannelElements.\n");
       error = true;
     }
   
@@ -252,32 +281,28 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
   itChannelSurfacewaterMeshNeighbor(),
   itChannelSurfacewaterChannelNeighbor(),
   itChannelGroundwaterMeshNeighbor(),
-  regionalDtLimit(60.0),
+  regionalDtLimit(60.0), // FIXME calculate real value
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  needToCheckInvariant(true),
+#else // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  needToCheckInvariant(false),
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   simulationFinished(false)
 {
-  // FIXME this is only for the hardcoded mesh
-  nextSyncTime = currentTimeInit;
-  
-  // FIXME this is only for the hardcoded mesh
-  switch (thisIndex)
-  {
-  case 0:
-    numberOfMeshElements    = 4;
-    numberOfChannelElements = 1;
-    break;
-  case 1:
-    numberOfMeshElements    = 4;
-    numberOfChannelElements = 2;
-    break;
-  case 2:
-    numberOfMeshElements    = 4;
-    numberOfChannelElements = 1;
-    break;
-  default:
-    CkExit();
-    break;
-  }
-  
+  FileManager* fileManagerLocalBranch = ADHydro::fileManagerProxy.ckLocalBranch();            // Used for access to local public member variables.
+  int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localRegionStart; // Index of this element in local file manager arrays.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfRegions))
+    {
+      CkError("ERROR in Region::Region, region %d: initialization information not available from local file manager.\n", thisIndex);
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+  numberOfMeshElements    = fileManagerLocalBranch->regionNumberOfMeshElements[fileManagerLocalIndex];
+  numberOfChannelElements = fileManagerLocalBranch->regionNumberOfChannelElements[fileManagerLocalIndex];
+
   thisProxy[thisIndex].runUntilSimulationEnd();
 }
 
@@ -300,6 +325,7 @@ Region::Region(CkMigrateMessage* msg) :
   itChannelSurfacewaterChannelNeighbor(),
   itChannelGroundwaterMeshNeighbor(),
   regionalDtLimit(0.0),
+  needToCheckInvariant(false),
   simulationFinished(false)
 {
   // Initialization handled by initialization list.
@@ -568,6 +594,7 @@ void Region::pup(PUP::er &p)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   
   p | regionalDtLimit;
+  p | needToCheckInvariant;
   p | simulationFinished;
 }
 

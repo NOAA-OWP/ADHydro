@@ -8,7 +8,6 @@ module region
     entry void runUntilSimulationEnd()
     {
       // Do initialization.  First receive all elements.
-      // FIXME initialize numberOfMeshElements and numberOfChannelElements
       while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements)
       {
         case
@@ -158,6 +157,8 @@ module region
             // FIXME do output of state
             bool   error                = false;
             double massBalanceValues[3] = {0.0, 0.0, 0.0};
+            double nextCheckpointTime;
+            double nextOutputTime;
             
             error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
             
@@ -171,26 +172,31 @@ module region
               }
             
             // Advance nextSyncTime.
-            nextSyncTime += 100.0; // FIXME have sync period be a parameter
+            nextCheckpointTime = (floor(currentTime / ADHydro::checkpointPeriod) + 1) * ADHydro::checkpointPeriod;
+            nextOutputTime     = (floor(currentTime / ADHydro::outputPeriod)     + 1) * ADHydro::outputPeriod;
+            nextSyncTime       = nextCheckpointTime;
+            
+            if (nextSyncTime > nextOutputTime)
+              {
+                nextSyncTime = nextOutputTime;
+              }
             
             if (nextSyncTime > simulationEndTime)
               {
                 nextSyncTime = simulationEndTime;
               }
+            
+            // Check the invariant.
+            if (needToCheckInvariant)
+              {
+                if (checkInvariant())
+                  {
+                    CkExit();
+                  }
+              }
           } // End serial inside of if (currentTime == nextSyncTime).
           
-// FIXME can't use #if in sdag code
-//#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-          // Check the invariant.
-          serial
-          {
-            if (checkInvariant())
-              {
-                CkExit();
-              }
-          }
-          
-          while (!allNeighborInvariantsChecked())
+          while (needToCheckInvariant && !allNeighborInvariantsChecked())
           {
             case
             {
@@ -250,9 +256,15 @@ module region
                 }
               }
             } // End case inside of while (!allNeighborInvariantsChecked()).
-          } // End while (!allNeighborInvariantsChecked()).
-// FIXME can't use #if in sdag code
-//#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          } // End while (needToCheckInvariant && !allNeighborInvariantsChecked()).
+          
+          serial
+          {
+#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+            // If debug level does not include internal invariants only check the invariant at most once at the beginning of the simulation.
+            needToCheckInvariant = false;
+#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          }
         } // End if (currentTime == nextSyncTime).
         
         if (currentTime == simulationEndTime)
@@ -282,7 +294,7 @@ module region
           }
           
           // Finish step 1 by receiving state messages until all nominal flow rates are calculated.
-          // Step 2: Select timestep is accomplished while scanning to see if all nominal flow rates are calculated.  That scan also finds the minimum expiration
+          // Step 2: Select timestep is accomplished while scanning to see if all nominal flow rates are calculated.  That scan finds the minimum expiration
           // time, which is chosen as the next timestep end time.
           while (!allNominalFlowRatesCalculated())
           {

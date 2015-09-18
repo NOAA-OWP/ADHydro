@@ -55,9 +55,10 @@ public:
   
   // Constructor.  timestepEndTime is initialized to be currentTimeInit
   // indicating that a new value for timestepEndTime needs to be selected in
-  // step 2 of the simulation.  nextSyncTime is initialized to be
-  // simulationEndTimeInit indicating that the element will sync up with other
-  // elements at the end of the simulation.
+  // step 2 of the simulation.  nextSyncTime is also initialized to be
+  // currentTimeInit so that the element will sync up with other elements to do
+  // output, check mass balance, and check invariant at the beginning of the
+  // simulation.
   //
   // Parameters:
   //

@@ -85,6 +85,22 @@ public:
   // globalNumberOfItems - The total number of this kind of item.
   static int home(int item, int globalNumberOfItems);
   
+  // Calculate which items this file manager owns.  Items are generally mesh
+  // elements, although this function can be used to distribute any set of
+  // items among file managers.  The first (globalNumberOfItems % CkNumPes())
+  // file managers each have (globalNumberOfItems / CkNumPes() + 1) items.
+  // The remaining file managers each have (globalNumberOfItems / CkNumPes())
+  // items.
+  //
+  // Parameters:
+  //
+  // localItemStart      - Scalar passed by reference will be filled in with
+  //                       the local start index.
+  // localNumberOfItems  - Scalar passed by reference will be filled in with
+  //                       the local number of items.
+  // globalNumberOfItems - The total number of this kind of item.
+  static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
+  
   // Constructor.  Initializes the file manager to hold no data and starts the
   // runUntilSimulationEnd function in the SDAG code.
   FileManager();
@@ -92,7 +108,21 @@ public:
   // Destructor.  Dynamically allocated arrays need to be deleted.
   ~FileManager();
   
-  int globalNumberOfRegions;         // Number of regions in entire chare array.
+  // FIXME comment
+  void initializeFromASCIIFiles();
+  
+  // FIXME comment
+  void initializeFromNetCDFFiles();
+  
+  // FIXME remove
+  void setUpHardcodedMesh();
+  
+  // FIXME comment
+  void handleSendInitializationMessages(CProxy_Region regionProxy);
+  
+  int globalNumberOfRegions;         // Number of regions across all file managers.
+  int localRegionStart;              // Index of first region owned by this local branch.
+  int localNumberOfRegions;          // Number of regions owned by this local branch.
   int globalNumberOfMeshNodes;       // Number of mesh nodes across all file managers.
   int localMeshNodeStart;            // Index of first mesh node owned by this local branch.
   int localNumberOfMeshNodes;        // Number of mesh nodes owned by this local branch.
@@ -109,8 +139,13 @@ public:
   // The following are pointers to dynamically allocated arrays containing the
   // data owned by this local branch.  The pointers can be NULL indicating the
   // data is not available.  The arrays are indexed by a local index, which is
-  // globalItemNumber - localItemStart where item can be MeshNode, MeshElement,
-  // ChannelNode, or ChannelElement.
+  // globalItemNumber - localItemStart where item can be Region, MeshNode,
+  // MeshElement, ChannelNode, or ChannelElement.
+  
+  // Each region has to know how many element initialization messages to
+  // expect.
+  int* regionNumberOfMeshElements;
+  int* regionNumberOfChannelElements;
   
   // Nodes are a list of points indexed by node number.  A node may be a vertex
   // for multiple elements.  As such, it is not guaranteed that all of an
@@ -260,36 +295,6 @@ public:
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsEdgeLength;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeLongTerm;
-  
-private:
-  
-  // Calculate which items this file manager owns.  Items are generally mesh
-  // elements, although this function can be used to distribute any set of
-  // items among file managers.  The first (globalNumberOfItems % CkNumPes())
-  // file managers each have (globalNumberOfItems / CkNumPes() + 1) items.
-  // The remaining file managers each have (globalNumberOfItems / CkNumPes())
-  // items.
-  //
-  // Parameters:
-  //
-  // localItemStart      - Scalar passed by reference will be filled in with
-  //                       the local start index.
-  // localNumberOfItems  - Scalar passed by reference will be filled in with
-  //                       the local number of items.
-  // globalNumberOfItems - The total number of this kind of item.
-  static void localStartAndNumber(int* localItemStart, int* localNumberOfItems, int globalNumberOfItems);
-  
-  // FIXME comment
-  void initializeFromASCIIFiles();
-  
-  // FIXME comment
-  void initializeFromNetCDFFiles();
-  
-  // FIXME remove
-  void setUpHardcodedMesh();
-  
-  // FIXME comment
-  void handleSendInitializationMessages(CProxy_Region regionProxy);
 };
 
 #endif // __FILE_MANAGER_H__
