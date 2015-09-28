@@ -10,8 +10,8 @@
 class ReservoirFactory
 {
     private:
-    std::map<long long, Creator*> table;
-    std::vector<Creator*> creators;
+    std::map<long long, Res_Creator*> table;
+    std::vector<Res_Creator*> creators;
     public:
     /*
      *	ReservoirFactory constructor
@@ -45,7 +45,7 @@ class ReservoirFactory
      *	constructor, which takes a reference to the factory the reservoirCreator
      *	is being added to and calls this function to register itself.
      */
-    void registerReservoir(long long reach, Creator* creator);
+    void registerReservoir(long long reach, Res_Creator* creator);
 
 };
 

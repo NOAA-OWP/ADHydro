@@ -8,7 +8,7 @@
 //Template class for reservoir creators
 //Each reservoir needs to have a ReservoirCreator instance
 template <class T>
-class ReservoirCreator : public Creator
+class ReservoirCreator : public Res_Creator
 {
     public:
 	/*
