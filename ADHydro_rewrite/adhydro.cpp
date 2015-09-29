@@ -6,11 +6,23 @@ std::string        ADHydro::evapoTranspirationInitMpTableFilePath;
 std::string        ADHydro::evapoTranspirationInitVegParmFilePath;
 std::string        ADHydro::evapoTranspirationInitSoilParmFilePath;
 std::string        ADHydro::evapoTranspirationInitGenParmFilePath;
+bool               ADHydro::initializeFromASCIIFiles;
+std::string        ADHydro::ASCIIInputMeshNodeFilePath;
+std::string        ADHydro::ASCIIInputMeshZFilePath;
+std::string        ADHydro::ASCIIInputMeshElementFilePath;
+std::string        ADHydro::ASCIIInputMeshNeighborFilePath;
+std::string        ADHydro::ASCIIInputMeshLandCoverFilePath;
+std::string        ADHydro::ASCIIInputMeshSoilTypeFilePath;
+std::string        ADHydro::ASCIIInputMeshGeolTypeFilePath;
+std::string        ADHydro::ASCIIInputMeshEdgeFilePath;
+std::string        ADHydro::ASCIIInputChannelNodeFilePath;
+std::string        ADHydro::ASCIIInputChannelZFilePath;
+std::string        ADHydro::ASCIIInputChannelElementFilePath;
+std::string        ADHydro::ASCIIInputChannelPruneFilePath;
 std::string        ADHydro::adhydroInputGeometryFilePath;
 std::string        ADHydro::adhydroInputParameterFilePath;
 std::string        ADHydro::adhydroInputStateFilePath;
 std::string        ADHydro::adhydroInputForcingFilePath;
-bool               ADHydro::initializeFromASCIIFiles;
 std::string        ADHydro::adhydroOutputGeometryFilePath;
 std::string        ADHydro::adhydroOutputParameterFilePath;
 std::string        ADHydro::adhydroOutputStateFilePath;
@@ -109,6 +121,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
   INIReader   superfile(superfileName);                                // Superfile reader object.
   std::string evapoTranspirationInitDirectoryPath;                     // Directory path to use with default filenames if file paths not specified.
+  std::string ASCIIInputDirectoryPath;                                 // Directory path to use with default filenames if file paths not specified.
+  std::string ASCIIInputFileBasename;                                  // Directory path to use with default filenames if file paths not specified.
   std::string adhydroInputDirectoryPath;                               // Directory path to use with default filenames if file paths not specified.
   std::string adhydroOutputDirectoryPath;                              // Directory path to use with default filenames if file paths not specified.
   long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
@@ -143,12 +157,26 @@ ADHydro::ADHydro(CkArgMsg* msg)
   evapoTranspirationInitVegParmFilePath  = superfile.Get("", "evapoTranspirationInitVegParmFilePath",  evapoTranspirationInitDirectoryPath + "/VEGPARM.TBL");
   evapoTranspirationInitSoilParmFilePath = superfile.Get("", "evapoTranspirationInitSoilParmFilePath", evapoTranspirationInitDirectoryPath + "/SOILPARM.TBL");
   evapoTranspirationInitGenParmFilePath  = superfile.Get("", "evapoTranspirationInitGenParmFilePath",  evapoTranspirationInitDirectoryPath + "/GENPARM.TBL");
+  initializeFromASCIIFiles               = superfile.GetBoolean("", "initializeFromASCIIFiles", false);
+  ASCIIInputDirectoryPath                = superfile.Get("", "ASCIIInputDirectoryPath", ".");
+  ASCIIInputFileBasename                 = superfile.Get("", "ASCIIInputFileBasename", "mesh.1");
+  ASCIIInputMeshNodeFilePath             = superfile.Get("", "ASCIIInputMeshNodeFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".node");
+  ASCIIInputMeshZFilePath                = superfile.Get("", "ASCIIInputMeshZFilePath",          ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".z");
+  ASCIIInputMeshElementFilePath          = superfile.Get("", "ASCIIInputMeshElementFilePath",    ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".ele");
+  ASCIIInputMeshNeighborFilePath         = superfile.Get("", "ASCIIInputMeshNeighborFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".neigh");
+  ASCIIInputMeshLandCoverFilePath        = superfile.Get("", "ASCIIInputMeshLandCoverFilePath",  ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".landCover");
+  ASCIIInputMeshSoilTypeFilePath         = superfile.Get("", "ASCIIInputMeshSoilTypeFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".soilType");
+  ASCIIInputMeshGeolTypeFilePath         = superfile.Get("", "ASCIIInputMeshGeolTypeFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".geolType");
+  ASCIIInputMeshEdgeFilePath             = superfile.Get("", "ASCIIInputMeshEdgeFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".edge");
+  ASCIIInputChannelNodeFilePath          = superfile.Get("", "ASCIIInputChannelNodeFilePath",    ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.node");
+  ASCIIInputChannelZFilePath             = superfile.Get("", "ASCIIInputChannelZFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.z");
+  ASCIIInputChannelElementFilePath       = superfile.Get("", "ASCIIInputChannelElementFilePath", ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.ele");
+  ASCIIInputChannelPruneFilePath         = superfile.Get("", "ASCIIInputChannelPruneFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.prune");
   adhydroInputDirectoryPath              = superfile.Get("", "adhydroInputDirectoryPath", ".");
   adhydroInputGeometryFilePath           = superfile.Get("", "adhydroInputGeometryFilePath",  adhydroInputDirectoryPath + "/geometry.nc");
   adhydroInputParameterFilePath          = superfile.Get("", "adhydroInputParameterFilePath", adhydroInputDirectoryPath + "/parameter.nc");
   adhydroInputStateFilePath              = superfile.Get("", "adhydroInputStateFilePath",     adhydroInputDirectoryPath + "/state.nc");
   adhydroInputForcingFilePath            = superfile.Get("", "adhydroInputForcingFilePath",   adhydroInputDirectoryPath + "/forcing.nc");
-  initializeFromASCIIFiles               = superfile.GetBoolean("", "initializeFromASCIIFiles", false);
   adhydroOutputDirectoryPath             = superfile.Get("", "adhydroOutputDirectoryPath", ".");
   adhydroOutputGeometryFilePath          = superfile.Get("", "adhydroOutputGeometryFilePath",  adhydroOutputDirectoryPath + "/geometry.nc");
   adhydroOutputParameterFilePath         = superfile.Get("", "adhydroOutputParameterFilePath", adhydroOutputDirectoryPath + "/parameter.nc");

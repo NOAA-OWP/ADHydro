@@ -59,15 +59,16 @@ input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projecte
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/"
+input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 
 # This script will write its output to this directory
 # the files it will write are:
 #
 # output_directory_path/mesh.1.soilType
 # output_directory_path/mesh.1.LandCover
-# output_directory_path/element_data.csv
-output_directory_path = "/share/CI-WATER_Simulation_Data/yampa_mesh/test3/"
+# output_directory_path/mesh.1.geolType
+# output_directory_path/element_data.pkl
+output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}

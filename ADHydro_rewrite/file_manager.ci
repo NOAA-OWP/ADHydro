@@ -30,6 +30,38 @@ module file_manager
             initializeFromNetCDFFiles();
           }
         
+        // Calculating derived values may require getting vertex data from other file managers.  If it is not required allVerticesUpdated will immediately
+        // return true.
+        updateVertices();
+      }
+      
+      while (!allVerticesUpdated())
+      {
+        case
+        {
+          when meshVertexDataMessage(int node, double x, double y, double zSurface)
+          {
+            serial
+            {
+              handleMeshVertexDataMessage(node, x, y, zSurface);
+            }
+          }
+          
+          when channelVertexDataMessage(int node, double x, double y, double zBank)
+          {
+            serial
+            {
+              handleChannelVertexDataMessage(node, x, y, zBank);
+            }
+          }
+        }
+      }
+      
+      serial
+      {
+        // Then the file manager must calculate derived values.
+        calculateDerivedValues();
+        
         if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
           {
             CkPrintf("Finished reading input files.\n");
@@ -59,6 +91,10 @@ module file_manager
       // FIXME receive state updates and output to file until simulation is finished.
     }; // End entry void runUntilSimulationEnd().
     
+    entry void getMeshVertexDataMessage(int requester, int node);
+    entry void getChannelVertexDataMessage(int requester, int node);
+    entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
+    entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void sendInitializationMessages(CProxy_Region regionProxy);
   }; // End group FileManager.
 }; // End module file_manager.

@@ -293,7 +293,8 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localRegionStart; // Index of this element in local file manager arrays.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfRegions))
+  if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfRegions &&
+        NULL != fileManagerLocalBranch->regionNumberOfMeshElements && NULL != fileManagerLocalBranch->regionNumberOfChannelElements))
     {
       CkError("ERROR in Region::Region, region %d: initialization information not available from local file manager.\n", thisIndex);
       CkExit();
@@ -303,6 +304,7 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
   numberOfMeshElements    = fileManagerLocalBranch->regionNumberOfMeshElements[fileManagerLocalIndex];
   numberOfChannelElements = fileManagerLocalBranch->regionNumberOfChannelElements[fileManagerLocalIndex];
 
+  // Initialization will be done in runUntilSimulationEnd.
   thisProxy[thisIndex].runUntilSimulationEnd();
 }
 
@@ -627,7 +629,7 @@ bool Region::checkInvariant()
                   (*itMeshSurfacewaterMeshNeighbor).neighborInvariantChecked = false;
 
                   thisProxy[(*itMeshSurfacewaterMeshNeighbor).region]
-                            .sendMeshSurfacewaterMeshNeighborCheckInvariant((*itMesh).second.elementNumber, *itMeshSurfacewaterMeshNeighbor);
+                            .sendMeshSurfacewaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshSurfacewaterMeshNeighbor);
                 }
             }
 
@@ -637,7 +639,7 @@ bool Region::checkInvariant()
               (*itMeshSurfacewaterChannelNeighbor).neighborInvariantChecked = false;
 
               thisProxy[(*itMeshSurfacewaterChannelNeighbor).region]
-                        .sendChannelSurfacewaterMeshNeighborCheckInvariant((*itMesh).second.elementNumber, *itMeshSurfacewaterChannelNeighbor);
+                        .sendChannelSurfacewaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshSurfacewaterChannelNeighbor);
             }
 
           for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
@@ -652,7 +654,7 @@ bool Region::checkInvariant()
                   (*itMeshGroundwaterMeshNeighbor).neighborInvariantChecked = false;
 
                   thisProxy[(*itMeshGroundwaterMeshNeighbor).region]
-                            .sendMeshGroundwaterMeshNeighborCheckInvariant((*itMesh).second.elementNumber, *itMeshGroundwaterMeshNeighbor);
+                            .sendMeshGroundwaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshGroundwaterMeshNeighbor);
                 }
             }
 
@@ -662,7 +664,7 @@ bool Region::checkInvariant()
               (*itMeshGroundwaterChannelNeighbor).neighborInvariantChecked = false;
 
               thisProxy[(*itMeshGroundwaterChannelNeighbor).region]
-                        .sendChannelGroundwaterMeshNeighborCheckInvariant((*itMesh).second.elementNumber, *itMeshGroundwaterChannelNeighbor);
+                        .sendChannelGroundwaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshGroundwaterChannelNeighbor);
             }
         }
     }
@@ -680,7 +682,7 @@ bool Region::checkInvariant()
               (*itChannelSurfacewaterMeshNeighbor).neighborInvariantChecked = false;
 
               thisProxy[(*itChannelSurfacewaterMeshNeighbor).region]
-                        .sendMeshSurfacewaterChannelNeighborCheckInvariant((*itChannel).second.elementNumber, *itChannelSurfacewaterMeshNeighbor);
+                        .sendMeshSurfacewaterChannelNeighborCheckInvariant(currentTime, (*itChannel).second.elementNumber, *itChannelSurfacewaterMeshNeighbor);
             }
 
           for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
@@ -695,7 +697,7 @@ bool Region::checkInvariant()
                   (*itChannelSurfacewaterChannelNeighbor).neighborInvariantChecked = false;
 
                   thisProxy[(*itChannelSurfacewaterChannelNeighbor).region]
-                            .sendChannelSurfacewaterChannelNeighborCheckInvariant((*itChannel).second.elementNumber, *itChannelSurfacewaterChannelNeighbor);
+                            .sendChannelSurfacewaterChannelNeighborCheckInvariant(currentTime, (*itChannel).second.elementNumber, *itChannelSurfacewaterChannelNeighbor);
                 }
             }
 
@@ -705,7 +707,7 @@ bool Region::checkInvariant()
               (*itChannelGroundwaterMeshNeighbor).neighborInvariantChecked = false;
 
               thisProxy[(*itChannelGroundwaterMeshNeighbor).region]
-                        .sendMeshGroundwaterChannelNeighborCheckInvariant((*itChannel).second.elementNumber, *itChannelGroundwaterMeshNeighbor);
+                        .sendMeshGroundwaterChannelNeighborCheckInvariant(currentTime, (*itChannel).second.elementNumber, *itChannelGroundwaterMeshNeighbor);
             }
         }
     }
@@ -730,637 +732,735 @@ bool Region::checkInvariant()
   return error;
 }
 
-void Region::handleMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy)
+void Region::handleMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendMeshSurfacewaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementX == neighborsProxy.neighborX))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborX does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementY == neighborsProxy.neighborY))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborY does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborArea does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalX == -neighborsProxy.edgeNormalX))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeNormalX does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalY == -neighborsProxy.edgeNormalY))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeNormalY does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].manningsN == neighborsProxy.neighborManningsN))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborManningsN does not match.\n");
+          CkExit();
+        }
+
+      meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementX == neighborsProxy.neighborX))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborX does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementY == neighborsProxy.neighborY))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborY does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborArea does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalX == -neighborsProxy.edgeNormalX))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeNormalX does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalY == -neighborsProxy.edgeNormalY))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor edgeNormalY does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].manningsN == neighborsProxy.neighborManningsN))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor neighborManningsN does not match.\n");
-      CkExit();
-    }
-  
-  meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy)
+void Region::handleMeshSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendMeshSurfacewaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset == neighborsProxy.neighborZOffset))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborArea does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset == neighborsProxy.neighborZOffset))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor neighborArea does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy)
+void Region::handleMeshGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendMeshGroundwaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+            neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+            -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementX == neighborsProxy.neighborX))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborX does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementY == neighborsProxy.neighborY))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborY does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.layerZBottom == neighborsProxy.neighborLayerZBottom))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborLayerZBottom does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborArea does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalX == -neighborsProxy.edgeNormalX))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeNormalX does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalY == -neighborsProxy.edgeNormalY))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeNormalY does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.conductivity == neighborsProxy.neighborConductivity))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborConductivity does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.porosity == neighborsProxy.neighborPorosity))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborPorosity does not match.\n");
+          CkExit();
+        }
+
+      meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-        neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-        -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementX == neighborsProxy.neighborX))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborX does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementY == neighborsProxy.neighborY))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborY does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.layerZBottom == neighborsProxy.neighborLayerZBottom))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborLayerZBottom does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementArea == neighborsProxy.neighborArea))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborArea does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalX == -neighborsProxy.edgeNormalX))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeNormalX does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeNormalY == -neighborsProxy.edgeNormalY))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor edgeNormalY does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.conductivity == neighborsProxy.neighborConductivity))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborConductivity does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.porosity == neighborsProxy.neighborPorosity))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor neighborPorosity does not match.\n");
-      CkExit();
-    }
-  
-  meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy)
+void Region::handleMeshGroundwaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendMeshGroundwaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(meshElements.find(neighborsProxy.neighbor) != meshElements.end()))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+            neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+            -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.layerZBottom == neighborsProxy.neighborLayerZBottom))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborLayerZBottom does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset ==
+            neighborsProxy.neighborZOffset))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
+          CkExit();
+        }
+
+      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-        neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-        -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].elementZSurface == neighborsProxy.neighborZSurface))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.layerZBottom == neighborsProxy.neighborLayerZBottom))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborLayerZBottom does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset ==
-        neighborsProxy.neighborZOffset))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
-      CkExit();
-    }
-  
-  if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy)
+void Region::handleChannelSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendChannelSurfacewaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset == neighborsProxy.neighborZOffset))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
+          CkExit();
+        }
+
+      channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZSurface does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset == neighborsProxy.neighborZOffset))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
-      CkExit();
-    }
-  
-  channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy)
+void Region::handleChannelSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendChannelSurfacewaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].channelType == neighborsProxy.neighborChannelType))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborChannelType does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZBed does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementLength == neighborsProxy.neighborLength))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborLength does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].manningsN == neighborsProxy.neighborManningsN))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborManningsN does not match.\n");
+          CkExit();
+        }
+
+      channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].channelType == neighborsProxy.neighborChannelType))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborChannelType does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborZBed does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementLength == neighborsProxy.neighborLength))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborLength does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].manningsN == neighborsProxy.neighborManningsN))
-    {
-      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor neighborManningsN does not match.\n");
-      CkExit();
-    }
-  
-  channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
-void Region::handleChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy)
+void Region::handleChannelGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy)
 {
-  if (!(thisIndex == neighborsProxy.region))
+  if (messageTime < currentTime)
     {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from the past.  This should "
+              "never happen.\n");
       CkExit();
     }
-  
-  if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+  else if (messageTime > currentTime)
     {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
-      CkExit();
+      // Message from the future.  Don't receive yet.  Send to self to receive later.
+      thisProxy[thisIndex].sendChannelGroundwaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+  else // if (messageTime == currentTime)
     {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
-      CkExit();
+      if (!(thisIndex == neighborsProxy.region))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect region.\n");
+          CkExit();
+        }
+
+      if (!(channelElements.find(neighborsProxy.neighbor) != channelElements.end()))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received at incorrect element.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighbor == neighbor))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor check invariant message received from incorrect neighbor.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+            neighborsProxy.expirationTime))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+            -neighborsProxy.nominalFlowRate))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
+                        -neighborsProxy.flowCumulativeShortTerm))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!epsilonEqual(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
+                        -neighborsProxy.flowCumulativeLongTerm))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZBed does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset ==
+            neighborsProxy.neighborZOffset))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].bedConductivity == neighborsProxy.neighborBedConductivity))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBedConductivity does not match.\n");
+          CkExit();
+        }
+
+      if (!(channelElements[neighborsProxy.neighbor].bedThickness == neighborsProxy.neighborBedThickness))
+        {
+          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBedThickness does not match.\n");
+          CkExit();
+        }
+
+      channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
     }
-  
-  if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-        neighborsProxy.expirationTime))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-        -neighborsProxy.nominalFlowRate))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
-                    -neighborsProxy.flowCumulativeShortTerm))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeShortTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!epsilonEqual(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeLongTerm,
-                    -neighborsProxy.flowCumulativeLongTerm))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor flowCumulativeLongTerm does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].elementZBed == neighborsProxy.neighborZBed))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZBed does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborZOffset ==
-        neighborsProxy.neighborZOffset))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborZOffset does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].edgeLength == neighborsProxy.edgeLength))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor edgeLength does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].baseWidth == neighborsProxy.neighborBaseWidth))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBaseWidth does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].sideSlope == neighborsProxy.neighborSideSlope))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborSideSlope does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].bedConductivity == neighborsProxy.neighborBedConductivity))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBedConductivity does not match.\n");
-      CkExit();
-    }
-  
-  if (!(channelElements[neighborsProxy.neighbor].bedThickness == neighborsProxy.neighborBedThickness))
-    {
-      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor neighborBedThickness does not match.\n");
-      CkExit();
-    }
-  
-  channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].neighborInvariantChecked = true;
 }
 
 bool Region::allNeighborInvariantsChecked()
