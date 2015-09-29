@@ -1,7 +1,7 @@
-#include "Reservoir.h"
+#include "IrrigatedLand.h"
 
-//Reservoir Constructor
-Reservoir::Reservoir(long long reachCode_):reachCode(reachCode_)
+//IrrigatedLand Constructor
+IrrigatedLand::IrrigatedLand(long long id_):id(id)
 {
     //Empty
 	/*
@@ -14,8 +14,8 @@ Reservoir::Reservoir(long long reachCode_):reachCode(reachCode_)
 	 */
 }
 
-//Reservoir Destructor
-Reservoir::~Reservoir()
+//IrrigatedLand Destructor
+IrrigatedLand::~IrrigatedLand()
 {
 
 }

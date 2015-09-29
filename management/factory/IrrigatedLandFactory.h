@@ -1,40 +1,40 @@
-#ifndef RES_FACTORY_H
-#define RES_FACTORY_H
+#ifndef IRR_LAND_FACTORY_H
+#define IRR_LAND_FACTORY_H
 #include "Creator.h"
 #include <map>
 #include <vector>
 
 /*
-    Factory class for reservoir managment components
+    Factory class for Irrigated Land components
 */
-class ReservoirFactory
+class IrrigatedLandFactory
 {
     private:
-    std::map<long long, Res_Creator*> table;
-    std::vector<Res_Creator*> creators;
+    std::map<long long, Parcel_Creator*> table;
+    std::vector<Parcel_Creator*> creators;
     public:
     /*
-     *	ReservoirFactory constructor
-     *	This function creates the reservoir factory.
+     *	IrrigatedLandFactory constructor
+     *	This function creates the IrrigatedLand factory.
      *	Each component needs to have its creator object
      *	defined, and the implementation will register the creator
      *	with the factory's table.
      */
-    ReservoirFactory();
+    IrrigatedLandFactory();
 
     /*
-     *	ReservoirFactory destructor
+     *	IrrigatedLandFactory destructor
      *	Responsible for removing creator instances from the creators vector
      */
-    ~ReservoirFactory();
+    ~IrrigatedLandFactory();
 
     /*
      *	Component creation
      *	Once components are their creators are in the map,
-     *	create can look up the appropriate component based on the reach code
-     *	and can create an appropriate reservoir object
+     *	create can look up the appropriate component based on the id
+     *	and can create an appropriate IrrigatedLand object
      */
-    Reservoir* create(long long reach);
+    IrrigatedLand* create(long long id);
     /*
      *	Reservoir Creator Registration
      *	resgisterReservoir adds an entry to the table map for each reach
@@ -45,7 +45,7 @@ class ReservoirFactory
      *	constructor, which takes a reference to the factory the reservoirCreator
      *	is being added to and calls this function to register itself.
      */
-    void registerReservoir(long long reach, Res_Creator* creator);
+    void registerParcel(long long id, Parcel_Creator* creator);
 
 };
 

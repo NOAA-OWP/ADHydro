@@ -1,6 +1,6 @@
-#include "Reservoir.h"
+#include "../components/IrrigatedLand.h"
 #include <iostream>
-class comp2 : public Reservoir
+class il_comp2 : public IrrigatedLand
 {
 public:
 
@@ -11,12 +11,12 @@ public:
 	 * initialized when the child is constructed so the reach code can be accessed via a generic
 	 * Reservoir*
 	 */
-	static const long long reachCode = 14050001003012;
-    comp2():Reservoir(this->reachCode){};
-    ~comp2(){};
-    double release()
+	static const long long id = 1;
+    il_comp2():IrrigatedLand(this->id){};
+    ~il_comp2(){};
+    double call()
     {
-        std::cout<<"Releasing Different Stuff from RC: "<<this->reachCode<<std::endl;
-        return 1.1;
+        std::cout<<"Irrigated Land "<<id<<" calling for water"<<std::endl;
+        return 21.1;
     }
 };
