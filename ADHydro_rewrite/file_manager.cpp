@@ -573,9 +573,9 @@ void FileManager::initializeFromASCIIFiles()
   int                vegetationType;           // Used to read vegetation type from the files.
   int                numberOfSoilLayers;       // Used to read the number of soil layers from the files.
   int                soilTypeReader;           // Used to read soil type from the files.
-  int                soilType;                 // Used to store soil type of the top layer.
+  int                soilType      = -1;       // Used to store soil type of the top layer.
   double             soilDepthReader;          // Used to read each soil layers thickness.
-  double             soilDepth;                // Used to store the sum of each soil layers thickness.
+  double             soilDepth     = 0.0;      // Used to store the sum of each soil layers thickness.
   int                alluvium;                 // Used to read whether an element has an alluvial aquifer.
   int                neighbor0;                // Used to read neighbors from the files.
   int                neighbor1;                // Used to read neighbors from the files.
@@ -594,8 +594,55 @@ void FileManager::initializeFromASCIIFiles()
   int                downstream;               // Used to read whether a channel neighbor is downstream.
   LongLongArrayPair* tempChannelPruned;        // For reallocing channelPruned.
 
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (isnan(ADHydro::centralMeridian))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: centralMeridian must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (isnan(ADHydro::falseEasting))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: falseEasting must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (isnan(ADHydro::falseNorthing))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: falseNorthing must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (isnan(ADHydro::referenceDate))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: referenceDate must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (isnan(ADHydro::currentTime))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: currentTime must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (isnan(ADHydro::dt))
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: dt must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+  
+  if (-1 == ADHydro::iteration)
+    {
+      CkError("ERROR in FileManager::initializeFromASCIIFiles: iteration must be set in the superfile.  It is not specified in the ASCII input files.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
   // Read mesh nodes.
-  error = readNodeAndZFiles(true);
+  if (!error)
+    {
+      error = readNodeAndZFiles(true);
+    }
 
   // Open file.
   if (!error)
@@ -2604,10 +2651,10 @@ void FileManager::meshMassageVegetationAndSoilType()
 
 int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
 {
-  int    ii;                // Loop counter.
-  int    neighbor = NOFLOW; // A neighbor of meshElement.
-  double neighborZBank;     // The bank Z coordinate of neighbor.
-  double edgeLength;        // The edge length to use for the new connection.
+  int    ii;                       // Loop counter.
+  int    neighbor      = NOFLOW;   // A neighbor of meshElement.
+  double neighborZBank = INFINITY; // The bank Z coordinate of neighbor.
+  double edgeLength;               // The edge length to use for the new connection.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(localMeshElementStart <= meshElement && meshElement < localMeshElementStart + localNumberOfMeshElements))
