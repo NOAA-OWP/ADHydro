@@ -73,7 +73,7 @@ module file_manager
             ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, ADHydro::currentTime, ADHydro::currentTime + ADHydro::simulationDuration,
                                                         globalNumberOfRegions);
             
-            ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy));
+            ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
             
             thisProxy.sendInitializationMessages(ADHydro::regionProxy);
           }
@@ -89,6 +89,10 @@ module file_manager
       }
       
       // FIXME receive state updates and output to file until simulation is finished.
+      serial
+      {
+        writeNetCDFFiles();
+      }
     }; // End entry void runUntilSimulationEnd().
     
     entry void getMeshVertexDataMessage(int requester, int node);

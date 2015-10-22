@@ -8,6 +8,8 @@
 #include "file_manager.decl.h"
 #pragma GCC diagnostic warning "-Wsign-compare"
 
+#include <netcdf.h>
+
 // MESH_ELEMENT_VERTICES_SIZE is always equal to MESH_ELEMENT_MESH_NEIGHBORS_SIZE
 #define MESH_ELEMENT_MESH_NEIGHBORS_SIZE (3)
 #define MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE (16)
@@ -132,10 +134,166 @@ public:
   void initializeFromASCIIFiles();
   
   // FIXME comment
+  bool NetCDFOpenForRead(const char* path, int* fileID);
+  
+  // FIXME comment
+  bool NetCDFCreateOrOpenForWrite(const char* path, int* fileID, bool* created);
+  
+  // FIXME comment
+  bool geometryCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool parameterCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool stateCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool displayCreateOrOpenForWrite(int* fileID);
+  
+  // Create a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to create.
+  // dimensionSize - The size of the dimension to create.
+  // dimensionID   - Scalar passed by reference will be filled in with the ID
+  //                 of the created dimension.
+  bool createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID);
+  
+  // Get the size of a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to get the size of.
+  // dimensionSize - Scalar passed by reference will be filled in with the size
+  //                 of the dimension.
+  bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize);
+  
+  // Create a variable in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID             - The file ID of the NetCDF file.
+  // variableName       - The name of the variable to create.
+  // dataType           - The type of the variable to create.
+  // numberOfDimensions - The number of dimensions of the variable to create.
+  // dimensionID0       - The ID of the first dimension of the variable.
+  // dimensionID1       - The ID of the second dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than two.
+  // dimensionID2       - The ID of the third dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than three.
+  bool createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
+                            int dimensionID2);
+  
+  // Read a variable from a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to read.
+  // instance              - The index of the first dimension to read.
+  //                         The count of the first dimension is always one.
+  //                         This reads one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to read.  This
+  //                         is ignored if the variable has less than two
+  //                         dimensions.
+  // numberOfNodesElements - The count of the second dimension to read.  If the
+  //                         variable has less than two dimensions this must be
+  //                         one. nodeElementStart and numberOfNodesElements
+  //                         combine to specify a subset of the nodes or
+  //                         elements stored in the variable.
+  // fileDimension         - The count of the third dimension to read.  The
+  //                         index of the third dimension is always zero.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // memoryDimension       - The size of the third dimension in memory.  This
+  //                         function can read an array whose third dimension
+  //                         in the file is smaller than the desired third
+  //                         dimension in memory.  In that case, what gets
+  //                         filled in to the extra cells depends on
+  //                         repeatLastValue and defaultValue.  It is an error
+  //                         if memoryDimension is less than fileDimension.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // repeatLastValue       - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is true the last value in each
+  //                         row of the third dimension in the file is repeated
+  //                         in the extra cells.  If repeatLastValue is false,
+  //                         defaultValue is used instead.
+  // defaultValue          - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is false the extra cells are
+  //                         filled in with defaultValue.  If repeatLastValue
+  //                         is true defaultValue is ignored.
+  // mandatory             - Whether the existence of the variable is
+  //                         mandatory.  If true, it is an error if the
+  //                         variable does not exist.  If false, this function
+  //                         does nothing if the variable does not exist.
+  // variable              - A pointer passed by reference.  The pointer (that
+  //                         is, *variable) may point to an array of size 1 *
+  //                         numberOfNodesElements * fileDimension, which is
+  //                         the size of the array that will be read, or it can
+  //                         be NULL.  If it is NULL it will be set to point to
+  //                         a newly allocated array.  This array, whether
+  //                         passed in or newly allocated is filled in with the
+  //                         values read from the NetCDF file.  Then, if
+  //                         memoryDimension is greater than fileDimension it
+  //                         is reallocated to the larger size.  NOTE: even if
+  //                         you pass in an array, it will be deleted and
+  //                         *variable will be set to point to a newly
+  //                         allocated array if memoryDimension is greater than
+  //                         fileDimension, but this will only happen if
+  //                         memoryDimension is greater than fileDimension.
+  //                         In any case, *variable will wind up pointing to an
+  //                         array of size 1 * numberOfNodesElements *
+  //                         memoryDimension.
+  template <typename T> bool readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
+                                                size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
+                                                T defaultValue, bool mandatory, T** variable);
+  
+  // Write a variable to a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to write.
+  // instance              - The index of the first dimension to write.
+  //                         The count of the first dimension is always one.
+  //                         This writes one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to write.
+  // numberOfNodesElements - The count of the second dimension to write.
+  //                         nodeElementStart and numberOfNodesElements combine
+  //                         to specify a subset of the nodes or elements
+  //                         stored in the variable.  They are ignored if the
+  //                         variable has less than two dimensions.
+  // memoryDimension       - The count of the third dimension to write.  This
+  //                         is ignored if the variable has less than three
+  //                         dimensions.
+  // variable              - An array of size 1 * numberOfNodesElements *
+  //                         memoryDimension which will be written into the
+  //                         variable in the file.
+  bool writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                           size_t memoryDimension, void* variable);
+  
+  // Initialize the file manager from NetCDF files.
   void initializeFromNetCDFFiles();
   
-  // FIXME remove
-  void setUpHardcodedMesh();
+  // FIXME comment
+  void writeNetCDFFiles();
   
   // Check if vertex variables need to be updated from node variables and if so
   // send out get vertex data messages.
