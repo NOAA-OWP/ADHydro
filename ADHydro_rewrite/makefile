@@ -1,25 +1,27 @@
 # Use these values for Mt Moran.
 
-#CHARMDIR   := /project/CI-WATER/tools/build/charm
-#HDF5DIR    := /apps/HDF5-mpi/intel/15.0.0/1.8.13
-#NETCDFDIR  := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
-#METISDIR   := /project/CI-WATER/tools
-#LIBDIRNAME := lib
-#EXTRAFLAGS := -DINTEL_COMPILER
+#CHARMDIR         := /project/CI-WATER/tools/build/charm
+#HDF5DIR          := /apps/HDF5-mpi/intel/15.0.0/1.8.13
+#NETCDFDIR        := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
+#METISDIR         := /project/CI-WATER/tools
+#LIBDIRNAME       := lib
+#EXTRAFLAGS       := -DINTEL_COMPILER
+#EXTRANETCDFFLAGS :=
 
 # Use these values for EN3038 lab.
 
-HDF5DIR    := /opt
-NETCDFDIR  := /opt
-METISDIR   := /opt
-LIBDIRNAME := lib64
-EXTRAFLAGS := -fdiagnostics-show-option
+HDF5DIR          := /opt
+NETCDFDIR        := /opt
+METISDIR         := /opt
+LIBDIRNAME       := lib64
+EXTRAFLAGS       := -fdiagnostics-show-option
+EXTRANETCDFFLAGS := -lcurl
 
 # Use these values for all.
 
 CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
