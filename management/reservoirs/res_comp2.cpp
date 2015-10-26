@@ -4,7 +4,7 @@
 //Test component class that subclasses both Reservoir and a District
 //This allows a component to be a reservoir as well as a subclass of a district
 //In this fashion, a reservoir can defer its release to a regional release function
-class comp2 : public Reservoir, District54
+class res_comp2 : public Reservoir, District54
 {
 public:
 
@@ -16,8 +16,8 @@ public:
 	 * Reservoir*
 	 */
 	static const long long reachCode = 14050001003012;
-    comp2():Reservoir(this->reachCode){/*call database, load target volume*/};
-    ~comp2(){};
+    res_comp2():Reservoir(this->reachCode){/*call database, load target volume*/};
+    ~res_comp2(){};
     double targetVolume;
     double release()
     {

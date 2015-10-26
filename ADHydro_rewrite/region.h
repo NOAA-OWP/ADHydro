@@ -218,25 +218,25 @@ public:
   bool checkInvariant();
   
   // FIXME comment
-  void handleMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy);
+  void handleMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy);
+  void handleMeshSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy);
+  void handleMeshGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy);
+  void handleMeshGroundwaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy);
+  void handleChannelSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy);
+  void handleChannelSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy);
   
   // FIXME comment
-  void handleChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy);
+  void handleChannelGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy);
   
   // FIXME comment
   bool allNeighborInvariantsChecked();

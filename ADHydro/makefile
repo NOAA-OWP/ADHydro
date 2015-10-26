@@ -1,31 +1,37 @@
 # Use these values for Yellowstone.
 
-#CHARMDIR   := /glade/p/work/rsteinke/tools/build/charm
-#METISDIR   := /glade/p/work/rsteinke/tools
-#LIBDIRNAME := lib
-#EXTRAFLAGS := -DINTEL_COMPILER -ld++ mpif90 -ld++-option -nofor_main
+#CHARMDIR         := /glade/p/work/rsteinke/tools/build/charm
+#METISDIR         := /glade/p/work/rsteinke/tools
+#LIBDIRNAME       := lib
+#EXTRAFLAGS       := -DINTEL_COMPILER -ld++ mpif90 -ld++-option -nofor_main
+#EXTRANETCDFFLAGS :=
+#EXTRAXMFFLAGS    :=
 
 # Use these values for Mt Moran.
 
-#CHARMDIR   := /project/CI-WATER/tools/build/charm
-#HDF5DIR    := /apps/HDF5-mpi/intel/15.0.0/1.8.13
-#NETCDFDIR  := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
-#METISDIR   := /project/CI-WATER/tools
-#LIBDIRNAME := lib
-#EXTRAFLAGS := -DINTEL_COMPILER
+#CHARMDIR         := /project/CI-WATER/tools/build/charm
+#HDF5DIR          := /apps/HDF5-mpi/intel/15.0.0/1.8.13
+#NETCDFDIR        := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
+#METISDIR         := /project/CI-WATER/tools
+#LIBDIRNAME       := lib
+#EXTRAFLAGS       := -DINTEL_COMPILER
+#EXTRANETCDFFLAGS :=
+#EXTRAXMFFLAGS    := -I/apps/NETCDF/netcdf-4.2.1.1_gcc/include -L/apps/NETCDF/netcdf-4.2.1.1_gcc/lib
 
 # Use these values for EN3038 lab.
 
-HDF5DIR    := /opt
-NETCDFDIR  := /opt
-METISDIR   := /opt
-LIBDIRNAME := lib64
-EXTRAFLAGS := -fdiagnostics-show-option -lgfortran
+HDF5DIR          := /opt
+NETCDFDIR        := /opt
+METISDIR         := /opt
+LIBDIRNAME       := lib64
+EXTRAFLAGS       := -fdiagnostics-show-option -lgfortran
+EXTRANETCDFFLAGS := -lcurl
+EXTRAXMFFLAGS    :=
 
 # Use these values for Mt Moran and EN3038 lab.
 
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 
 # Use these values for all.
 
@@ -122,10 +128,10 @@ adhydro_channel_preprocessing.o: adhydro_channel_preprocessing.cpp \
 	$(CHARMC) $< -o $@ $(CPPFLAGS)
 
 adhydro_create_xmf_file: $(ADHYDRO_CREATE_XMF_FILE_OBJS)
-	$(CC) $^ -o $@ -lnetcdf -g -Wall
+	$(CC) $^ -o $@ -lnetcdf -g -Wall $(EXTRAXMFFLAGS)
 
 adhydro_create_xmf_file.o: adhydro_create_xmf_file.c
-	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option
+	$(CC) $< -c -o $@ -g -Wall -fdiagnostics-show-option $(EXTRAXMFFLAGS)
 
 adhydro_offline_mass_balance_check: $(ADHYDRO_OFFLINE_MASS_BALANCE_CHECK_OBJS)
 	$(CC) $^ -o $@ -lnetcdf -g -Wall

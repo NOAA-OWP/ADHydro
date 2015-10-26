@@ -200,59 +200,59 @@ module region
           {
             case
             {
-              when sendMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy)
+              when sendMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleMeshSurfacewaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleMeshSurfacewaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy)
+              when sendMeshSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleMeshSurfacewaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleMeshSurfacewaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy)
+              when sendMeshGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleMeshGroundwaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleMeshGroundwaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy)
+              when sendMeshGroundwaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleMeshGroundwaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleMeshGroundwaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy)
+              when sendChannelSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy)
              {
                 serial
                 {
-                  handleChannelSurfacewaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleChannelSurfacewaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy)
+              when sendChannelSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleChannelSurfacewaterChannelNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleChannelSurfacewaterChannelNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
               
-              when sendChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy)
+              when sendChannelGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy)
               {
                 serial
                 {
-                  handleChannelGroundwaterMeshNeighborCheckInvariant(neighbor, neighborsProxy);
+                  handleChannelGroundwaterMeshNeighborCheckInvariant(messageTime, neighbor, neighborsProxy);
                 }
               }
             } // End case inside of while (!allNeighborInvariantsChecked()).
@@ -341,13 +341,13 @@ module region
       }
     }; // End entry void runUntilSimulationEnd();
     
-    entry void sendMeshSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy);
-    entry void sendMeshSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy);
-    entry void sendMeshGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy);
-    entry void sendMeshGroundwaterChannelNeighborCheckInvariant(int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy);
-    entry void sendChannelSurfacewaterMeshNeighborCheckInvariant(int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy);
-    entry void sendChannelSurfacewaterChannelNeighborCheckInvariant(int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy);
-    entry void sendChannelGroundwaterMeshNeighborCheckInvariant(int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy);
+    entry void sendMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterMeshNeighborProxy neighborsProxy);
+    entry void sendMeshGroundwaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelGroundwaterMeshNeighborProxy neighborsProxy);
+    entry void sendChannelSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterChannelNeighborProxy neighborsProxy);
+    entry void sendChannelSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterChannelNeighborProxy neighborsProxy);
+    entry void sendChannelGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterChannelNeighborProxy neighborsProxy);
     entry void sendInitializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3],
                                          double vertexYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit,
                                          double elementAreaInit, double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit,

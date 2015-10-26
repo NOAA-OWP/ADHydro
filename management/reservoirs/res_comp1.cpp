@@ -3,7 +3,7 @@
 /*
  * Test component class, extends the Reservoir class
  */
-class comp1 : public Reservoir
+class res_comp1 : public Reservoir
 {
     public:
 
@@ -14,8 +14,8 @@ class comp1 : public Reservoir
 	 * hold this variable, since it has to be static per subclass
 	 */
 	static const long long reachCode = 14050001002411;
-    comp1():Reservoir(this->reachCode){};
-    ~comp1(){};
+    res_comp1():Reservoir(this->reachCode){};
+    ~res_comp1(){};
     double release()
     {
         std::cout<<"Releasing Stuff from RC: "<<this->reachCode<<std::endl;

@@ -8,25 +8,33 @@
 #include "file_manager.decl.h"
 #pragma GCC diagnostic warning "-Wsign-compare"
 
+#include <netcdf.h>
+
 // MESH_ELEMENT_VERTICES_SIZE is always equal to MESH_ELEMENT_MESH_NEIGHBORS_SIZE
 #define MESH_ELEMENT_MESH_NEIGHBORS_SIZE (3)
-#define MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE (2)
-#define CHANNEL_ELEMENT_VERTICES_SIZE (10)
+#define MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE (16)
+#define CHANNEL_ELEMENT_VERTICES_SIZE (130)
 #define XDMF_SIZE (CHANNEL_ELEMENT_VERTICES_SIZE + 2) // channelElementVertices must have two extra values of XDMF metadata.
-#define CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE (2)
-#define CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE (2)
+#define CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE (66)
+#define CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE (18)
 
-typedef int    IntArrayMMN[MESH_ELEMENT_MESH_NEIGHBORS_SIZE];          // Fixed size array of ints.    Size is mesh    mesh neighbors.
-typedef double DoubleArrayMMN[MESH_ELEMENT_MESH_NEIGHBORS_SIZE];       // Fixed size array of doubles. Size is mesh    mesh neighbors.
-typedef int    IntArrayMCN[MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];       // Fixed size array of ints.    Size is mesh    channel neighbors.
-typedef double DoubleArrayMCN[MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];    // Fixed size array of doubles. Size is mesh    channel neighbors.
-typedef int    IntArrayXDMF[XDMF_SIZE];                                // Fixed size array of ints.    Size is channel vertices + 2.  This is used only for
-                                                                       // channelElementVertices.  See the comment of that variable for explanation.
-typedef double DoubleArrayCV[CHANNEL_ELEMENT_VERTICES_SIZE];           // Fixed size array of doubles. Size is channel vertices.
-typedef int    IntArrayCMN[CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];       // Fixed size array of ints.    Size is channel mesh neighbors.
-typedef double DoubleArrayCMN[CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];    // Fixed size array of doubles. Size is channel mesh neighbors.
-typedef int    IntArrayCCN[CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];    // Fixed size array of ints.    Size is channel channel neighbors.
-typedef double DoubleArrayCCN[CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE]; // Fixed size array of doubles. Size is channel channel neighbors.
+typedef int       IntArrayMMN[MESH_ELEMENT_MESH_NEIGHBORS_SIZE];          // Fixed size array of ints.       Size is mesh    mesh neighbors.
+typedef double    DoubleArrayMMN[MESH_ELEMENT_MESH_NEIGHBORS_SIZE];       // Fixed size array of doubles.    Size is mesh    mesh neighbors.
+typedef bool      BoolArrayMMN[MESH_ELEMENT_MESH_NEIGHBORS_SIZE];         // Fixed size array of bools.      Size is mesh    mesh neighbors.
+typedef int       IntArrayMCN[MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];       // Fixed size array of ints.       Size is mesh    channel neighbors.
+typedef double    DoubleArrayMCN[MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];    // Fixed size array of doubles.    Size is mesh    channel neighbors.
+typedef bool      BoolArrayMCN[MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];      // Fixed size array of bools.      Size is mesh    channel neighbors.
+typedef int       IntArrayXDMF[XDMF_SIZE];                                // Fixed size array of ints.       Size is channel vertices + 2.  This is used only
+                                                                          // for channelElementVertices.  See the comment of that variable for explanation.
+typedef double    DoubleArrayCV[CHANNEL_ELEMENT_VERTICES_SIZE];           // Fixed size array of doubles.    Size is channel vertices.
+typedef bool      BoolArrayCV[CHANNEL_ELEMENT_VERTICES_SIZE];             // Fixed size array of bools.      Size is channel vertices.
+typedef int       IntArrayCMN[CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];       // Fixed size array of ints.       Size is channel mesh neighbors.
+typedef double    DoubleArrayCMN[CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];    // Fixed size array of doubles.    Size is channel mesh neighbors.
+typedef bool      BoolArrayCMN[CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];      // Fixed size array of bools.      Size is channel mesh neighbors.
+typedef int       IntArrayCCN[CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];    // Fixed size array of ints.       Size is channel channel neighbors.
+typedef double    DoubleArrayCCN[CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE]; // Fixed size array of doubles.    Size is channel channel neighbors.
+typedef bool      BoolArrayCCN[CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];   // Fixed size array of bools.      Size is channel channel neighbors.
+typedef long long LongLongArrayPair[2];                                   // Fixed size array of long long.  Size is 2.
 
 // The group of file managers acts as an in-memory cache for values that are
 // read from and written to NetCDF files.  Reading and writing individual
@@ -108,14 +116,301 @@ public:
   // Destructor.  Dynamically allocated arrays need to be deleted.
   ~FileManager();
   
-  // FIXME comment
+  // This function pulls out some duplicate code that is the same for reading
+  // the mesh and channels .node and .z files.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // readMesh - If true read the mesh node and z files.  If false read the
+  //            channel node and z files.
+  bool readNodeAndZFiles(bool readMesh);
+  
+  // Initialize the file manager from ASCII files.
+  //
+  // ASCII files do not contain all of the file manager variables so some will
+  // be set to defaults in calculateDerivedValues.
   void initializeFromASCIIFiles();
   
   // FIXME comment
+  bool NetCDFOpenForRead(const char* path, int* fileID);
+  
+  // FIXME comment
+  bool NetCDFCreateOrOpenForWrite(const char* path, int* fileID, bool* created);
+  
+  // FIXME comment
+  bool geometryCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool parameterCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool stateCreateOrOpenForWrite(int* fileID);
+  
+  // FIXME comment
+  bool displayCreateOrOpenForWrite(int* fileID);
+  
+  // Create a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to create.
+  // dimensionSize - The size of the dimension to create.
+  // dimensionID   - Scalar passed by reference will be filled in with the ID
+  //                 of the created dimension.
+  bool createNetCDFDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID);
+  
+  // Get the size of a dimension in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID        - The file ID of the NetCDF file.
+  // dimensionName - The name of the dimension to get the size of.
+  // dimensionSize - Scalar passed by reference will be filled in with the size
+  //                 of the dimension.
+  bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize);
+  
+  // Create a variable in a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID             - The file ID of the NetCDF file.
+  // variableName       - The name of the variable to create.
+  // dataType           - The type of the variable to create.
+  // numberOfDimensions - The number of dimensions of the variable to create.
+  // dimensionID0       - The ID of the first dimension of the variable.
+  // dimensionID1       - The ID of the second dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than two.
+  // dimensionID2       - The ID of the third dimension of the variable.
+  //                      Ignored if numberOfDimensions is less than three.
+  bool createNetCDFVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
+                            int dimensionID2);
+  
+  // Read a variable from a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to read.
+  // instance              - The index of the first dimension to read.
+  //                         The count of the first dimension is always one.
+  //                         This reads one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to read.  This
+  //                         is ignored if the variable has less than two
+  //                         dimensions.
+  // numberOfNodesElements - The count of the second dimension to read.  If the
+  //                         variable has less than two dimensions this must be
+  //                         one. nodeElementStart and numberOfNodesElements
+  //                         combine to specify a subset of the nodes or
+  //                         elements stored in the variable.
+  // fileDimension         - The count of the third dimension to read.  The
+  //                         index of the third dimension is always zero.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // memoryDimension       - The size of the third dimension in memory.  This
+  //                         function can read an array whose third dimension
+  //                         in the file is smaller than the desired third
+  //                         dimension in memory.  In that case, what gets
+  //                         filled in to the extra cells depends on
+  //                         repeatLastValue and defaultValue.  It is an error
+  //                         if memoryDimension is less than fileDimension.  If
+  //                         the variable has less than three dimensions this
+  //                         must be one.
+  // repeatLastValue       - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is true the last value in each
+  //                         row of the third dimension in the file is repeated
+  //                         in the extra cells.  If repeatLastValue is false,
+  //                         defaultValue is used instead.
+  // defaultValue          - If there are extra cells to be filled in because
+  //                         memoryDimension is greater than fileDimension then
+  //                         if repeatLastValue is false the extra cells are
+  //                         filled in with defaultValue.  If repeatLastValue
+  //                         is true defaultValue is ignored.
+  // mandatory             - Whether the existence of the variable is
+  //                         mandatory.  If true, it is an error if the
+  //                         variable does not exist.  If false, this function
+  //                         does nothing if the variable does not exist.
+  // variable              - A pointer passed by reference.  The pointer (that
+  //                         is, *variable) may point to an array of size 1 *
+  //                         numberOfNodesElements * fileDimension, which is
+  //                         the size of the array that will be read, or it can
+  //                         be NULL.  If it is NULL it will be set to point to
+  //                         a newly allocated array.  This array, whether
+  //                         passed in or newly allocated is filled in with the
+  //                         values read from the NetCDF file.  Then, if
+  //                         memoryDimension is greater than fileDimension it
+  //                         is reallocated to the larger size.  NOTE: even if
+  //                         you pass in an array, it will be deleted and
+  //                         *variable will be set to point to a newly
+  //                         allocated array if memoryDimension is greater than
+  //                         fileDimension, but this will only happen if
+  //                         memoryDimension is greater than fileDimension.
+  //                         In any case, *variable will wind up pointing to an
+  //                         array of size 1 * numberOfNodesElements *
+  //                         memoryDimension.
+  template <typename T> bool readNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
+                                                size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
+                                                T defaultValue, bool mandatory, T** variable);
+  
+  // Write a variable to a NetCDF file.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // fileID                - The file ID of the NetCDF file.
+  // variableName          - The name of the variable to write.
+  // instance              - The index of the first dimension to write.
+  //                         The count of the first dimension is always one.
+  //                         This writes one particular instance in time.
+  // nodeElementStart      - The index of the second dimension to write.
+  // numberOfNodesElements - The count of the second dimension to write.
+  //                         nodeElementStart and numberOfNodesElements combine
+  //                         to specify a subset of the nodes or elements
+  //                         stored in the variable.  They are ignored if the
+  //                         variable has less than two dimensions.
+  // memoryDimension       - The count of the third dimension to write.  This
+  //                         is ignored if the variable has less than three
+  //                         dimensions.
+  // variable              - An array of size 1 * numberOfNodesElements *
+  //                         memoryDimension which will be written into the
+  //                         variable in the file.
+  bool writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                           size_t memoryDimension, void* variable);
+  
+  // Initialize the file manager from NetCDF files.
   void initializeFromNetCDFFiles();
   
-  // FIXME remove
-  void setUpHardcodedMesh();
+  // FIXME comment
+  void writeNetCDFFiles();
+  
+  // Check if vertex variables need to be updated from node variables and if so
+  // send out get vertex data messages.
+  void updateVertices();
+  
+  // Returns: true if all vertex information is updated, false otherwise.
+  bool allVerticesUpdated();
+  
+  // Send requested vertex coordinates.
+  //
+  // Parameters:
+  //
+  // requester - File manager requesting vertex coordinates.
+  // node      - Node index of vertex.
+  void getMeshVertexDataMessage(int requester, int node);
+  
+  // Send requested vertex coordinates.
+  //
+  // Parameters:
+  //
+  // requester - File manager requesting vertex coordinates.
+  // node      - Node index of vertex.
+  void getChannelVertexDataMessage(int requester, int node);
+  
+  // Receive requested vertex coordinates.
+  //
+  // Parameters:
+  //
+  // node     - Node index of vertex.
+  // x        - X coordinate of vertex.
+  // y        - Y coordinate of vertex.
+  // zSurface - Surface Z coordinate of vertex.
+  void handleMeshVertexDataMessage(int node, double x, double y, double zSurface);
+  
+  // Receive requested vertex coordinates.
+  //
+  // Parameters:
+  //
+  // node    - Node index of vertex.
+  // x       - X coordinate of vertex.
+  // y       - Y coordinate of vertex.
+  // zBank   - Bank Z coordinate of vertex.
+  void handleChannelVertexDataMessage(int node, double x, double y, double zBank);
+  
+  // Fix problems with mesh elements having invalid vegetation or soil type.
+  // This is a different function from meshMassage because it has to be called
+  // further up in calculateDerivedValues before Mannings's N, conductivity,
+  // and porosity are determined from vegetation and soil type.
+  void meshMassageVegetationAndSoilType();
+  
+  // To break digital dams in the mesh we arbitrarily connect mesh elements to
+  // the lowest channel element from the same catchment.  Catchment numbers for
+  // streams are stored in the channel element's reach code.  If a stream is
+  // pruned we may not find a channel element with that reach code in which
+  // case the return value indicates that no connection was made.  The caller
+  // should then find the reach code of an unpruned link downstream of the
+  // pruned stream and call this function again with that new reach code.
+  //
+  // Returns: The channel element number that meshElement was connected to, or
+  //          NOFLOW if no connection was made.
+  //
+  // Parameters:
+  //
+  // meshElement - The mesh element to connect to a channel element.
+  // reachCode   - The reach code of a channel element to connect to.
+  int breakMeshDigitalDam(int meshElement, long long reachCode);
+  
+  // Returns: A channel element immediately downstream of channelElement, or
+  //          OUTFLOW if channelElement has an outflow boundary, or NOFLOW if
+  //          channelElement has neither.  If channelElement has more than one
+  //          qualifying downstream channel element or a downstream channel
+  //          element and an outflow boundary the first one encountered is
+  //          returned arbitrarily.
+  //
+  // Parameters:
+  //
+  // channelElement - The channel element to find a channel element or outflow
+  //                  boundary downstream of.
+  int findDownstreamChannelElement(int channelElement);
+  
+  // To break digital dams in the channel network we first search recursively
+  // downstream from the dammed channel element to find a channel element lower
+  // than the dammed channel element.  All channel elements between the dammed
+  // channel element and the lower channel element have their ZBed lowered to
+  // be on a straight line slope between the two.
+  //
+  // Waterbodies are allowed to be dammed so if channelElement is a waterbody
+  // then its ZBed is lowered to match dammedChannelElement and it is used as
+  // the lower element.  This is also done if downstream of channelElement
+  // there is an outflow boundary or if channelElement has no downstream
+  // connections at all.
+  //
+  // The downstream search is done recursively by arbitrarily choosing the
+  // first downstream connection of channelElement.  This function could be
+  // improved for cases where elements have multiple downstream connections.
+  //
+  // Returns: The slope from the dammed channel element to the lower channel
+  //          element.
+  //
+  // Parameters:
+  //
+  // channelElement       - The channel element to check for being the lower
+  //                        element or to lower its ZBed if it is not.
+  // dammedChannelElement - The original channel element that has the digital
+  //                        dam.
+  // length               - The length in meters traversed so far to the
+  //                        beginning of channelElement.
+  double breakChannelDigitalDam(int channelElement, int dammedChannelElement, double length);
+  
+  // Fix digital dams and similar problems.
+  void meshMassage();
+  
+  // If a variable is not available the file managers attempt to derive it from
+  // other variables, for example element center coordinates from element
+  // vertex coordinates.  If a variable is not available and cannot be derived
+  // its array is unallocated and left as NULL.
+  void calculateDerivedValues();
   
   // FIXME comment
   void handleSendInitializationMessages(CProxy_Region regionProxy);
@@ -172,6 +467,7 @@ public:
   int*            meshCatchment;
   int*            meshVegetationType;
   int*            meshSoilType;
+  bool*           meshAlluvium;
   double*         meshElementX;
   double*         meshElementY;
   double*         meshElementZSurface;
@@ -205,28 +501,30 @@ public:
                   meshInfiltrationMethod;
   InfiltrationAndGroundwater::GroundwaterMethodEnum*
                   meshGroundwaterMethod;
-  IntArrayMMN*    meshSurfacewaterMeshNeighbors;
-  IntArrayMMN*    meshSurfacewaterMeshNeighborsRegion;
-  DoubleArrayMMN* meshSurfacewaterMeshNeighborsEdgeLength;
-  DoubleArrayMMN* meshSurfacewaterMeshNeighborsEdgeNormalX;
-  DoubleArrayMMN* meshSurfacewaterMeshNeighborsEdgeNormalY;
+  // FIXME vadose zone state
+  IntArrayMMN*    meshMeshNeighbors;
+  IntArrayMMN*    meshMeshNeighborsRegion;
+  BoolArrayMMN*   meshMeshNeighborsChannelEdge;
+  DoubleArrayMMN* meshMeshNeighborsEdgeLength;
+  DoubleArrayMMN* meshMeshNeighborsEdgeNormalX;
+  DoubleArrayMMN* meshMeshNeighborsEdgeNormalY;
+  BoolArrayMMN*   meshSurfacewaterMeshNeighborsConnection;
+  DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowRate;
   DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm;
-  IntArrayMCN*    meshSurfacewaterChannelNeighbors;
-  IntArrayMCN*    meshSurfacewaterChannelNeighborsRegion;
-  DoubleArrayMCN* meshSurfacewaterChannelNeighborsEdgeLength;
-  DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
-  DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
-  IntArrayMMN*    meshGroundwaterMeshNeighbors;
-  IntArrayMMN*    meshGroundwaterMeshNeighborsRegion;
-  DoubleArrayMMN* meshGroundwaterMeshNeighborsEdgeLength;
-  DoubleArrayMMN* meshGroundwaterMeshNeighborsEdgeNormalX;
-  DoubleArrayMMN* meshGroundwaterMeshNeighborsEdgeNormalY;
+  BoolArrayMMN*   meshGroundwaterMeshNeighborsConnection;
+  DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowRate;
   DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowCumulativeLongTerm;
-  IntArrayMCN*    meshGroundwaterChannelNeighbors;
-  IntArrayMCN*    meshGroundwaterChannelNeighborsRegion;
-  DoubleArrayMCN* meshGroundwaterChannelNeighborsEdgeLength;
+  IntArrayMCN*    meshChannelNeighbors;
+  IntArrayMCN*    meshChannelNeighborsRegion;
+  DoubleArrayMCN* meshChannelNeighborsEdgeLength;
+  BoolArrayMCN*   meshSurfacewaterChannelNeighborsConnection;
+  DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowRate;
+  DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
+  DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
+  BoolArrayMCN*   meshGroundwaterChannelNeighborsConnection;
+  DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowRate;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeLongTerm;
   
@@ -274,6 +572,8 @@ public:
   double*          channelElementBankFullDepth;
   double*          channelElementZBed;
   double*          channelElementLength;
+  double*          channelLatitude;
+  double*          channelLongitude;
   double*          channelBaseWidth;
   double*          channelSideSlope;
   double*          channelBedConductivity;
@@ -281,20 +581,48 @@ public:
   double*          channelManningsN;
   double*          channelSurfacewaterDepth;
   double*          channelSurfacewaterError;
-  IntArrayCMN*     channelSurfacewaterMeshNeighbors;
-  IntArrayCMN*     channelSurfacewaterMeshNeighborsRegion;
-  DoubleArrayCMN*  channelSurfacewaterMeshNeighborsEdgeLength;
+  double*          channelPrecipitationRate;
+  double*          channelPrecipitationCumulativeShortTerm;
+  double*          channelPrecipitationCumulativeLongTerm;
+  double*          channelEvaporationRate;
+  double*          channelEvaporationCumulativeShortTerm;
+  double*          channelEvaporationCumulativeLongTerm;
+  EvapoTranspirationStateStruct*
+                   channelEvapoTranspirationState;
+  IntArrayCMN*     channelMeshNeighbors;
+  IntArrayCMN*     channelMeshNeighborsRegion;
+  DoubleArrayCMN*  channelMeshNeighborsEdgeLength;
+  BoolArrayCMN*    channelSurfacewaterMeshNeighborsConnection;
+  DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowRate;
   DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm;
-  IntArrayCCN*     channelSurfacewaterChannelNeighbors;
-  IntArrayCCN*     channelSurfacewaterChannelNeighborsRegion;
-  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
-  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
-  IntArrayCMN*     channelGroundwaterMeshNeighbors;
-  IntArrayCMN*     channelGroundwaterMeshNeighborsRegion;
-  DoubleArrayCMN*  channelGroundwaterMeshNeighborsEdgeLength;
+  BoolArrayCMN*    channelGroundwaterMeshNeighborsConnection;
+  DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowRate;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeLongTerm;
+  IntArrayCCN*     channelChannelNeighbors;
+  IntArrayCCN*     channelChannelNeighborsRegion;
+  BoolArrayCCN*    channelChannelNeighborsDownstream;
+  BoolArrayCCN*    channelSurfacewaterChannelNeighborsConnection;
+  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowRate;
+  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
+  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
+  
+  // This array stores a lookup table of reach codes for pruned streams.
+  // channelPruned[n][0] stores the reach code of a pruned stream.
+  // channelPruned[n][1] stores the reach code of an unpruned channel that is
+  // downstream of the pruned stream and should be used in place of the pruned
+  // stream if needed.  This is only available if you initialize from ASCII
+  // files and is only used for meshMassage.
+  int                channelPrunedSize;     // The size of the allocated array pointed to by channelPruned.
+  int                numberOfChannelPruned; // The number of valid entries in channelPruned.
+  LongLongArrayPair* channelPruned;         // The lookup table of reach codes for pruned streams.
+  
+  // These arrays are used to record when vertex data and state update messages are received.
+  std::map< int, std::vector< std::pair< int, int > > > meshNodeLocation;
+  std::map< int, std::vector< std::pair< int, int > > > channelNodeLocation;
+  BoolArrayMMN*                                         meshVertexUpdated;
+  BoolArrayCV*                                          channelVertexUpdated;
 };
 
 #endif // __FILE_MANAGER_H__

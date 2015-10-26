@@ -1,5 +1,6 @@
 //#include "Reservoir.h"
 #include "factory/ReservoirFactory.h"
+#include "factory/IrrigatedLandFactory.h"
 #include <iostream>
 
 
@@ -24,12 +25,29 @@ int main(int argc, char** argv)
     //We don't need the factory anymore since the reservoirs are all created
     delete resFactory;
 
+    //Test Irrigated Lands
+    //Create an array of IrrigatedLand Objects
+    IrrigatedLand* parcels[numRes];
+    codes[0] = 0;
+    codes[1] = 1;
+    codes[2] = 2;
+    //Create the Irrigated Land Factory to instansiate the parcels
+    IrrigatedLandFactory* ilFactory = new IrrigatedLandFactory();
+    //create the parcel objects
+    for(int i = 0; i < numRes; i++)
+    {
+    	parcels[i] = ilFactory->create(codes[i]);
+    }
+    //Scrap the factory
+    delete ilFactory;
+
+
     //Call each reservoirs release
     for(int i = 0; i < numRes; i++)
     {
     	if(res[i] != NULL)
     	{
-    		std::cout<<"Test Driver: "<<res[i]->release()<<std::endl;
+    		std::cout<<"Test Driver res release: "<<res[i]->release()<<std::endl;
     	}
     	else
     	{
@@ -49,8 +67,21 @@ int main(int argc, char** argv)
     		std::cout<<"Found "<<id<<". Release: "<<res[i]->release()<<std::endl;
     	}
     }
+
+    //call each parcels "call"
+    for(int i = 0; i < numRes; i++)
+    {
+    	if(parcels[i] != NULL)
+    	{
+    		std::cout<<"Test Driver: parcel call "<<parcels[i]->call()<<std::endl;
+    	}
+    	else
+    	{
+    		std::cout<<"Test Driver: NULL parcel"<<std::endl;
+    	}
+    }
     /*
-     * IMPORTANT:Need to manually clean up the reservoirs
+     * IMPORTANT:Need to manually clean up the reservoirs and parcels
      *
      * To reduce memory footprint, the Factory is deleted before the
      * reservoir objects, since they are used throught the simulation
@@ -61,5 +92,6 @@ int main(int argc, char** argv)
     for(int i = 0; i < numRes; i++)
     {
     	delete res[i];
+    	delete parcels[i];
     }
 }
