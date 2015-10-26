@@ -1,7 +1,7 @@
 #include "ReservoirCreator.h"
 //NEED TO INCLUDE EACH COMPONENT DEFINITION AS WELL AS ADD TO CONSTRUCTOR
-#include "../components/comp1.cpp"
-#include "../components/comp2.cpp"
+#include "../reservoir/comp1.cpp"
+#include "../reservoir/comp2.cpp"
 
 //ReservoirFactory Constructor
 ReservoirFactory::ReservoirFactory()
