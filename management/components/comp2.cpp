@@ -1,6 +1,10 @@
 #include "Reservoir.h"
+#include "region1/subregion1/district54.h"
 #include <iostream>
-class comp2 : public Reservoir
+//Test component class that subclasses both Reservoir and a District
+//This allows a component to be a reservoir as well as a subclass of a district
+//In this fashion, a reservoir can defer its release to a regional release function
+class comp2 : public Reservoir, District54
 {
 public:
 
@@ -12,11 +16,13 @@ public:
 	 * Reservoir*
 	 */
 	static const long long reachCode = 14050001003012;
-    comp2():Reservoir(this->reachCode){};
+    comp2():Reservoir(this->reachCode){/*call database, load target volume*/};
     ~comp2(){};
+    double targetVolume;
     double release()
     {
         std::cout<<"Releasing Different Stuff from RC: "<<this->reachCode<<std::endl;
-        return 1.1;
+        
+        return District54::release();
     }
 };
