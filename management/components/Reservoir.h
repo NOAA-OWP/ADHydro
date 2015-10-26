@@ -4,6 +4,7 @@
 /*
     Base class for reservoir managment components
 */
+
 class Reservoir
 {
     public:
@@ -17,7 +18,7 @@ class Reservoir
         reachCode_  the NHD reachCode identifier for the water body
     */
     Reservoir(long long reachCode_);
-
+    Reservoir(){};
     /*
         Reservoir destrcutor
         Most destrcution will be unique to the individual subclasses, but global destrcution
@@ -32,4 +33,5 @@ class Reservoir
     */
     virtual double release() = 0;
 };
+
 #endif

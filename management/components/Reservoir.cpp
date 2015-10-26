@@ -1,6 +1,6 @@
 #include "Reservoir.h"
 
-//Reservoir Constructor
+//Reservoir Constructor, sets reachCode on initialization
 Reservoir::Reservoir(long long reachCode_):reachCode(reachCode_)
 {
     //Empty
