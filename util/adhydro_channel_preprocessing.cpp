@@ -16,33 +16,33 @@
 
 // Locations of input files.  Edit these and recompile to change which files get read.
 // FIXME make these command line parameters.
-const char* streamNetworkShapefile                       = "/share/CI-WATER_Simulation_Data/small_green_mesh/projectednet";
-const char* waterbodiesShapefile                         = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies";
-const char* waterbodiesStreamsIntersectionsShapefile     = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_streams_intersections";
-const char* waterbodiesWaterbodiesIntersectionsShapefile = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh_waterbodies_waterbodies_intersections";
-const char* meshLinkFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.link";
-const char* meshNodeFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node";
-const char* meshElementFilename                          = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele";
-const char* meshEdgeFilename                             = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.edge";
+const char* streamNetworkShapefile                       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/projectednet";
+const char* waterbodiesShapefile                         = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh_waterbodies";
+const char* waterbodiesStreamsIntersectionsShapefile     = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh_waterbodies_streams_intersections";
+const char* waterbodiesWaterbodiesIntersectionsShapefile = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh_waterbodies_waterbodies_intersections";
+const char* meshLinkFilename                             = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.link";
+const char* meshNodeFilename                             = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.node";
+const char* meshElementFilename                          = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.ele";
+const char* meshEdgeFilename                             = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.edge";
 
 // Locations of output files.  Edit these and recompile to change which files get written.
 // FIXME make these command line parameters.
-const char* channelNodeFilename    = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.node";
-const char* channelElementFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.ele";
-const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.chan.prune";
+const char* channelNodeFilename    = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.node";
+const char* channelElementFilename = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.ele";
+const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.prune";
 
 // These values should be the same as the values in the ChannelElement class, but we can't include channel_element.h here because this isn't a Charm++ program.
 // If they are not the same it's actually not that bad.  When the output of this program gets read by the file managers if these numbers are less than the
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 130; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 18;  // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 66;  // Maximum number of mesh neighbors.
+const int ChannelElement_channelVerticesSize  = 1920; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 560;  // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 3072; // Maximum number of mesh neighbors.
 
-#define SHAPES_SIZE     (3)  // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE   (13) // Size of array of upstream links in ChannelLinkStruct.
-#define DOWNSTREAM_SIZE (5)  // Size of array of downstream links in ChannelLinkStruct.
+#define SHAPES_SIZE     (82)  // Size of array of shapes in ChannelLinkStruct.
+#define UPSTREAM_SIZE   (557) // Size of array of upstream links in ChannelLinkStruct.
+#define DOWNSTREAM_SIZE (24)  // Size of array of downstream links in ChannelLinkStruct.
 
 // Used for the return value of upstreamDownstream.
 typedef enum
@@ -1726,8 +1726,25 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
           reachCode = -1;
         }
 
-      ftype      = DBFReadStringAttribute(dbfFile, ii, permanentIndex);
-      numScanned = sscanf(ftype, "%lld", &permanent);
+      ftype = DBFReadStringAttribute(dbfFile, ii, permanentIndex);
+      
+      // Some permanent codes are formatted like GUIDs with hexadecimal numbers separated by '-'.  Read those as hexadecimal.
+      if (NULL == strchr(ftype, '-'))
+        {
+          // There are no '-' separators.  Read as decimal.
+          numScanned = sscanf(ftype, "%lld", &permanent);
+        }
+      else
+        {
+          // Some GUID permanent codes are enclosed with curly braces so skip over an opening curly brace.
+          if ('{' == ftype[0])
+            {
+              ftype++;
+            }
+          
+          // There are '-' separators.  Read as hexadecimal.  Some GUID permanent codes are enclosed with curly braces so skip over an opening curly brace.
+          numScanned = sscanf(ftype, "%llx", &permanent);
+        }
 
       // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
       if (1 != numScanned)
@@ -1766,7 +1783,7 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
           else if (!(0 == strcmp("LakePond", ftype)  || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
-                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype)))
+                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype) || 0 == strcmp("Playa", ftype)))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;
@@ -3070,7 +3087,8 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
               fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Failed to read shape %d from shp file %s.\n", ii, fileBasename);
               error = true;
             }
-          else if (!((8 == shape->nSHPType || 18 == shape->nSHPType || 28 == shape->nSHPType) && 0 == shape->nParts && 1 == shape->nVertices))
+          else if (!((1 == shape->nSHPType || 8 == shape->nSHPType || 11 == shape->nSHPType || 18 == shape->nSHPType || 21 == shape->nSHPType ||
+                      28 == shape->nSHPType) && 0 == shape->nParts && 1 == shape->nVertices))
             {
               fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Invalid shape %d from shp file %s.\n", ii, fileBasename);
               error = true;
@@ -4386,21 +4404,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
       numberOfChannelElements += channels[ii].numberOfElements;
     }
   
-  // Create arrays to hold the nodes and vertices. Start out assuming eight times as many nodes as elements.  Realloc if this proves too few.
-  channelNodesSize = 8 * numberOfChannelElements;
-  channelNodesX    = new double[channelNodesSize];
-  channelNodesY    = new double[channelNodesSize];
-  channelVertices  = new IntArrayCV[numberOfChannelElements];
-  
-  // channelVertices must be initialized because they may be written ahead.
-  for (jj = 0; jj < numberOfChannelElements; jj++)
-    {
-      for (kk = 0; kk < ChannelElement_channelVerticesSize; kk++)
-        {
-          channelVertices[jj][kk] = -1;
-        }
-    }
-  
   // Read in mesh node, element, and edge files to determine the edge length and mesh element neighbors of each channel edge.
   
   // FIXME this could be done in addAllStreamMeshEdges and saved for later.
@@ -4700,6 +4703,40 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
     {
       fclose(edgeFile);
       edgeFile = NULL;
+    }
+  
+  // deallocate arrays
+  if (NULL != meshNodesX)
+    {
+      delete[] meshNodesX;
+      meshNodesX = NULL;
+    }
+  
+  if (NULL != meshNodesY)
+    {
+      delete[] meshNodesY;
+      meshNodesY = NULL;
+    }
+  
+  if (NULL != meshVertices)
+    {
+      delete[] meshVertices;
+      meshVertices = NULL;
+    }
+  
+  // Create arrays to hold the nodes and vertices. Start out assuming eight times as many nodes as elements.  Realloc if this proves too few.
+  channelNodesSize = 8 * numberOfChannelElements;
+  channelNodesX    = new double[channelNodesSize];
+  channelNodesY    = new double[channelNodesSize];
+  channelVertices  = new IntArrayCV[numberOfChannelElements];
+  
+  // channelVertices must be initialized because they may be written ahead.
+  for (jj = 0; jj < numberOfChannelElements; jj++)
+    {
+      for (kk = 0; kk < ChannelElement_channelVerticesSize; kk++)
+        {
+          channelVertices[jj][kk] = -1;
+        }
     }
   
   // Loop over all links.  For each used link loop over its shapes creating channel nodes and filling in channel vertices as you go.
@@ -5055,7 +5092,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   if (kk < ChannelElement_channelVerticesSize)
                     {
                       // FIXME see if the point is a duplicate with any connected link.
-                      
                       createNode(shape->padfX[ll], shape->padfY[ll], &channelNodesSize, &numberOfChannelNodes, &channelNodesX, &channelNodesY,
                                  &channelVertices[channels[ii].elementStart][kk++]);
                     }
@@ -5691,7 +5727,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   // Print mesh neighbors to file
                   for (ll = 0; !error && ll < numberOfNeighbors; ll++)
                     {
-                      numPrinted = fprintf(outputFile, " %d %lf", meshNeighbors[ll], meshNeighborsEdgeLength[ll]);
+                      numPrinted = fprintf(outputFile, " %d %.2lf", meshNeighbors[ll], meshNeighborsEdgeLength[ll]);
 
     #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                       if (!(0 < numPrinted))
@@ -5708,7 +5744,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               while (!error && numberOfNeighbors < ChannelElement_meshNeighborsSize)
                 {
                   numberOfNeighbors++;
-                  numPrinted = fprintf(outputFile, " %d %lf", NOFLOW, 0.0);
+                  numPrinted = fprintf(outputFile, " %d %.0lf", NOFLOW, 0.0);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
                   if (!(0 < numPrinted))
@@ -5812,21 +5848,6 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   if (NULL != channelVertices)
     {
       delete[] channelVertices;
-    }
-  
-  if (NULL != meshNodesX)
-    {
-      delete[] meshNodesX;
-    }
-  
-  if (NULL != meshNodesY)
-    {
-      delete[] meshNodesY;
-    }
-  
-  if (NULL != meshVertices)
-    {
-      delete[] meshVertices;
     }
   
   if (NULL != meshEdgeElements)
