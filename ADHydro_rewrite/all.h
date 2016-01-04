@@ -8,12 +8,13 @@
 #include <cmath>
 #include <algorithm>
 
-// This macro is to accomodate the fact that all.h will sometimes be used for
-// non-Charm++ programs, but will be included in all_charm.h for Charm++
-// programs.  This macro is only meant to be used inside all.h or any code that
-// might be used sometimes with Charm++ and sometimes not.  If you know whether
-// some particular code uses Charm++ or not you should not use this macro.
-// Just use assert or CkAssert instead of ADHYDRO_ASSERT.
+// The ADHYDRO_ASSERT macro is used to accomodate the fact that all.h will
+// sometimes be used for non-Charm++ programs, but will be included in
+// all_charm.h for Charm++ programs.  ADHYDRO_ASSERT is only meant to be used
+// inside all.h or any code that might be used sometimes with Charm++ and
+// sometimes not.  If you know whether some particular code uses Charm++ or not
+// you should not use this macro. Just use assert or CkAssert instead of
+// ADHYDRO_ASSERT.
 #ifndef ADHYDRO_ASSERT
 #include <cassert>
 

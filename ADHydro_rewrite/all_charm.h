@@ -10,12 +10,12 @@
 #include <charm++.h>
 #pragma GCC diagnostic warning "-Wsign-compare"
 
-// This macro is to accomodate the fact that all.h will also be used for
-// non-Charm++ programs, but here we want some of the things in all.h set up to
-// be used for Charm++ programs.  This macro is only meant to be used inside
-// all.h or any code that might be used sometimes with Charm++ and sometimes
-// not.  If you know whether some particular code uses Charm++ or not you
-// should not use this macro.  Just use assert or CkAssert instead of
+// The ADHYDRO_ASSERT macro is used to accomodate the fact that all.h will
+// sometimes be used for non-Charm++ programs, but will be included in
+// all_charm.h for Charm++ programs.  ADHYDRO_ASSERT is only meant to be used
+// inside all.h or any code that might be used sometimes with Charm++ and
+// sometimes not.  If you know whether some particular code uses Charm++ or not
+// you should not use this macro. Just use assert or CkAssert instead of
 // ADHYDRO_ASSERT.
 #define ADHYDRO_ASSERT CkAssert
 
