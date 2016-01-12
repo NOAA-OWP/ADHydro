@@ -259,8 +259,8 @@ public:
                           // Whenever vadose zone state is needed it is assumed to be in equilibrium with groundwaterHead.  If groundwaterMethod is
                           // SHALLOW_AQUIFER then quantity of water in the domain is groundwaterRecharge + (groundwaterHead - layerZBottom) * porosity, and no
                           // vadose zone water is counted.  If groundwaterMethod is DEEP_AQUIFER then quantity of water in the domain is groundwaterRecharge.
-    GARTO_INFILTRATION,   // Vadose zone water is simulated using Green-Ampt infiltration and redistribution method for surface wetting front and T-O method
-                          // for groundwater front.
+    GARTO_INFILTRATION,   // Vadose zone water is simulated using the Green-Ampt infiltration and redistribution method for the surface wetting front and the
+                          // T-O method for the groundwater front.
   };
   
   enum GroundwaterMethodEnum
@@ -269,9 +269,56 @@ public:
     DEEP_AQUIFER,    // The water table is assumed to always be below the modeled domain.  Any water that makes it to groundwaterRecharge gets sent immediately
                      // to an aquifer storage bucket, which may collect water from many elements.  There is no lateral flow to neighboring elements.  The
                      // meshNeighbors and channelNeighbors vectors must be empty.  The member variable groundwaterHead still needs a valid value because it is
-                     // used to fill in the soil moisture struct, but its value is never changed.
+                     // used to fill in the soil moisture struct.  The value should be below layerZBottom, and its value is never changed.
     SHALLOW_AQUIFER, // Both vadose zone and water table are modeled.  Water that makes it to groundwaterRecharge stays in the modeled domain.  Water below
                      // groundwaterHead may flow laterally to neighboring elements.
+  };
+  
+  // Because the vadose zone state may contain dynamically allocated data we need to have a copy constructor and assignment operator to make a deep copy of it
+  // and a destructor to deallocate it.  This class wraps a pointer to the vadose zone state and provides those methods.
+  class VadoseZone
+  {
+  public:
+    
+    // Default constructor.  Only needed for pup_stl.h code.
+    VadoseZone();
+    
+    // Constructor.
+    //
+    // All parameters directly initialize member variables.  For description
+    // see member variables.  The VadoseZone object takes ownership of any
+    // dynamic data pointed to by vadoseZoneStateInit.  No deep copy is made.
+    VadoseZone(InfiltrationMethodEnum infiltrationMethodInit, void* vadoseZoneStateInit);
+    
+    // Copy constructor.
+    VadoseZone(const VadoseZone &other);
+    
+    // Destructor.
+    ~VadoseZone();
+    
+    // Assignment operator.
+    VadoseZone& operator=(const VadoseZone &other);
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    void pup(PUP::er &p);
+    
+    // Check invariant conditions.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    bool checkInvariant();
+    
+    // The method to use to calculate infiltration.
+    InfiltrationMethodEnum infiltrationMethod;
+    
+    // The state of the vadose zone.  What this is depends on infiltrationMethod:
+    //   NO_INFILTRATION      - NULL.
+    //   TRIVIAL_INFILTRATION - NULL.
+    //   GARTO_INFILTRATION   - Pointer to garto_domain.
+    void* state;
   };
   
   // Default constructor.  Only needed for pup_stl.h code.
@@ -283,10 +330,10 @@ public:
   // member variables.
   //
   // meshNeighbors and channelNeighbors are initialized to empty.
-  InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
-                             int soilTypeInit, double layerZBottomInit, double slopeXInit, double slopeYInit,
-                             double conductivityInit, double porosityInit, double groundwaterHeadInit,
-                             double groundwaterRechargeInit, double groundwaterErrorInit, void* vadoseZoneStateInit);
+  InfiltrationAndGroundwater(GroundwaterMethodEnum  groundwaterMethodInit, int soilTypeInit, double layerZBottomInit,
+                             double slopeXInit, double slopeYInit, double conductivityInit, double porosityInit,
+                             double groundwaterHeadInit, double groundwaterRechargeInit, double groundwaterErrorInit,
+                             VadoseZone& vadoseZoneInit);
   
   // Charm++ pack/unpack method.
   //
@@ -469,8 +516,7 @@ public:
   // elementArea   - Pass value from MeshElement object.
   bool massBalance(double& waterInDomain, double& externalFlows, double& waterError, double elementArea);
   
-  // The methods to use to calculate infiltration and groundwater flow.
-  InfiltrationMethodEnum infiltrationMethod;
+  // The method to use to calculate groundwater flow.
   GroundwaterMethodEnum  groundwaterMethod;
   
   // Identification parameters.
@@ -491,10 +537,7 @@ public:
   double groundwaterError;    // Meters of water.  Positive means water was created.  Negative means water was destroyed.
   
   // Vadose zone variables.
-  void* vadoseZoneState; // What this is depends on infiltrationMethod:
-                         //   NO_INFILTRATION      - NULL.
-                         //   TRIVIAL_INFILTRATION - NULL.
-                         //   GARTO_INFILTRATION   - Pointer to garto_domain.
+  VadoseZone vadoseZone;
   
   // Neighbors.
   std::vector<MeshGroundwaterMeshNeighborProxy>    meshNeighbors;
@@ -529,8 +572,7 @@ public:
               double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
               double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
               EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-              InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-              InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit);
+              InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, InfiltrationAndGroundwater::VadoseZone vadoseZoneInit);
   
   // Charm++ pack/unpack method.
   //

@@ -4,7 +4,7 @@
 #include "garto.h"
 
 RegionMessage::RegionMessage() :
-  messageType(MESH_SURFACEWATER_MESH_NEIGHBOR),
+  messageType(MESH_SURFACEWATER_MESH_NEIGHBOR), // Dummy values will be overwritten by pup_stl.h code.
   recipientElementNumber(0),
   recipientNeighborProxyIndex(0),
   senderSurfacewaterDepth(0.0),
@@ -132,6 +132,8 @@ bool RegionMessage::checkInvariant()
 }
 
 simpleNeighborInfo::simpleNeighborInfo() :
+  expirationTime(0.0), // Dummy values will be overwritten by pup_stl.h code.
+  nominalFlowRate(0.0),
   flowCumulativeShortTerm(0.0),
   flowCumulativeLongTerm(0.0),
   region(0),
@@ -143,8 +145,11 @@ simpleNeighborInfo::simpleNeighborInfo() :
   // Initialization handled by initialization list.
 }
 
-simpleNeighborInfo::simpleNeighborInfo(double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit, int neighborInit,
-                                       double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit) :
+simpleNeighborInfo::simpleNeighborInfo(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                                       double flowCumulativeLongTermInit, int regionInit, int neighborInit, double edgeLengthInit, double edgeNormalXInit,
+                                       double edgeNormalYInit) :
+  expirationTime(expirationTimeInit),
+  nominalFlowRate(nominalFlowRateInit),
   flowCumulativeShortTerm(flowCumulativeShortTermInit),
   flowCumulativeLongTerm(flowCumulativeLongTermInit),
   region(regionInit),
@@ -184,6 +189,8 @@ simpleNeighborInfo::simpleNeighborInfo(double flowCumulativeShortTermInit, doubl
 
 void simpleNeighborInfo::pup(PUP::er &p)
 {
+  p | expirationTime;
+  p | nominalFlowRate;
   p | flowCumulativeShortTerm;
   p | flowCumulativeLongTerm;
   p | region;
@@ -1467,7 +1474,7 @@ bool Region::allNeighborInvariantsChecked()
 {
   bool allChecked = true; // Stays true until we find one that is not checked.
   
-  // FIXME I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  Performance isn't as important for invariant checking code
+  // FIXLATER I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  Performance isn't as important for invariant checking code
   // that gets turned off for performance critical runs.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Iterators must not be in use at this time.
@@ -1535,15 +1542,48 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
                                          EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-                                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
-                                         std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
+                                         InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                          std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                          std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors)
 {
   std::vector<simpleNeighborInfo>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+  // Most parameters are error checked in the MeshElement constructor.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+
+  for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+
+  for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+
+  for (it = groundwaterChannelNeighbors.begin(); it != groundwaterChannelNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   
   // Insert element in this region's elements vector.
   meshElements.insert(std::pair<int, MeshElement>(elementNumberInit,
@@ -1555,15 +1595,15 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
                                                               precipitationCumulativeLongTermInit, evaporationRateInit, evaporationCumulativeShortTermInit,
                                                               evaporationCumulativeLongTermInit, transpirationRateInit, transpirationCumulativeShortTermInit,
                                                               transpirationCumulativeLongTermInit, evapoTranspirationForcingInit, evapoTranspirationStateInit,
-                                                              infiltrationMethodInit, groundwaterMethodInit, NULL /* FIXME vadoseZoneStateInit */)));
+                                                              groundwaterMethodInit, vadoseZoneInit)));
   
   // Insert neighbor proxies and send init messages to neighbors.
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].meshNeighbors.push_back(
-          MeshSurfacewaterMeshNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                            0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength, (*it).edgeNormalX, (*it).edgeNormalY,
-                                            isBoundary((*it).neighbor) ? 0.0 : 1.0));
+          MeshSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                            (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength,
+                                            (*it).edgeNormalX, (*it).edgeNormalY, isBoundary((*it).neighbor) ? 0.0 : 1.0));
       
       if (isBoundary((*it).neighbor))
         {
@@ -1580,8 +1620,8 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].channelNeighbors.push_back(
-          MeshSurfacewaterChannelNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                               0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0));
+          MeshSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                               (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0));
       
       thisProxy[(*it).region].sendChannelSurfacewaterMeshNeighborInitMessage(
           (*it).neighbor, elementNumberInit, meshElements[elementNumberInit].channelNeighbors.size() - 1, vertexXInit, vertexYInit, elementXInit, elementYInit,
@@ -1591,9 +1631,10 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].underground.meshNeighbors.push_back(
-          MeshGroundwaterMeshNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                           0.0, 0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength, (*it).edgeNormalX, (*it).edgeNormalY,
-                                           isBoundary((*it).neighbor) ? 0.0 : 1.0, isBoundary((*it).neighbor) ? 0.0 : 1.0));
+          MeshGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                           (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength,
+                                           (*it).edgeNormalX, (*it).edgeNormalY, isBoundary((*it).neighbor) ? 0.0 : 1.0,
+                                           isBoundary((*it).neighbor) ? 0.0 : 1.0));
       
       if (isBoundary((*it).neighbor))
         {
@@ -1610,8 +1651,8 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = groundwaterChannelNeighbors.begin(); it != groundwaterChannelNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].underground.channelNeighbors.push_back(
-          MeshGroundwaterChannelNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                              0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0, 1.0, 1.0));
+          MeshGroundwaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                              (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0, 1.0, 1.0));
       
       thisProxy[(*it).region].sendChannelGroundwaterMeshNeighborInitMessage(
           (*it).neighbor, elementNumberInit, meshElements[elementNumberInit].underground.channelNeighbors.size() - 1, vertexXInit, vertexYInit, elementXInit,
@@ -1621,29 +1662,62 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
 
 void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
-                                            double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
-                                            double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                                            double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double precipitationRateInit, double precipitationCumulativeShortTermInit,
+                                            double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
+                                            double evaporationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                            EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                             std::vector<simpleNeighborInfo> groundwaterMeshNeighbors)
 {
   std::vector<simpleNeighborInfo>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+  // Most parameters are error checked in the ChannelElement constructor.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+
+  for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+
+  for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
+    {
+      if ((*it).checkInvariant())
+        {
+          CkExit();
+        }
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
   
   // Insert element in this region's elements vector.
   channelElements.insert(std::pair<int, ChannelElement>(elementNumberInit,
                                                         ChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, elementXInit, elementYInit,
-                                                                       elementZBankInit, elementZBedInit, elementLengthInit, baseWidthInit, sideSlopeInit,
-                                                                       bedConductivityInit, bedThicknessInit, manningsNInit, surfacewaterDepthInit,
-                                                                       surfacewaterErrorInit)));
+                                                                       elementZBankInit, elementZBedInit, elementLengthInit, latitudeInit, longitudeInit,
+                                                                       baseWidthInit, sideSlopeInit, bedConductivityInit, bedThicknessInit, manningsNInit,
+                                                                       surfacewaterDepthInit, surfacewaterErrorInit, precipitationRateInit,
+                                                                       precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit,
+                                                                       evaporationRateInit, evaporationCumulativeShortTermInit,
+                                                                       evaporationCumulativeLongTermInit, evapoTranspirationForcingInit, evapoTranspirationStateInit)));
   
   // Insert neighbor proxies and send init messages to neighbors.
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       channelElements[elementNumberInit].meshNeighbors.push_back(
-          ChannelSurfacewaterMeshNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                               0.0, 0.0, 1.0, (*it).edgeLength));
+          ChannelSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                               (*it).region, (*it).neighbor, 0, 0.0, 0.0, 1.0, (*it).edgeLength));
       
       thisProxy[(*it).region].sendMeshSurfacewaterChannelNeighborInitMessage(
               (*it).neighbor, elementNumberInit, channelElements[elementNumberInit].meshNeighbors.size() - 1, channelTypeInit, elementXInit, elementYInit,
@@ -1653,9 +1727,10 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
     {
       channelElements[elementNumberInit].channelNeighbors.push_back(
-          ChannelSurfacewaterChannelNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor,
-                                                  0, isBoundary((*it).neighbor) ? NOT_USED : STREAM, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0,
-                                                  isBoundary((*it).neighbor) ? 0.0 : 1.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0));
+          ChannelSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                                  (*it).region, (*it).neighbor, 0, isBoundary((*it).neighbor) ? NOT_USED : STREAM, 0.0, 0.0,
+                                                  isBoundary((*it).neighbor) ? 0.0 : 1.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, 0.0,
+                                                  isBoundary((*it).neighbor) ? 0.0 : 1.0));
       
       if (isBoundary((*it).neighbor))
         {
@@ -1672,8 +1747,8 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
     {
       channelElements[elementNumberInit].undergroundMeshNeighbors.push_back(
-          ChannelGroundwaterMeshNeighborProxy(currentTime, 0.0, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm, (*it).region, (*it).neighbor, 0,
-                                              0.0, 0.0, 0.0, (*it).edgeLength));
+          ChannelGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+                                              (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength));
       
       thisProxy[(*it).region].sendMeshGroundwaterChannelNeighborInitMessage(
           (*it).neighbor, elementNumberInit, channelElements[elementNumberInit].undergroundMeshNeighbors.size() - 1, channelTypeInit, elementXInit, elementYInit,
@@ -1686,7 +1761,31 @@ void Region::handleMeshSurfacewaterMeshNeighborInitMessage(int element, int neig
 {
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(meshElements.find(element) != meshElements.end()))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborArea))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborInitMessage: neighborArea must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborManningsN))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborInitMessage: neighborManningsN must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = meshElements[element].meshNeighbors.begin();
   
@@ -1719,7 +1818,49 @@ void Region::handleMeshSurfacewaterChannelNeighborInitMessage(int element, int n
 {
   std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(meshElements.find(element) != meshElements.end()))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+
+  if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: neighborChannelType must be STREAM or WATERBODY or ICEMASS.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: neighborZBank must be greater than or equal to neighborZBed.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: neighborBaseWidth must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: neighborSideSlope must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBaseWidth || 0.0 < neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborInitMessage: one of neighborBaseWidth or neighborSideSlope must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = meshElements[element].channelNeighbors.begin();
   
@@ -1755,7 +1896,43 @@ void Region::handleMeshGroundwaterMeshNeighborInitMessage(int element, int neigh
 {
   std::vector<MeshGroundwaterMeshNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(meshElements.find(element) != meshElements.end()))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZSurface >= neighborLayerZBottom))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: neighborZSurface must be greater than or equal to neighborLayerZBottom.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborArea))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: neighborArea must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborConductivity))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: neighborConductivity must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborPorosity))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborInitMessage: neighborPorosity must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = meshElements[element].underground.meshNeighbors.begin();
   
@@ -1791,7 +1968,61 @@ void Region::handleMeshGroundwaterChannelNeighborInitMessage(int element, int ne
 {
   std::vector<MeshGroundwaterChannelNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(meshElements.find(element) != meshElements.end()))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+
+  if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborChannelType must be STREAM or WATERBODY or ICEMASS.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborZBank must be greater than or equal to neighborZBed.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborBaseWidth must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborSideSlope must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBaseWidth || 0.0 < neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: one of neighborBaseWidth or neighborSideSlope must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBedConductivity))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborBedConductivity must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBedThickness))
+    {
+      CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborInitMessage: neighborBedThickness must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = meshElements[element].underground.channelNeighbors.begin();
   
@@ -1829,7 +2060,25 @@ void Region::handleChannelSurfacewaterMeshNeighborInitMessage(int element, int n
 {
   std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(channelElements.find(element) != channelElements.end()))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborArea))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborInitMessage: neighborArea must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = channelElements[element].meshNeighbors.begin();
   
@@ -1862,7 +2111,61 @@ void Region::handleChannelSurfacewaterChannelNeighborInitMessage(int element, in
 {
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(channelElements.find(element) != channelElements.end()))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+
+  if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborChannelType must be STREAM or WATERBODY or ICEMASS.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZBank >= neighborZBed))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborZBank must be greater than or equal to neighborZBed.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborLength))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborLength must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborBaseWidth))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborBaseWidth must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 <= neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborSideSlope must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborBaseWidth || 0.0 < neighborSideSlope))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: one of neighborBaseWidth or neighborSideSlope must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < neighborManningsN))
+    {
+      CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborInitMessage: neighborManningsN must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = channelElements[element].channelNeighbors.begin();
   
@@ -1897,7 +2200,25 @@ void Region::handleChannelGroundwaterMeshNeighborInitMessage(int element, int ne
 {
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator it; // Loop iterator.
   
-  // FIXME error check inputs
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(channelElements.find(element) != channelElements.end()))
+    {
+      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborInitMessage: neighbor init message received at incorrect region.\n");
+      CkExit();
+    }
+  
+  if (!(0 <= reciprocalNeighborProxy))
+    {
+      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborInitMessage: reciprocalNeighborProxy must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(neighborZSurface >= neighborLayerZBottom))
+    {
+      CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborInitMessage: neighborZSurface must be greater than or equal to neighborLayerZBottom.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   it = channelElements[element].undergroundMeshNeighbors.begin();
   
@@ -1928,7 +2249,7 @@ bool Region::allNeighborsInitialized()
 {
   bool allInitialized = true; // Stays true until we find one that is not initialized.
   
-  // FIXME I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  It's only done once at initialization, not once per timestep
+  // FIXLATER I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  It's only done once at initialization, not once per timestep
   // so the performance benefit would be less.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   // Iterators must not be in use at this time.
@@ -2870,10 +3191,9 @@ bool Region::sendWater(int recipientRegion, RegionMessage waterMessage)
   bool error = false; // Error flag.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that recipientRegion is less than the number of regions.  I think there will be a global with this size.
-  if (!(0 <= recipientRegion))
+  if (!(0 <= recipientRegion && recipientRegion < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in Region::sendWater: recipientRegion must be greater than or equal to zero.\n");
+      CkError("ERROR in Region::sendWater: recipientRegion must be greater than or equal to zero and less than globalNumberOfRegions.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

@@ -44,17 +44,17 @@ MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expi
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: regionInit must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+  if (!(isBoundary(neighborInit) || (0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
     {
       CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy: neighborInit must be a boundary condition code or greater than "
-              "or equal to zero.\n");
+              "or equal to zero and less than globalNumberOfMeshElements.\n");
       CkExit();
     }
   
@@ -140,16 +140,17 @@ bool MeshSurfacewaterMeshNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(isBoundary(neighbor) || 0 <= neighbor))
+  if (!(isBoundary(neighbor) || (0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
     {
-      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero and "
+              "less than globalNumberOfMeshElements.\n");
       error = true;
     }
   
@@ -250,16 +251,17 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(doubl
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: regionInit must be greater than or equal to zero and less "
+              "than globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(0 <= neighborInit))
+  if (!(0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborInit must be greater than or equal to zero and "
+              "less than globalNumberOfChannelElements.\n");
       CkExit();
     }
   
@@ -327,16 +329,17 @@ bool MeshSurfacewaterChannelNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(0 <= neighbor))
+  if (!(0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero and less than "
+              "globalNumberOfChannelElements.\n");
       error = true;
     }
   
@@ -430,17 +433,17 @@ MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expira
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: regionInit must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+  if (!(isBoundary(neighborInit) || (0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
     {
       CkError("ERROR in MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy: neighborInit must be a boundary condition code or greater than "
-              "or equal to zero.\n");
+              "or equal to zero and less than globalNumberOfMeshElements.\n");
       CkExit();
     }
   
@@ -554,16 +557,17 @@ bool MeshGroundwaterMeshNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(isBoundary(neighbor) || 0 <= neighbor))
+  if (!(isBoundary(neighbor) || (0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)))
     {
-      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterMeshNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to zero and "
+              "less than globalNumberOfMeshElements.\n");
       error = true;
     }
   
@@ -692,16 +696,17 @@ MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double 
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: regionInit must be greater than or equal to zero and less "
+              "than globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(0 <= neighborInit))
+  if (!(0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy: neighborInit must be greater than or equal to zero and less "
+              "than globalNumberOfChannelElements.\n");
       CkExit();
     }
   
@@ -783,16 +788,17 @@ bool MeshGroundwaterChannelNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(0 <= neighbor))
+  if (!(0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshGroundwaterChannelNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero and less than "
+              "globalNumberOfChannelElements.\n");
       error = true;
     }
   
@@ -853,30 +859,212 @@ bool MeshGroundwaterChannelNeighborProxy::checkInvariant()
   return error;
 }
 
-InfiltrationAndGroundwater::InfiltrationAndGroundwater() :
-      infiltrationMethod(NO_INFILTRATION), // Dummy values will be overwritten by pup_stl.h code.
-      groundwaterMethod(NO_AQUIFER),
-      soilType(0),
-      layerZBottom(0.0),
-      slopeX(0.0),
-      slopeY(0.0),
-      conductivity(0.0),
-      porosity(0.0),
-      groundwaterHead(0.0),
-      groundwaterRecharge(0.0),
-      groundwaterError(0.0),
-      vadoseZoneState(NULL),
-      meshNeighbors(),
-      channelNeighbors()
+InfiltrationAndGroundwater::VadoseZone::VadoseZone() :
+  infiltrationMethod(NO_INFILTRATION), // Dummy values will be overwritten by pup_stl.h code.
+  state(NULL)
 {
   // Initialization handled by initialization list.
 }
 
-InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum infiltrationMethodInit, GroundwaterMethodEnum  groundwaterMethodInit,
-                                                       int soilTypeInit, double layerZBottomInit, double slopeXInit, double slopeYInit,
-                                                       double conductivityInit, double porosityInit, double groundwaterHeadInit,
-                                                       double groundwaterRechargeInit, double groundwaterErrorInit, void* vadoseZoneStateInit) :
+InfiltrationAndGroundwater::VadoseZone::VadoseZone(InfiltrationMethodEnum infiltrationMethodInit, void* vadoseZoneStateInit) :
   infiltrationMethod(infiltrationMethodInit),
+  state(vadoseZoneStateInit)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (NO_INFILTRATION == infiltrationMethodInit || TRIVIAL_INFILTRATION == infiltrationMethodInit)
+    {
+      if (!(NULL == vadoseZoneStateInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::VadoseZone: if infiltrationMethodInit is NO_INFILTRATION or TRIVIAL_INFILTRATION then "
+                  "vadoseZoneStateInit must be NULL.\n");
+          CkExit();
+        }
+    }
+  else if (GARTO_INFILTRATION == infiltrationMethodInit)
+    {
+      if (!(NULL != vadoseZoneStateInit))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::VadoseZone: if infiltrationMethodInit is GARTO_INFILTRATION then vadoseZoneStateInit "
+                  "must not be NULL.\n");
+          CkExit();
+        }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+      else
+        {
+          garto_check_invariant((garto_domain*)vadoseZoneStateInit);
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    }
+  else
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::VadoseZone: infiltrationMethodInit must be a valid enum value.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+}
+
+InfiltrationAndGroundwater::VadoseZone::VadoseZone(const VadoseZone &other) :
+      infiltrationMethod(NO_INFILTRATION), // Dummy values will be overwritten by assignment operator.
+      state(NULL)
+{
+  *this = other;
+}
+
+InfiltrationAndGroundwater::VadoseZone::~VadoseZone()
+{
+  // Clean up dynamically allocated data.
+  if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      garto_parameters_dealloc(&(((garto_domain*)state)->parameters));
+      garto_domain_dealloc((garto_domain**)&state);
+    }
+}
+
+InfiltrationAndGroundwater::VadoseZone& InfiltrationAndGroundwater::VadoseZone::operator=(const VadoseZone &other)
+{
+  int ii; // Loop counter.
+  
+  // Clean up dynamically allocated data.
+  if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      garto_parameters_dealloc(&((garto_domain*)state)->parameters);
+      garto_domain_dealloc((garto_domain**)&state);
+    }
+  
+  infiltrationMethod = other.infiltrationMethod;
+  
+  // Make a deep copy of state.
+  if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      state = new garto_domain;
+      
+      ((garto_domain*)state)->parameters = new garto_parameters;
+      
+      ((garto_domain*)state)->parameters->num_bins                    = ((garto_domain*)other.state)->parameters->num_bins;
+      ((garto_domain*)state)->parameters->theta_r                     = ((garto_domain*)other.state)->parameters->theta_r;
+      ((garto_domain*)state)->parameters->theta_s                     = ((garto_domain*)other.state)->parameters->theta_s;
+      ((garto_domain*)state)->parameters->vg_alpha                    = ((garto_domain*)other.state)->parameters->vg_alpha;
+      ((garto_domain*)state)->parameters->vg_n                        = ((garto_domain*)other.state)->parameters->vg_n;
+      ((garto_domain*)state)->parameters->bc_lambda                   = ((garto_domain*)other.state)->parameters->bc_lambda;
+      ((garto_domain*)state)->parameters->bc_psib                     = ((garto_domain*)other.state)->parameters->bc_psib;
+      ((garto_domain*)state)->parameters->saturated_conductivity      = ((garto_domain*)other.state)->parameters->saturated_conductivity;
+      ((garto_domain*)state)->parameters->effective_capillary_suction = ((garto_domain*)other.state)->parameters->effective_capillary_suction;
+      
+      ((garto_domain*)state)->top_depth               = ((garto_domain*)other.state)->top_depth;
+      ((garto_domain*)state)->bottom_depth            = ((garto_domain*)other.state)->bottom_depth;
+      ((garto_domain*)state)->d_theta                 = new double[((garto_domain*)state)->parameters->num_bins + 1];
+      ((garto_domain*)state)->surface_front_theta     = new double[((garto_domain*)state)->parameters->num_bins + 1];
+      ((garto_domain*)state)->surface_front_depth     = new double[((garto_domain*)state)->parameters->num_bins + 1];
+      ((garto_domain*)state)->groundwater_front_theta = new double[((garto_domain*)state)->parameters->num_bins + 1];
+      ((garto_domain*)state)->groundwater_front_depth = new double[((garto_domain*)state)->parameters->num_bins + 1];
+      ((garto_domain*)state)->initial_water_content   = ((garto_domain*)other.state)->initial_water_content;
+      ((garto_domain*)state)->yes_groundwater         = ((garto_domain*)other.state)->yes_groundwater;
+      
+      for (ii = 0; ii <= ((garto_domain*)state)->parameters->num_bins; ii++)
+        {
+          ((garto_domain*)state)->d_theta[ii]                 = ((garto_domain*)other.state)->d_theta[ii];
+          ((garto_domain*)state)->surface_front_theta[ii]     = ((garto_domain*)other.state)->surface_front_theta[ii];
+          ((garto_domain*)state)->surface_front_depth[ii]     = ((garto_domain*)other.state)->surface_front_depth[ii];
+          ((garto_domain*)state)->groundwater_front_theta[ii] = ((garto_domain*)other.state)->groundwater_front_theta[ii];
+          ((garto_domain*)state)->groundwater_front_depth[ii] = ((garto_domain*)other.state)->groundwater_front_depth[ii];
+        }
+    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  else
+    {
+      // State should have started as NULL or already have been cleaned up.
+      CkAssert (NULL == state);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  return *this;
+}
+
+void InfiltrationAndGroundwater::VadoseZone::pup(PUP::er &p)
+{
+  p | infiltrationMethod;
+
+  if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      if (p.isUnpacking())
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // We should be pupping into a just constructed empty object so there should be no previous dynamically allocated data to clean up.
+          CkAssert(NULL == state);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+          state = new garto_domain;
+        }
+
+      p | *(garto_domain*)state;
+    }
+  else
+    {
+      if (p.isUnpacking())
+        {
+          state = NULL;
+        }
+    }
+}
+
+bool InfiltrationAndGroundwater::VadoseZone::checkInvariant()
+{
+  bool error = false; // Error flag.
+  
+  if (NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod)
+    {
+      if (!(NULL == state))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::checkInvariant: if infiltrationMethod is NO_INFILTRATION or TRIVIAL_INFILTRATION then "
+                  "state must be NULL.\n");
+          error = true;
+        }
+    }
+  else if (GARTO_INFILTRATION == infiltrationMethod)
+    {
+      if (!(NULL != state))
+        {
+          CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::checkInvariant: if infiltrationMethod is GARTO_INFILTRATION then state must not be "
+                  "NULL.\n");
+          error = true;
+        }
+      else
+        {
+          // FIXLATER garto_check_invariant is not written to the correct pattern.
+          garto_check_invariant((garto_domain*)state);
+        }
+    }
+  else
+    {
+      CkError("ERROR in InfiltrationAndGroundwater::VadoseZone::checkInvariant: infiltrationMethod must be a valid enum value.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+InfiltrationAndGroundwater::InfiltrationAndGroundwater() :
+  groundwaterMethod(NO_AQUIFER), // Dummy values will be overwritten by pup_stl.h code.
+  soilType(0),
+  layerZBottom(0.0),
+  slopeX(0.0),
+  slopeY(0.0),
+  conductivity(0.0),
+  porosity(0.0),
+  groundwaterHead(0.0),
+  groundwaterRecharge(0.0),
+  groundwaterError(0.0),
+  vadoseZone(),
+  meshNeighbors(),
+  channelNeighbors()
+{
+  // Initialization handled by initialization list.
+}
+
+InfiltrationAndGroundwater::InfiltrationAndGroundwater(GroundwaterMethodEnum  groundwaterMethodInit, int soilTypeInit, double layerZBottomInit,
+                                                       double slopeXInit, double slopeYInit, double conductivityInit, double porosityInit,
+                                                       double groundwaterHeadInit, double groundwaterRechargeInit, double groundwaterErrorInit,
+                                                       VadoseZone& vadoseZoneInit) :
   groundwaterMethod(groundwaterMethodInit),
   soilType(soilTypeInit),
   layerZBottom(layerZBottomInit),
@@ -887,29 +1075,23 @@ InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum in
   groundwaterHead(groundwaterHeadInit),
   groundwaterRecharge(groundwaterRechargeInit),
   groundwaterError(groundwaterErrorInit),
-  vadoseZoneState(vadoseZoneStateInit),
+  vadoseZone(vadoseZoneInit),
   meshNeighbors(),
   channelNeighbors()
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NO_INFILTRATION == infiltrationMethodInit || TRIVIAL_INFILTRATION == infiltrationMethodInit || GARTO_INFILTRATION== infiltrationMethodInit))
-    {
-      CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: infiltrationMethodInit must be a valid enum value.\n");
-      CkExit();
-    }
-  
   if (!(NO_AQUIFER == groundwaterMethodInit || DEEP_AQUIFER == groundwaterMethodInit || SHALLOW_AQUIFER== groundwaterMethodInit))
     {
       CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: groundwaterMethodInit must be a valid enum value.\n");
       CkExit();
     }
   
-  if (NO_INFILTRATION == infiltrationMethodInit)
+  if (NO_INFILTRATION == vadoseZoneInit.infiltrationMethod)
     {
       if (!(NO_AQUIFER == groundwaterMethodInit))
         {
-          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is NO_INFILTRATION groundwaterMethodInit must "
-                  "be NO_AQUIFER.\n");
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if vadoseZoneInit.infiltrationMethod is NO_INFILTRATION "
+                  "groundwaterMethodInit must be NO_AQUIFER.\n");
           CkExit();
         }
     }
@@ -917,8 +1099,8 @@ InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum in
     {
       if (!(NO_AQUIFER != groundwaterMethodInit))
         {
-          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is not NO_INFILTRATION groundwaterMethodInit "
-                  "must not be NO_AQUIFER.\n");
+          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if vadoseZoneInit.infiltrationMethod is not NO_INFILTRATION "
+                  "groundwaterMethodInit must not be NO_AQUIFER.\n");
           CkExit();
         }
     }
@@ -967,37 +1149,18 @@ InfiltrationAndGroundwater::InfiltrationAndGroundwater(InfiltrationMethodEnum in
       CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: porosityInit must be greater than zero.\n");
       CkExit();
     }
-  
-  if (NO_INFILTRATION == infiltrationMethodInit || TRIVIAL_INFILTRATION == infiltrationMethodInit)
-    {
-      if (!(NULL == vadoseZoneStateInit))
-        {
-          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is NO_INFILTRATION or TRIVIAL_INFILTRATION then "
-                  "vadoseZoneStateInit must be NULL.\n");
-          CkExit();
-        }
-    }
-  else if (GARTO_INFILTRATION == infiltrationMethodInit)
-    {
-      if (!(NULL != vadoseZoneStateInit))
-        {
-          CkError("ERROR in InfiltrationAndGroundwater::InfiltrationAndGroundwater: if infiltrationMethodInit is GARTO_INFILTRATION then vadoseZoneStateInit "
-                  "must not be NULL.\n");
-          CkExit();
-        }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-      else
-        {
-          garto_check_invariant((garto_domain*)vadoseZoneStateInit);
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (vadoseZoneInit.checkInvariant())
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 }
 
 void InfiltrationAndGroundwater::pup(PUP::er &p)
 {
-  p | infiltrationMethod;
   p | groundwaterMethod;
   p | soilType;
   p | layerZBottom;
@@ -1008,63 +1171,10 @@ void InfiltrationAndGroundwater::pup(PUP::er &p)
   p | groundwaterHead;
   p | groundwaterRecharge;
   p | groundwaterError;
-  
-  if (NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod)
-    {
-      if (p.isUnpacking())
-        {
-          vadoseZoneState = NULL;
-        }
-    }
-  else if (GARTO_INFILTRATION == infiltrationMethod)
-    {
-      // FIXME pull this out as a separate function to pup garto_domains?
-      if (p.isUnpacking())
-        {
-          vadoseZoneState                              = new garto_domain;
-          ((garto_domain*)vadoseZoneState)->parameters = new garto_parameters;
-        }
-      
-      p | ((garto_domain*)vadoseZoneState)->parameters->num_bins;
-      
-      if (p.isUnpacking())
-        {
-          // num_bins + 1 because garto_domain uses one-based array indices.
-          ((garto_domain*)vadoseZoneState)->d_theta                 = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
-          ((garto_domain*)vadoseZoneState)->surface_front_theta     = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
-          ((garto_domain*)vadoseZoneState)->surface_front_depth     = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
-          ((garto_domain*)vadoseZoneState)->groundwater_front_theta = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
-          ((garto_domain*)vadoseZoneState)->groundwater_front_depth = new double[((garto_domain*)vadoseZoneState)->parameters->num_bins + 1];
-        }
-      
-      p | ((garto_domain*)vadoseZoneState)->parameters->theta_r;
-      p | ((garto_domain*)vadoseZoneState)->parameters->theta_s;
-      p | ((garto_domain*)vadoseZoneState)->parameters->vg_alpha;
-      p | ((garto_domain*)vadoseZoneState)->parameters->vg_n;
-      p | ((garto_domain*)vadoseZoneState)->parameters->bc_lambda;
-      p | ((garto_domain*)vadoseZoneState)->parameters->bc_psib;
-      p | ((garto_domain*)vadoseZoneState)->parameters->saturated_conductivity;
-      p | ((garto_domain*)vadoseZoneState)->parameters->effective_capillary_suction;
-      p | ((garto_domain*)vadoseZoneState)->top_depth;
-      p | ((garto_domain*)vadoseZoneState)->bottom_depth;
-      PUParray(p, ((garto_domain*)vadoseZoneState)->d_theta,                 ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
-      PUParray(p, ((garto_domain*)vadoseZoneState)->surface_front_theta,     ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
-      PUParray(p, ((garto_domain*)vadoseZoneState)->surface_front_depth,     ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
-      PUParray(p, ((garto_domain*)vadoseZoneState)->groundwater_front_theta, ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
-      PUParray(p, ((garto_domain*)vadoseZoneState)->groundwater_front_depth, ((garto_domain*)vadoseZoneState)->parameters->num_bins + 1);
-      p | ((garto_domain*)vadoseZoneState)->initial_water_content;
-      p | ((garto_domain*)vadoseZoneState)->yes_groundwater;
-    }
-  
+  p | vadoseZone;
   p | meshNeighbors;
   p | channelNeighbors;
 }
-
-// FIXME we are currently not deleting any garto_domains.  There is a problem with doing it in the destructor of InfiltrationAndGroundwater.  When we add an
-// InfiltrationAndGroundwater to a container (as part of a MeshElement) we create a temporary one that is then copy constructed or copy assigned into the
-// container.  Then the temporary one is destructed, and we don't want to delete the garto_domain at that point.  The standard C++ way of handling this is to
-// use a copy constructor and copy assignment operator to do a deep copy, or use reference counting smart pointers so that it only gets deleted when the last
-// reference goes away.  Right now we're not doing either of those things.  This is a memory leak, but it doesn't impact the correctness of the program.
 
 bool InfiltrationAndGroundwater::checkInvariant()
 {
@@ -1072,23 +1182,18 @@ bool InfiltrationAndGroundwater::checkInvariant()
   std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
   std::vector<MeshGroundwaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
   
-  if (!(NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod || GARTO_INFILTRATION== infiltrationMethod))
-    {
-      CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: infiltrationMethod must be a valid enum value.\n");
-      error = true;
-    }
-  
   if (!(NO_AQUIFER == groundwaterMethod || DEEP_AQUIFER == groundwaterMethod || SHALLOW_AQUIFER== groundwaterMethod))
     {
       CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: groundwaterMethod must be a valid enum value.\n");
       error = true;
     }
   
-  if (NO_INFILTRATION == infiltrationMethod)
+  if (NO_INFILTRATION == vadoseZone.infiltrationMethod)
     {
       if (!(NO_AQUIFER == groundwaterMethod))
         {
-          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is NO_INFILTRATION groundwaterMethod must be NO_AQUIFER.\n");
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if vadoseZone.infiltrationMethod is NO_INFILTRATION groundwaterMethod must be "
+                  "NO_AQUIFER.\n");
           error = true;
         }
     }
@@ -1096,7 +1201,7 @@ bool InfiltrationAndGroundwater::checkInvariant()
     {
       if (!(NO_AQUIFER != groundwaterMethod))
         {
-          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is not NO_INFILTRATION groundwaterMethod must not be "
+          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if vadoseZone.infiltrationMethod is not NO_INFILTRATION groundwaterMethod must not be "
                   "NO_AQUIFER.\n");
           error = true;
         }
@@ -1160,27 +1265,7 @@ bool InfiltrationAndGroundwater::checkInvariant()
       error = true;
     }
   
-  if (NO_INFILTRATION == infiltrationMethod || TRIVIAL_INFILTRATION == infiltrationMethod)
-    {
-      if (!(NULL == vadoseZoneState))
-        {
-          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is NO_INFILTRATION or TRIVIAL_INFILTRATION then vadoseZoneState "
-                  "must be NULL.\n");
-          error = true;
-        }
-    }
-  else if (GARTO_INFILTRATION == infiltrationMethod)
-    {
-      if (!(NULL != vadoseZoneState))
-        {
-          CkError("ERROR in InfiltrationAndGroundwater::checkInvariant: if infiltrationMethod is GARTO_INFILTRATION then vadoseZoneState must not be NULL.\n");
-          error = true;
-        }
-      else
-        {
-          garto_check_invariant((garto_domain*)vadoseZoneState);
-        }
-    }
+  error = vadoseZone.checkInvariant() || error;
   
   for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
     {
@@ -1362,7 +1447,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
   
   if (!error)
     {
-      if (NO_INFILTRATION == infiltrationMethod)
+      if (NO_INFILTRATION == vadoseZone.infiltrationMethod)
         {
           evapoTranspirationSoilMoisture.zwt = 0.0f;
 
@@ -1373,7 +1458,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
               evapoTranspirationSoilMoisture.smc[ii]   = porosity * 0.01;
             }
         }
-      else if (TRIVIAL_INFILTRATION == infiltrationMethod)
+      else if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
         {
           evapoTranspirationSoilMoisture.zwt = elementZSurface - groundwaterHead;
 
@@ -1403,7 +1488,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
               evapoTranspirationSoilMoisture.smc[ii]   = porosity * relativeSaturation;
             }
         }
-      else if (GARTO_INFILTRATION == infiltrationMethod)
+      else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
         {
           evapoTranspirationSoilMoisture.zwt = elementZSurface - groundwaterHead;
           
@@ -1412,14 +1497,14 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
               soilDepthZ[ii] = -zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS]; // soilDepthZ is positive downward.
             }
           
-          get_garto_domain_water_content((garto_domain*)vadoseZoneState, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
+          garto_domain_water_content((garto_domain*)vadoseZone.state, waterContent, soilDepthZ, EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS);
           
           for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
             {
               layerMiddleDepth                         = 0.5 * (zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] +
                                                                 zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]);
               distanceAboveWaterTable                  = evapoTranspirationSoilMoisture.zwt + layerMiddleDepth; // Plus because layerMiddleDepth is negative.
-              evapoTranspirationSoilMoisture.smcEq[ii] = garto_equilibrium_water_content((garto_domain*)vadoseZoneState, distanceAboveWaterTable);
+              evapoTranspirationSoilMoisture.smcEq[ii] = garto_equilibrium_water_content((garto_domain*)vadoseZone.state, distanceAboveWaterTable);
               evapoTranspirationSoilMoisture.sh2o[ii]  = waterContent[ii];
               evapoTranspirationSoilMoisture.smc[ii]   = waterContent[ii];
             }
@@ -1444,8 +1529,8 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // if (NO_INFILTRATION == infiltrationMethod) return zero.
-  if (TRIVIAL_INFILTRATION == infiltrationMethod)
+  // if (NO_INFILTRATION == vadoseZone.infiltrationMethod) return zero.
+  if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
     {
       // if (DEEP_AQUIFER == groundwaterMethod) return zero.
       if (SHALLOW_AQUIFER == groundwaterMethod)
@@ -1462,9 +1547,9 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
             }
         }
     }
-  else if (GARTO_INFILTRATION == infiltrationMethod)
+  else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
     {
-      evaporation = garto_evapotranspiration((garto_domain*)vadoseZoneState, unsatisfiedEvaporation, 0.0, 0.0); // FIXME root_depth?
+      evaporation = garto_evapotranspiration((garto_domain*)vadoseZone.state, unsatisfiedEvaporation, 0.0, layerZBottom);
     }
     
   return evaporation;
@@ -1482,15 +1567,15 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  // if (NO_INFILTRATION == infiltrationMethod) return zero.
-  if (TRIVIAL_INFILTRATION == infiltrationMethod)
+  // if (NO_INFILTRATION == vadoseZone.infiltrationMethod) return zero.
+  if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
     {
       // With no vadose zone state transpiration water comes from the same place as evaporation water.
       transpiration = evaporate(unsatisfiedTranspiration);
     }
-  else if (GARTO_INFILTRATION == infiltrationMethod)
+  else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
     {
-      transpiration = garto_evapotranspiration((garto_domain*)vadoseZoneState, 0.0, unsatisfiedTranspiration, 0.0); // FIXME root_depth?
+      transpiration = garto_evapotranspiration((garto_domain*)vadoseZone.state, 0.0, unsatisfiedTranspiration, layerZBottom);
     }
   return transpiration;
 }
@@ -1531,7 +1616,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
     {
       // Do infiltration.
       // if (NO_INFILTRATION == infiltrationMethod) do nothing.
-      if (TRIVIAL_INFILTRATION == infiltrationMethod)
+      if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
         {
           if (surfacewaterDepth >= conductivity * dt)
             {
@@ -1544,9 +1629,9 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
               surfacewaterDepth    = 0.0;
             }
         }
-      else if (GARTO_INFILTRATION == infiltrationMethod)
+      else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
         {
-          garto_timestep((garto_domain*)vadoseZoneState, dt, &surfacewaterDepth, elementZSurface - groundwaterHead, &groundwaterRecharge);
+          garto_timestep((garto_domain*)vadoseZone.state, dt, &surfacewaterDepth, elementZSurface - groundwaterHead, &groundwaterRecharge);
         }
 
       // Do groundwater outflows and resolve groundwaterRecharge.
@@ -1634,7 +1719,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
           if (!error)
             {
               // NO_INFILTRATION cannot be used with SHALLOW_AQUIFER.
-              if (TRIVIAL_INFILTRATION == infiltrationMethod)
+              if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
                 {
                   groundwaterHead    += groundwaterRecharge / porosity;
                   groundwaterRecharge = 0.0;
@@ -1656,9 +1741,9 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                       groundwaterHead    = elementZSurface;
                     }
                 }
-              else if (GARTO_INFILTRATION == infiltrationMethod)
+              else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
                 {
-                  groundwaterHead += groundwaterRecharge / garto_specific_yield((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead);
+                  groundwaterHead += groundwaterRecharge / garto_specific_yield((garto_domain*)vadoseZone.state, elementZSurface - groundwaterHead);
 
                   // Cap groundwaterHead at the surface.  Do not limit groundwaterHead from going below layerZBottom.
                   if (groundwaterHead > elementZSurface)
@@ -1669,7 +1754,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   if (epsilonLess(0.0, groundwaterRecharge))
                     {
                       // If there is excess water put it immediately into the groundwater front of the GARTO domain.
-                      garto_add_groundwater((garto_domain*)vadoseZoneState, &groundwaterRecharge);
+                      garto_add_groundwater((garto_domain*)vadoseZone.state, &groundwaterRecharge);
 
                       if (epsilonLess(0.0, groundwaterRecharge))
                         {
@@ -1685,7 +1770,7 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
                   else if (epsilonGreater(0.0, groundwaterRecharge))
                     {
                       // If there is a water deficit take it immediately from the groundwater front of the GARTO domain.
-                      garto_take_groundwater((garto_domain*)vadoseZoneState, elementZSurface - groundwaterHead, &groundwaterRecharge);
+                      garto_take_groundwater((garto_domain*)vadoseZone.state, elementZSurface - groundwaterHead, &groundwaterRecharge);
 
                       // If there is still a deficit leave it to be resolved next time.  The water table will drop further allowing us to get more water out.
                     }
@@ -1796,7 +1881,7 @@ bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& exte
   if (!error)
     {
       // For NO_INFILTRATION there is no groundwater in the domain.
-      if (TRIVIAL_INFILTRATION == infiltrationMethod)
+      if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
         {
           if (SHALLOW_AQUIFER == groundwaterMethod && groundwaterHead > layerZBottom)
             {
@@ -1805,9 +1890,9 @@ bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& exte
           
           waterInDomain += groundwaterRecharge * elementArea;
         }
-      else if (GARTO_INFILTRATION == infiltrationMethod)
+      else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
         {
-          waterInDomain += garto_total_water_in_domain((garto_domain*)vadoseZoneState) * elementArea;
+          waterInDomain += garto_total_water_in_domain((garto_domain*)vadoseZone.state) * elementArea;
         }
 
       for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
@@ -1869,8 +1954,7 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
                          double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
                          double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
                          EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-                         InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, void* vadoseZoneStateInit) :
+                         InfiltrationAndGroundwater::GroundwaterMethodEnum  groundwaterMethodInit, InfiltrationAndGroundwater::VadoseZone vadoseZoneInit) :
   elementNumber(elementNumberInit),
   catchment(catchmentInit),
   vegetationType(vegetationTypeInit),
@@ -1894,16 +1978,15 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   transpirationCumulativeLongTerm(transpirationCumulativeLongTermInit),
   evapoTranspirationForcing(evapoTranspirationForcingInit),
   evapoTranspirationState(evapoTranspirationStateInit),
-  underground(infiltrationMethodInit, groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit,
-              groundwaterHeadInit, groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneStateInit),
+  underground(groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit, groundwaterHeadInit,
+              groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneInit),
   meshNeighbors(),
   channelNeighbors()
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
-  if (!(0 <= elementNumberInit))
+  if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in MeshElement::MeshElement: elementNumberInit must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshElement::MeshElement: elementNumberInit must be greater than or equal to zero and less than globalNumberOfMeshElements.\n");
       CkExit();
     }
 
@@ -2059,10 +2142,9 @@ bool MeshElement::checkInvariant()
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
   std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
   
-  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
-  if (!(0 <= elementNumber))
+  if (!(0 <= elementNumber && elementNumber < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in MeshElement::checkInvariant: elementNumber must be greater than or equal to zero.\n");
+      CkError("ERROR in MeshElement::checkInvariant: elementNumber must be greater than or equal to zero and less than globalNumberOfMeshElements.\n");
       error = true;
     }
 

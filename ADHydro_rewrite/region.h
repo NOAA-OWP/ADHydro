@@ -37,7 +37,7 @@ public:
   // All parameters directly initialize member variables.  For description see
   // member variables.
   RegionMessage(RegionMessageTypeEnum messageTypeInit, int recipientElementNumberInit, int recipientNeighborProxyIndexInit,
-                      double senderSurfacewaterDepthInit, double senderGroundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit);
+                double senderSurfacewaterDepthInit, double senderGroundwaterHeadInit, SimpleNeighborProxy::MaterialTransfer waterInit);
   
   // Charm++ pack/unpack method.
   //
@@ -77,8 +77,9 @@ public:
   //
   // All parameters directly initialize member variables.  For description see
   // member variables.
-  simpleNeighborInfo(double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit, int neighborInit,
-                     double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit);
+  simpleNeighborInfo(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+                     double flowCumulativeLongTermInit, int regionInit, int neighborInit, double edgeLengthInit, double edgeNormalXInit,
+                     double edgeNormalYInit);
   
   // Charm++ pack/unpack method.
   //
@@ -93,6 +94,10 @@ public:
   bool checkInvariant();
   
   // Cumulative flow variables.
+  double expirationTime;          // Simulation time in seconds since Element::referenceDate when nominal flow rate expires.
+  double nominalFlowRate;         // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow
+                                  // into the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to
+                                  // satisfy all outflows.
   double flowCumulativeShortTerm; // flowCumulativeShortTerm plus flowCumulativeLongTerm together are the cumulative material flow quantity with the neighbor.
   double flowCumulativeLongTerm;  // Positive means flow out of the element into the neighbor.  Negative means flow into the element out of the neighbor.  Two
                                   // variables are used because over a long simulation this value could become quite large, and the amount of material moved
@@ -217,31 +222,144 @@ public:
   // Returns: true if the invariant is violated, false otherwise.
   bool checkInvariant();
   
-  // FIXME comment
+  // Check invariant conditions on a mesh element's proxy for its neighbor
+  // that is a mesh element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a mesh element's proxy for its neighbor
+  // that is a channel element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleMeshSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterMeshNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a mesh element's proxy for its neighbor
+  // that is a mesh element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleMeshGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterMeshNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a mesh element's proxy for its neighbor
+  // that is a channel element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleMeshGroundwaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelGroundwaterMeshNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a channel element's proxy for its neighbor
+  // that is a mesh element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleChannelSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterChannelNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a channel element's proxy for its neighbor
+  // that is a channel element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleChannelSurfacewaterChannelNeighborCheckInvariant(double messageTime, int neighbor, ChannelSurfacewaterChannelNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Check invariant conditions on a channel element's proxy for its neighbor
+  // that is a mesh element.  Exit if the invariant is violated.
+  //
+  // Parameters:
+  //
+  // messageTime    - Simulation time that this message represents.  Because of
+  //                  asynchronous operation an element might receive a
+  //                  NeighborCheckInvariant message before it reaches that
+  //                  simulation time.  If so, it must wait until it reaches
+  //                  that simulation time to check if it is consistent with
+  //                  that neighbor.
+  // neighbor       - Element number of the neighbor.
+  // neighborsProxy - The neighbor's neighbor proxy for me.  This contains all
+  //                  of the information that must be compared to me to ensure
+  //                  that I am consistent with my neighbor.
   void handleChannelGroundwaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshGroundwaterChannelNeighborProxy& neighborsProxy);
   
-  // FIXME comment
+  // Returns: true if all neighbor invariants have been checked, false
+  //          otherwise.
   bool allNeighborInvariantsChecked();
   
-  // FIXME comment
+  // Initialize a new mesh element in this region.
+  //
+  // Parameters:
+  //
+  // Most parameters directly initialize MeshElement member variables.  For
+  // description see member variables.
+  //
+  // surfacewaterMeshNeighbors    - Surfacewater neighbors of the new element
+  //                                that are mesh elements.
+  // surfacewaterChannelNeighbors - Surfacewater neighbors of the new element
+  //                                that are channel elements.
+  // groundwaterMeshNeighbors     - Groundwater neighbors of the new element
+  //                                that are mesh elements.
+  // groundwaterChannelNeighbors  - Groundwater neighbors of the new element
+  //                                that are channel elements.
   void handleInitializeMeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3],
                                    double vertexYInit[3], double elementXInit, double elementYInit, double elementZSurfaceInit, double layerZBottomInit,
                                    double elementAreaInit, double slopeXInit, double slopeYInit, double latitudeInit, double longitudeInit,
@@ -252,57 +370,157 @@ public:
                                    double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
                                    EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
                                    EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-                                   InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-                                   InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
-                                   std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                   InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
+                                   InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                    std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                    std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors);
   
-  // FIXME comment
+  // Initialize a new channel element in this region.
+  //
+  // Parameters:
+  //
+  // Most parameters directly initialize ChannelElement member variables.  For
+  // description see member variables.
+  //
+  // surfacewaterMeshNeighbors    - Surfacewater neighbors of the new element
+  //                                that are mesh elements.
+  // surfacewaterChannelNeighbors - Surfacewater neighbors of the new element
+  //                                that are channel elements.
+  // groundwaterMeshNeighbors     - Groundwater neighbors of the new element
+  //                                that are mesh elements.
   void handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
                                       double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
-                                      double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
-                                      double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                      double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                                      double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                      double precipitationRateInit, double precipitationCumulativeShortTermInit,
+                                      double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
+                                      double evaporationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                      EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                       std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                       std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                       std::vector<simpleNeighborInfo> groundwaterMeshNeighbors);
   
-  // FIXME comment
+  // Initialize neighbor information for a mesh element's surfacewater
+  // neighbor that is a mesh element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from MeshElement member variables of neighbor.
+  // For description see member variables.
   void handleMeshSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
                                                      double neighborZSurface, double neighborArea, double neighborManningsN);
   
-  // FIXME comment
+  // Initialize neighbor information for a mesh element's surfacewater
+  // neighbor that is a channel element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from ChannelElement member variables of neighbor.
+  // For description see member variables.
   void handleMeshSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                         double neighborX, double neighborY, double neighborZBank, double neighborZBed,
                                                         double neighborBaseWidth, double neighborSideSlope);
   
-  // FIXME comment
+  // Initialize neighbor information for a mesh element's groundwater
+  // neighbor that is a mesh element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from MeshElement member variables of neighbor.
+  // For description see member variables.
   void handleMeshGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
                                                     double neighborZSurface, double neighborLayerZBottom, double neighborArea,
                                                     double neighborConductivity, double neighborPorosity);
   
-  // FIXME comment
+  // Initialize neighbor information for a mesh element's groundwater
+  // neighbor that is a channel element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from ChannelElement member variables of neighbor.
+  // For description see member variables.
   void handleMeshGroundwaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                        double neighborX, double neighborY, double neighborZBank, double neighborZBed,
                                                        double neighborBaseWidth, double neighborSideSlope, double neighborBedConductivity,
                                                        double neighborBedThickness);
   
-  // FIXME comment
+  // Initialize neighbor information for a channel element's surfacewater
+  // neighbor that is a mesh element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from MeshElement member variables of neighbor.
+  // For description see member variables.
   void handleChannelSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
                                                         double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
                                                         double neighborArea, double neighborSlopeX, double neighborSlopeY);
   
-  // FIXME comment
+  // Initialize neighbor information for a channel element's surfacewater
+  // neighbor that is a channel element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from ChannelElement member variables of neighbor.
+  // For description see member variables.
   void handleChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                            double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
                                                            double neighborSideSlope, double neighborManningsN);
   
-  // FIXME comment
+  // Initialize neighbor information for a channel element's groundwater
+  // neighbor that is a mesh element.
+  //
+  // Parameters:
+  //
+  // element                 - The element to add neighbor information to.
+  // neighbor                - The element that the neighbor information is
+  //                           from.
+  // reciprocalNeighborProxy - The index of element in neighbor's neighbor
+  //                           proxy array.
+  //
+  // Other parameters come from MeshElement member variables of neighbor.
+  // For description see member variables.
   void handleChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
                                                        double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
                                                        double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);
   
-  // FIXME comment
+  // Returns: true if all neighbor proxies have been initialized, false
+  //          otherwise.
   bool allNeighborsInitialized();
   
   // For external nominal flow rates that have expired send the element's state

@@ -404,15 +404,24 @@ public:
   double breakChannelDigitalDam(int channelElement, int dammedChannelElement, double length);
   
   // Fix digital dams and similar problems.
+  //
+  // This function does some things that need information about neighbors.
+  // Currently it is set up to run only on one process so that all neighbor
+  // information is available locally.  FIXLATER Eventually, it could be set up
+  // for distributed operation like the vertex information swap.
   void meshMassage();
   
   // If a variable is not available the file managers attempt to derive it from
-  // other variables, for example element center coordinates from element
-  // vertex coordinates.  If a variable is not available and cannot be derived
-  // its array is unallocated and left as NULL.
+  // other variables, for example, element center coordinates can be derived
+  // from element vertex coordinates.  If a variable is not available and
+  // cannot be derived its array is unallocated and left as NULL.
   void calculateDerivedValues();
   
-  // FIXME comment
+  // Send mesh and channel element initialization messages to regions.
+  //
+  // Parameters:
+  //
+  // regionProxy - A proxy to the chare array of regions.
   void handleSendInitializationMessages(CProxy_Region regionProxy);
   
   int globalNumberOfRegions;         // Number of regions across all file managers.
@@ -497,11 +506,10 @@ public:
   double*         meshTranspirationCumulativeLongTerm;
   EvapoTranspirationStateStruct*
                   meshEvapoTranspirationState;
-  InfiltrationAndGroundwater::InfiltrationMethodEnum*
-                  meshInfiltrationMethod;
   InfiltrationAndGroundwater::GroundwaterMethodEnum*
                   meshGroundwaterMethod;
-  // FIXME vadose zone state
+  InfiltrationAndGroundwater::VadoseZone*
+                  meshVadoseZone;
   IntArrayMMN*    meshMeshNeighbors;
   IntArrayMMN*    meshMeshNeighborsRegion;
   BoolArrayMMN*   meshMeshNeighborsChannelEdge;
@@ -509,10 +517,12 @@ public:
   DoubleArrayMMN* meshMeshNeighborsEdgeNormalX;
   DoubleArrayMMN* meshMeshNeighborsEdgeNormalY;
   BoolArrayMMN*   meshSurfacewaterMeshNeighborsConnection;
+  DoubleArrayMMN* meshSurfacewaterMeshNeighborsExpirationTime;
   DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowRate;
   DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayMMN* meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm;
   BoolArrayMMN*   meshGroundwaterMeshNeighborsConnection;
+  DoubleArrayMMN* meshGroundwaterMeshNeighborsExpirationTime;
   DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowRate;
   DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayMMN* meshGroundwaterMeshNeighborsFlowCumulativeLongTerm;
@@ -520,10 +530,12 @@ public:
   IntArrayMCN*    meshChannelNeighborsRegion;
   DoubleArrayMCN* meshChannelNeighborsEdgeLength;
   BoolArrayMCN*   meshSurfacewaterChannelNeighborsConnection;
+  DoubleArrayMCN* meshSurfacewaterChannelNeighborsExpirationTime;
   DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowRate;
   DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayMCN* meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
   BoolArrayMCN*   meshGroundwaterChannelNeighborsConnection;
+  DoubleArrayMCN* meshGroundwaterChannelNeighborsExpirationTime;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowRate;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeLongTerm;
@@ -593,10 +605,12 @@ public:
   IntArrayCMN*     channelMeshNeighborsRegion;
   DoubleArrayCMN*  channelMeshNeighborsEdgeLength;
   BoolArrayCMN*    channelSurfacewaterMeshNeighborsConnection;
+  DoubleArrayCMN*  channelSurfacewaterMeshNeighborsExpirationTime;
   DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowRate;
   DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayCMN*  channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm;
   BoolArrayCMN*    channelGroundwaterMeshNeighborsConnection;
+  DoubleArrayCMN*  channelGroundwaterMeshNeighborsExpirationTime;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowRate;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   DoubleArrayCMN*  channelGroundwaterMeshNeighborsFlowCumulativeLongTerm;
@@ -604,6 +618,7 @@ public:
   IntArrayCCN*     channelChannelNeighborsRegion;
   BoolArrayCCN*    channelChannelNeighborsDownstream;
   BoolArrayCCN*    channelSurfacewaterChannelNeighborsConnection;
+  DoubleArrayCCN*  channelSurfacewaterChannelNeighborsExpirationTime;
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowRate;
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;

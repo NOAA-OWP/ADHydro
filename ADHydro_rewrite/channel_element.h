@@ -2,6 +2,7 @@
 #define __CHANNEL_ELEMENT_H__
 
 #include "neighbor_proxy.h"
+#include "evapo_transpiration.h"
 
 // channel_element.h needs to know about the Region class, but region.h includes channel_element.h so we just do a forward declaration of the Region class to
 // break the circularity.
@@ -192,9 +193,12 @@ public:
   // meshNeighbors, channelNeighbors, and undergroundMeshNeighbors are
   // initialized to empty.
   ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit, double elementYInit,
-                 double elementZBankInit, double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit,
-                 double bedConductivityInit, double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit,
-                 double surfacewaterErrorInit);
+                 double elementZBankInit, double elementZBedInit, double elementLengthInit, double latitudeInit, double longitudeInit,
+                 double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit, double manningsNInit,
+                 double surfacewaterDepthInit, double surfacewaterErrorInit, double precipitationRateInit,
+                 double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+                 double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                 EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit);
   
   // Charm++ pack/unpack method.
   //
@@ -355,6 +359,8 @@ public:
   double elementZBank;  // Elevation in meters.
   double elementZBed;   // Elevation in meters.
   double elementLength; // Meters.
+  double latitude;      // Radians.
+  double longitude;     // Radians.
   
   // Hydraulic parameters.
   double baseWidth;       // Width of channel base in meters.
@@ -367,6 +373,26 @@ public:
   // Water state variables.
   double surfacewaterDepth; // Meters.
   double surfacewaterError; // Cubic meters.  Positive means water was created.  Negative means water was destroyed.
+  
+  // Water flow variables.
+  double precipitationRate;                // Precipitation falling on the channel element in meters of water per second.  Negative means water added to the
+                                           // element.  Must be non-positive.
+  double precipitationCumulativeShortTerm; // precipitationCumulativeShortTerm plus precipitationCumulativeLongTerm together are the cumulative precipitation
+  double precipitationCumulativeLongTerm;  // that has fallen on the channel element in cubic meters of water.  Negative means water added to the element.  Must be
+                                           // non-positive.  Two variables are used because over a long simulation this value could become quite large, and the
+                                           // amount of water added each timestep can be quite small so roundoff error becomes a concern.  New precipitation is
+                                           // added to precipitationCumulativeShortTerm each timestep, and occasionally precipitationCumulativeShortTerm is
+                                           // added to precipitationCumulativeLongTerm and precipitationCumulativeShortTerm is reset to zero.
+  double evaporationRate;                  // Evaporation or condensation on the channel element in meters of water per second.  Positive means water removed from
+                                           // the element.  Negative means water added to the element.
+  double evaporationCumulativeShortTerm;   // evaporationCumulativeShortTerm plus evaporationCumulativeLongTerm together are the cumulative evaporation or
+  double evaporationCumulativeLongTerm;    // condensation on the channel element in cubic meters of water.  Positive means water removed from the element.  Negative
+                                           // means water added to the element.  See the comment of precipitationCumulativeShortTerm for why two variables are
+                                           // used.
+  
+  // Evapo-transpiration variables.
+  EvapoTranspirationForcingStruct evapoTranspirationForcing; // Input variables that come from forcing data.
+  EvapoTranspirationStateStruct   evapoTranspirationState;   // State variables whose values are updated and passed to the next timestep.
   
   // Neighbors.
   std::vector<ChannelSurfacewaterMeshNeighborProxy>    meshNeighbors;

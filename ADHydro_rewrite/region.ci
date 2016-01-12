@@ -22,9 +22,8 @@ module region
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
                                          EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-                                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
-                                         std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
+                                         InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                          std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                          std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors)
           {
@@ -37,15 +36,19 @@ module region
                                           precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
                                           evaporationCumulativeShortTermInit, evaporationCumulativeLongTermInit, transpirationRateInit,
                                           transpirationCumulativeShortTermInit, transpirationCumulativeLongTermInit, evapoTranspirationForcingInit,
-                                          evapoTranspirationStateInit, infiltrationMethodInit, groundwaterMethodInit, /* FIXME vadoseZoneStateInit, */
-                                          surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
+                                          evapoTranspirationStateInit, groundwaterMethodInit, vadoseZoneInit, surfacewaterMeshNeighbors,
+                                          surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
             }
           }
           
           when sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
-                                            double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
-                                            double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                                            double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
+                                            double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                            EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                             std::vector<simpleNeighborInfo> groundwaterMeshNeighbors)
@@ -53,9 +56,11 @@ module region
             serial
             {
               handleInitializeChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, elementXInit, elementYInit, elementZBankInit, elementZBedInit,
-                                             elementLengthInit, baseWidthInit, sideSlopeInit, bedConductivityInit, bedThicknessInit, manningsNInit,
-                                             surfacewaterDepthInit, surfacewaterErrorInit, surfacewaterMeshNeighbors, surfacewaterChannelNeighbors,
-                                             groundwaterMeshNeighbors);
+                                             elementLengthInit, latitudeInit, longitudeInit, baseWidthInit, sideSlopeInit, bedConductivityInit,
+                                             bedThicknessInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, precipitationRateInit,
+                                             precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
+                                             evaporationCumulativeShortTermInit, evaporationCumulativeLongTermInit, evapoTranspirationForcingInit,
+                                             evapoTranspirationStateInit, surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
             }
           }
         } // End case inside of while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements).
@@ -358,15 +363,18 @@ module region
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
                                          EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
-                                         InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethodInit,
-                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit, /* FIXME void* vadoseZoneStateInit, */
-                                         std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
+                                         InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
+                                         InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                          std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                          std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors);
     entry void sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
-                                            double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit,
-                                            double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
+                                            double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
+                                            double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
+                                            double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                            EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                             std::vector<simpleNeighborInfo> groundwaterMeshNeighbors);

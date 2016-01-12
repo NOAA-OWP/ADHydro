@@ -5875,7 +5875,8 @@ void FileManager::meshMassageVegetationAndSoilType()
   int    neighbor;                                                                           // A neighbor of an element.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (!(1 == CkNumPes()))
+  if (!(1 == CkNumPes() && 0 == localMeshElementStart && globalNumberOfMeshElements == localNumberOfMeshElements &&
+      0 == localChannelElementStart && globalNumberOfChannelElements == localNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMassageVegetationAndSoilType is not implemented for distributed operation.  It can "
               "only be run on one processor.\n");
@@ -6024,7 +6025,8 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (!(1 == CkNumPes() && 0 == localMeshElementStart && 0 == localChannelElementStart))
+  if (!(1 == CkNumPes() && 0 == localMeshElementStart && globalNumberOfMeshElements == localNumberOfMeshElements &&
+        0 == localChannelElementStart && globalNumberOfChannelElements == localNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::breakMeshDigitalDam: breakMeshDigitalDam is not implemented for distributed operation.  It can only be run on one "
               "processor.\n");
@@ -6140,6 +6142,7 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
+  // Find the lowest channel element that has the proper reach code.
   for (ii = 0; ii < globalNumberOfChannelElements; ii++)
     {
       if (reachCode == channelReachCode[ii] && (NOFLOW == neighbor || neighborZBank > channelElementZBank[ii]))
@@ -6149,6 +6152,7 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
         }
     }
   
+  // Connect the mesh element to that channel element
   if (NOFLOW != neighbor)
     {
       if (3 <= ADHydro::verbosityLevel)
@@ -6302,7 +6306,8 @@ double FileManager::breakChannelDigitalDam(int channelElement, int dammedChannel
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (!(1 == CkNumPes() && 0 == localMeshElementStart && 0 == localChannelElementStart))
+  if (!(1 == CkNumPes() && 0 == localMeshElementStart && globalNumberOfMeshElements == localNumberOfMeshElements &&
+        0 == localChannelElementStart && globalNumberOfChannelElements == localNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::breakChannelDigitalDam: breakChannelDigitalDam is not implemented for distributed operation.  It can only be run on one "
               "processor.\n");
@@ -6352,7 +6357,7 @@ double FileManager::breakChannelDigitalDam(int channelElement, int dammedChannel
       
       channelElementZBank[channelElement] -= distanceLowered;
       channelElementZBed[channelElement]   = channelElementZBed[dammedChannelElement];
-      slope                         = 0.0;
+      slope                                = 0.0;
     }
   else
     {
@@ -6379,7 +6384,7 @@ double FileManager::breakChannelDigitalDam(int channelElement, int dammedChannel
           
           channelElementZBank[channelElement] -= distanceLowered;
           channelElementZBed[channelElement]   = channelElementZBed[dammedChannelElement];
-          slope                         = 0.0;
+          slope                                = 0.0;
         }
       else
         {
@@ -6417,7 +6422,8 @@ void FileManager::meshMassage()
   bool                     groundwaterConnection;     // Whether neighboring elements remain connected for groundwater flow.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  if (!(1 == CkNumPes() && 0 == localMeshElementStart && 0 == localChannelElementStart))
+  if (!(1 == CkNumPes() && 0 == localMeshElementStart && globalNumberOfMeshElements == localNumberOfMeshElements &&
+        0 == localChannelElementStart && globalNumberOfChannelElements == localNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: meshMassage is not implemented for distributed operation.  It can only be run on one processor.\n");
       CkExit();
@@ -6483,9 +6489,21 @@ void FileManager::meshMassage()
       CkExit();
     }
   
+  if (!(NULL != meshGroundwaterChannelNeighborsConnection))
+    {
+      CkError("ERROR in FileManager::meshMassage: meshGroundwaterChannelNeighborsConnection must not be NULL.\n");
+      CkExit();
+    }
+  
   if (!(NULL != channelChannelType))
     {
       CkError("ERROR in FileManager::meshMassage: channelChannelType must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelReachCode))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelReachCode must not be NULL.\n");
       CkExit();
     }
   
@@ -6498,6 +6516,18 @@ void FileManager::meshMassage()
   if (!(NULL != channelElementLength))
     {
       CkError("ERROR in FileManager::meshMassage: channelElementLength must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelMeshNeighbors))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelMeshNeighbors must not be NULL.\n");
+      CkExit();
+    }
+  
+  if (!(NULL != channelGroundwaterMeshNeighborsConnection))
+    {
+      CkError("ERROR in FileManager::meshMassage: channelGroundwaterMeshNeighborsConnection must not be NULL.\n");
       CkExit();
     }
   
@@ -6540,6 +6570,10 @@ void FileManager::meshMassage()
         }
       
       localStartAndNumber(&localRegionStart, &localNumberOfRegions, globalNumberOfRegions);
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0 == localRegionStart && globalNumberOfRegions == localNumberOfRegions);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Next fill in the meshRegion and ChannelRegion arrays.
       if (NULL == meshRegion)
@@ -6807,6 +6841,12 @@ void FileManager::meshMassage()
         {
           neighbor = meshMeshNeighbors[ii][jj];
           
+          // Remove groundwater INFLOW and OUTFLOW boundaries from elements that are not SHALLOW_AQUIFER.
+          if ((INFLOW == neighbor || OUTFLOW == neighbor) && InfiltrationAndGroundwater::SHALLOW_AQUIFER != meshGroundwaterMethod[ii])
+            {
+              meshGroundwaterMeshNeighborsConnection[ii][jj] = false;
+            }
+          
           // Only the lower ID number of the pair has to check.  This check also excludes boundary condition codes.
           if (ii < neighbor)
             {
@@ -6835,7 +6875,6 @@ void FileManager::meshMassage()
                 }
               
               // Remove groundwater neighbor connection between neighboring mesh elements if either is not SHALLOW_AQUIFER.
-              // FIXME groundwater INFLOW and OUTFLOW boundaries?
               if (InfiltrationAndGroundwater::SHALLOW_AQUIFER != meshGroundwaterMethod[ii] ||
                   InfiltrationAndGroundwater::SHALLOW_AQUIFER != meshGroundwaterMethod[neighbor])
                 {
@@ -6972,23 +7011,35 @@ void FileManager::meshMassage()
                           "it to.\n", ii, meshCatchment[ii]);
                 }
             }
+          else if (InfiltrationAndGroundwater::DEEP_AQUIFER == meshGroundwaterMethod[ii])
+            {
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::meshMassage: mesh element %d was a digital dam that got connected to a stream, but it is not alluvial.\n",
+                          ii);
+                }
+            }
         }
     } // End break digital dams in the mesh.
 }
 
 void FileManager::calculateDerivedValues()
 {
-  int    ii, jj;           // Loop counters.
-  double value;            // For calculating derived values.
-  double lengthSoFar;      // For traversing vertices.  The length traversed so far.
-  double nextLength;       // For traversing vertices.  The length to the next vertex.
-  double lengthFraction;   // For traversing vertices.  The fraction of the distance of the point of interest from the current vertex to the next vertex.
-  double minX;             // For finding the bounding box of vertices.
-  double maxX;             // For finding the bounding box of vertices.
-  double minY;             // For finding the bounding box of vertices.
-  double maxY;             // For finding the bounding box of vertices.
-  double minZBank;         // For finding the bounding box of vertices.
-  double maxZBank;         // For finding the bounding box of vertices.
+  int               ii, jj;          // Loop counters.
+  double            value;           // For calculating derived values.
+  double            bcLambda;        // For allocating GARTO domains.
+  double            bcPsib;          // For allocating GARTO domains.
+  garto_parameters* gartoParameters; // For allocating GARTO domains.
+  garto_domain*     gartoDomain;     // For allocating GARTO domains.
+  double            lengthSoFar;     // For traversing vertices.  The length traversed so far.
+  double            nextLength;      // For traversing vertices.  The length to the next vertex.
+  double            lengthFraction;  // For traversing vertices.  The fraction of the distance of the point of interest from the current vertex to the next vertex.
+  double            minX;            // For finding the bounding box of vertices.
+  double            maxX;            // For finding the bounding box of vertices.
+  double            minY;            // For finding the bounding box of vertices.
+  double            maxY;            // For finding the bounding box of vertices.
+  double            minZBank;        // For finding the bounding box of vertices.
+  double            maxZBank;        // For finding the bounding box of vertices.
 
   // Delete vertex updated arrays that are no longer needed.
   delete[] meshVertexUpdated;
@@ -7189,62 +7240,63 @@ void FileManager::calculateDerivedValues()
         {
           switch (meshVegetationType[ii])
           {
-            case 16: // USGS 16 Water Bodies,                   NLCD 11 open water
-                   meshManningsN[ii] = 0.02;
-                   break;
-            case 24: // USGS 24 Snow or Ice,                    NLCD 12 ice/snow
-                   meshManningsN[ii] = 0.022;
-                   break;
-            case 1:  // USGS 1  Urban and Built-Up Land,        NLCD 21 developed open space
-                     //                                         NLCD 22 developed low intensity
-                     //                                         NLCD 23 developed medium intensity
-                     //                                         NLCD 24 developed high intensity
-                   meshManningsN[ii] = 0.12;
-                   break;
-            case 19: // USGS 19 Barren or Sparsely Vegetated,   NLCD 31 barren land
-                   meshManningsN[ii] = 0.04;
-                   break;
-            case 11: // USGS 11 Deciduous Broadleaf Forest,     NLCD 41 deciduous forest
-                   meshManningsN[ii] = 0.16;
-                   break;
-            case 13: // USGS 13 Evergreen Broadleaf Forest,     NLCD 42 evergreen forest
-                   meshManningsN[ii] = 0.18;
-                   break;
-            case 15: // USGS 15 Mixed Forest,                   NLCD 43 mixed forest
-                   meshManningsN[ii] = 0.17;
-                   break;
-            case 22: // USGS 22 Mixed Tundra,                   NLCD 51 dwarf scrub-Alaska only
-                     //                                         NLCD 72 sedge/herbaceous-Alaska only
-                     //                                         NLCD 73 Lichens-Alaska only
-                     //                                         NLCD 74 Moss-Alaska only
-                   meshManningsN[ii] = 0.05;
-                   break;
-            case 8:  // USGS 8  Shrubland,                      NLCD 52 shrub
-                   meshManningsN[ii] = 0.07;
-                   break;
-            case 7:  // USGS 7  Grassland,                      NLCD 71 grassland
-                   meshManningsN[ii] = 0.035;
-                   break;
-            case 2:  // USGS 2  Dryland Cropland and Pasture,   NLCD 81 Pasture
-                   meshManningsN[ii] = 0.033;
-                   break;
-            case 3:  // USGS 3  Irrigated Cropland and Pasture, NLCD 82 cultivated crops
-                   meshManningsN[ii] = 0.04;
-                   break;
-            case 18: // USGS 18  Wooded Wetland,                NLCD 90 woody wetland
-                   meshManningsN[ii] = 0.14;
-                   break;
-            case 17: // USGS 17 Herbaceous Wetland,             NLCD 95 herbaceous wetland
-                   meshManningsN[ii] = 0.035;
-                   break;
-            default:
-              if (2 <= ADHydro::verbosityLevel)
-                {
-                  CkError("WARNING in FileManager::calculateDerivedValues, mesh element %d: unknown vegetation type %d. using default value of Manning's N "
-                          "for mixed forest\n", ii, meshVegetationType[ii]);
-                }
-              meshManningsN[ii] = 0.17;
-              break;
+          case 16: // USGS 16 Water Bodies,                   NLCD 11 open water
+            meshManningsN[ii] = 0.02;
+            break;
+          case 24: // USGS 24 Snow or Ice,                    NLCD 12 ice/snow
+            meshManningsN[ii] = 0.022;
+            break;
+          case 1:  // USGS 1  Urban and Built-Up Land,        NLCD 21 developed open space
+                   //                                         NLCD 22 developed low intensity
+                   //                                         NLCD 23 developed medium intensity
+                   //                                         NLCD 24 developed high intensity
+            meshManningsN[ii] = 0.12;
+            break;
+          case 19: // USGS 19 Barren or Sparsely Vegetated,   NLCD 31 barren land
+            meshManningsN[ii] = 0.04;
+            break;
+          case 11: // USGS 11 Deciduous Broadleaf Forest,     NLCD 41 deciduous forest
+            meshManningsN[ii] = 0.16;
+            break;
+          case 13: // USGS 13 Evergreen Broadleaf Forest,     NLCD 42 evergreen forest
+            meshManningsN[ii] = 0.18;
+            break;
+          case 15: // USGS 15 Mixed Forest,                   NLCD 43 mixed forest
+            meshManningsN[ii] = 0.17;
+            break;
+          case 22: // USGS 22 Mixed Tundra,                   NLCD 51 dwarf scrub-Alaska only
+                   //                                         NLCD 72 sedge/herbaceous-Alaska only
+                   //                                         NLCD 73 Lichens-Alaska only
+                   //                                         NLCD 74 Moss-Alaska only
+            meshManningsN[ii] = 0.05;
+            break;
+          case 8:  // USGS 8  Shrubland,                      NLCD 52 shrub
+            meshManningsN[ii] = 0.07;
+            break;
+          case 7:  // USGS 7  Grassland,                      NLCD 71 grassland
+            meshManningsN[ii] = 0.035;
+            break;
+          case 2:  // USGS 2  Dryland Cropland and Pasture,   NLCD 81 Pasture
+            meshManningsN[ii] = 0.033;
+            break;
+          case 3:  // USGS 3  Irrigated Cropland and Pasture, NLCD 82 cultivated crops
+            meshManningsN[ii] = 0.04;
+            break;
+          case 18: // USGS 18  Wooded Wetland,                NLCD 90 woody wetland
+            meshManningsN[ii] = 0.14;
+            break;
+          case 17: // USGS 17 Herbaceous Wetland,             NLCD 95 herbaceous wetland
+            meshManningsN[ii] = 0.035;
+            break;
+          default:
+            if (2 <= ADHydro::verbosityLevel)
+              {
+                CkError("WARNING in FileManager::calculateDerivedValues, mesh element %d: unknown vegetation type %d. using default value of Manning's N "
+                        "for mixed forest\n", ii + localMeshElementStart, meshVegetationType[ii]);
+              }
+            
+            meshManningsN[ii] = 0.17;
+            break;
           } // End of switch (meshVegetationType[ii]).
         } // End of for (ii = 0; ii < localNumberOfMeshElements; ii++).
     } // End of if (NULL == meshManningsN && NULL != meshVegetationType).
@@ -7346,8 +7398,9 @@ void FileManager::calculateDerivedValues()
             if (2 <= ADHydro::verbosityLevel)
               {
                 CkError("WARNING in FileManager::calculateDerivedValues, mesh element %d: unknown soil type %d. using default values of conductivity and "
-                        "porosity for sand\n", ii, meshSoilType[ii]);
+                        "porosity for sand\n", ii + localMeshElementStart, meshSoilType[ii]);
               }
+            
             meshConductivity[ii] = 4.66E-5;
             meshPorosity[ii]     = 0.339;
             break;
@@ -7577,26 +7630,28 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified meshInfiltrationMethod defaults to NO_INFILTRATION if soil type is bedrock or soil depth is zero.  Otherwise it defaults to
-  // TRIVIAL_INFILTRATION.  FIXME implement GARTO.
-  if (NULL == meshInfiltrationMethod)
+  // Creating a GARTO domain depends on meshGroundwaterHead, which depends on meshGroundwaterMethod, which depends on meshVadoseZone.infiltrationMethod.
+  // So here we are merely choosing between NO_INFILTRATION and TRIVIAL_INFILTRATION to indicate whether infiltration is performed or not.  The method used
+  // if infiltration is performed is chosen after calculating meshGroundwaterHead.  If not already specified meshVadoseZone.infiltrationMethod defaults to
+  // NO_INFILTRATION if soil type is bedrock or soil depth is zero.  Otherwise it defaults to TRIVIAL_INFILTRATION.
+  if (NULL == meshVadoseZone)
     {
-      meshInfiltrationMethod = new InfiltrationAndGroundwater::InfiltrationMethodEnum[localNumberOfMeshElements];
+      meshVadoseZone = new InfiltrationAndGroundwater::VadoseZone[localNumberOfMeshElements];
       
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
           if ((NULL != meshSoilType && 15 == meshSoilType[ii]) || (NULL != meshElementSoilDepth && 0.0 == meshElementSoilDepth[ii]))
             {
-              meshInfiltrationMethod[ii] = InfiltrationAndGroundwater::NO_INFILTRATION;
+              meshVadoseZone[ii].infiltrationMethod = InfiltrationAndGroundwater::NO_INFILTRATION;
             }
           else
             {
-              meshInfiltrationMethod[ii] = InfiltrationAndGroundwater::TRIVIAL_INFILTRATION;
+              meshVadoseZone[ii].infiltrationMethod = InfiltrationAndGroundwater::TRIVIAL_INFILTRATION;
             }
         }
     }
   
-  // If not already specified meshGroundwaterMethod defaults to NO_AQUIFER if meshInfiltrationMethod is NO_INFILTRATION.  Otherwise, it defaults to
+  // If not already specified meshGroundwaterMethod defaults to NO_AQUIFER if meshVadoseZone.infiltrationMethod is NO_INFILTRATION.  Otherwise, it defaults to
   // DEEP_AQUIFER for non-alluvium elements and SHALLOW_AQUIFER for alluvium elements.  If meshAlluvium is not specified it is assumed that all elements are
   // alluvium.
   if (NULL == meshGroundwaterMethod)
@@ -7605,7 +7660,7 @@ void FileManager::calculateDerivedValues()
       
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
-          if (NULL != meshInfiltrationMethod && InfiltrationAndGroundwater::NO_INFILTRATION == meshInfiltrationMethod[ii])
+          if (NULL != meshVadoseZone && InfiltrationAndGroundwater::NO_INFILTRATION == meshVadoseZone[ii].infiltrationMethod)
             {
               meshGroundwaterMethod[ii] = InfiltrationAndGroundwater::NO_AQUIFER;
             }
@@ -7638,7 +7693,155 @@ void FileManager::calculateDerivedValues()
             }
         }
     }
+  
+  // Select which infiltration method to use if infiltration is performed.  If the user specifies switching infiltration methods any previous vadose zone state
+  // is erased and replaced with hydrostatic equilibrium with the water table.
+  if (NULL != meshVadoseZone)
+    {
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          if (InfiltrationAndGroundwater::NO_INFILTRATION != meshVadoseZone[ii].infiltrationMethod &&
+              ADHydro::infiltrationMethod != meshVadoseZone[ii].infiltrationMethod)
+            {
+              switch (ADHydro::infiltrationMethod)
+              {
+              case InfiltrationAndGroundwater::TRIVIAL_INFILTRATION:
+                // Assignment operator handles deallocating any previous state.
+                meshVadoseZone[ii] = InfiltrationAndGroundwater::VadoseZone(InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, NULL);
+                break;
+              case InfiltrationAndGroundwater::GARTO_INFILTRATION:
+                if (NULL != meshSoilType && NULL != meshElementZSurface && NULL != meshElementSoilDepth && NULL != meshConductivity && NULL != meshPorosity &&
+                    NULL != meshGroundwaterHead && NULL != meshGroundwaterMethod)
+                  {
+                    // FIXLATER What Van Genutchen or Brooks-Corey parameters to use?  Currently set to Brooks-Corey parameters from table 1 of Talbot, C. A.,
+                    // and F. L. Ogden (2008), A method for computing infiltration and redistribution in a discretized moisture content domain, Water Resour.
+                    // Res., 44, W08453, doi:10.1029/2008WR006815.
+                    switch (meshSoilType[ii])
+                    {
+                    case  1: // SAND.
+                      bcLambda = 0.694;
+                      bcPsib   = 0.0726;
+                      break;
+                    case  2: // LOAMY SAND.
+                      bcLambda = 0.553;
+                      bcPsib   = 0.0869;
+                      break;
+                    case  3: // SANDY LOAM.
+                      bcLambda = 0.378;
+                      bcPsib   = 0.1466;
+                      break;
+                    case  4: // SILT LOAM.
+                      bcLambda = 0.234;
+                      bcPsib   = 0.2079;
+                      break;
+                    case  5: // SILT.
+                      bcLambda = 0.192; // Taken from averaging SILT LOAM and SILTY CLAY.
+                      bcPsib   = 0.2749;
+                      break;
+                    case  6: // LOAM.
+                      bcLambda = 0.252;
+                      bcPsib   = 0.1115;
+                      break;
+                    case  7: // SANDY CLAY LOAM.
+                      bcLambda = 0.319;
+                      bcPsib   = 0.2808;
+                      break;
+                    case  8: // SILTY CLAY LOAM.
+                      bcLambda = 0.177;
+                      bcPsib   = 0.3256;
+                      break;
+                    case  9: // CLAY LOAM.
+                      bcLambda = 0.242;
+                      bcPsib   = 0.2589;
+                      break;
+                    case 10: // SANDY CLAY.
+                      bcLambda = 0.223;
+                      bcPsib   = 0.2917;
+                      break;
+                    case 11: // SILTY CLAY.
+                      bcLambda = 0.150;
+                      bcPsib   = 0.3419;
+                      break;
+                    case 12: // CLAY.
+                      bcLambda = 0.165;
+                      bcPsib   = 0.3730;
+                      break;
+                    case 13: // ORGANIC MATERIAL.
+                      bcLambda = 0.252; // Taken from LOAM.
+                      bcPsib   = 0.1115;
+                      break;
+                    case 14: // WATER.
+                      bcLambda = 0.165; // Taken from CLAY.
+                      bcPsib   = 0.3730;
+                      break;
+                    case 15: // BEDROCK.
+                      bcLambda = 0.553; // Taken from LOAMY SAND.
+                      bcPsib   = 0.0869;
+                      break;
+                    case 16: // OTHER(land-ice).
+                      bcLambda = 0.553; // Taken from LOAMY SAND.
+                      bcPsib   = 0.0869;
+                      break;
+                    case 17: // PLAYA.
+                      bcLambda = 0.165; // Taken from CLAY.
+                      bcPsib   = 0.3730;
+                      break;
+                    case 18: // LAVA.
+                      bcLambda = 0.553; // Taken from LOAMY SAND.
+                      bcPsib   = 0.0869;
+                      break;
+                    case 19: // WHITE SAND.
+                      bcLambda = 0.694;
+                      bcPsib   = 0.0726;
+                      break;
+                    default:
+                      if (2 <= ADHydro::verbosityLevel)
+                        {
+                          CkError("WARNING in FileManager::calculateDerivedValues, mesh element %d: unknown soil type %d. using default values of bcLambda "
+                                  "and bcPsib for sand.\n", ii + localMeshElementStart, meshSoilType[ii]);
+                        }
 
+                      bcLambda = 0.694;
+                      bcPsib   = 0.0726;
+                      break;
+                    } // End of switch (meshSoilType[ii]).
+
+                    // FIXLATER How many GARTO bins to use?  Currently set to 10.  What value for residual saturation?  Currently set to 1% of porosity.
+                    garto_parameters_alloc(&gartoParameters, 10, meshConductivity[ii], meshPorosity[ii], meshPorosity[ii] * 0.01, false, 0.0, 0.0, bcLambda,
+                                           bcPsib);
+
+                    // FIXLATER What value for initial water content?  Currently se to 10% of porosity
+                    garto_domain_alloc(&gartoDomain, gartoParameters, 0.0, meshElementSoilDepth[ii],
+                                       InfiltrationAndGroundwater::SHALLOW_AQUIFER == meshGroundwaterMethod[ii], meshPorosity[ii] * 0.1, true,
+                                       meshElementZSurface[ii] - meshGroundwaterHead[ii]);
+
+                    // Assignment operator handles deallocating any previous state.
+                    meshVadoseZone[ii] = InfiltrationAndGroundwater::VadoseZone(InfiltrationAndGroundwater::GARTO_INFILTRATION, gartoDomain);
+                  }
+                else
+                  {
+                    if (2 <= ADHydro::verbosityLevel)
+                      {
+                        CkError("WARNING in FileManager::calculateDerivedValues, mesh element %d: insufficient information to create GARTO domain.  "
+                                "Defaulting to trivial infiltration.", ii + localMeshElementStart);
+                      }
+
+                    // Assignment operator handles deallocating any previous state.
+                    meshVadoseZone[ii] = InfiltrationAndGroundwater::VadoseZone(InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, NULL);
+                  }
+                break;
+              }
+
+#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+              if (meshVadoseZone[ii].checkInvariant())
+                {
+                  CkExit();
+                }
+#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+            }
+        }
+    }
+  
   // Calculate meshMeshNeighborsEdgeLength from the X and Y coordinates of its vertices.
   if (NULL == meshMeshNeighborsEdgeLength && NULL != meshVertexX && NULL != meshVertexY)
     {
@@ -7693,7 +7896,8 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified meshSurfacewaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.
+  // If not already specified meshSurfacewaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.  Removing connections
+  // for channel edges is done in mesh massage.
   if (NULL == meshSurfacewaterMeshNeighborsConnection && NULL != meshMeshNeighbors)
     {
       meshSurfacewaterMeshNeighborsConnection = new bool[localNumberOfMeshElements][MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
@@ -7703,6 +7907,20 @@ void FileManager::calculateDerivedValues()
           for (jj = 0; jj < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
             {
               meshSurfacewaterMeshNeighborsConnection[ii][jj] = (NOFLOW != meshMeshNeighbors[ii][jj]);
+            }
+        }
+    }
+  
+  // If not already specified meshSurfacewaterMeshNeighborsExpirationTime defaults to currentTime.
+  if (NULL == meshSurfacewaterMeshNeighborsExpirationTime)
+    {
+      meshSurfacewaterMeshNeighborsExpirationTime = new double[localNumberOfMeshElements][MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          for (jj = 0; jj < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
+            {
+              meshSurfacewaterMeshNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
             }
         }
     }
@@ -7749,7 +7967,8 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified meshGroundwaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.
+  // If not already specified meshGroundwaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.  Removing connections
+  // for no shallow aquifer is done in mesh massage.
   if (NULL == meshGroundwaterMeshNeighborsConnection && NULL != meshMeshNeighbors)
     {
       meshGroundwaterMeshNeighborsConnection = new bool[localNumberOfMeshElements][MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
@@ -7759,6 +7978,20 @@ void FileManager::calculateDerivedValues()
           for (jj = 0; jj < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
             {
               meshGroundwaterMeshNeighborsConnection[ii][jj] = (NOFLOW != meshMeshNeighbors[ii][jj]);
+            }
+        }
+    }
+  
+  // If not already specified meshGroundwaterMeshNeighborsExpirationTime defaults to currentTime.
+  if (NULL == meshGroundwaterMeshNeighborsExpirationTime)
+    {
+      meshGroundwaterMeshNeighborsExpirationTime = new double[localNumberOfMeshElements][MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          for (jj = 0; jj < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
+            {
+              meshGroundwaterMeshNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
             }
         }
     }
@@ -7819,6 +8052,20 @@ void FileManager::calculateDerivedValues()
         }
     }
   
+  // If not already specified meshSurfacewaterChannelNeighborsExpirationTime defaults to currentTime.
+  if (NULL == meshSurfacewaterChannelNeighborsExpirationTime)
+    {
+      meshSurfacewaterChannelNeighborsExpirationTime = new double[localNumberOfMeshElements][MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          for (jj = 0; jj < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; jj++)
+            {
+              meshSurfacewaterChannelNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
+            }
+        }
+    }
+  
   // If not already specified meshSurfacewaterChannelNeighborsFlowRate defaults to zero.
   if (NULL == meshSurfacewaterChannelNeighborsFlowRate)
     {
@@ -7861,7 +8108,8 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified meshGroundwaterChannelNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.
+  // If not already specified meshGroundwaterChannelNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.  Removing connections
+  // for no aquifer is done in mesh massage.
   if (NULL == meshGroundwaterChannelNeighborsConnection && NULL != meshChannelNeighbors)
     {
       meshGroundwaterChannelNeighborsConnection = new bool[localNumberOfMeshElements][MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
@@ -7871,6 +8119,20 @@ void FileManager::calculateDerivedValues()
           for (jj = 0; jj < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; jj++)
             {
               meshGroundwaterChannelNeighborsConnection[ii][jj] = (NOFLOW != meshChannelNeighbors[ii][jj]);
+            }
+        }
+    }
+  
+  // If not already specified meshGroundwaterChannelNeighborsExpirationTime defaults to currentTime.
+  if (NULL == meshGroundwaterChannelNeighborsExpirationTime)
+    {
+      meshGroundwaterChannelNeighborsExpirationTime = new double[localNumberOfMeshElements][MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ii++)
+        {
+          for (jj = 0; jj < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; jj++)
+            {
+              meshGroundwaterChannelNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
             }
         }
     }
@@ -8247,6 +8509,20 @@ void FileManager::calculateDerivedValues()
         }
     }
   
+  // If not already specified channelSurfacewaterMeshNeighborsExpirationTime defaults to currentTime.
+  if (NULL == channelSurfacewaterMeshNeighborsExpirationTime)
+    {
+      channelSurfacewaterMeshNeighborsExpirationTime = new double[localNumberOfChannelElements][CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          for (jj = 0; jj < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
+            {
+              channelSurfacewaterMeshNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
+            }
+        }
+    }
+  
   // If not already specified channelSurfacewaterMeshNeighborsFlowRate defaults to zero.
   if (NULL == channelSurfacewaterMeshNeighborsFlowRate)
     {
@@ -8289,7 +8565,8 @@ void FileManager::calculateDerivedValues()
         }
     }
   
-  // If not already specified channelGroundwaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.
+  // If not already specified channelGroundwaterMeshNeighborsConnection defaults to true if the neighbor is not NOFLOW, otherwise false.  Removing connections
+  // for no aquifer is done in mesh massage.
   if (NULL == channelGroundwaterMeshNeighborsConnection && NULL != channelMeshNeighbors)
     {
       channelGroundwaterMeshNeighborsConnection = new bool[localNumberOfChannelElements][CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];
@@ -8299,6 +8576,20 @@ void FileManager::calculateDerivedValues()
           for (jj = 0; jj < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
             {
               channelGroundwaterMeshNeighborsConnection[ii][jj] = (NOFLOW != channelMeshNeighbors[ii][jj]);
+            }
+        }
+    }
+  
+  // If not already specified channelGroundwaterMeshNeighborsExpirationTime defaults to currentTime.
+  if (NULL == channelGroundwaterMeshNeighborsExpirationTime)
+    {
+      channelGroundwaterMeshNeighborsExpirationTime = new double[localNumberOfChannelElements][CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          for (jj = 0; jj < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; jj++)
+            {
+              channelGroundwaterMeshNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
             }
         }
     }
@@ -8355,6 +8646,20 @@ void FileManager::calculateDerivedValues()
           for (jj = 0; jj < CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE; jj++)
             {
               channelSurfacewaterChannelNeighborsConnection[ii][jj] = (NOFLOW != channelChannelNeighbors[ii][jj]);
+            }
+        }
+    }
+  
+  // If not already specified channelSurfacewaterChannelNeighborsExpirationTime defaults to currentTime.
+  if (NULL == channelSurfacewaterChannelNeighborsExpirationTime)
+    {
+      channelSurfacewaterChannelNeighborsExpirationTime = new double[localNumberOfChannelElements][CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
+      
+      for (ii = 0; ii < localNumberOfChannelElements; ii++)
+        {
+          for (jj = 0; jj < CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE; jj++)
+            {
+              channelSurfacewaterChannelNeighborsExpirationTime[ii][jj] = ADHydro::currentTime;
             }
         }
     }
@@ -8652,19 +8957,19 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshEvapoTranspirationState must not be NULL.\n");
           error = true;
         }
-
-      if (!(NULL != meshInfiltrationMethod))
-        {
-          CkError("ERROR in FileManager::handleSendInitializationMessages: meshInfiltrationMethod must not be NULL.\n");
-          error = true;
-        }
-
+      
       if (!(NULL != meshGroundwaterMethod))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterMethod must not be NULL.\n");
           error = true;
         }
-
+      
+      if (!(NULL != meshVadoseZone))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshVadoseZone must not be NULL.\n");
+          error = true;
+        }
+      
       if (!(NULL != meshMeshNeighbors))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshMeshNeighbors must not be NULL.\n");
@@ -8701,6 +9006,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+      if (!(NULL != meshSurfacewaterMeshNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterMeshNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshSurfacewaterMeshNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterMeshNeighborsFlowRate must not be NULL.\n");
+          error = true;
+        }
+
       if (!(NULL != meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm must not be NULL.\n");
@@ -8716,6 +9033,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!(NULL != meshGroundwaterMeshNeighborsConnection))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterMeshNeighborsConnection must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshGroundwaterMeshNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterMeshNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshGroundwaterMeshNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterMeshNeighborsFlowRate must not be NULL.\n");
           error = true;
         }
 
@@ -8755,6 +9084,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+      if (!(NULL != meshSurfacewaterChannelNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterChannelNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshSurfacewaterChannelNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterChannelNeighborsFlowRate must not be NULL.\n");
+          error = true;
+        }
+
       if (!(NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm must not be NULL.\n");
@@ -8770,6 +9111,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!(NULL != meshGroundwaterChannelNeighborsConnection))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterChannelNeighborsConnection must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshGroundwaterChannelNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterChannelNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != meshGroundwaterChannelNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterChannelNeighborsFlowRate must not be NULL.\n");
           error = true;
         }
 
@@ -8793,7 +9146,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelRegion must not be NULL.\n");
           error = true;
         }
-
+      
       if (!(NULL != channelChannelType))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelChannelType must not be NULL.\n");
@@ -8833,6 +9186,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!(NULL != channelElementLength))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelElementLength must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelLatitude))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelLatitude must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelLongitude))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelLongitude must not be NULL.\n");
           error = true;
         }
 
@@ -8878,6 +9243,48 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+      if (!(NULL != channelPrecipitationRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelPrecipitationRate must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelPrecipitationCumulativeShortTerm))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelPrecipitationCumulativeShortTerm must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelPrecipitationCumulativeLongTerm))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelPrecipitationCumulativeLongTerm must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelEvaporationRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelEvaporationRate must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelEvaporationCumulativeShortTerm))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelEvaporationCumulativeShortTerm must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelEvaporationCumulativeLongTerm))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelEvaporationCumulativeLongTerm must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelEvapoTranspirationState))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelEvapoTranspirationState must not be NULL.\n");
+          error = true;
+        }
+
       if (!(NULL != channelMeshNeighbors))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelMeshNeighbors must not be NULL.\n");
@@ -8902,6 +9309,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+      if (!(NULL != channelSurfacewaterMeshNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterMeshNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelSurfacewaterMeshNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterMeshNeighborsFlowRate must not be NULL.\n");
+          error = true;
+        }
+
       if (!(NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm must not be NULL.\n");
@@ -8917,6 +9336,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!(NULL != channelGroundwaterMeshNeighborsConnection))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelGroundwaterMeshNeighborsConnection must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelGroundwaterMeshNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelGroundwaterMeshNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelGroundwaterMeshNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelGroundwaterMeshNeighborsFlowRate must not be NULL.\n");
           error = true;
         }
 
@@ -8947,6 +9378,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!(NULL != channelSurfacewaterChannelNeighborsConnection))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterChannelNeighborsConnection must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelSurfacewaterChannelNeighborsExpirationTime))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterChannelNeighborsExpirationTime must not be NULL.\n");
+          error = true;
+        }
+
+      if (!(NULL != channelSurfacewaterChannelNeighborsFlowRate))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelSurfacewaterChannelNeighborsFlowRate must not be NULL.\n");
           error = true;
         }
 
@@ -9007,14 +9450,16 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
             {
               if (meshSurfacewaterMeshNeighborsConnection[ii][jj])
                 {
-                  surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
+                  surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterMeshNeighborsExpirationTime[ii][jj],
+                      meshSurfacewaterMeshNeighborsFlowRate[ii][jj], meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], meshMeshNeighborsRegion[ii][jj], meshMeshNeighbors[ii][jj],
                       meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj]));
                 }
 
               if (meshGroundwaterMeshNeighborsConnection[ii][jj])
                 {
-                  groundwaterMeshNeighbors.push_back(simpleNeighborInfo(meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
+                  groundwaterMeshNeighbors.push_back(simpleNeighborInfo(meshGroundwaterMeshNeighborsExpirationTime[ii][jj],
+                      meshGroundwaterMeshNeighborsFlowRate[ii][jj], meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshGroundwaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], meshMeshNeighborsRegion[ii][jj], meshMeshNeighbors[ii][jj],
                       meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj]));
                 }
@@ -9037,10 +9482,9 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                     }
                 }
             }
-          else if (!(isBoundary(meshChannelNeighbors[ii][jj])))
+          else
             {
-              CkError("ERROR in FileManager::handleSendInitializationMessages: mesh element %d channel neighbor %d must be a valid element number or "
-                      "boundary condition code.\n", ii, jj);
+              CkError("ERROR in FileManager::handleSendInitializationMessages: mesh element %d channel neighbor %d must be a valid element number.\n", ii, jj);
               error = true;
             }
           
@@ -9048,14 +9492,16 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
             {
               if (meshSurfacewaterChannelNeighborsConnection[ii][jj])
                 {
-                  surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
+                  surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterChannelNeighborsExpirationTime[ii][jj],
+                      meshSurfacewaterChannelNeighborsFlowRate[ii][jj], meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshChannelNeighborsRegion[ii][jj], meshChannelNeighbors[ii][jj],
                       meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
 
               if (meshGroundwaterChannelNeighborsConnection[ii][jj])
                 {
-                  groundwaterChannelNeighbors.push_back(simpleNeighborInfo(meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
+                  groundwaterChannelNeighbors.push_back(simpleNeighborInfo(meshGroundwaterChannelNeighborsExpirationTime[ii][jj],
+                      meshGroundwaterChannelNeighborsFlowRate[ii][jj], meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshChannelNeighborsRegion[ii][jj], meshChannelNeighbors[ii][jj],
                       meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
@@ -9070,8 +9516,8 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
               meshSurfacewaterDepth[ii], meshSurfacewaterError[ii], meshGroundwaterHead[ii], meshGroundwaterRecharge[ii], meshGroundwaterError[ii],
               meshPrecipitationRate[ii], meshPrecipitationCumulativeShortTerm[ii], meshPrecipitationCumulativeLongTerm[ii], meshEvaporationRate[ii],
               meshEvaporationCumulativeShortTerm[ii], meshEvaporationCumulativeLongTerm[ii], meshTranspirationRate[ii], meshTranspirationCumulativeShortTerm[ii],
-              meshTranspirationCumulativeLongTerm[ii], evapoTranspirationForcingInit, meshEvapoTranspirationState[ii], meshInfiltrationMethod[ii],
-              meshGroundwaterMethod[ii], surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
+              meshTranspirationCumulativeLongTerm[ii], evapoTranspirationForcingInit, meshEvapoTranspirationState[ii], meshGroundwaterMethod[ii],
+              meshVadoseZone[ii], surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
         }
     }
 
@@ -9097,10 +9543,9 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                     }
                 }
             }
-          else if (!(isBoundary(channelMeshNeighbors[ii][jj])))
+          else
             {
-              CkError("ERROR in FileManager::handleSendInitializationMessages: channel element %d mesh neighbor %d must be a valid element number or "
-                      "boundary condition code.\n", ii, jj);
+              CkError("ERROR in FileManager::handleSendInitializationMessages: channel element %d mesh neighbor %d must be a valid element number.\n", ii, jj);
               error = true;
             }
           
@@ -9108,14 +9553,16 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
             {
               if (channelSurfacewaterMeshNeighborsConnection[ii][jj])
                 {
-                  surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
+                  surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterMeshNeighborsExpirationTime[ii][jj],
+                      channelSurfacewaterMeshNeighborsFlowRate[ii][jj], channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelMeshNeighborsRegion[ii][jj], channelMeshNeighbors[ii][jj],
                       channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
 
               if (channelGroundwaterMeshNeighborsConnection[ii][jj])
                 {
-                  groundwaterMeshNeighbors.push_back(simpleNeighborInfo(channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
+                  groundwaterMeshNeighbors.push_back(simpleNeighborInfo(channelGroundwaterMeshNeighborsExpirationTime[ii][jj],
+                      channelGroundwaterMeshNeighborsFlowRate[ii][jj], channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelMeshNeighborsRegion[ii][jj], channelMeshNeighbors[ii][jj],
                       channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
                 }
@@ -9156,7 +9603,8 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           
           if (!error && NOFLOW != channelChannelNeighbors[ii][jj] && channelSurfacewaterChannelNeighborsConnection[ii][jj])
             {
-              surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
+              surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterChannelNeighborsExpirationTime[ii][jj],
+                  channelSurfacewaterChannelNeighborsFlowRate[ii][jj], channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                   channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], channelChannelNeighborsRegion[ii][jj],
                   channelChannelNeighbors[ii][jj], 1.0, 1.0, 0.0));
             }
@@ -9165,9 +9613,12 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (!error)
         {
           regionProxy[channelRegion[ii]].sendInitializeChannelElement(ii + localChannelElementStart, channelChannelType[ii], channelReachCode[ii],
-              channelElementX[ii], channelElementY[ii], channelElementZBank[ii], channelElementZBed[ii], channelElementLength[ii], channelBaseWidth[ii],
-              channelSideSlope[ii], channelBedConductivity[ii], channelBedThickness[ii], channelManningsN[ii], channelSurfacewaterDepth[ii],
-              channelSurfacewaterError[ii], surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
+              channelElementX[ii], channelElementY[ii], channelElementZBank[ii], channelElementZBed[ii], channelElementLength[ii], channelLatitude[ii],
+              channelLongitude[ii], channelBaseWidth[ii], channelSideSlope[ii], channelBedConductivity[ii], channelBedThickness[ii], channelManningsN[ii],
+              channelSurfacewaterDepth[ii], channelSurfacewaterError[ii], channelPrecipitationRate[ii], channelPrecipitationCumulativeShortTerm[ii],
+              channelPrecipitationCumulativeLongTerm[ii], channelEvaporationRate[ii], channelEvaporationCumulativeShortTerm[ii],
+              channelEvaporationCumulativeLongTerm[ii], evapoTranspirationForcingInit, channelEvapoTranspirationState[ii], surfacewaterMeshNeighbors,
+              surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
         }
     }
 

@@ -35,16 +35,17 @@ ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(doubl
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy: regionInit must be greater than or equal to zero and less"
+              " than globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(0 <= neighborInit))
+  if (!(0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy: neighborInit must be greater than or equal to zero and "
+              "less than globalNumberOfMeshElements.\n");
       CkExit();
     }
   
@@ -88,16 +89,15 @@ bool ChannelSurfacewaterMeshNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(0 <= neighbor))
+  if (!(0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelSurfacewaterMeshNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero and less than globalNumberOfMeshElements.\n");
       error = true;
     }
   
@@ -168,18 +168,17 @@ ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
       CkError("ERROR in ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy: regionInit must be greater than or equal to "
-              "zero.\n");
+              "zero and less than globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(isBoundary(neighborInit) || 0 <= neighborInit))
+  if (!(isBoundary(neighborInit) || (0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
     {
       CkError("ERROR in ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy: neighborInit must be a boundary condition code or "
-              "greater than or equal to zero.\n");
+              "greater than or equal to zero and less than globalNumberOfChannelElements.\n");
       CkExit();
     }
   
@@ -318,17 +317,17 @@ bool ChannelSurfacewaterChannelNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in ChannelSurfacewaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelSurfacewaterChannelNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(isBoundary(neighbor) || 0 <= neighbor))
+  if (!(isBoundary(neighbor) || (0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)))
     {
       CkError("ERROR in ChannelSurfacewaterChannelNeighborProxy::checkInvariant: neighbor must be a boundary condition code or greater than or equal to "
-              "zero.\n");
+              "zero and less than globalNumberOfChannelElements.\n");
       error = true;
     }
   
@@ -475,16 +474,17 @@ ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy(double 
   neighborInvariantChecked(false)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that regionInit and neighborInit are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= regionInit))
+  if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy: regionInit must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy: regionInit must be greater than or equal to zero and less "
+              "than globalNumberOfRegions.\n");
       CkExit();
     }
   
-  if (!(0 <= neighborInit))
+  if (!(0 <= neighborInit && neighborInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy: neighborInit must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy: neighborInit must be greater than or equal to zero and less "
+              "than globalNumberOfMeshElements.\n");
       CkExit();
     }
   
@@ -529,16 +529,17 @@ bool ChannelGroundwaterMeshNeighborProxy::checkInvariant()
 {
   bool error = SimpleNeighborProxy::checkInvariant(); // Error flag.
   
-  // FIXME check that region and neighbor are less than the number of regions and elements.  I think there will be globals with those sizes.
-  if (!(0 <= region))
+  if (!(0 <= region && region < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
-      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::checkInvariant: region must be greater than or equal to zero and less than "
+              "globalNumberOfRegions.\n");
       error = true;
     }
   
-  if (!(0 <= neighbor))
+  if (!(0 <= neighbor && neighbor < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
     {
-      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelGroundwaterMeshNeighborProxy::checkInvariant: neighbor must be greater than or equal to zero and less than "
+              "globalNumberOfMeshElements.\n");
       error = true;
     }
   
@@ -578,6 +579,8 @@ ChannelElement::ChannelElement() :
   elementZBank(0.0),
   elementZBed(0.0),
   elementLength(0.0),
+  latitude(0.0),
+  longitude(0.0),
   baseWidth(0.0),
   sideSlope(0.0),
   bedConductivity(0.0),
@@ -585,6 +588,14 @@ ChannelElement::ChannelElement() :
   manningsN(0.0),
   surfacewaterDepth(0.0),
   surfacewaterError(0.0),
+  precipitationRate(0.0),
+  precipitationCumulativeShortTerm(0.0),
+  precipitationCumulativeLongTerm(0.0),
+  evaporationRate(0.0),
+  evaporationCumulativeShortTerm(0.0),
+  evaporationCumulativeLongTerm(0.0),
+  evapoTranspirationForcing(),
+  evapoTranspirationState(),
   meshNeighbors(),
   channelNeighbors(),
   undergroundMeshNeighbors()
@@ -593,9 +604,12 @@ ChannelElement::ChannelElement() :
 }
 
 ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit, double elementYInit,
-                               double elementZBankInit, double elementZBedInit, double elementLengthInit, double baseWidthInit, double sideSlopeInit,
-                               double bedConductivityInit, double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit,
-                               double surfacewaterErrorInit) :
+                               double elementZBankInit, double elementZBedInit, double elementLengthInit, double latitudeInit, double longitudeInit,
+                               double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit, double manningsNInit,
+                               double surfacewaterDepthInit, double surfacewaterErrorInit, double precipitationRateInit,
+                               double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+                               double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
+                               EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit) :
   elementNumber(elementNumberInit),
   channelType(channelTypeInit),
   reachCode(reachCodeInit),
@@ -604,6 +618,8 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   elementZBank(elementZBankInit),
   elementZBed(elementZBedInit),
   elementLength(elementLengthInit),
+  latitude(latitudeInit),
+  longitude(longitudeInit),
   baseWidth(baseWidthInit),
   sideSlope(sideSlopeInit),
   bedConductivity(bedConductivityInit),
@@ -611,15 +627,23 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   manningsN(manningsNInit),
   surfacewaterDepth(surfacewaterDepthInit),
   surfacewaterError(surfacewaterErrorInit),
+  precipitationRate(precipitationRateInit),
+  precipitationCumulativeShortTerm(precipitationCumulativeShortTermInit),
+  precipitationCumulativeLongTerm(precipitationCumulativeLongTermInit),
+  evaporationRate(evaporationRateInit),
+  evaporationCumulativeShortTerm(evaporationCumulativeShortTermInit),
+  evaporationCumulativeLongTerm(evaporationCumulativeLongTermInit),
+  evapoTranspirationForcing(evapoTranspirationForcingInit),
+  evapoTranspirationState(evapoTranspirationStateInit),
   meshNeighbors(),
   channelNeighbors(),
   undergroundMeshNeighbors()
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
-  if (!(0 <= elementNumberInit))
+  if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in ChannelElement::ChannelElement: elementNumberInit must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelElement::ChannelElement: elementNumberInit must be greater than or equal to zero and less than "
+              "globalNumberOfChannelElements.\n");
       CkExit();
     }
 
@@ -638,6 +662,19 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   if (!(0.0 < elementLengthInit))
     {
       CkError("ERROR in ChannelElement::ChannelElement: elementLength must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(-M_PI / 2.0 <= latitudeInit && M_PI / 2.0 >= latitudeInit))
+    {
+      CkError("ERROR in ChannelElement::ChannelElement: latitudeInit must be greater than or equal to negative PI over two and less than or equal to PI over "
+              "two.\n");
+      CkExit();
+    }
+  
+  if (!(-M_PI * 2.0 <= longitudeInit && M_PI * 2.0 >= longitudeInit))
+    {
+      CkError("ERROR in ChannelElement::ChannelElement: longitudeInit must be greater than or equal to negative two PI and less than or equal to two PI.\n");
       CkExit();
     }
   
@@ -682,7 +719,37 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
       CkError("ERROR in ChannelElement::ChannelElement: surfacewaterDepthInit must be greater than or equal to zero.\n");
       CkExit();
     }
+  
+  if (!(0.0 >= precipitationRateInit))
+    {
+      CkError("ERROR in ChannelElement::ChannelElement: precipitationRateInit must be less than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 >= precipitationCumulativeShortTermInit))
+    {
+      CkError("ERROR in ChannelElement::ChannelElement: precipitationCumulativeShortTermInit must be less than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 >= precipitationCumulativeLongTermInit))
+    {
+      CkError("ERROR in ChannelElement::ChannelElement: precipitationCumulativeLongTermInit must be less than or equal to zero.\n");
+      CkExit();
+    }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  if (checkEvapoTranspirationForcingStructInvariant(&evapoTranspirationForcingInit))
+    {
+      CkExit();
+    }
+  
+  if (checkEvapoTranspirationStateStructInvariant(&evapoTranspirationStateInit))
+    {
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
 }
 
 void ChannelElement::pup(PUP::er &p)
@@ -695,6 +762,8 @@ void ChannelElement::pup(PUP::er &p)
   p | elementZBank;
   p | elementZBed;
   p | elementLength;
+  p | latitude;
+  p | longitude;
   p | baseWidth;
   p | sideSlope;
   p | bedConductivity;
@@ -702,6 +771,14 @@ void ChannelElement::pup(PUP::er &p)
   p | manningsN;
   p | surfacewaterDepth;
   p | surfacewaterError;
+  p | precipitationRate;
+  p | precipitationCumulativeShortTerm;
+  p | precipitationCumulativeLongTerm;
+  p | evaporationRate;
+  p | evaporationCumulativeShortTerm;
+  p | evaporationCumulativeLongTerm;
+  p | evapoTranspirationForcing;
+  p | evapoTranspirationState;
   p | meshNeighbors;
   p | channelNeighbors;
   p | undergroundMeshNeighbors;
@@ -714,10 +791,9 @@ bool ChannelElement::checkInvariant()
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh; // Loop iterator.
   
-  // FIXME check that elementNumberInit is less than the number of elements.  I think there will be globals with this size.
-  if (!(0 <= elementNumber))
+  if (!(0 <= elementNumber && elementNumber < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
     {
-      CkError("ERROR in ChannelElement::checkInvariant: elementNumber must be greater than or equal to zero.\n");
+      CkError("ERROR in ChannelElement::checkInvariant: elementNumber must be greater than or equal to zero and less than globalNumberOfChannelElements.\n");
       error = true;
     }
 
@@ -736,6 +812,18 @@ bool ChannelElement::checkInvariant()
   if (!(0.0 < elementLength))
     {
       CkError("ERROR in ChannelElement::checkInvariant: elementLength must be greater than zero.\n");
+      error = true;
+    }
+  
+  if (!(-M_PI / 2.0 <= latitude && M_PI / 2.0 >= latitude))
+    {
+      CkError("ERROR in ChannelElement::checkInvariant: latitude must be greater than or equal to negative PI over two and less than or equal to PI over two.\n");
+      error = true;
+    }
+  
+  if (!(-M_PI * 2.0 <= longitude && M_PI * 2.0 >= longitude))
+    {
+      CkError("ERROR in ChannelElement::checkInvariant: longitude must be greater than or equal to negative two PI and less than or equal to two PI.\n");
       error = true;
     }
   
@@ -780,6 +868,27 @@ bool ChannelElement::checkInvariant()
       CkError("ERROR in ChannelElement::checkInvariant: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
+  
+  if (!(0.0 >= precipitationRate))
+    {
+      CkError("ERROR in ChannelElement::checkInvariant: precipitationRate must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 >= precipitationCumulativeShortTerm))
+    {
+      CkError("ERROR in ChannelElement::checkInvariant: precipitationCumulativeShortTerm must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0 >= precipitationCumulativeLongTerm))
+    {
+      CkError("ERROR in ChannelElement::checkInvariant: precipitationCumulativeLongTerm must be less than or equal to zero.\n");
+      error = true;
+    }
+  
+  error = checkEvapoTranspirationForcingStructInvariant(&evapoTranspirationForcing) || error;
+  error = checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState)     || error;
   
   for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
     {
@@ -967,17 +1076,41 @@ bool ChannelElement::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double 
 
 bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region)
 {
-  bool   error                   = false;                                                           // Error flag.
-  std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator    itMesh;                            // Loop iterator.
-  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;                         // Loop iterator.
-  std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh;                 // Loop iterator.
-  double dt                      = timestepEndTime - currentTime;                                   // Seconds.
-  double totalOutwardFlowRate    = 0.0;                                                             // Sum of all outward flow rates in cubic meters per
-                                                                                                    // second.
-  double outwardFlowRateFraction = 1.0;                                                             // Fraction of all outward flow rates that can be
-                                                                                                    // satisfied, unitless.
-  double area                    = surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth); // Wetted cross sectional area of channel in square meters.
-  double waterSent;                                                                                 // Cubic meters.
+  bool   error                   = false;                                           // Error flag.
+  std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator    itMesh;            // Loop iterator.
+  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
+  std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh; // Loop iterator.
+  double localSolarDateTime      = referenceDate + (ADHydro::drainDownMode ? ADHydro::drainDownTime : currentTime) / (24.0 * 60.0 * 60.0) +
+                                   longitude / (2 * M_PI);                          // The time and date to use for the sun angle as a Julian date converted
+                                                                                    // from UTC to local solar time.  If we are using drainDownMode calendar
+                                                                                    // date and time stands still at the time specified by
+                                                                                    // ADHydro::drainDownTime.
+  long   year;                                                                      // For calculating yearlen, julian, and hourAngle.
+  long   month;                                                                     // For calculating hourAngle.
+  long   day;                                                                       // For calculating hourAngle.
+  long   hour;                                                                      // For passing to julianToGregorian, unused.
+  long   minute;                                                                    // For passing to julianToGregorian, unused.
+  double second;                                                                    // For passing to julianToGregorian, unused.
+  int    yearlen;                                                                   // Input to evapoTranspirationSoil in days.
+  float  julian;                                                                    // Input to evapoTranspirationSoil in days.
+  double hourAngle;                                                                 // For calculating cosZ.  In radians.
+  double declinationOfSun;                                                          // For calculating cosZ.  In radians.
+  float  cosZ;                                                                      // Input to evapoTranspirationSoil, unitless.
+  double dt                      = timestepEndTime - currentTime;                   // Seconds.
+  float  surfacewaterAdd;                                                           // Output of evapoTranspirationSoil in millimeters.
+  float  evaporationFromSnow;                                                       // Output of evapoTranspirationSoil in millimeters.
+  float  evaporationFromGround;                                                     // Output of evapoTranspirationSoil in millimeters.
+  float  waterError;                                                                // Output of evapoTranspirationSoil in millimeters.
+  double originalEvapoTranspirationTotalWaterInDomain;                              // For mass balance check.
+  double evaporation;                                                               // Cubic meters.
+  double unsatisfiedEvaporation;                                                    // Cubic meters.
+  double totalOutwardFlowRate    = 0.0;                                             // Sum of all outward flow rates in cubic meters per second.
+  double outwardFlowRateFraction = 1.0;                                             // Fraction of all outward flow rates that can be satisfied, unitless.
+  double crossSectionArea        = surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth);
+                                                                                    // Wetted cross sectional area of channel in square meters.
+  double topArea                 = (baseWidth + 2.0 * sideSlope * surfacewaterDepth) * elementLength;
+                                                                                    // surface area of the water top surface in square meters.
+  double waterSent;                                                                 // Cubic meters.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(1721425.5 <= referenceDate))
@@ -993,7 +1126,123 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
-  // FIXME Do point processes for rainfall, snowmelt, and evapo-transpiration without double counting area.
+  if (!error)
+    {
+      // Calculate year, month, and day.
+      julianToGregorian(localSolarDateTime, &year, &month, &day, &hour, &minute, &second);
+
+      // Determine if it is a leap year.
+      if (0 == year % 400)
+        {
+          yearlen = 366;
+        }
+      else if (0 == year % 100)
+        {
+          yearlen = 365;
+        }
+      else if (0 == year % 4)
+        {
+          yearlen = 366;
+        }
+      else
+        {
+          yearlen = 365;
+        }
+
+      // Calculate the ordinal day of the year by subtracting the Julian date of Jan 1 beginning midnight.
+      julian = localSolarDateTime - gregorianToJulian(year, 1, 1, 0, 0, 0);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0f <= julian && julian <= yearlen);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+      // FIXME if this element is shaded set cosZ to zero.
+
+      // FIXME handle slope and aspect effects on solar radiation.
+
+      // The number of "hours" that the sun is east or west of straight overhead.  The value is actually in radians with each hour being Pi/12 radians.
+      // Positive means west.  Negative means east.
+      hourAngle = (localSolarDateTime - gregorianToJulian(year, month, day, 12, 0, 0)) * 2.0 * M_PI;
+
+      // Calculate cosZ.
+      declinationOfSun = -23.44 * M_PI / 180.0 * cos(2.0 * M_PI * (julian + 10.0) / yearlen);
+      cosZ             = sin(latitude) * sin(declinationOfSun) + cos(latitude) * cos(declinationOfSun) * cos(hourAngle);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(-1.0f <= cosZ && 1.0f >= cosZ);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+      // If the sun is below the horizon it doesn't matter how far below.  Set cosZ to zero.
+      if (0.0f > cosZ)
+        {
+          cosZ = 0.0f;
+        }
+
+      // Save the original amount of water stored in evapoTranspirationState for mass balance check.
+      originalEvapoTranspirationTotalWaterInDomain = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
+
+      // Do point processes for rainfall, snowmelt, and evapo-transpiration.
+      // FIXME Currently this is double counting area.  Streams overlap with adjacent mesh elements and both evaporate from that area.
+      if (ICEMASS == channelType)
+        {
+          error = evapoTranspirationGlacier(cosZ, dt, &evapoTranspirationForcing, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromSnow,
+                                            &evaporationFromGround, &waterError);
+        }
+      else
+        {
+          error = evapoTranspirationWater(latitude, yearlen, julian, cosZ, dt, elementLength, surfacewaterDepth * 1000.0, &evapoTranspirationForcing,
+                                          &evapoTranspirationState, &surfacewaterAdd, &evaporationFromSnow, &evaporationFromGround, &waterError);
+        }
+      
+      // Because Noah-MP uses single precision floats, its roundoff error is much higher than for doubles.  However, we can calculate the mass error using
+      // doubles and account for it in surfacewaterError.  The mass error is the amount of water at the end (water stored in evapoTranspirationState plus water
+      // that came out in the form of surfacewaterAdd and evaporationFromSnow minus water error) minus the amount of water at the
+      // beginning (water stored in evapoTranspirationState plus water that went in in the form of precipitation).  evaporationFromGround and
+      // transpirationFromVegetation are not used in this computation because that water is not taken out by Noah-MP.  It is taken below.  The Noah-MP values
+      // are in meters of water thickness.  We need to convert this to cubic meters to store in the channel element's surfacewaterError.
+      surfacewaterError += ((((double)evapoTranspirationTotalWaterInDomain(&evapoTranspirationState) + (double)surfacewaterAdd +
+                              (double)evaporationFromSnow - (double)waterError) -
+                             (originalEvapoTranspirationTotalWaterInDomain + (double)evapoTranspirationForcing.prcp * dt)) / 1000.0) * topArea;
+    }
+  
+  if (!error)
+    {
+      // Move water and record flows for precipitation, evaporation, and transpiration.
+      crossSectionArea += (surfacewaterAdd / 1000.0) * topArea / elementLength;
+      evaporation       = (evaporationFromSnow / 1000.0) * topArea;
+      
+      // Take evaporationFromGround from surfacewater.  If there isn't enough surfacewater print a warning and reduce the quantity of evaporation.
+      unsatisfiedEvaporation = (evaporationFromGround / 1000.0) * topArea;
+      
+      if (crossSectionArea >= unsatisfiedEvaporation / elementLength)
+        {
+          evaporation      += unsatisfiedEvaporation;
+          crossSectionArea -= unsatisfiedEvaporation / elementLength;
+        }
+      else
+        {
+          unsatisfiedEvaporation -= crossSectionArea * elementLength;
+          evaporation            += crossSectionArea * elementLength;
+          crossSectionArea        = 0.0;
+
+          if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || (3 <= ADHydro::verbosityLevel && 0.0 < unsatisfiedEvaporation))
+            {
+              CkError("WARNING in ChannelElement::doPointProcessesAndSendOutflows, element %d: unsatisfied evaporation from ground of %le cubic meters.\n",
+                      elementNumber, unsatisfiedEvaporation);
+            }
+        }
+      
+      // Record cumulative flows and water error.
+      precipitationRate                 = -evapoTranspirationForcing.prcp / 1000.0;
+      precipitationCumulativeShortTerm += precipitationRate * topArea * dt;
+      evaporationRate                   = evaporation / topArea / dt;
+      evaporationCumulativeShortTerm   += evaporation;
+      surfacewaterError                += (waterError / 1000.0) * topArea;
+      
+      // If the roundoff error of adding one timestep's water to CumulativeShortTerm is greater than the roundoff error of adding CumulativeShortTerm to
+      // CumulativeLongTerm then move CumulativeShortTerm to CumulativeLongTerm.
+      // FIXME implement
+    }
   
   if (!error)
     {
@@ -1022,23 +1271,23 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
             }
         }
 
-      if (area * elementLength < totalOutwardFlowRate * dt)
+      if (crossSectionArea * elementLength < totalOutwardFlowRate * dt)
         {
-          outwardFlowRateFraction = area * elementLength / (totalOutwardFlowRate * dt);
+          outwardFlowRateFraction = crossSectionArea * elementLength / (totalOutwardFlowRate * dt);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(0.0 <= outwardFlowRateFraction && 1.0 >= outwardFlowRateFraction);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
-      // Send surfacewater and groundwater outflows taking water from area.
+      // Send surfacewater and groundwater outflows taking water from crossSectionArea.
       for (itMesh = meshNeighbors.begin(); !error && itMesh != meshNeighbors.end(); ++itMesh)
         {
           if (0.0 < (*itMesh).nominalFlowRate)
             {
               // Send water for an outflow.
               waterSent                          = (*itMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-              area                              -= waterSent / elementLength;
+              crossSectionArea                  -= waterSent / elementLength;
               (*itMesh).flowCumulativeShortTerm += waterSent;
 
               error = region.sendWater((*itMesh).region, RegionMessage(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itMesh).neighbor,
@@ -1059,7 +1308,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
             {
               // Send water for an outflow.
               waterSent                             = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
-              area                                 -= waterSent / elementLength;
+              crossSectionArea                     -= waterSent / elementLength;
               (*itChannel).flowCumulativeShortTerm += waterSent;
 
               if (!isBoundary((*itChannel).neighbor))
@@ -1078,7 +1327,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
             {
               // Send water for an outflow.
               waterSent                                     = (*itUndergroundMesh).nominalFlowRate * dt * outwardFlowRateFraction;
-              area                                         -= waterSent / elementLength;
+              crossSectionArea                             -= waterSent / elementLength;
               (*itUndergroundMesh).flowCumulativeShortTerm += waterSent;
 
               error = region.sendWater((*itUndergroundMesh).region, RegionMessage(MESH_GROUNDWATER_CHANNEL_NEIGHBOR, (*itUndergroundMesh).neighbor,
@@ -1090,19 +1339,19 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
       
       if (!error)
         {
-          // Even though we are limiting outflows, area can go below zero due to roundoff error.
-          if (0.0 > area)
+          // Even though we are limiting outflows, crossSectionArea can go below zero due to roundoff error.
+          if (0.0 > crossSectionArea)
             {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-              CkAssert(epsilonEqual(0.0, area));
+              CkAssert(epsilonEqual(0.0, crossSectionArea));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
-              surfacewaterError -= area * elementLength;
-              area               = 0.0;
+              surfacewaterError -= crossSectionArea * elementLength;
+              crossSectionArea   = 0.0;
             }
 
           // Convert cross sectional area back to water depth.
-          calculateSurfacewaterDepthFromArea(area);
+          calculateSurfacewaterDepthFromArea(crossSectionArea);
         }
     }
   
@@ -1215,8 +1464,10 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
 
 bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, double& waterError)
 {
-  bool                                                           error = false; // Error flag.
-  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
+  bool                                                           error   = false; // Error flag.
+  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;       // Loop iterator.
+  double                                                         topArea = (baseWidth + 2.0 * sideSlope * surfacewaterDepth) * elementLength;
+                                                                                  // surface area of the water top surface in square meters.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 <= waterInDomain))
@@ -1229,6 +1480,8 @@ bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, d
   if (!error)
     {
       waterInDomain += surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength;
+      waterInDomain += (evapoTranspirationTotalWaterInDomain(&evapoTranspirationState) / 1000.0) * topArea; // Divide by one thousand to convert from
+                                                                                                            // millimeters to meters.
 
       for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
         {
@@ -1238,6 +1491,9 @@ bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, d
             }
         }
 
+      externalFlows += precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
+      externalFlows += evaporationCumulativeShortTerm   + evaporationCumulativeLongTerm;
+      
       waterError += surfacewaterError;
     }
 

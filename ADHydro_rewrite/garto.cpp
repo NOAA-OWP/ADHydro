@@ -1,9 +1,7 @@
 #include "garto.h"
-#include "all_charm.h"
 
-/* Comment in .h file. */
-int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double conductivity, double porosity, double residual_saturation,
-                           int van_genutchen, double vg_alpha, double vg_n, double bc_lambda, double bc_psib)
+int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double conductivity, double porosity, double residual_saturation, int van_genutchen,
+                           double vg_alpha, double vg_n, double bc_lambda, double bc_psib)
 {
   int    error = false; // Error flag.
   double m, p;          // Derived parameters.
@@ -74,6 +72,14 @@ int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double c
   else
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      // FIXME below we are dividing by bc_lambda.  That means at the very least there should be a requirement that it not be zero, but I don't know what the
+      // range of valid values for bc_lambda is.  One of the hydrologists on the team needs to answer this for me.
+      if (!(0.0 != bc_lambda))
+        {
+          CkError("ERROR in garto_parameters_alloc: bc_lambda must not be zero.\n");
+          error = true;
+        }
+      
       if (!(0.0 < bc_psib))
         {
           CkError("ERROR in garto_parameters_alloc: bc_psib must be greater than zero.\n");
@@ -123,7 +129,6 @@ int garto_parameters_alloc(garto_parameters** parameters, int num_bins, double c
   return error;
 }
 
-/* Comment in .h file. */
 void garto_parameters_dealloc(garto_parameters** parameters)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -139,7 +144,6 @@ void garto_parameters_dealloc(garto_parameters** parameters)
     }
 }
 
-/* Comment in .h file. */
 int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, double layer_top_depth, double layer_bottom_depth, int yes_groundwater,
                        double initial_water_content, int initialize_to_hydrostatic, double water_table)
 {
@@ -268,14 +272,12 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, doub
 
       // Allocate and initialize groundwater_front_theta.
       (*domain)->groundwater_front_theta = new double[parameters->num_bins + 1];
+      delta_water_content                = (parameters->theta_s - (*domain)->initial_water_content) / parameters->num_bins;
 
       // (*domain)->groundwater_front_theta[0] will be used in the simulation.
-      (*domain)->groundwater_front_theta[0] = initial_water_content;
-      delta_water_content                   = (parameters->theta_s - initial_water_content) / parameters->num_bins;
-
-      for (ii = 1; ii <= parameters->num_bins; ii++)
+      for (ii = 0; ii <= parameters->num_bins; ii++)
         {
-          (*domain)->groundwater_front_theta[ii] = initial_water_content + ii * delta_water_content;
+          (*domain)->groundwater_front_theta[ii] = (*domain)->initial_water_content + ii * delta_water_content;
         }
 
       // Allocate and initialize groundwater_front_depth.
@@ -319,7 +321,6 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, doub
   return error;
 }
 
-/* Comment in .h file. */
 void garto_domain_dealloc(garto_domain** domain)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -339,7 +340,6 @@ void garto_domain_dealloc(garto_domain** domain)
     }
 }
 
-/* Comment in .h file. */
 void garto_check_invariant(garto_domain* domain)
 {
   int ii; // Loop counter.
@@ -385,7 +385,6 @@ void garto_check_invariant(garto_domain* domain)
     }
 }
 
-/* Comment in .h file. */
 double garto_total_water_in_domain(garto_domain* domain)
 {
   int    ii;
@@ -1451,7 +1450,6 @@ void garto_saturated_bin(garto_domain* domain, double dt, double* surfacewater_d
   return;
 }
 
-/* Comment in .h file */
 int garto_timestep(garto_domain* domain, double dt, double* surfacewater_depth, double water_table, double* groundwater_recharge)
 {
   double surfacewater_depth_old = *surfacewater_depth;
@@ -1486,20 +1484,16 @@ int garto_timestep(garto_domain* domain, double dt, double* surfacewater_depth, 
       // Check if surface water bin hit groundwater or pass domain depth.
       garto_merge_surface_groundwater_overlapped(domain, groundwater_recharge);
     }
- 
-   // FIXME Do we want to call this here?  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      garto_check_invariant(domain); 
-#endif
+  
   return error;
 }
 
-/* Comment in .h file */
 void garto_add_groundwater(garto_domain* domain, double* groundwater_recharge)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   CkAssert(NULL != domain && NULL != groundwater_recharge && 0.0 <= *groundwater_recharge);
-#endif  
+#endif
+  
   int    last_groundwater_bin = find_groundwater_last_bin(domain);
   int    ii                   = last_groundwater_bin;
   int    jj, last_surface_bin;
@@ -1619,7 +1613,6 @@ void garto_add_groundwater(garto_domain* domain, double* groundwater_recharge)
    garto_merge_surface_groundwater_overlapped(domain, groundwater_recharge);
 }
 
-/* Comment in .h file */
 void garto_take_groundwater(garto_domain* domain, double water_table, double* groundwater_recharge)
 { 
   int    ii;
@@ -1654,7 +1647,6 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
      }
 }
 
-/* Comment in .h file */
 double garto_specific_yield(garto_domain* domain, double water_table)
 {
   double specific_yield = 0.0;
@@ -1687,8 +1679,6 @@ double garto_specific_yield(garto_domain* domain, double water_table)
   return specific_yield;
 }
 
-/* Comment in .h file */
-// Add 2014/07/17.
 double garto_evapotranspiration(garto_domain* domain, double evaporation_demand, double transpiration_demand, double root_depth)
 {
   int    ii;                         // Loop counter.
@@ -1771,7 +1761,7 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
          }
       domain->groundwater_front_theta[0] = domain->surface_front_theta[0]; 
     }// End of step 2, evaporation from fully saturated domain.
-    
+  
   // Calculate change of water content due to transpiration (assume uniform through root depth), unitless, delta_theta will be used through steps 3-5.
   if (0.0 < transpiration_demand && root_depth > domain->top_depth)
     { // There is transpiration demand and root depth.
@@ -1962,17 +1952,10 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
          } // End of groundwater front bin loop.
     } // End of step5, root zone transpiration from groundwater front water.
 
-   // FIXME Do we want to call this here?  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      garto_check_invariant(domain); 
-#endif
   return evaporated_water;
 }// End of garto_evapotranspiration().
 
-/*
-   See .h file.
-*/
-void get_garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
+void garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
 {
   int    ii, jj;             // Loop counter.
   int    jj_start     = 0;   // Loop start index for loop over soil_depth_z.
@@ -2074,9 +2057,6 @@ void get_garto_domain_water_content(garto_domain* domain, double* water_content,
     }
 } // End of get_gar_domain_water_content().
 
-/*
- * See .h file.
-*/
 double garto_equilibrium_water_content(garto_domain* domain, double depth_above_water_table)
 {
   double equilibrium_water_content;
