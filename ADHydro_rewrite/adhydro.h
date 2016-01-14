@@ -56,6 +56,9 @@ public:
   static CProxy_FileManager fileManagerProxy;
   static CProxy_Region      regionProxy;
   
+  // FIXME put htis in the right place
+  static InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethod;
+  
   // Calculate latitude and longitude from X,Y coordinates.
   //
   // Returns: true if there is an error, false otherwise.

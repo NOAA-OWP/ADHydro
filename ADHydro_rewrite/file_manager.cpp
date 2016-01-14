@@ -1,5 +1,6 @@
 #include "file_manager.h"
 #include "adhydro.h"
+#include "garto.h"
 #include <sys/stat.h>
 #include <libgen.h>
 #include <netcdf_par.h>
@@ -149,8 +150,8 @@ FileManager::FileManager() :
   meshTranspirationCumulativeShortTerm(NULL),
   meshTranspirationCumulativeLongTerm(NULL),
   meshEvapoTranspirationState(NULL),
-  meshInfiltrationMethod(NULL),
   meshGroundwaterMethod(NULL),
+  meshVadoseZone(NULL),
   meshMeshNeighbors(NULL),
   meshMeshNeighborsRegion(NULL),
   meshMeshNeighborsChannelEdge(NULL),
@@ -158,10 +159,12 @@ FileManager::FileManager() :
   meshMeshNeighborsEdgeNormalX(NULL),
   meshMeshNeighborsEdgeNormalY(NULL),
   meshSurfacewaterMeshNeighborsConnection(NULL),
+  meshSurfacewaterMeshNeighborsExpirationTime(NULL),
   meshSurfacewaterMeshNeighborsFlowRate(NULL),
   meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm(NULL),
   meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm(NULL),
   meshGroundwaterMeshNeighborsConnection(NULL),
+  meshGroundwaterMeshNeighborsExpirationTime(NULL),
   meshGroundwaterMeshNeighborsFlowRate(NULL),
   meshGroundwaterMeshNeighborsFlowCumulativeShortTerm(NULL),
   meshGroundwaterMeshNeighborsFlowCumulativeLongTerm(NULL),
@@ -169,10 +172,12 @@ FileManager::FileManager() :
   meshChannelNeighborsRegion(NULL),
   meshChannelNeighborsEdgeLength(NULL),
   meshSurfacewaterChannelNeighborsConnection(NULL),
+  meshSurfacewaterChannelNeighborsExpirationTime(NULL),
   meshSurfacewaterChannelNeighborsFlowRate(NULL),
   meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm(NULL),
   meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm(NULL),
   meshGroundwaterChannelNeighborsConnection(NULL),
+  meshGroundwaterChannelNeighborsExpirationTime(NULL),
   meshGroundwaterChannelNeighborsFlowRate(NULL),
   meshGroundwaterChannelNeighborsFlowCumulativeShortTerm(NULL),
   meshGroundwaterChannelNeighborsFlowCumulativeLongTerm(NULL),
@@ -212,10 +217,12 @@ FileManager::FileManager() :
   channelMeshNeighborsRegion(NULL),
   channelMeshNeighborsEdgeLength(NULL),
   channelSurfacewaterMeshNeighborsConnection(NULL),
+  channelSurfacewaterMeshNeighborsExpirationTime(NULL),
   channelSurfacewaterMeshNeighborsFlowRate(NULL),
   channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm(NULL),
   channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm(NULL),
   channelGroundwaterMeshNeighborsConnection(NULL),
+  channelGroundwaterMeshNeighborsExpirationTime(NULL),
   channelGroundwaterMeshNeighborsFlowRate(NULL),
   channelGroundwaterMeshNeighborsFlowCumulativeShortTerm(NULL),
   channelGroundwaterMeshNeighborsFlowCumulativeLongTerm(NULL),
@@ -223,6 +230,7 @@ FileManager::FileManager() :
   channelChannelNeighborsRegion(NULL),
   channelChannelNeighborsDownstream(NULL),
   channelSurfacewaterChannelNeighborsConnection(NULL),
+  channelSurfacewaterChannelNeighborsExpirationTime(NULL),
   channelSurfacewaterChannelNeighborsFlowRate(NULL),
   channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm(NULL),
   channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm(NULL),
@@ -282,8 +290,8 @@ FileManager::~FileManager()
   delete[] meshTranspirationCumulativeShortTerm;
   delete[] meshTranspirationCumulativeLongTerm;
   delete[] meshEvapoTranspirationState;
-  delete[] meshInfiltrationMethod;
   delete[] meshGroundwaterMethod;
+  delete[] meshVadoseZone;
   delete[] meshMeshNeighbors;
   delete[] meshMeshNeighborsRegion;
   delete[] meshMeshNeighborsChannelEdge;
@@ -291,10 +299,12 @@ FileManager::~FileManager()
   delete[] meshMeshNeighborsEdgeNormalX;
   delete[] meshMeshNeighborsEdgeNormalY;
   delete[] meshSurfacewaterMeshNeighborsConnection;
+  delete[] meshSurfacewaterMeshNeighborsExpirationTime;
   delete[] meshSurfacewaterMeshNeighborsFlowRate;
   delete[] meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   delete[] meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm;
   delete[] meshGroundwaterMeshNeighborsConnection;
+  delete[] meshGroundwaterMeshNeighborsExpirationTime;
   delete[] meshGroundwaterMeshNeighborsFlowRate;
   delete[] meshGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   delete[] meshGroundwaterMeshNeighborsFlowCumulativeLongTerm;
@@ -302,10 +312,12 @@ FileManager::~FileManager()
   delete[] meshChannelNeighborsRegion;
   delete[] meshChannelNeighborsEdgeLength;
   delete[] meshSurfacewaterChannelNeighborsConnection;
+  delete[] meshSurfacewaterChannelNeighborsExpirationTime;
   delete[] meshSurfacewaterChannelNeighborsFlowRate;
   delete[] meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   delete[] meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
   delete[] meshGroundwaterChannelNeighborsConnection;
+  delete[] meshGroundwaterChannelNeighborsExpirationTime;
   delete[] meshGroundwaterChannelNeighborsFlowRate;
   delete[] meshGroundwaterChannelNeighborsFlowCumulativeShortTerm;
   delete[] meshGroundwaterChannelNeighborsFlowCumulativeLongTerm;
@@ -345,10 +357,12 @@ FileManager::~FileManager()
   delete[] channelMeshNeighborsRegion;
   delete[] channelMeshNeighborsEdgeLength;
   delete[] channelSurfacewaterMeshNeighborsConnection;
+  delete[] channelSurfacewaterMeshNeighborsExpirationTime;
   delete[] channelSurfacewaterMeshNeighborsFlowRate;
   delete[] channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm;
   delete[] channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm;;
   delete[] channelGroundwaterMeshNeighborsConnection;
+  delete[] channelGroundwaterMeshNeighborsExpirationTime;
   delete[] channelGroundwaterMeshNeighborsFlowRate;
   delete[] channelGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   delete[] channelGroundwaterMeshNeighborsFlowCumulativeLongTerm;
@@ -356,6 +370,7 @@ FileManager::~FileManager()
   delete[] channelChannelNeighborsRegion;
   delete[] channelChannelNeighborsDownstream;
   delete[] channelSurfacewaterChannelNeighborsConnection;
+  delete[] channelSurfacewaterChannelNeighborsExpirationTime;
   delete[] channelSurfacewaterChannelNeighborsFlowRate;
   delete[] channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   delete[] channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
@@ -583,9 +598,9 @@ void FileManager::initializeFromASCIIFiles()
   int                vegetationType;           // Used to read vegetation type from the files.
   int                numberOfSoilLayers;       // Used to read the number of soil layers from the files.
   int                soilTypeReader;           // Used to read soil type from the files.
-  int                soilType      = -1;       // Used to store soil type of the top layer.
+  int                soilType;                 // Used to store soil type of the top layer.
   double             soilDepthReader;          // Used to read each soil layers thickness.
-  double             soilDepth     = 0.0;      // Used to store the sum of each soil layers thickness.
+  double             soilDepth;                // Used to store the sum of each soil layers thickness.
   int                alluvium;                 // Used to read whether an element has an alluvial aquifer.
   int                neighbor0;                // Used to read neighbors from the files.
   int                neighbor1;                // Used to read neighbors from the files.
@@ -1295,7 +1310,7 @@ void FileManager::initializeFromASCIIFiles()
           channelElementLength[       index - localChannelElementStart]    = length;
           channelChannelType[         index - localChannelElementStart]    = (ChannelTypeEnum)type;
           channelReachCode[           index - localChannelElementStart]    = reachCode1;
-          // FIXME This assumes rectangular channels.  Calculate some other way?
+          // FIXLATER This assumes rectangular channels.  Calculate some other way?
           channelBaseWidth[           index - localChannelElementStart]    = topWidth;
           channelSideSlope[           index - localChannelElementStart]    = 0.0;
         }
@@ -1583,6 +1598,8 @@ void FileManager::initializeFromASCIIFiles()
         }
     }
 }
+
+/* FIXME uncomment
 
 bool FileManager::NetCDFOpenForRead(const char* path, int* fileID)
 {
@@ -5502,6 +5519,8 @@ void FileManager::writeNetCDFFiles()
     }
 }
 
+FIXME uncomment */
+
 void FileManager::updateVertices()
 {
   int                                                             ii, jj;                             // Loop counters.
@@ -6857,7 +6876,7 @@ void FileManager::meshMassage()
               if (meshCatchment[ii] != meshCatchment[neighbor])
                 {
                   // Get the height of the center of the edge separating the neighbors.  If it is higher than both neighbors it is considered a ridge.
-                  // FIXME this could be replaced with checking if both elements slope away from the edge.
+                  // FIXLATER this could be replaced with checking if both elements slope away from the edge.
                   edgeZSurface = 0.5 * (meshVertexZSurface[ii][(jj + 1) % MESH_ELEMENT_MESH_NEIGHBORS_SIZE] +
                                         meshVertexZSurface[ii][(jj + 2) % MESH_ELEMENT_MESH_NEIGHBORS_SIZE]);
 
@@ -7701,10 +7720,14 @@ void FileManager::calculateDerivedValues()
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
           if (InfiltrationAndGroundwater::NO_INFILTRATION != meshVadoseZone[ii].infiltrationMethod &&
+              InfiltrationAndGroundwater::NO_INFILTRATION != ADHydro::infiltrationMethod &&
               ADHydro::infiltrationMethod != meshVadoseZone[ii].infiltrationMethod)
             {
               switch (ADHydro::infiltrationMethod)
               {
+              case InfiltrationAndGroundwater::NO_INFILTRATION:
+                // Unreachable code.
+                break;
               case InfiltrationAndGroundwater::TRIVIAL_INFILTRATION:
                 // Assignment operator handles deallocating any previous state.
                 meshVadoseZone[ii] = InfiltrationAndGroundwater::VadoseZone(InfiltrationAndGroundwater::TRIVIAL_INFILTRATION, NULL);
@@ -7713,9 +7736,8 @@ void FileManager::calculateDerivedValues()
                 if (NULL != meshSoilType && NULL != meshElementZSurface && NULL != meshElementSoilDepth && NULL != meshConductivity && NULL != meshPorosity &&
                     NULL != meshGroundwaterHead && NULL != meshGroundwaterMethod)
                   {
-                    // FIXLATER What Van Genutchen or Brooks-Corey parameters to use?  Currently set to Brooks-Corey parameters from table 1 of Talbot, C. A.,
-                    // and F. L. Ogden (2008), A method for computing infiltration and redistribution in a discretized moisture content domain, Water Resour.
-                    // Res., 44, W08453, doi:10.1029/2008WR006815.
+                    // Set Brooks-Corey parameters from table 1 of Talbot, C. A., and F. L. Ogden (2008), A method for computing infiltration and
+                    // redistribution in a discretized moisture content domain, Water Resour. Res., 44, W08453, doi:10.1029/2008WR006815.
                     switch (meshSoilType[ii])
                     {
                     case  1: // SAND.
