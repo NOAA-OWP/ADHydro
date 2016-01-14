@@ -194,6 +194,14 @@ ADHydro::ADHydro(CkArgMsg* msg)
       centralMeridian = superfile.GetReal("", "centralMeridianDegrees", NAN) * M_PI / 180.0;
     }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(isnan(centralMeridian) || (-M_PI * 2.0 <= centralMeridian && M_PI * 2.0 >= centralMeridian)))
+    {
+      CkError("ERROR in ADHydro::ADHydro: centralMeridian must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
   falseEasting  = superfile.GetReal("", "falseEasting", NAN);
   falseNorthing = superfile.GetReal("", "falseNorthing", NAN);
   
@@ -223,6 +231,26 @@ ADHydro::ADHydro(CkArgMsg* msg)
   checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", INFINITY);
   outputPeriod       = superfile.GetReal("", "outputPeriod", INFINITY);
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0 <= simulationDuration))
+    {
+      CkError("ERROR in ADHydro::ADHydro: simulationDuration must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < checkpointPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: checkpointPeriod must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < outputPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: outputPeriod must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
   infiltrationMethodString = superfile.Get("", "infiltrationMethod", "NO_INFILTRATION");
   
   if ("NO_INFILTRATION" == infiltrationMethodString)
@@ -237,11 +265,13 @@ ADHydro::ADHydro(CkArgMsg* msg)
     {
       infiltrationMethod = InfiltrationAndGroundwater::GARTO_INFILTRATION;
     }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   else
     {
       CkError("ERROR in ADHydro::ADHydro: infiltrationMethod in superfile must be a valid enum value.\n");
       CkExit();
     }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
   drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
