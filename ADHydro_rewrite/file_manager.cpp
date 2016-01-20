@@ -9504,7 +9504,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                     }
                 }
             }
-          else
+          else if (!(NOFLOW == meshChannelNeighbors[ii][jj]))
             {
               CkError("ERROR in FileManager::handleSendInitializationMessages: mesh element %d channel neighbor %d must be a valid element number.\n", ii, jj);
               error = true;
@@ -9565,7 +9565,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                     }
                 }
             }
-          else
+          else if (!(NOFLOW == channelMeshNeighbors[ii][jj]))
             {
               CkError("ERROR in FileManager::handleSendInitializationMessages: channel element %d mesh neighbor %d must be a valid element number.\n", ii, jj);
               error = true;

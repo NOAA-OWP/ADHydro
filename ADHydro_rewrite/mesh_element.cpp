@@ -1518,7 +1518,7 @@ bool InfiltrationAndGroundwater::fillInEvapoTranspirationSoilMoistureStruct(doub
   return error;
 }
 
-double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
+double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation, double elementZSurface)
 {
   double evaporation = 0.0; // Return value.
   
@@ -1550,13 +1550,14 @@ double InfiltrationAndGroundwater::evaporate(double unsatisfiedEvaporation)
     }
   else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
     {
-      evaporation = garto_evapotranspiration((garto_domain*)vadoseZone.state, unsatisfiedEvaporation, 0.0, layerZBottom);
+      // FIXLATER get real root depth
+      evaporation = garto_evapotranspiration((garto_domain*)vadoseZone.state, unsatisfiedEvaporation, 0.0, elementZSurface - layerZBottom);
     }
     
   return evaporation;
 }
 
-double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
+double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration, double elementZSurface)
 {
   double transpiration = 0.0; // Return value.
   
@@ -1572,11 +1573,12 @@ double InfiltrationAndGroundwater::transpire(double unsatisfiedTranspiration)
   if (TRIVIAL_INFILTRATION == vadoseZone.infiltrationMethod)
     {
       // With no vadose zone state transpiration water comes from the same place as evaporation water.
-      transpiration = evaporate(unsatisfiedTranspiration);
+      transpiration = evaporate(unsatisfiedTranspiration, elementZSurface);
     }
   else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
     {
-      transpiration = garto_evapotranspiration((garto_domain*)vadoseZone.state, 0.0, unsatisfiedTranspiration, layerZBottom);
+      // FIXLATER get real root depth
+      transpiration = garto_evapotranspiration((garto_domain*)vadoseZone.state, 0.0, unsatisfiedTranspiration, elementZSurface - layerZBottom);
     }
   return transpiration;
 }
@@ -2517,7 +2519,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
           unsatisfiedEvaporation -= surfacewaterDepth;
           evaporation            += surfacewaterDepth;
           surfacewaterDepth       = 0.0;
-          groundwaterEvaporation  = underground.evaporate(unsatisfiedEvaporation);
+          groundwaterEvaporation  = underground.evaporate(unsatisfiedEvaporation, elementZSurface);
           unsatisfiedEvaporation -= groundwaterEvaporation;
           evaporation            += groundwaterEvaporation;
 
@@ -2531,7 +2533,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
       // Take transpiration first from groundwater, and then if there isn't enough groundwater from surfacewater.  If there isn't enough surfacewater print a
       // warning and reduce the quantity of transpiration.
       unsatisfiedEvaporation  = transpirationFromVegetation / 1000.0;
-      groundwaterEvaporation  = underground.transpire(unsatisfiedEvaporation);
+      groundwaterEvaporation  = underground.transpire(unsatisfiedEvaporation, elementZSurface);
       unsatisfiedEvaporation -= groundwaterEvaporation;
       transpiration          += groundwaterEvaporation;
 
