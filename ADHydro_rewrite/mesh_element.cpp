@@ -1649,6 +1649,18 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
           if (groundwaterHead > layerZBottom)
             {
               groundwaterAvailable = (groundwaterRecharge + (groundwaterHead - layerZBottom) * porosity) * elementArea;
+              
+              // This can still happen if groundwaterRecharge is negative, but it shouldn't for reasonable conditions.
+              if (0.0 > groundwaterAvailable)
+                {
+                  if (2 <= ADHydro::verbosityLevel)
+                    {
+                      CkError("WARNING in InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows: groundwaterAvailable is negative.  This "
+                              "shouldn't happen for reasonable conditions.\n");
+                    }
+                  
+                  groundwaterAvailable = 0.0;
+                }
             }
 
           for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
