@@ -2014,13 +2014,20 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
 
 void garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
 {
-  int    ii, jj;             // Loop counter.
-  int    jj_start     = 0;   // Loop start index for loop over soil_depth_z.
-  double water_amount = 0.0; // Amount of water in each layer in meter.
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
+  int    ii, jj;                                            // Loop counter.
+  int    jj_start     = 0;                                  // Loop start index for loop over soil_depth_z.
+  double water_amount = 0.0;                                // Amount of water in each layer in meter.
+  double base_theta   = domain->groundwater_front_theta[0]; // When processing groundwater this is the water content that is full over the entire height of a
+                                                            // soil layer.  Accumulated water in the soil layer needs to be added to this water content to find
+                                                            // the average water content over the layer.  This variable is only used for groundwater because
+                                                            // surfacewater is processed right to left so the value is always the bin one to the left of the
+                                                            // final bin processed for that layer, which is known when the value is needed.  Groundwater,
+                                                            // however, is processed left to right so the value is the bin one to the left of the first bin
+                                                            // processed so we need to remember it.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   CkAssert(NULL != domain);
 #endif
-  // Loop over gar_domain surface front.
+  // Do a simultaneous walk down the surfacewater bins in ii and soil_depth_z layers in jj_start and jj.
   for (ii = domain->parameters->num_bins; ii >= 1; ii--)
      {
        if (epsilonGreater(domain->surface_front_theta[ii], domain->surface_front_theta[0]))
@@ -2063,7 +2070,7 @@ void garto_domain_water_content(garto_domain* domain, double* water_content, dou
      }
   
   if (domain->yes_groundwater)
-    { // TRUE = domain->yes_groundwater, loop over groundwater fronts.
+    { // TRUE = domain->yes_groundwater.  Do a simultaneous walk down the groundwater bins in ii and soil_depth_z layers in jj_start and jj.
       for (ii = 1; ii <= domain->parameters->num_bins; ii++)
          {
            if (epsilonGreater(domain->groundwater_front_theta[ii], domain->groundwater_front_theta[0]))
@@ -2072,18 +2079,24 @@ void garto_domain_water_content(garto_domain* domain, double* water_content, dou
                   {
                     if (soil_depth_z[jj] <= domain->groundwater_front_depth[ii])
                       {
+                        // Groundwater bin ii is below the bottom of soil layer jj.  That means the soil layer can't intersect any more groundwater so it is
+                        // done and its water content can be calculated.
                         if (0 == jj)
                           {
-                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - domain->top_depth);
+                            water_content[jj] = base_theta + water_amount / (soil_depth_z[jj] - domain->top_depth);
                           }
                         else
                           {
-                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
+                            water_content[jj] = base_theta + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
                           }
-                        water_amount          = 0.0;
+                        water_amount = 0.0;
+                        base_theta   = domain->groundwater_front_theta[ii - 1];
                       }
                     else
                       {
+                        // Groundwater bin ii is above the bottom of soil layer jj.  Accumulate the water content of groundwater bin ii in the soil layer.
+                        // All soil layers above this one are done, but this one might intersect additional groundwater bins to the right so set it to start
+                        // with this soil layer and go on to the next groundwater bin
                         water_amount         += (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii - 1]) * 
                                                 (soil_depth_z[jj] - domain->groundwater_front_depth[ii]);
                         jj_start              = jj;
