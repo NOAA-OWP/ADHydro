@@ -3,8 +3,16 @@ import os
 import pandas as pd
 import numpy as np
 import glob
+from sys import stdout
 from math import acos, cos
 
+import psutil
+
+#Return mem usage for process, as reported by OS, in MiB
+def mem_usage():
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info()[0]/float(2**20)
+    return mem
 import time #Can be removed, only for timing various functions of this script
 # This script is set up to run from the command line and not from inside the QGIS python console.
 # You need to add your QGIS python directory to the PYTHONPATH environment variable as shown below.
@@ -12,15 +20,15 @@ import time #Can be removed, only for timing various functions of this script
 #$export PYTHONPATH=/opt/share/qgis/python:$PYTHONPATH
 #Qgis setup, here so GLOBALS get setup right
 from qgis.core import * #VERY BAD PRACTICE...SHOULD FIND ALL REFERENCES AND PREPEND QGIS.CORE. RATHER THAN IMPORTING ALL OF QGIS.CORE
-qgishome = '/opt'
+qgishome = '/project/CI-WATER/nfrazie1/local'
 app = QgsApplication([], True)
-QgsApplication.setPrefixPath(qgishome, True)
-QgsApplication.initQgis()
+app.setPrefixPath(qgishome, True)
+app.initQgis()
 
 #GLOBALS
 #These are reused each time getMUKEY is called, so create them once and save the overhead
 #Can even put into an init function if the need arises
-input_SSURGO_prefix = "/share/CI-WATER_Third_Party_Files/SSURGO"
+input_SSURGO_prefix = "/project/CI-WATER/data/SSURGO"
 #Directory where extracted data files exist
 input_SSURGO_unzipped = os.path.join(input_SSURGO_prefix, "unzipped")
 input_SSURGO_file  = os.path.join(input_SSURGO_prefix, "index.shp")
@@ -28,7 +36,7 @@ SSURGO_layer       = QgsVectorLayer(input_SSURGO_file, "SSURGO",  "ogr")
 SSURGO_provider    = SSURGO_layer.dataProvider()
 SSURGO_AreaSymInd = SSURGO_provider.fieldNameIndex("AREASYMBOL")
 
-input_STATSGO_prefix = "/share/CI-WATER_Third_Party_Files/STATSGO"
+input_STATSGO_prefix = "/project/CI-WATER/data/STATSGO"
 #Directory where extracted data files exist
 input_STATSGO_unzipped = os.path.join(input_STATSGO_prefix, "unzipped")
 input_STATSGO_file  = os.path.join(input_STATSGO_prefix, "all.shp")
@@ -38,7 +46,7 @@ STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
 STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
 
-input_GEOL_prefix = "/share/CI-WATER_Third_Party_Files/Geologic_Units/"
+input_GEOL_prefix = "/project/CI-WATER/data/Geologic_Units/"
 #Directory where extracted data files exist
 input_GEOL_State_prefix = os.path.join(input_GEOL_prefix, "MergingShapeFiles/")
 input_GEOL_file  =  os.path.join(input_GEOL_prefix, "AllMerged.shp") 
@@ -49,14 +57,15 @@ GEOL_SourceInd = GEOL_provider.fieldNameIndex("SOURCE")
 #This script will read the SSURGO soil mukey files from this directory
 input_SSURGO_County_prefix = os.path.join(input_SSURGO_prefix, "all")
 # This script will read the NLCD data form this directory
-input_NLCD_directory_path = "/share/CI-WATER_Third_Party_Files/NLCD/all_projected/"
+input_NLCD_directory_path = "/project/CI-WATER/data/NLCD/all_projected/"
 
 # This script will read the mesh geometry from this directory
 # the files it will read are:
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
+#input_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
+input_directory_path = "/project/CI-WATER/data/upper_colorado_mesh/"
 
 # This script will write its output to this directory
 # the files it will write are:
@@ -65,7 +74,8 @@ input_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
 # output_directory_path/mesh.1.LandCover
 # output_directory_path/mesh.1.geolType
 # output_directory_path/element_data.pkl
-output_directory_path = "/share/CI-WATER_Simulation_Data/small_green_mesh/"
+#output_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
+output_directory_path = "/project/CI-WATER/data/upper_colorado_mesh/"
 
 #Dictionary to hold QgsVector layers          
 SSURGO_county_dict = {}
@@ -96,7 +106,6 @@ GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix 
                                    'NM': QgsVectorLayer(input_GEOL_State_prefix + "nmgeol_dd_polygon.shp", "GEOL_UNITS_NM","ogr"),
                                    'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
                                    'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
-
 #Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
 #Since this function uses a per state shapefile, it is more efficient to create
 #the large spatial index once, and search through each time rather than
@@ -120,25 +129,28 @@ GEOL_spatial_index = {}
 for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
     #get the layer's data provider and index of its rocktype field
     provider = layer.dataProvider()
-    ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
-    #select the rocktype features to work with
-    provider.select([ROCKTYPE])
+    #ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+    #select the rocktype features to work with, QGIS 2 style
+    request = QgsFeatureRequest()
+    request.setSubsetOfAttributes(['ROCKTYPE1'], provider.fields())
+    #provider.select([ROCKTYPE])
     #Initialize the spatial index
     GEOL_spatial_index[state] = QgsSpatialIndex()
     #Build the spatial index
-    feature = QgsFeature()
-    while provider.nextFeature(feature):
+    for feature in layer.getFeatures(request):
         GEOL_spatial_index[state].insertFeature(feature)
-        
 #Now we similarly pre-populate the SSURGO spatial index.
 #To find the MUKEYS, we first have to look through all the SSURGO features to find
 #the AreaSYM that a point lie in.  We can create that spatial index once and reference
 #it instead of creating it once for each element.
 SSURGO_spatial_index = QgsSpatialIndex()
-feature  = QgsFeature()
-SSURGO_provider.select([SSURGO_AreaSymInd])
+#feature  = QgsFeature()
+#SSURGO_provider.select([SSURGO_AreaSymInd])
+request = QgsFeatureRequest()
+request.setSubsetOfAttributes([SSURGO_AreaSymInd])
 #Populate the spatial index with each feature in the SSURGO provided
-while SSURGO_provider.nextFeature(feature):
+#while SSURGO_provider.nextFeature(feature):
+for feature in SSURGO_layer.getFeatures(request):
     SSURGO_spatial_index.insertFeature(feature)    
 
 #We also look up county information inside SSURGO, using yet another spatial index
@@ -148,10 +160,13 @@ SSURGO_county_index = {}
 
 #If using STATSGO, we also use a spatial index, but only one on one layer
 #We can initilize this spatial index and save a lot of overhead
-eature  = QgsFeature()
-STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+#feature  = QgsFeature()
+#STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+request = QgsFeatureRequest()
+request.setSubsetOfAttributes([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
 STATSGO_index = QgsSpatialIndex()  
-while STATSGO_provider.nextFeature(feature):
+#while STATSGO_provider.nextFeature(feature):
+for feature in STATSGO_layer.getFeatures(request):
     STATSGO_index.insertFeature(feature)
 
 t1 = time.time()
@@ -265,9 +280,10 @@ def coordTransform(s):
     s['long_center'] = point.y()
     return s
 
+def who():
+    return "Processes "+str(os.getpid())+" "
 
-def getSoilTypDRV(elements):
-   return elements[0]
+def getSoilTypDRV(subset):
    """
      This is the user entry point to process the mesh, lookup the soil and vegitation information, and write the output files.
      This process includes reading the element and node files of the mesh and calculating each elements center, ADhydro, and lat/long coordinates.
@@ -280,27 +296,31 @@ def getSoilTypDRV(elements):
        output_element_data_file -- a Pandas dataFrame serialized to file containing all of the computed and looked up information for each element
       
    """
+   
+   section='.{}-{}'.format(subset[0],subset[-1])
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
    NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
-   output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
-   output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
-   output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
-   output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
+   output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl'+section)
 
-   print 'Reading element file.'
+   print '\n\n'+who()+'Reading element file.'
    t0 = time.time()
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
    
    elements['V1'] = elements['V1'].astype(int)
 
-   print 'Reading node file.'
+   #Only work on our subset of elements
+   elements = elements.loc[subset].reset_index()
+
+   print who()+'Reading node file.'
 
    nodes = pd.read_csv(NODEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'X', 'Y', 'Z'], index_col=0, engine='c').dropna()
 
    num_elems = len(elements.index)
    num_nodes = len(nodes.index)
    
-   print 'Calculating element centers.'
+   print who()+"Processing {} elements from {} nodes".format(num_elems, num_nodes)
+   
+   print who()+'Calculating element centers. Memory at start: '+str(mem_usage())
    
    ele=1
    num_verticies=3
@@ -316,7 +336,6 @@ def getSoilTypDRV(elements):
    v = nodes.loc[elements['V1']].reset_index()
    v.index = range(0, num_elems)
    #Note v index and elements index must be the same!!!
-   
    elements['X_center'] = v.X - 20000000.0
    elements['Y_center'] = v.Y - 10000000.0
    
@@ -346,7 +365,8 @@ def getSoilTypDRV(elements):
    elements['lat_center'] = (elements['lat_center'] + origin)*(180/pi)
    elements['long_center'] = elements['long_center']*180/pi
    """
-    #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
+   
+   #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
    elements = elements.apply(coordTransform, axis=1) #Slower since it is not vectorizable, but more accurate!
    
    #elements now contains coordinates for the center of each element in three different coordinates:
@@ -355,6 +375,7 @@ def getSoilTypDRV(elements):
    #  Lat, Long x,y coordinates lat_center, long_center
 
    #Using this information we can now lookup various metadata using the MUKEY and AREASYM keys in the dataframe
+   
    """
     By getting MUKEY and COKEY piecies here for all elements before any further processing
     we can potentially make this script nicer becuase we can release resources manually
@@ -362,31 +383,36 @@ def getSoilTypDRV(elements):
     these values.  On really large meshes, this might be required to do.
    """
    
+   #be kind, clean up unused memory
+   del nodes
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
    t1 = time.time()
-   print "Time: "+ str(t1 - t0)  
-   print 'Finding MUKEY.'
+   print who()+"Finished center calculations. Time: "+ str(t1 - t0) + "\tMem usage: "+ str(mem_usage())
+   print who()+'Finding MUKEY.'
+
    
    #find the MUKEY for each element, this adds the following columns to elements:
    #MUKEY, AreaSym, inSSURGO
    t0 = time.time()
    elements = elements.apply(getMUKEY, axis=1)
    t1 = time.time()
-   print "Time: "+ str(t1 - t0) 
+   print who()+"Finished finding MUKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+   stdout.flush()
    #Write the element data serialized file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
    elements.to_pickle(output_element_data_file)
    
    #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
    #elements = pd.read_pickle(output_element_data_file)
-
-   print 'Finding Geologic Units.'
+   
+   print who()+'Finding Geologic Units.'
 
    #find the geologic unit for each element, this adds the following columns to elements:
    #ROCKTYPE
    t0 = time.time()
    elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
    t1 = time.time()
-   print "Time: "+ str(t1 - t0) 
+   print who()+"Finished finding Geologic Units. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+   stdout.flush()
    
    #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
    elements.to_pickle(output_element_data_file)
@@ -394,74 +420,45 @@ def getSoilTypDRV(elements):
    #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
    #elements = pd.read_pickle(output_element_data_file)
    
-   print 'Finding COKEY.'
+   print who()+'Finding COKEY.'
 
    #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
    #COKEY, compname
    t0 = time.time()
    elements = elements.apply(getCOKEY, axis=1)
    t1 = time.time()
-   print "Time: "+ str(t1 - t0) 
-   
-   print 'Finding soil type.'
+   print who()+"Finished finding COKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+   stdout.flush()
+
+   elements.to_pickle(output_element_data_file)
+
+   print who()+'Finding soil type.'
 
    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
    #SoilType
    t0 = time.time()
    elements = elements.apply(getSoilContent, axis=1)
    t1 = time.time()
-   print "Time: "+ str(t1 - t0) 
-   
-   print 'Finding vegetation type.'
+   print who()+"Finished finding soil type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+   stdout.flush()
+  
+   elements.to_pickle(output_element_data_file)
+
+   print who()+'Finding vegetation type.'
 
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
    #VegParm
    t0 = time.time()
    elements = elements.apply(getVegParm, axis=1)
    t1 = time.time()
-   print "Time: "+ str(t1 - t0) 
-   
-   print 'Writing element data file.'
-   
-   #Write the element data serialized file
+   print who()+"Finished finding vegetation type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage()) + "\n\n"
+   stdout.flush()
+
    elements.to_pickle(output_element_data_file)
-   
-   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
-   #elements = pd.read_pickle(output_element_data_file)
-   
-   print 'Writing soil file.'
-   
-   #Get the output file handle for the soil file
-   SoilFile = open(output_SoilTyp_file, 'wb')
-   #Write soil file header information
-   SoilFile.write(str(num_elems))
-   SoilFile.write('\n')
-   #Write each element
-   elements.apply(writeSoilFile, axis=1, args=(SoilFile, None))
-   SoilFile.close()
-   
-   print 'Writing vegetation file.'
-   
-   #Get the vegetation output file handle
-   VegFile = open(output_VegTyp_file, 'wb')
-   #Write veg file header information
-   VegFile.write(str(num_elems))
-   VegFile.write('\n')
-   #Write each element
-   elements.apply(writeVegFile, axis=1, args=(VegFile, None))
-   VegFile.close()
-   
-   print 'Writing Geologic Unit data file.'
-   #Get the output file handle for the soil file
-   GeolFile = open(output_GeolTyp_file, 'wb')
-   #Write soil file header information
-   GeolFile.write(str(num_elems))
-   GeolFile.write('\n')
-   #Write each element
-   elements.apply(writeGeolFile, axis=1, args=(GeolFile, None))
-   GeolFile.close()
-   
-   
+
+   return elements
+
+
 #TODO If really need to specify which dataset to search( SSURGO or STATSGO ) then make two functions, one for each
 #Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results    
 def getMUKEY(s):
@@ -507,7 +504,9 @@ def getMUKEY(s):
     inSSURGO = False
     found = False
     #Select features and build bounding box
-    SSURGO_provider.select([SSURGO_AreaSymInd])
+    #SSURGO_provider.select([SSURGO_AreaSymInd])
+    request = QgsFeatureRequest()
+    request.setSubsetOfAttributes([SSURGO_AreaSymInd])
     point = QgsPoint(x, y)
     pointBox = QgsRectangle(point, point)
     #Use the SSURGO spatial index to find features that intersect with the point box build from the elements coordiantes
@@ -517,15 +516,17 @@ def getMUKEY(s):
     #So we still have to search using .contains(), but we search
     #a lot less then using .contains() on all features
     for i in ids:
-        SSURGO_provider.featureAtId(i, feature, True, [SSURGO_AreaSymInd])
+        #SSURGO_provider.featureAtId(i, feature, True, [SSURGO_AreaSymInd])
+        feature = SSURGO_layer.getFeatures(request.setFilterFid(i)).next()
         geom = feature.geometry()
         if geom.contains(point):
             #Found an intersecting shape, get the AreaSym
-            attribute = feature.attributeMap()
-            AreaSym = attribute[SSURGO_AreaSymInd].toString()
+            #attribute = feature.attributeMap()
+            #AreaSym = attribute[SSURGO_AreaSymInd].toString()
+            AreaSym = feature[SSURGO_AreaSymInd]
             #See if we have this layer loaded, if not load the layer and create a corresponding spatial index
             if AreaSym not in SSURGO_county_dict:
-                input_SSURGOperCounty_file = os.path.join(input_SSURGO_County_prefix, "soilmu_a_") + AreaSym.toLower() + ".shp"
+                input_SSURGOperCounty_file = os.path.join(input_SSURGO_County_prefix, "soilmu_a_") + AreaSym.lower() + ".shp"
                 SSURGO_perCounty_layer  = QgsVectorLayer(input_SSURGOperCounty_file, "SSURGOperCounty",  "ogr")
                 SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
                 SSURGO_county_dict[AreaSym] = SSURGO_perCounty_layer
@@ -535,8 +536,7 @@ def getMUKEY(s):
                 #mesh elements that must be processed, and this should remain some what proportional even as the
                 #mesh size increases
                 SSURGO_county_index[AreaSym] = QgsSpatialIndex()
-                feature = QgsFeature()
-                while SSURGO_perCounty_provider.nextFeature(feature):
+                for feature in SSURGO_perCounty_layer.getFeatures(QgsFeatureRequest()):
                     SSURGO_county_index[AreaSym].insertFeature(feature)
             else:
                 SSURGO_perCounty_layer = SSURGO_county_dict[AreaSym]
@@ -546,18 +546,20 @@ def getMUKEY(s):
             SSURGO_county_MUKEYInd    = SSURGO_perCounty_provider.fieldNameIndex("MUKEY")
             SSURGO_county_MUKEYSymInd = SSURGO_perCounty_provider.fieldNameIndex("MUSYM")
 
-            SSURGO_perCounty_provider.select([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
+            #SSURGO_perCounty_provider.select([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
+            request = QgsFeatureRequest()
+            request.setSubsetOfAttributes([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
             #Find the intersecting geometries         
             ids = SSURGO_county_index[AreaSym].intersects(pointBox)
             for i in ids:
-                SSURGO_perCounty_provider.featureAtId(i, feature, True, [SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
+                #SSURGO_perCounty_provider.featureAtId(i, feature, True, [SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
+                feature = SSURGO_perCounty_layer.getFeatures(request.setFilterFid(i)).next()
                 geom = feature.geometry()
                 if geom.contains(point):
                     inSSURGO = True
-                    attribute = feature.attributeMap()
-                    AreaSym = attribute[SSURGO_county_AreaSymInd].toString()
-                    MUKEY = attribute[SSURGO_county_MUKEYInd].toString()
-                    MUSYM   = attribute[SSURGO_county_MUKEYSymInd].toString()
+                    AreaSym = feature[SSURGO_county_AreaSymInd]
+                    MUKEY = feature[SSURGO_county_MUKEYInd]
+                    MUSYM   = feature[SSURGO_county_MUKEYSymInd]
                     found = True
                     break
             break #Stop looking if we find a contain
@@ -567,16 +569,19 @@ def getMUKEY(s):
         inSSURGO = False # In the case MUSYM == NOTCOM, inSSURGO was = True
         found = False
         STATSGOfeature = QgsFeature()
-        STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+        #STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+        request = QgsFeatureRequest()
+        request.setSubsetOfAttributes([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
         ids = STATSGO_index.intersects(pointBox)
         for i in ids:
-            STATSGO_provider.featureAtId(i, STATSGOfeature, True, [STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+            #STATSGO_provider.featureAtId(i, STATSGOfeature, True, [STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
+            STATSGOfeature = STATSGO_layer.getFeatures(request.setFilterFid(i)).next()
             geom = STATSGOfeature.geometry()
             if geom.contains(point):
-                attribute = STATSGOfeature.attributeMap()
-                AreaSym = attribute[STATSGO_AreaSymInd].toString() 
-                MUKEY   = attribute[STATSGO_MUKEYInd].toString()
-                MUSYM = attribute[STATSGO_MUKEYSymInd].toString()
+                #attribute = STATSGOfeature.attributeMap()
+                AreaSym = STATSGOfeature[STATSGO_AreaSymInd]
+                MUKEY   = STATSGOfeature[STATSGO_MUKEYInd]
+                MUSYM = STATSGOfeature[STATSGO_MUKEYSymInd]
                 found = True
                 break
 
@@ -685,7 +690,7 @@ def rel_percent_mod(s):
         Required Arguments:
             s -- pandas series containing sandtotal_r, silttatal_r, claytotal_r, and rel_percent
     """
-    if s['rel_percent'] != 100.0:
+    if s['rel_percent'] != 100.0 and s['rel_percent'] != 0:
         s['sandtotal_r'] = s['sandtotal_r']*100/s['rel_percent']
         s['silttotal_r'] = s['silttotal_r']*100/s['rel_percent']
         s['claytotal_r'] = s['claytotal_r']*100/s['rel_percent']
@@ -753,7 +758,7 @@ def getSoilContent(s):
    co_key_rows = Hrz_metadata[Hrz_metadata['cokey'] == COKEY]
    #Make sure we got at least one row, and sort it based on horizon depth
    if not co_key_rows.empty:
-      co_key_rows = co_key_rows.sort('hzdept_r', axis=0)
+      co_key_rows.sort_values('hzdept_r', axis=0, inplace=True)
    else:
       #No soil data found
       s['SoilType'] = np.nan
@@ -852,8 +857,7 @@ def getVegParm(s):
       veg_parm_dict[AreaSym] = QgsRasterLayer(input_NLCDfile)
    
    layer = veg_parm_dict[AreaSym]
-   success, data = layer.identify(QgsPoint(x, y))
-   data = str(data.values()[0])
+   query = layer.dataProvider().identify(QgsPoint(x, y), QgsRaster.IdentifyFormatValue)
    val = -1
    # Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
       # NLCD    definition                     USGS         definition
@@ -877,7 +881,8 @@ def getVegParm(s):
       # 82	cultivated crops	       3?            'Irrigated Cropland and Pasture' 
       # 90	woody wetland	               18            'Wooded Wetland' 
       # 95	herbaceous wetland	       17            'Herbaceous Wetland' 
-   if success:
+   if query.isValid():
+      data = str(int(query.results()[1]))
       #TODO/FIXME This is a static mapping!!! Treat it as such and use a dict!
       if (data == '11'):
          val = 16
@@ -952,22 +957,26 @@ def get_GEOLOGIC_UNITS(s):
             GEOL_perState_provider = GEOL_perState_layer.dataProvider()
             GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
             #select the rocktype features to work with
-            provider.select([GEOL_State_ROCKTYPE]) 
+            #provider.select([GEOL_State_ROCKTYPE]) 
+            request = QgsFeatureRequest()
+            request.setSubsetOfAttributes([GEOL_State_ROCKTYPE])
             feature = QgsFeature()               
             found = False
             ids = GEOL_spatial_index[Source[0:2]].intersects(pointBox)
             for i in ids:
-                GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
+                #GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
+                feature = GEOL_layer.getFeatures(request.setFilterFid(i)).next()
                 geom = feature.geometry()
                 if geom.contains(point):
-                    attribute = feature.attributeMap()
-                    RockType = str(attribute[GEOL_State_ROCKTYPE].toString())
+                    #attribute = feature.attributeMap()
+                    #RockType = str(attribute[GEOL_State_ROCKTYPE].toString())
+                    RockType = str(feature[GEOL_State_ROCKTYPE])
                     found = True
                     break
             #break #Stop looking if we find a contain
     
             if not found:
-               print("Geologic type not found. Assuming not Alluvium")
+               #print("Geologic type not found. Assuming not Alluvium")
                RockType = "Other"
         
             if (RockType == "alluvium"):
@@ -977,12 +986,84 @@ def get_GEOLOGIC_UNITS(s):
             return s
 
 import multiprocessing as mp
+from math import ceil
 if __name__ == '__main__':
+    print "Initial memory: "+str(mem_usage())
     #Run the getSoilTypDRV function
+    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
+    
     pool = mp.Pool()
-    results = [pool.apply(getSoilTypDRV, args=range(0,2000))]
-    print results    
-    #getSoilTypDRV()
+    num_elems = 0
+    with open(ELEfilepath, 'r') as f:
+        num_elems = int(f.readline().split()[0])
+    cores = mp.cpu_count() 
+    print "Processing "+str(num_elems)+" on "+str(cores)+" cores."
+    chunk_size = int( ceil(num_elems/float(cores)) )
+    chunks = []
+    for i in range(0, cores):
+        upper = chunk_size*(i+1)
+        upper = upper if num_elems > upper else num_elems
+        chunks.append(range(chunk_size*i,upper))
+    #print chunks
+    #Pass chunks to cores to spread the workload
+    t0 = time.time()
+    results = pool.map(getSoilTypDRV, chunks)
+    t1 = time.time()    
+    print "DONE in "+str(t1-t0)+" seconds."
+    elements = pd.concat(results, ignore_index=True)
+    #print elements
+    print 'Writing element data file.'
+
+    #File paths for final outputs
+    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
+    output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
+    output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
+    output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
+
+
+    #Write the element data serialized file
+    elements.to_pickle(output_element_data_file)
+   
+     #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
+    #elements = pd.read_pickle(output_element_data_file)
+   
+    print 'Writing soil file.'
+   
+    #Get the output file handle for the soil file
+    SoilFile = open(output_SoilTyp_file, 'wb')
+    #Write soil file header information
+    SoilFile.write(str(num_elems))
+    SoilFile.write('\n')
+    #Write each element
+    elements.apply(writeSoilFile, axis=1, args=(SoilFile, None))
+    SoilFile.close()
+   
+    print 'Writing vegetation file.'
+   
+    #Get the vegetation output file handle
+    VegFile = open(output_VegTyp_file, 'wb')
+    #Write veg file header information
+    VegFile.write(str(num_elems))
+    VegFile.write('\n')
+    #Write each element
+    elements.apply(writeVegFile, axis=1, args=(VegFile, None))
+    VegFile.close()
+   
+    print 'Writing Geologic Unit data file.'
+    #Get the output file handle for the soil file
+    GeolFile = open(output_GeolTyp_file, 'wb')
+    #Write soil file header information
+    GeolFile.write(str(num_elems))
+    GeolFile.write('\n')
+    #Write each element
+    elements.apply(writeGeolFile, axis=1, args=(GeolFile, None))
+    GeolFile.close()
+
     #Qgis finalize
-    QgsApplication.exitQgis()
+    #really should exitQgis...but segfaults for no good reason!!! ignore for now 
+    #app.exitQgis()
+    #QgsApplication.exit()
+    print "Final memory: "+str(mem_usage())
+    import sys
+    sys.stdout.flush()
 
