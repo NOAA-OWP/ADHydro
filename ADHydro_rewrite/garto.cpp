@@ -1893,7 +1893,7 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
      }// End of step 3, root zone transpiration from surface front water.
   
   // Step 4, satisfy transpiration demand from fully saturated domain, decrease delta_theta from theta[0].
-  // If there is not surface front, and root depth is less then domain->groundwater_front_depth[1], not considered here.
+  // FIXME If there is not surface front, and root depth is less then domain->groundwater_front_depth[1], not considered here.
   if (domain->surface_front_theta[0] > domain->parameters->theta_r && root_depth >= evaporate_depth)
     {
       if (domain->surface_front_theta[0] - domain->parameters->theta_r > delta_theta)
@@ -1924,6 +1924,13 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
                domain->groundwater_front_theta[ii]  = domain->surface_front_theta[0];
              }
          }
+
+      if (domain->groundwater_front_theta[0] >= domain->parameters->theta_s)
+        {
+          domain->groundwater_front_theta[1] = domain->parameters->theta_s;
+          domain->groundwater_front_depth[1] = domain->bottom_depth;
+        }
+
       domain->groundwater_front_theta[0] = domain->surface_front_theta[0];    
     } // End of step 4, root zone transpiration from fully saturated domain.
    
