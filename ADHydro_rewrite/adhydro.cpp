@@ -2,47 +2,46 @@
 #include "INIReader.h"
 
 // Global readonly variables.
-std::string        ADHydro::evapoTranspirationInitMpTableFilePath;
-std::string        ADHydro::evapoTranspirationInitVegParmFilePath;
-std::string        ADHydro::evapoTranspirationInitSoilParmFilePath;
-std::string        ADHydro::evapoTranspirationInitGenParmFilePath;
-bool               ADHydro::initializeFromASCIIFiles;
-std::string        ADHydro::ASCIIInputMeshNodeFilePath;
-std::string        ADHydro::ASCIIInputMeshZFilePath;
-std::string        ADHydro::ASCIIInputMeshElementFilePath;
-std::string        ADHydro::ASCIIInputMeshNeighborFilePath;
-std::string        ADHydro::ASCIIInputMeshLandCoverFilePath;
-std::string        ADHydro::ASCIIInputMeshSoilTypeFilePath;
-std::string        ADHydro::ASCIIInputMeshGeolTypeFilePath;
-std::string        ADHydro::ASCIIInputMeshEdgeFilePath;
-std::string        ADHydro::ASCIIInputChannelNodeFilePath;
-std::string        ADHydro::ASCIIInputChannelZFilePath;
-std::string        ADHydro::ASCIIInputChannelElementFilePath;
-std::string        ADHydro::ASCIIInputChannelPruneFilePath;
-std::string        ADHydro::adhydroInputGeometryFilePath;
-std::string        ADHydro::adhydroInputParameterFilePath;
-std::string        ADHydro::adhydroInputStateFilePath;
-std::string        ADHydro::adhydroInputForcingFilePath;
-std::string        ADHydro::adhydroOutputGeometryFilePath;
-std::string        ADHydro::adhydroOutputParameterFilePath;
-std::string        ADHydro::adhydroOutputStateFilePath;
-std::string        ADHydro::adhydroOutputDisplayFilePath;
-double             ADHydro::centralMeridian;
-double             ADHydro::falseEasting;
-double             ADHydro::falseNorthing;
-double             ADHydro::referenceDate;
-double             ADHydro::currentTime;
-double             ADHydro::dt;
-int                ADHydro::iteration;
-double             ADHydro::simulationDuration;
-double             ADHydro::checkpointPeriod;
-double             ADHydro::outputPeriod;
-bool               ADHydro::drainDownMode;
-double             ADHydro::drainDownTime;
-bool               ADHydro::doMeshMassage;
-int                ADHydro::verbosityLevel;
-CProxy_FileManager ADHydro::fileManagerProxy;
-CProxy_Region      ADHydro::regionProxy;
+std::string                                        ADHydro::evapoTranspirationInitMpTableFilePath;
+std::string                                        ADHydro::evapoTranspirationInitVegParmFilePath;
+std::string                                        ADHydro::evapoTranspirationInitSoilParmFilePath;
+std::string                                        ADHydro::evapoTranspirationInitGenParmFilePath;
+bool                                               ADHydro::initializeFromASCIIFiles;
+std::string                                        ADHydro::ASCIIInputMeshNodeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshZFilePath;
+std::string                                        ADHydro::ASCIIInputMeshElementFilePath;
+std::string                                        ADHydro::ASCIIInputMeshNeighborFilePath;
+std::string                                        ADHydro::ASCIIInputMeshLandCoverFilePath;
+std::string                                        ADHydro::ASCIIInputMeshSoilTypeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshGeolTypeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshEdgeFilePath;
+std::string                                        ADHydro::ASCIIInputChannelNodeFilePath;
+std::string                                        ADHydro::ASCIIInputChannelZFilePath;
+std::string                                        ADHydro::ASCIIInputChannelElementFilePath;
+std::string                                        ADHydro::ASCIIInputChannelPruneFilePath;
+std::string                                        ADHydro::adhydroInputGeometryFilePath;
+std::string                                        ADHydro::adhydroInputParameterFilePath;
+std::string                                        ADHydro::adhydroInputStateFilePath;
+std::string                                        ADHydro::adhydroInputForcingFilePath;
+std::string                                        ADHydro::adhydroOutputGeometryFilePath;
+std::string                                        ADHydro::adhydroOutputParameterFilePath;
+std::string                                        ADHydro::adhydroOutputStateFilePath;
+std::string                                        ADHydro::adhydroOutputDisplayFilePath;
+double                                             ADHydro::centralMeridian;
+double                                             ADHydro::falseEasting;
+double                                             ADHydro::falseNorthing;
+double                                             ADHydro::referenceDate;
+double                                             ADHydro::currentTime;
+double                                             ADHydro::simulationDuration;
+double                                             ADHydro::checkpointPeriod;
+double                                             ADHydro::outputPeriod;
+InfiltrationAndGroundwater::InfiltrationMethodEnum ADHydro::infiltrationMethod;
+bool                                               ADHydro::drainDownMode;
+double                                             ADHydro::drainDownTime;
+bool                                               ADHydro::doMeshMassage;
+int                                                ADHydro::verbosityLevel;
+CProxy_FileManager                                 ADHydro::fileManagerProxy;
+CProxy_Region                                      ADHydro::regionProxy;
 
 bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude)
 {
@@ -108,6 +107,10 @@ double ADHydro::newExpirationTime(double currentTime, double dtNew)
   
   ii = floor(currentTime / selectedDt) + 1;
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(ii * selectedDt <= currentTime + dtNew);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
   while ((ii + 1) * selectedDt <= currentTime + dtNew)
     {
       ++ii;
@@ -131,6 +134,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
   long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
   double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
+  std::string infiltrationMethodString;                                // For converting text to enum value.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // If the superfile cannot be read print usage message and exit.
@@ -190,6 +194,14 @@ ADHydro::ADHydro(CkArgMsg* msg)
       centralMeridian = superfile.GetReal("", "centralMeridianDegrees", NAN) * M_PI / 180.0;
     }
   
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(isnan(centralMeridian) || (-M_PI * 2.0 <= centralMeridian && M_PI * 2.0 >= centralMeridian)))
+    {
+      CkError("ERROR in ADHydro::ADHydro: centralMeridian must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
   falseEasting  = superfile.GetReal("", "falseEasting", NAN);
   falseNorthing = superfile.GetReal("", "falseNorthing", NAN);
   
@@ -215,11 +227,52 @@ ADHydro::ADHydro(CkArgMsg* msg)
     }
   
   currentTime        = superfile.GetReal("", "currentTime", NAN);
-  dt                 = superfile.GetReal("", "dt", NAN);
-  iteration          = superfile.GetInteger("", "iteration", -1);
   simulationDuration = superfile.GetReal("", "simulationDuration", 0.0);
   checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", INFINITY);
   outputPeriod       = superfile.GetReal("", "outputPeriod", INFINITY);
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0 <= simulationDuration))
+    {
+      CkError("ERROR in ADHydro::ADHydro: simulationDuration must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < checkpointPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: checkpointPeriod must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < outputPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: outputPeriod must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  infiltrationMethodString = superfile.Get("", "infiltrationMethod", "NO_INFILTRATION");
+  
+  if ("NO_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::NO_INFILTRATION;
+    }
+  else if ("TRIVIAL_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::TRIVIAL_INFILTRATION;
+    }
+  else if ("GARTO_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::GARTO_INFILTRATION;
+    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  else
+    {
+      CkError("ERROR in ADHydro::ADHydro: infiltrationMethod in superfile must be a valid enum value.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
   drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
   doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false);

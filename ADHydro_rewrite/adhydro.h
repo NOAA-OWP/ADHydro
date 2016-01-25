@@ -2,7 +2,6 @@
 #define __ADHYDRO_H__
 
 #include "region.h"
-#include "all_charm.h"
 #include "adhydro.decl.h"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its
@@ -14,47 +13,46 @@ class ADHydro : public CBase_ADHydro
 public:
   
   // Global readonly variables.  For usage see comments in the example superfile.
-  static std::string        evapoTranspirationInitMpTableFilePath;
-  static std::string        evapoTranspirationInitVegParmFilePath;
-  static std::string        evapoTranspirationInitSoilParmFilePath;
-  static std::string        evapoTranspirationInitGenParmFilePath;
-  static bool               initializeFromASCIIFiles;
-  static std::string        ASCIIInputMeshNodeFilePath;
-  static std::string        ASCIIInputMeshZFilePath;
-  static std::string        ASCIIInputMeshElementFilePath;
-  static std::string        ASCIIInputMeshNeighborFilePath;
-  static std::string        ASCIIInputMeshLandCoverFilePath;
-  static std::string        ASCIIInputMeshSoilTypeFilePath;
-  static std::string        ASCIIInputMeshGeolTypeFilePath;
-  static std::string        ASCIIInputMeshEdgeFilePath;
-  static std::string        ASCIIInputChannelNodeFilePath;
-  static std::string        ASCIIInputChannelZFilePath;
-  static std::string        ASCIIInputChannelElementFilePath;
-  static std::string        ASCIIInputChannelPruneFilePath;
-  static std::string        adhydroInputGeometryFilePath;
-  static std::string        adhydroInputParameterFilePath;
-  static std::string        adhydroInputStateFilePath;
-  static std::string        adhydroInputForcingFilePath;
-  static std::string        adhydroOutputGeometryFilePath;
-  static std::string        adhydroOutputParameterFilePath;
-  static std::string        adhydroOutputStateFilePath;
-  static std::string        adhydroOutputDisplayFilePath;
-  static double             centralMeridian;    // Radians.
-  static double             falseEasting;       // Meters.
-  static double             falseNorthing;      // Meters.
-  static double             referenceDate;      // Julian date.
-  static double             currentTime;        // Seconds.
-  static double             dt;                 // Seconds.
-  static int                iteration;          // Unitless.
-  static double             simulationDuration; // Seconds.
-  static double             checkpointPeriod;   // Seconds.
-  static double             outputPeriod;       // Seconds.
-  static bool               drainDownMode;      // Flag.
-  static double             drainDownTime;      // Seconds.
-  static bool               doMeshMassage;      // Flag.
-  static int                verbosityLevel;     // Unitless.
-  static CProxy_FileManager fileManagerProxy;
-  static CProxy_Region      regionProxy;
+  static std::string                                        evapoTranspirationInitMpTableFilePath;
+  static std::string                                        evapoTranspirationInitVegParmFilePath;
+  static std::string                                        evapoTranspirationInitSoilParmFilePath;
+  static std::string                                        evapoTranspirationInitGenParmFilePath;
+  static bool                                               initializeFromASCIIFiles; // Flag.
+  static std::string                                        ASCIIInputMeshNodeFilePath;
+  static std::string                                        ASCIIInputMeshZFilePath;
+  static std::string                                        ASCIIInputMeshElementFilePath;
+  static std::string                                        ASCIIInputMeshNeighborFilePath;
+  static std::string                                        ASCIIInputMeshLandCoverFilePath;
+  static std::string                                        ASCIIInputMeshSoilTypeFilePath;
+  static std::string                                        ASCIIInputMeshGeolTypeFilePath;
+  static std::string                                        ASCIIInputMeshEdgeFilePath;
+  static std::string                                        ASCIIInputChannelNodeFilePath;
+  static std::string                                        ASCIIInputChannelZFilePath;
+  static std::string                                        ASCIIInputChannelElementFilePath;
+  static std::string                                        ASCIIInputChannelPruneFilePath;
+  static std::string                                        adhydroInputGeometryFilePath;
+  static std::string                                        adhydroInputParameterFilePath;
+  static std::string                                        adhydroInputStateFilePath;
+  static std::string                                        adhydroInputForcingFilePath;
+  static std::string                                        adhydroOutputGeometryFilePath;
+  static std::string                                        adhydroOutputParameterFilePath;
+  static std::string                                        adhydroOutputStateFilePath;
+  static std::string                                        adhydroOutputDisplayFilePath;
+  static double                                             centralMeridian;    // Radians.
+  static double                                             falseEasting;       // Meters.
+  static double                                             falseNorthing;      // Meters.
+  static double                                             referenceDate;      // Julian date.
+  static double                                             currentTime;        // Seconds.
+  static double                                             simulationDuration; // Seconds.
+  static double                                             checkpointPeriod;   // Seconds.
+  static double                                             outputPeriod;       // Seconds.
+  static InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethod;
+  static bool                                               drainDownMode;      // Flag.
+  static double                                             drainDownTime;      // Seconds.
+  static bool                                               doMeshMassage;      // Flag.
+  static int                                                verbosityLevel;     // Unitless.
+  static CProxy_FileManager                                 fileManagerProxy;
+  static CProxy_Region                                      regionProxy;
   
   // Calculate latitude and longitude from X,Y coordinates.
   //
@@ -80,12 +78,11 @@ public:
   //
   // 1, 2, 3, 5, 10, 15, 30, 60
   //
-  // If dtNew is between one second and one minute the number is in seconds.
-  // If dtNew is one minute or more the number is in minutes.  If dtNew is less
-  // than one second choose one second divided by a power of two.  The
-  // expiration time must be a multiple of this number.  Choose the expiration
-  // time as the latest multiple of this number less than or equal to
-  // currentTime + dtNew.
+  // If dtNew is one minute or more then use the same divisors as minutes
+  // instead of seconds.  If dtNew is less than one second choose one second
+  // divided by a power of two.  The expiration time must be a multiple of this
+  // number.  Choose the expiration time as the latest multiple of this number
+  // less than or equal to currentTime + dtNew.
   //
   // Examples:
   //

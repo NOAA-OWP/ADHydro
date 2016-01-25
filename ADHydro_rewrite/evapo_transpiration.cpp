@@ -1301,8 +1301,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       smcwtd = NOAHMP_POROSITY;
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      // Include water in the aquifer in the mass balance check.
-      soilMoistureOriginal += wa;
+      // Include water in the aquifer and channel surfacewater in the mass balance check.
+      soilMoistureOriginal += wa + wsLake;
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Run Noah-MP.
@@ -1495,8 +1495,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
             }
         }
       
-      // Include water in the aquifer in the mass balance check.
-      soilMoistureNew += wa;
+      // Include water in the aquifer and channel surfacewater in the mass balance check.
+      soilMoistureNew += wa + wsLake;
       
       // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
       // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
@@ -1751,7 +1751,10 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
         {
           sh2o[ii] = 0.0f;
-          smc[ii]  = NOAHMP_POROSITY;
+          // FIXLATER Soil type 16 'OTHER(land-ice)' sets NOAHMP_POROSITY to 0.421, but after calling NOAHMP_GLACIER smc gets set to 1.0.  So I assume Noah-MP wants smc set to
+          // 1.0 for glaciers.  Maybe we should use soil type 14 'WATER' like we do in evapoTranspirationWater.
+          //smc[ii]  = NOAHMP_POROSITY;
+          smc[ii]  = 1.0;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           // Calculate soil moisture at the beginning of the timestep.
@@ -2391,7 +2394,7 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: sai must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(1.0f >= evapoTranspirationState->sai))
+  else if (!(1.05f >= evapoTranspirationState->sai))
     {
       if (2 <= ADHydro::verbosityLevel)
         {

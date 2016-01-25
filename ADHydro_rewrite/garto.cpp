@@ -1619,32 +1619,82 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
   int    last_bin      = find_groundwater_last_bin(domain);
   double maximum_depth = 0.0;
   double space         = 0.0;
-   
+
+  // Take groundwater by lowering the depth of bins last_bin through 1.
   for (ii = last_bin; ii >= 1 && epsilonGreater(0.0, *groundwater_recharge); ii--)
-     {
-       maximum_depth = water_table - 0.1 * pressure_head_brooks_corey(domain, domain->groundwater_front_theta[ii]);
-       
-       if (maximum_depth > domain->bottom_depth)
+    {
+      maximum_depth = water_table - 0.1 * pressure_head_brooks_corey(domain, domain->groundwater_front_theta[ii]);
+
+      if (maximum_depth > domain->bottom_depth)
+        {
+          maximum_depth = domain->bottom_depth;
+        }
+
+      if (maximum_depth > domain->groundwater_front_depth[ii])
+        {
+          space = (maximum_depth - domain->groundwater_front_depth[ii]) * 
+                  (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii -1]);
+          
+          if (space > -*groundwater_recharge)
+            {
+              domain->groundwater_front_depth[ii] -= *groundwater_recharge / (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii -1]);
+              *groundwater_recharge                = 0.0;
+            }
+          else
+            {
+              domain->groundwater_front_depth[ii]  = maximum_depth;
+              *groundwater_recharge               += space;
+            }
+        }
+    }
+  
+  // Take groundwater by moving to the left the theta of bin 0.
+  if (epsilonGreater(0.0, *groundwater_recharge))
+    {
+      if (domain->surface_front_theta[0] < domain->parameters->theta_s)
+        {
+          maximum_depth = domain->groundwater_front_depth[1];
+        }
+      else
+        {
+          maximum_depth = domain->bottom_depth;
+        }
+
+      space = (maximum_depth - domain->top_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
+
+      if (space > -*groundwater_recharge)
+        {
+          domain->surface_front_theta[0] += *groundwater_recharge / (maximum_depth - domain->top_depth);
+          *groundwater_recharge           = 0.0;
+        }
+      else
+        {
+          domain->surface_front_theta[0] = domain->parameters->theta_r;
+          *groundwater_recharge         += space;
+        }
+      
+      // Update empty bins after changing theta[0].
+      for (ii = 1; ii <= domain->parameters->num_bins; ii++)
          {
-           maximum_depth = domain->bottom_depth;
-         }
-       
-       if (maximum_depth > domain->groundwater_front_depth[ii])
-         {
-           space = (maximum_depth - domain->groundwater_front_depth[ii]) * 
-                          (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii -1]);
-           if (space > - *groundwater_recharge)
+           if (domain->surface_front_theta[ii]     <= domain->groundwater_front_theta[0])
              {
-               domain->groundwater_front_depth[ii] -= *groundwater_recharge / (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii -1]);
-               *groundwater_recharge                = 0.0;
+               domain->surface_front_theta[ii]      = domain->surface_front_theta[0];
              }
-           else
+           
+           if (domain->groundwater_front_theta[ii] <= domain->groundwater_front_theta[0])
              {
-               domain->groundwater_front_depth[ii]  = maximum_depth;
-               *groundwater_recharge               -= space;
+               domain->groundwater_front_theta[ii]  = domain->surface_front_theta[0];
              }
          }
-     }
+
+      if (domain->groundwater_front_theta[0] >= domain->parameters->theta_s)
+        {
+          domain->groundwater_front_theta[1] = domain->parameters->theta_s;
+          domain->groundwater_front_depth[1] = domain->bottom_depth;
+        }
+
+      domain->groundwater_front_theta[0] = domain->surface_front_theta[0];
+    }
 }
 
 double garto_specific_yield(garto_domain* domain, double water_table)
@@ -1719,7 +1769,7 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
     }// End of step 1, evaporation from surface front water.
   
   // Step 2, When there is no surface front bins, satisfy evaporation demand from fully saturated domain.
-  if (domain->yes_groundwater)
+  if (domain->yes_groundwater && domain->surface_front_theta[0] < domain->parameters->theta_s)
     {
       evaporate_depth = domain->groundwater_front_depth[1];
     }
@@ -1727,23 +1777,23 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
     {
       evaporate_depth = domain->bottom_depth;
     }
-      
+  
   if (evaporation_demand > 0.0 && domain->surface_front_theta[0] >= domain->surface_front_theta[1] && 
                                   domain->surface_front_theta[0] >  domain->parameters->theta_r)
     {
       bin_water = (domain->surface_front_theta[0] - domain->parameters->theta_r) * (evaporate_depth - domain->top_depth);
       
       if (bin_water > evaporation_demand)
-        { // Evaporation_demand can be satisfy.
+        { // evaporation_demand can be satisfied.
           domain->surface_front_theta[0]    -= evaporation_demand / (evaporate_depth - domain->top_depth);
           evaporated_water                  += evaporation_demand;
           evaporation_demand                 = 0.0;
         }
       else
-        { // Take all water in the saturated domain upto depth of evaporate_depth.
+        { // Take all water in the saturated domain up to the depth of evaporate_depth.
+          domain->surface_front_theta[0]     = domain->parameters->theta_r;
           evaporated_water                  += bin_water;
           evaporation_demand                -= bin_water;
-          domain->surface_front_theta[0]     = domain->parameters->theta_r;
         }
       
       // Update empty bins after changing theta[0].
@@ -1759,7 +1809,14 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
                domain->groundwater_front_theta[ii]  = domain->surface_front_theta[0];
              }
          }
-      domain->groundwater_front_theta[0] = domain->surface_front_theta[0]; 
+
+      if (domain->groundwater_front_theta[0] >= domain->parameters->theta_s)
+        {
+          domain->groundwater_front_theta[1] = domain->parameters->theta_s;
+          domain->groundwater_front_depth[1] = domain->bottom_depth;
+        }
+
+      domain->groundwater_front_theta[0] = domain->surface_front_theta[0];
     }// End of step 2, evaporation from fully saturated domain.
   
   // Calculate change of water content due to transpiration (assume uniform through root depth), unitless, delta_theta will be used through steps 3-5.
@@ -1836,7 +1893,7 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
      }// End of step 3, root zone transpiration from surface front water.
   
   // Step 4, satisfy transpiration demand from fully saturated domain, decrease delta_theta from theta[0].
-  // If there is not surface front, and root depth is less then domain->groundwater_front_depth[1], not considered here.
+  // FIXME If there is not surface front, and root depth is less then domain->groundwater_front_depth[1], not considered here.
   if (domain->surface_front_theta[0] > domain->parameters->theta_r && root_depth >= evaporate_depth)
     {
       if (domain->surface_front_theta[0] - domain->parameters->theta_r > delta_theta)
@@ -1867,6 +1924,13 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
                domain->groundwater_front_theta[ii]  = domain->surface_front_theta[0];
              }
          }
+
+      if (domain->groundwater_front_theta[0] >= domain->parameters->theta_s)
+        {
+          domain->groundwater_front_theta[1] = domain->parameters->theta_s;
+          domain->groundwater_front_depth[1] = domain->bottom_depth;
+        }
+
       domain->groundwater_front_theta[0] = domain->surface_front_theta[0];    
     } // End of step 4, root zone transpiration from fully saturated domain.
    
@@ -1957,13 +2021,20 @@ double garto_evapotranspiration(garto_domain* domain, double evaporation_demand,
 
 void garto_domain_water_content(garto_domain* domain, double* water_content, double* soil_depth_z, int num_elements)
 {
-  int    ii, jj;             // Loop counter.
-  int    jj_start     = 0;   // Loop start index for loop over soil_depth_z.
-  double water_amount = 0.0; // Amount of water in each layer in meter.
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)  
+  int    ii, jj;                                            // Loop counter.
+  int    jj_start     = 0;                                  // Loop start index for loop over soil_depth_z.
+  double water_amount = 0.0;                                // Amount of water in each layer in meter.
+  double base_theta   = domain->groundwater_front_theta[0]; // When processing groundwater this is the water content that is full over the entire height of a
+                                                            // soil layer.  Accumulated water in the soil layer needs to be added to this water content to find
+                                                            // the average water content over the layer.  This variable is only used for groundwater because
+                                                            // surfacewater is processed right to left so the value is always the bin one to the left of the
+                                                            // final bin processed for that layer, which is known when the value is needed.  Groundwater,
+                                                            // however, is processed left to right so the value is the bin one to the left of the first bin
+                                                            // processed so we need to remember it.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   CkAssert(NULL != domain);
 #endif
-  // Loop over gar_domain surface front.
+  // Do a simultaneous walk down the surfacewater bins in ii and soil_depth_z layers in jj_start and jj.
   for (ii = domain->parameters->num_bins; ii >= 1; ii--)
      {
        if (epsilonGreater(domain->surface_front_theta[ii], domain->surface_front_theta[0]))
@@ -2006,7 +2077,7 @@ void garto_domain_water_content(garto_domain* domain, double* water_content, dou
      }
   
   if (domain->yes_groundwater)
-    { // TRUE = domain->yes_groundwater, loop over groundwater fronts.
+    { // TRUE = domain->yes_groundwater.  Do a simultaneous walk down the groundwater bins in ii and soil_depth_z layers in jj_start and jj.
       for (ii = 1; ii <= domain->parameters->num_bins; ii++)
          {
            if (epsilonGreater(domain->groundwater_front_theta[ii], domain->groundwater_front_theta[0]))
@@ -2015,18 +2086,24 @@ void garto_domain_water_content(garto_domain* domain, double* water_content, dou
                   {
                     if (soil_depth_z[jj] <= domain->groundwater_front_depth[ii])
                       {
+                        // Groundwater bin ii is below the bottom of soil layer jj.  That means the soil layer can't intersect any more groundwater so it is
+                        // done and its water content can be calculated.
                         if (0 == jj)
                           {
-                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - domain->top_depth);
+                            water_content[jj] = base_theta + water_amount / (soil_depth_z[jj] - domain->top_depth);
                           }
                         else
                           {
-                            water_content[jj] = domain->groundwater_front_theta[ii - 1] + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
+                            water_content[jj] = base_theta + water_amount / (soil_depth_z[jj] - soil_depth_z[jj - 1]);
                           }
-                        water_amount          = 0.0;
+                        water_amount = 0.0;
+                        base_theta   = domain->groundwater_front_theta[ii - 1];
                       }
                     else
                       {
+                        // Groundwater bin ii is above the bottom of soil layer jj.  Accumulate the water content of groundwater bin ii in the soil layer.
+                        // All soil layers above this one are done, but this one might intersect additional groundwater bins to the right so set it to start
+                        // with this soil layer and go on to the next groundwater bin
                         water_amount         += (domain->groundwater_front_theta[ii] - domain->groundwater_front_theta[ii - 1]) * 
                                                 (soil_depth_z[jj] - domain->groundwater_front_depth[ii]);
                         jj_start              = jj;

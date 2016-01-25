@@ -27,7 +27,7 @@ module file_manager
           }
         else
           {
-            initializeFromNetCDFFiles();
+            // FIXME uncomment initializeFromNetCDFFiles();
           }
         
         // Calculating derived values may require getting vertex data from other file managers.  If it is not required allVerticesUpdated will immediately
@@ -91,7 +91,7 @@ module file_manager
       // FIXME receive state updates and output to file until simulation is finished.
       serial
       {
-        writeNetCDFFiles();
+        // FIXME uncomment writeNetCDFFiles();
       }
     }; // End entry void runUntilSimulationEnd().
     

@@ -133,6 +133,8 @@ public:
   // be set to defaults in calculateDerivedValues.
   void initializeFromASCIIFiles();
   
+  /* FIXME uncomment
+
   // FIXME comment
   bool NetCDFOpenForRead(const char* path, int* fileID);
   
@@ -294,6 +296,8 @@ public:
   
   // FIXME comment
   void writeNetCDFFiles();
+  
+  FIXME uncomment */
   
   // Check if vertex variables need to be updated from node variables and if so
   // send out get vertex data messages.

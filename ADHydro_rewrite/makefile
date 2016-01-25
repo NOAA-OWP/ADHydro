@@ -99,6 +99,7 @@ file_manager.o: file_manager.cpp      \
                 element.h             \
                 neighbor_proxy.h      \
                 evapo_transpiration.h \
+                garto.h               \
                 all_charm.h           \
                 all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
@@ -133,6 +134,7 @@ mesh_element.o : mesh_element.cpp      \
                  mesh_element.h        \
                  adhydro.h             \
                  adhydro.decl.h        \
+                 file_manager.h        \
                  file_manager.decl.h   \
                  region.h              \
                  region.decl.h         \
@@ -151,6 +153,7 @@ channel_element.o : channel_element.cpp   \
                     channel_element.h     \
                     adhydro.h             \
                     adhydro.decl.h        \
+                    file_manager.h        \
                     file_manager.decl.h   \
                     region.h              \
                     region.decl.h         \

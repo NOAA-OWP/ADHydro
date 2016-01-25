@@ -420,7 +420,8 @@ public:
   // Parameters:
   //
   // unsatisfiedEvaporation - The requested amount of water in meters.
-  double evaporate(double unsatisfiedEvaporation);
+  // elementZSurface        - Pass value from MeshElement object.
+  double evaporate(double unsatisfiedEvaporation, double elementZSurface);
   
   // Remove transpiration from groundwater.
   //
@@ -429,7 +430,8 @@ public:
   // Parameters:
   //
   // unsatisfiedTranspiration - The requested amount of water in meters.
-  double transpire(double unsatisfiedTranspiration);
+  // elementZSurface          - Pass value from MeshElement object.
+  double transpire(double unsatisfiedTranspiration, double elementZSurface);
   
   // Perform infiltration, which takes water from surfacewaterDepth and takes
   // or puts water into groundwaterRecharge.  Then limit and send groundwater
