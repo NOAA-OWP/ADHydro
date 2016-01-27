@@ -27,7 +27,7 @@ module file_manager
           }
         else
           {
-            // FIXME uncomment initializeFromNetCDFFiles();
+            initializeFromNetCDFFiles();
           }
         
         // Calculating derived values may require getting vertex data from other file managers.  If it is not required allVerticesUpdated will immediately

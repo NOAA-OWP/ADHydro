@@ -34,6 +34,7 @@ public:
   static std::string                                        adhydroInputParameterFilePath;
   static std::string                                        adhydroInputStateFilePath;
   static std::string                                        adhydroInputForcingFilePath;
+  static int                                                adhydroInputStateInstance;
   static std::string                                        adhydroOutputGeometryFilePath;
   static std::string                                        adhydroOutputParameterFilePath;
   static std::string                                        adhydroOutputStateFilePath;

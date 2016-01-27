@@ -23,6 +23,7 @@ std::string                                        ADHydro::adhydroInputGeometry
 std::string                                        ADHydro::adhydroInputParameterFilePath;
 std::string                                        ADHydro::adhydroInputStateFilePath;
 std::string                                        ADHydro::adhydroInputForcingFilePath;
+int                                                ADHydro::adhydroInputStateInstance;
 std::string                                        ADHydro::adhydroOutputGeometryFilePath;
 std::string                                        ADHydro::adhydroOutputParameterFilePath;
 std::string                                        ADHydro::adhydroOutputStateFilePath;
@@ -181,6 +182,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   adhydroInputParameterFilePath          = superfile.Get("", "adhydroInputParameterFilePath", adhydroInputDirectoryPath + "/parameter.nc");
   adhydroInputStateFilePath              = superfile.Get("", "adhydroInputStateFilePath",     adhydroInputDirectoryPath + "/state.nc");
   adhydroInputForcingFilePath            = superfile.Get("", "adhydroInputForcingFilePath",   adhydroInputDirectoryPath + "/forcing.nc");
+  adhydroInputStateInstance              = superfile.GetInteger("", "adhydroInputStateInstance", -1);
   adhydroOutputDirectoryPath             = superfile.Get("", "adhydroOutputDirectoryPath", ".");
   adhydroOutputGeometryFilePath          = superfile.Get("", "adhydroOutputGeometryFilePath",  adhydroOutputDirectoryPath + "/geometry.nc");
   adhydroOutputParameterFilePath         = superfile.Get("", "adhydroOutputParameterFilePath", adhydroOutputDirectoryPath + "/parameter.nc");

@@ -27,6 +27,7 @@ mainmodule adhydro
     readonly std::string                                        adhydroInputParameterFilePath;
     readonly std::string                                        adhydroInputStateFilePath;
     readonly std::string                                        adhydroInputForcingFilePath;
+    readonly int                                                adhydroInputStateInstance;
     readonly std::string                                        adhydroOutputGeometryFilePath;
     readonly std::string                                        adhydroOutputParameterFilePath;
     readonly std::string                                        adhydroOutputStateFilePath;
