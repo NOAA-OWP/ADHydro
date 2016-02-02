@@ -240,7 +240,15 @@ FileManager::FileManager() :
   meshNodeLocation(),
   channelNodeLocation(),
   meshVertexUpdated(NULL),
-  channelVertexUpdated(NULL)
+  channelVertexUpdated(NULL),
+  geometryInstance(-1),
+  geometryInstanceChecked(false),
+  geometryChanged(false),
+  parameterInstance(-1),
+  parameterInstanceChecked(false),
+  parameterChanged(false),
+  stateInstance(-1),
+  displayInstance(-1)
 {
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();
@@ -3431,43 +3439,21 @@ template <typename T> bool FileManager::NetCDFReadVariable(int fileID, const cha
   return error;
 }
 
-bool FileManager::NetCDFReadInstances(size_t* geometryInstance, size_t* parameterInstance, size_t* stateInstance)
+bool FileManager::NetCDFReadInstances()
 {
   bool    error    = false;   // Error flag.
   int     ncErrorCode;        // Return value of NetCDF functions.
   int     fileID;             // ID of NetCDF file.
   bool    fileOpen = false;   // Whether fileID refers to an open file.
   size_t  stateInstancesSize; // Number of instances in state file.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != geometryInstance))
-    {
-      CkError("ERROR in FileManager::NetCDFReadInstances: geometryInstance must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != parameterInstance))
-    {
-      CkError("ERROR in FileManager::NetCDFReadInstances: parameterInstance must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != stateInstance))
-    {
-      CkError("ERROR in FileManager::NetCDFReadInstances: stateInstance must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  size_t* size_tVariable;     // For passing the address of a pointer to a variable.
   
   // Open the state file.
+  error = NetCDFOpenForRead(ADHydro::adhydroInputStateFilePath.c_str(), &fileID);
+
   if (!error)
     {
-      error = NetCDFOpenForRead(ADHydro::adhydroInputStateFilePath.c_str(), &fileID);
-      
-      if (!error)
-        {
-          fileOpen = true;
-        }
+      fileOpen = true;
     }
   
   // Get the number of instances in the state file.
@@ -3481,15 +3467,15 @@ bool FileManager::NetCDFReadInstances(size_t* geometryInstance, size_t* paramete
     {
       if (0 < stateInstancesSize)
         {
-          if ((size_t)-1 == *stateInstance)
+          if ((size_t)-1 == stateInstance)
             {
-              // If the caller passed in -1 in stateInstance use the last instance in the file.
-              *stateInstance = stateInstancesSize - 1;
+              // If the user specified loading instance -1 then use the last instance in the file.
+              stateInstance = stateInstancesSize - 1;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 <= *stateInstance && *stateInstance < stateInstancesSize))
+          else if (!(stateInstance < stateInstancesSize))
             {
-              CkError("ERROR in FileManager::NetCDFReadInstances: stateInstance must be greater than or equal to zero and less than stateInstancesSize.\n");
+              CkError("ERROR in FileManager::NetCDFReadInstances: stateInstance must be less than stateInstancesSize.\n");
               error = true;
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -3507,12 +3493,14 @@ bool FileManager::NetCDFReadInstances(size_t* geometryInstance, size_t* paramete
   // Read geometry and parameter instances.
   if (!error)
     {
-      error = NetCDFReadVariable(fileID, "geometryInstance", *stateInstance, 0, 1, 1, 1, true, (size_t)0, true, &geometryInstance);
+      size_tVariable = &geometryInstance;
+      error          = NetCDFReadVariable(fileID, "geometryInstance", stateInstance, 0, 1, 1, 1, true, (size_t)0, true, &size_tVariable);
     }
   
   if (!error)
     {
-      error = NetCDFReadVariable(fileID, "parameterInstance", *stateInstance, 0, 1, 1, 1, true, (size_t)0, true, &parameterInstance);
+      size_tVariable = &parameterInstance;
+      error          = NetCDFReadVariable(fileID, "parameterInstance", stateInstance, 0, 1, 1, 1, true, (size_t)0, true, &size_tVariable);
     }
   
   // Close the state file.
@@ -3533,7 +3521,7 @@ bool FileManager::NetCDFReadInstances(size_t* geometryInstance, size_t* paramete
   return error;
 }
 
-bool FileManager::NetCDFReadGeometry(size_t instance)
+bool FileManager::NetCDFReadGeometry()
 {
   bool    error    = false;            // Error flag.
   int     ncErrorCode;                 // Return value of NetCDF functions.
@@ -3592,7 +3580,7 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
   if (!error && isnan(ADHydro::centralMeridian))
     {
       doubleVariable = &ADHydro::centralMeridian;
-      error          = NetCDFReadVariable(fileID, "centralMeridian", instance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
+      error          = NetCDFReadVariable(fileID, "centralMeridian", geometryInstance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
       
       if (!error && !(-M_PI * 2.0 <= ADHydro::centralMeridian && M_PI * 2.0 >= ADHydro::centralMeridian))
         {
@@ -3605,37 +3593,37 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
   if (!error && isnan(ADHydro::falseEasting))
     {
       doubleVariable = &ADHydro::falseEasting;
-      error          = NetCDFReadVariable(fileID, "falseEasting", instance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
+      error          = NetCDFReadVariable(fileID, "falseEasting", geometryInstance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
     }
   
   if (!error && isnan(ADHydro::falseNorthing))
     {
       doubleVariable = &ADHydro::falseNorthing;
-      error          = NetCDFReadVariable(fileID, "falseNorthing", instance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
+      error          = NetCDFReadVariable(fileID, "falseNorthing", geometryInstance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
     }
   
   if (!error)
     {
       intVariable = &globalNumberOfMeshNodes;
-      error       = NetCDFReadVariable(fileID, "numberOfMeshNodes", instance, 0, 1, 1, 1, true, 0, true, &intVariable);
+      error       = NetCDFReadVariable(fileID, "numberOfMeshNodes", geometryInstance, 0, 1, 1, 1, true, 0, true, &intVariable);
     }
   
   if (!error)
     {
       intVariable = &globalNumberOfMeshElements;
-      error       = NetCDFReadVariable(fileID, "numberOfMeshElements", instance, 0, 1, 1, 1, true, 0, true, &intVariable);
+      error       = NetCDFReadVariable(fileID, "numberOfMeshElements", geometryInstance, 0, 1, 1, 1, true, 0, true, &intVariable);
     }
   
   if (!error)
     {
       intVariable = &globalNumberOfChannelNodes;
-      error       = NetCDFReadVariable(fileID, "numberOfChannelNodes", instance, 0, 1, 1, 1, true, 0, true, &intVariable);
+      error       = NetCDFReadVariable(fileID, "numberOfChannelNodes", geometryInstance, 0, 1, 1, 1, true, 0, true, &intVariable);
     }
   
   if (!error)
     {
       intVariable = &globalNumberOfChannelElements;
-      error       = NetCDFReadVariable(fileID, "numberOfChannelElements", instance, 0, 1, 1, 1, true, 0, true, &intVariable);
+      error       = NetCDFReadVariable(fileID, "numberOfChannelElements", geometryInstance, 0, 1, 1, 1, true, 0, true, &intVariable);
     }
   
   if (!error)
@@ -3650,17 +3638,17 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshNodeX", instance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false, &meshNodeX);
+          error = NetCDFReadVariable(fileID, "meshNodeX", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false, &meshNodeX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshNodeY", instance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false, &meshNodeY);
+          error = NetCDFReadVariable(fileID, "meshNodeY", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false, &meshNodeY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshNodeZSurface", instance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshNodeZSurface", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, 1, true, 0.0, false,
                                      &meshNodeZSurface);
         }
     } // End if (0 < localNumberOfMeshNodes).
@@ -3669,155 +3657,155 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementVertices", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshElementVertices", geometryInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, true, 0, false, (int**)&meshElementVertices);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshVertexX", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshVertexX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, true, 0.0, false, (double**)&meshVertexX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshVertexY", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshVertexY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, true, 0.0, false, (double**)&meshVertexY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshVertexZSurface", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshVertexZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, true, 0.0, false, (double**)&meshVertexZSurface);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementX", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementY", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementZSurface", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementZSurface);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementSoilDepth", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "meshElementSoilDepth", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
                                      false, &meshElementSoilDepth);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementLayerZBottom", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementLayerZBottom", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementLayerZBottom);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementArea", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementArea", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementArea);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementSlopeX", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementSlopeX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementSlopeX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshElementSlopeY", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshElementSlopeY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshElementSlopeY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshLatitude", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshLatitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshLatitude);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshLongitude", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshLongitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshLongitude);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighbors", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&meshMeshNeighbors);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighborsChannelEdge", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighborsChannelEdge", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, false, false, (bool**)&meshMeshNeighborsChannelEdge);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeLength", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 1.0, false, (double**)&meshMeshNeighborsEdgeLength);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeNormalX", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeNormalX", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 1.0, false, (double**)&meshMeshNeighborsEdgeNormalX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeNormalY", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighborsEdgeNormalY", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false, (double**)&meshMeshNeighborsEdgeNormalY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsConnection", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&meshSurfacewaterMeshNeighborsConnection);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsConnection", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&meshGroundwaterMeshNeighborsConnection);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshChannelNeighbors", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshChannelNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&meshChannelNeighbors);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshChannelNeighborsEdgeLength", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshChannelNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 1.0, false,
                                      (double**)&meshChannelNeighborsEdgeLength);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsConnection", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&meshSurfacewaterChannelNeighborsConnection);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsConnection", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&meshGroundwaterChannelNeighborsConnection);
         }
@@ -3827,19 +3815,19 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelNodeX", instance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "channelNodeX", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
                                      &channelNodeX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelNodeY", instance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "channelNodeY", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
                                      &channelNodeY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelNodeZBank", instance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "channelNodeZBank", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, 1, true, 0.0, false,
                                      &channelNodeZBank);
         }
     } // End if (0 < localNumberOfChannelNodes).
@@ -3848,7 +3836,7 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementVertices", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelVerticesXDMFSize, XDMF_SIZE, true, 0, false, (int**)&channelElementVertices);
 
           // If CHANNEL_ELEMENT_VERTICES_SIZE is not the same value as in the file we need to reset the number of vertices in the XDMF metadata.
@@ -3863,114 +3851,114 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelVertexX", instance, localChannelElementStart, localNumberOfChannelElements, channelVerticesSize,
+          error = NetCDFReadVariable(fileID, "channelVertexX", geometryInstance, localChannelElementStart, localNumberOfChannelElements, channelVerticesSize,
                                      CHANNEL_ELEMENT_VERTICES_SIZE, true, 0.0, false, (double**)&channelVertexX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelVertexY", instance, localChannelElementStart, localNumberOfChannelElements, channelVerticesSize,
+          error = NetCDFReadVariable(fileID, "channelVertexY", geometryInstance, localChannelElementStart, localNumberOfChannelElements, channelVerticesSize,
                                      CHANNEL_ELEMENT_VERTICES_SIZE, true, 0.0, false, (double**)&channelVertexY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelVertexZBank", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelVertexZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelVerticesSize, CHANNEL_ELEMENT_VERTICES_SIZE, true, 0.0, false, (double**)&channelVertexZBank);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementX", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelElementX", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelElementX);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementY", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelElementY", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelElementY);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementZBank", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelElementZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelElementZBank);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementBankFullDepth", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
+          error = NetCDFReadVariable(fileID, "channelElementBankFullDepth", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
                                      true, 0.0, false, &channelElementBankFullDepth);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementZBed", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelElementZBed", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelElementZBed);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelElementLength", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelElementLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelElementLength);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelLatitude", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelLatitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelLatitude);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelLongitude", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelLongitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelLongitude);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelMeshNeighbors", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelMeshNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&channelMeshNeighbors);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelMeshNeighborsEdgeLength", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelMeshNeighborsEdgeLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 1.0, false,
                                      (double**)&channelMeshNeighborsEdgeLength);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsConnection", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&channelSurfacewaterMeshNeighborsConnection);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsConnection", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&channelGroundwaterMeshNeighborsConnection);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelChannelNeighbors", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelChannelNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, (int)NOFLOW, false,
                                      (int**)&channelChannelNeighbors);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelChannelNeighborsDownstream", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelChannelNeighborsDownstream", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&channelChannelNeighborsDownstream);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsConnection", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, false, false,
                                      (bool**)&channelSurfacewaterChannelNeighborsConnection);
         }
@@ -3993,7 +3981,7 @@ bool FileManager::NetCDFReadGeometry(size_t instance)
   return error;
 }
 
-bool FileManager::NetCDFReadParameter(size_t instance)
+bool FileManager::NetCDFReadParameter()
 {
   bool   error    = false;            // Error flag.
   int    ncErrorCode;                 // Return value of NetCDF functions.
@@ -4038,7 +4026,7 @@ bool FileManager::NetCDFReadParameter(size_t instance)
   if (!error)
     {
       intVariable = &globalNumberOfRegions;
-      error       = NetCDFReadVariable(fileID, "numberOfRegions", instance, 0, 1, 1, 1, true, 0, true, &intVariable);
+      error       = NetCDFReadVariable(fileID, "numberOfRegions", parameterInstance, 0, 1, 1, 1, true, 0, true, &intVariable);
     }
   
   if (!error)
@@ -4050,13 +4038,13 @@ bool FileManager::NetCDFReadParameter(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "regionNumberOfMeshElements", instance, localRegionStart, localNumberOfRegions, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "regionNumberOfMeshElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, 1, true, 0, false,
                                      &regionNumberOfMeshElements);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "regionNumberOfChannelElements", instance, localRegionStart, localNumberOfRegions, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "regionNumberOfChannelElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, 1, true, 0, false,
                                      &regionNumberOfChannelElements);
         }
     }
@@ -4065,67 +4053,67 @@ bool FileManager::NetCDFReadParameter(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshRegion", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "meshRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
                                      &meshRegion);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshCatchment", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "meshCatchment", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
                                      &meshCatchment);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshVegetationType", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "meshVegetationType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
                                      &meshVegetationType);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSoilType", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "meshSoilType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0, false,
                                      &meshSoilType);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshAlluvium", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, false, false, false,
+          error = NetCDFReadVariable(fileID, "meshAlluvium", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, false, false, false,
                                      &meshAlluvium);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshManningsN", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshManningsN", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshManningsN);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshConductivity", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshConductivity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshConductivity);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshPorosity", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshPorosity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshPorosity);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMethod", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, InfiltrationAndGroundwater::NO_AQUIFER, false,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMethod", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, InfiltrationAndGroundwater::NO_AQUIFER, false,
                                      &meshGroundwaterMethod);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshMeshNeighborsRegion", instance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
+          error = NetCDFReadVariable(fileID, "meshMeshNeighborsRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements, meshMeshNeighborsSize,
                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&meshMeshNeighborsRegion);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshChannelNeighborsRegion", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshChannelNeighborsRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&meshChannelNeighborsRegion);
         }
     } // End if (0 < localNumberOfMeshElements).
@@ -4134,61 +4122,61 @@ bool FileManager::NetCDFReadParameter(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelRegion", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0, false,
+          error = NetCDFReadVariable(fileID, "channelRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0, false,
                                      &channelRegion);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelChannelType", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelChannelType", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      NOT_USED, false, &channelChannelType);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelReachCode", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelReachCode", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      (long long)0, false, &channelReachCode);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelBaseWidth", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelBaseWidth", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelBaseWidth);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSideSlope", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelSideSlope", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelSideSlope);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelBedConductivity", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelBedConductivity", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      0.0, false, &channelBedConductivity);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelBedThickness", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelBedThickness", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelBedThickness);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelManningsN", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelManningsN", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelManningsN);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelMeshNeighborsRegion", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelMeshNeighborsRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, (int)NOFLOW, false, (int**)&channelMeshNeighborsRegion);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelChannelNeighborsRegion", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelChannelNeighborsRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, (int)NOFLOW, false,
                                      (int**)&channelChannelNeighborsRegion);
         }
@@ -4211,7 +4199,7 @@ bool FileManager::NetCDFReadParameter(size_t instance)
   return error;
 }
 
-bool FileManager::NetCDFReadState(size_t instance)
+bool FileManager::NetCDFReadState()
 {
   bool                          error                  = false;     // Error flag.
   int                           ncErrorCode;                        // Return value of NetCDF functions.
@@ -4258,13 +4246,13 @@ bool FileManager::NetCDFReadState(size_t instance)
   if (!error && isnan(ADHydro::referenceDate))
     {
       doubleVariable = &ADHydro::referenceDate;
-      error          = NetCDFReadVariable(fileID, "referenceDate", instance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
+      error          = NetCDFReadVariable(fileID, "referenceDate", stateInstance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
     }
   
   if (!error && isnan(ADHydro::currentTime))
     {
       doubleVariable         = &ADHydro::currentTime;
-      error                  = NetCDFReadVariable(fileID, "currentTime", instance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
+      error                  = NetCDFReadVariable(fileID, "currentTime", stateInstance, 0, 1, 1, 1, true, 0.0, true, &doubleVariable);
       useCurrentTimeFromFile = true;
     }
   
@@ -4272,91 +4260,91 @@ bool FileManager::NetCDFReadState(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterDepth", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshSurfacewaterDepth);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterError", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshSurfacewaterError);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterHead", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterHead", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshGroundwaterHead);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterRecharge", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterRecharge", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshGroundwaterRecharge);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterError", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshGroundwaterError);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshPrecipitationRate", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshPrecipitationRate);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshPrecipitationCumulativeShortTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshPrecipitationCumulativeLongTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshEvaporationRate", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshEvaporationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshEvaporationRate);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
                                      false, &meshEvaporationCumulativeShortTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
                                      false, &meshEvaporationCumulativeLongTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshTranspirationRate", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "meshTranspirationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshTranspirationRate);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshTranspirationCumulativeShortTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshTranspirationCumulativeLongTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshEvapoTranspirationState", instance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "meshEvapoTranspirationState", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      dummyEvapoTranspirationStateStruct, false, &meshEvapoTranspirationState);
         }
       
@@ -4366,28 +4354,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsExpirationTime", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&meshSurfacewaterMeshNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowRate", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterMeshNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
         }
@@ -4396,28 +4384,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsExpirationTime", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&meshGroundwaterMeshNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowRate", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterMeshNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterMeshNeighborsFlowCumulativeLongTerm);
         }
@@ -4426,28 +4414,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsExpirationTime", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&meshSurfacewaterChannelNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowRate", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterChannelNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
         }
@@ -4456,28 +4444,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsExpirationTime", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&meshGroundwaterChannelNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowRate", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterChannelNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", instance, localMeshElementStart, localNumberOfMeshElements,
+          error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterChannelNeighborsFlowCumulativeLongTerm);
         }
@@ -4487,55 +4475,55 @@ bool FileManager::NetCDFReadState(size_t instance)
     {
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterDepth", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
                                      true, 0.0, false, &channelSurfacewaterDepth);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterError", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterError", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
                                      true, 0.0, false, &channelSurfacewaterError);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelPrecipitationRate", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0, false,
                                      &channelPrecipitationRate);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeShortTerm", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      0.0, false, &channelPrecipitationCumulativeShortTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeLongTerm", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      0.0, false, &channelPrecipitationCumulativeLongTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelEvaporationRate", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0, false,
+          error = NetCDFReadVariable(fileID, "channelEvaporationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0, false,
                                      &channelEvaporationRate);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeShortTerm", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelEvaporationCumulativeShortTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeLongTerm", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
+          error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelEvaporationCumulativeLongTerm);
         }
       
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelEvapoTranspirationState", instance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+          error = NetCDFReadVariable(fileID, "channelEvapoTranspirationState", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      dummyEvapoTranspirationStateStruct, false, &channelEvapoTranspirationState);
         }
 
@@ -4543,28 +4531,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsExpirationTime", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsExpirationTime", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&channelSurfacewaterMeshNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowRate", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterMeshNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
         }
@@ -4573,28 +4561,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsExpirationTime", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsExpirationTime", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&channelGroundwaterMeshNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowRate", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelGroundwaterMeshNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelGroundwaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelGroundwaterMeshNeighborsFlowCumulativeLongTerm);
         }
@@ -4603,28 +4591,28 @@ bool FileManager::NetCDFReadState(size_t instance)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsExpirationTime", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsExpirationTime", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, ADHydro::currentTime, false,
                                      (double**)&channelSurfacewaterChannelNeighborsExpirationTime);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowRate", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowRate", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterChannelNeighborsFlowRate);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
       if (!error)
         {
-          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", instance, localChannelElementStart, localNumberOfChannelElements,
+          error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
         }
@@ -4647,9 +4635,7 @@ bool FileManager::NetCDFReadState(size_t instance)
   return error;
 }
 
-/* FIXME uncomment
-
-bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+bool FileManager::NetCDFWriteVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
                                       size_t memoryDimension, void* variable)
 {
   bool   error = false;          // Error flag.
@@ -4661,40 +4647,43 @@ bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != variableName))
     {
-      CkError("ERROR in FileManager::writeNetCDFVariable: variableName must not be null.\n");
+      CkError("ERROR in FileManager::NetCDFWriteVariable: variableName must not be null.\n");
       error = true;
     }
   
   if (!(1 <= numberOfNodesElements))
     {
-      CkError("ERROR in FileManager::writeNetCDFVariable: numberOfNodesElements must be greater than or equal to one.\n");
+      CkError("ERROR in FileManager::NetCDFWriteVariable: numberOfNodesElements must be greater than or equal to one.\n");
       error = true;
     }
   
   if (!(1 <= memoryDimension))
     {
-      CkError("ERROR in FileManager::writeNetCDFVariable: memoryDimension must be greater than or equal to one.\n");
+      CkError("ERROR in FileManager::NetCDFWriteVariable: memoryDimension must be greater than or equal to one.\n");
       error = true;
     }
   
   if (!(NULL != variable))
     {
-      CkError("ERROR in FileManager::writeNetCDFVariable: variable must not be null.\n");
+      CkError("ERROR in FileManager::NetCDFWriteVariable: variable must not be null.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
   // Get the variable ID.
-  ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NC_NOERR == ncErrorCode))
-    {
-      CkError("ERROR in FileManager::writeNetCDFVariable: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-              nc_strerror(ncErrorCode));
-      error = true;
-    }
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
   
   // Set collective access.
   if (!error)
@@ -4704,7 +4693,7 @@ bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::writeNetCDFVariable: unable to set collective access for variable %s in NetCDF file.  NetCDF error message: %s.\n",
+          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to set collective access for variable %s in NetCDF file.  NetCDF error message: %s.\n",
                   variableName, nc_strerror(ncErrorCode));
           error = true;
         }
@@ -4727,7 +4716,7 @@ bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::writeNetCDFVariable: unable to write variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
+          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to write variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
                   nc_strerror(ncErrorCode));
           error = true;
         }
@@ -4737,39 +4726,933 @@ bool FileManager::writeNetCDFVariable(int fileID, const char* variableName, size
   return error;
 }
 
-*/
+bool FileManager::NetCDFWriteGeometry()
+{
+  bool error    = false; // Error flag.
+  int  ncErrorCode;      // Return value of NetCDF functions.
+  int  fileID;           // ID of NetCDF file.
+  bool fileOpen = false; // Whether fileID refers to an open file.
+  
+  // Open the geometry file.
+  error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
+
+  if (!error)
+    {
+      fileOpen = true;
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "centralMeridian", geometryInstance, 0, 1, 1, &ADHydro::centralMeridian);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "falseEasting", geometryInstance, 0, 1, 1, &ADHydro::falseEasting);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "falseNorthing", geometryInstance, 0, 1, 1, &ADHydro::falseNorthing);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "numberOfMeshNodes", geometryInstance, 0, 1, 1, &globalNumberOfMeshNodes);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "numberOfMeshElements", geometryInstance, 0, 1, 1, &globalNumberOfMeshElements);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "numberOfChannelNodes", geometryInstance, 0, 1, 1, &globalNumberOfChannelNodes);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "numberOfChannelElements", geometryInstance, 0, 1, 1, &globalNumberOfChannelElements);
+    }
+  
+  if (!error && NULL != meshNodeX)
+    {
+      error = NetCDFWriteVariable(fileID, "meshNodeX", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeX);
+    }
+  
+  if (!error && NULL != meshNodeY)
+    {
+      error = NetCDFWriteVariable(fileID, "meshNodeY", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeY);
+    }
+  
+  if (!error && NULL != meshNodeZSurface)
+    {
+      error = NetCDFWriteVariable(fileID, "meshNodeZSurface", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeZSurface);
+    }
+  
+  if (!error && NULL != meshElementVertices)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementVertices", geometryInstance, localMeshElementStart, localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE,
+                                  meshElementVertices);
+    }
+  
+  if (!error && NULL != meshVertexX)
+    {
+      error = NetCDFWriteVariable(fileID, "meshVertexX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE,
+                                  meshVertexX);
+    }
+  
+  if (!error && NULL != meshVertexY)
+    {
+      error = NetCDFWriteVariable(fileID, "meshVertexY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE,
+                                  meshVertexY);
+    }
+  
+  if (!error && NULL != meshVertexZSurface)
+    {
+      error = NetCDFWriteVariable(fileID, "meshVertexZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE,
+                                  meshVertexZSurface);
+    }
+  
+  if (!error && NULL != meshElementX)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementX);
+    }
+  
+  if (!error && NULL != meshElementY)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementY);
+    }
+  
+  if (!error && NULL != meshElementZSurface)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementZSurface);
+    }
+  
+  if (!error && NULL != meshElementSoilDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementSoilDepth", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementSoilDepth);
+    }
+  
+  if (!error && NULL != meshElementLayerZBottom)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementLayerZBottom", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementLayerZBottom);
+    }
+  
+  if (!error && NULL != meshElementArea)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementArea", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementArea);
+    }
+  
+  if (!error && NULL != meshElementSlopeX)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementSlopeX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementSlopeX);
+    }
+  
+  if (!error && NULL != meshElementSlopeY)
+    {
+      error = NetCDFWriteVariable(fileID, "meshElementSlopeY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementSlopeY);
+    }
+  
+  if (!error && NULL != meshLatitude)
+    {
+      error = NetCDFWriteVariable(fileID, "meshLatitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshLatitude);
+    }
+  
+  if (!error && NULL != meshLongitude)
+    {
+      error = NetCDFWriteVariable(fileID, "meshLongitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshLongitude);
+    }
+  
+  if (!error && NULL != meshMeshNeighbors)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE,
+                                  meshMeshNeighbors);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsChannelEdge)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighborsChannelEdge", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsChannelEdge);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsEdgeLength)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeLength);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsEdgeNormalX)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighborsEdgeNormalX", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeNormalX);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsEdgeNormalY)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighborsEdgeNormalY", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeNormalY);
+    }
+  
+  if (!error && NULL != meshSurfacewaterMeshNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsConnection);
+    }
+  
+  if (!error && NULL != meshGroundwaterMeshNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsConnection);
+    }
+  
+  if (!error && NULL != meshChannelNeighbors)
+    {
+      error = NetCDFWriteVariable(fileID, "meshChannelNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighbors);
+    }
+  
+  if (!error && NULL != meshChannelNeighborsEdgeLength)
+    {
+      error = NetCDFWriteVariable(fileID, "meshChannelNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighborsEdgeLength);
+    }
+  
+  if (!error && NULL != meshSurfacewaterChannelNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsConnection);
+    }
+  
+  if (!error && NULL != meshGroundwaterChannelNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsConnection);
+    }
+  
+  if (!error && NULL != channelNodeX)
+    {
+      error = NetCDFWriteVariable(fileID, "channelNodeX", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeX);
+    }
+  
+  if (!error && NULL != channelNodeY)
+    {
+      error = NetCDFWriteVariable(fileID, "channelNodeY", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeY);
+    }
+  
+  if (!error && NULL != channelNodeZBank)
+    {
+      error = NetCDFWriteVariable(fileID, "channelNodeZBank", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeZBank);
+    }
+  
+  if (!error && NULL != channelElementVertices)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements, XDMF_SIZE,
+                                  channelElementVertices);
+    }
+  
+  if (!error && NULL != channelVertexX)
+    {
+      error = NetCDFWriteVariable(fileID, "channelVertexX", geometryInstance, localChannelElementStart, localNumberOfChannelElements, CHANNEL_ELEMENT_VERTICES_SIZE,
+                                  channelVertexX);
+    }
+  
+  if (!error && NULL != channelVertexY)
+    {
+      error = NetCDFWriteVariable(fileID, "channelVertexY", geometryInstance, localChannelElementStart, localNumberOfChannelElements, CHANNEL_ELEMENT_VERTICES_SIZE,
+                                  channelVertexY);
+    }
+  
+  if (!error && NULL != channelVertexZBank)
+    {
+      error = NetCDFWriteVariable(fileID, "channelVertexZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_VERTICES_SIZE, channelVertexZBank);
+    }
+  
+  if (!error && NULL != channelElementX)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementX", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementX);
+    }
+  
+  if (!error && NULL != channelElementY)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementY", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementY);
+    }
+  
+  if (!error && NULL != channelElementZBank)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementZBank);
+    }
+  
+  if (!error && NULL != channelElementBankFullDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementBankFullDepth", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelElementBankFullDepth);
+    }
+  
+  if (!error && NULL != channelElementZBed)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementZBed", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementZBed);
+    }
+  
+  if (!error && NULL != channelElementLength)
+    {
+      error = NetCDFWriteVariable(fileID, "channelElementLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementLength);
+    }
+  
+  if (!error && NULL != channelLatitude)
+    {
+      error = NetCDFWriteVariable(fileID, "channelLatitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelLatitude);
+    }
+  
+  if (!error && NULL != channelLongitude)
+    {
+      error = NetCDFWriteVariable(fileID, "channelLongitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelLongitude);
+    }
+  
+  if (!error && NULL != channelMeshNeighbors)
+    {
+      error = NetCDFWriteVariable(fileID, "channelMeshNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighbors);
+    }
+  
+  if (!error && NULL != channelMeshNeighborsEdgeLength)
+    {
+      error = NetCDFWriteVariable(fileID, "channelMeshNeighborsEdgeLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighborsEdgeLength);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsConnection);
+    }
+  
+  if (!error && NULL != channelGroundwaterMeshNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "channelGroundwaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsConnection);
+    }
+  
+  if (!error && NULL != channelChannelNeighbors)
+    {
+      error = NetCDFWriteVariable(fileID, "channelChannelNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighbors);
+    }
+  
+  if (!error && NULL != channelChannelNeighborsDownstream)
+    {
+      error = NetCDFWriteVariable(fileID, "channelChannelNeighborsDownstream", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighborsDownstream);
+    }
+  
+  if (!error && NULL != channelSurfacewaterChannelNeighborsConnection)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterChannelNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsConnection);
+    }
+  
+  // Close the geometry file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFWriteGeometry: unable to close NetCDF geometry file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  return error;
+}
+
+bool FileManager::NetCDFWriteParameter()
+{
+  bool error    = false; // Error flag.
+  int  ncErrorCode;      // Return value of NetCDF functions.
+  int  fileID;           // ID of NetCDF file.
+  bool fileOpen = false; // Whether fileID refers to an open file.
+  
+  // Open the parameter file.
+  error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+
+  if (!error)
+    {
+      fileOpen = true;
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "geometryInstance", parameterInstance, 0, 1, 1, &geometryInstance);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "numberOfRegions", parameterInstance, 0, 1, 1, &globalNumberOfRegions);
+    }
+  
+  if (!error && NULL != regionNumberOfMeshElements)
+    {
+      error = NetCDFWriteVariable(fileID, "regionNumberOfMeshElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, regionNumberOfMeshElements);
+    }
+  
+  if (!error && NULL != regionNumberOfChannelElements)
+    {
+      error = NetCDFWriteVariable(fileID, "regionNumberOfChannelElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, regionNumberOfChannelElements);
+    }
+  
+  if (!error && NULL != meshRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "meshRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshRegion);
+    }
+  
+  if (!error && NULL != meshCatchment)
+    {
+      error = NetCDFWriteVariable(fileID, "meshCatchment", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshCatchment);
+    }
+  
+  if (!error && NULL != meshVegetationType)
+    {
+      error = NetCDFWriteVariable(fileID, "meshVegetationType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshVegetationType);
+    }
+  
+  if (!error && NULL != meshSoilType)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSoilType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSoilType);
+    }
+  
+  if (!error && NULL != meshAlluvium)
+    {
+      error = NetCDFWriteVariable(fileID, "meshAlluvium", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshAlluvium);
+    }
+  
+  if (!error && NULL != meshManningsN)
+    {
+      error = NetCDFWriteVariable(fileID, "meshManningsN", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshManningsN);
+    }
+  
+  if (!error && NULL != meshConductivity)
+    {
+      error = NetCDFWriteVariable(fileID, "meshConductivity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshConductivity);
+    }
+  
+  if (!error && NULL != meshPorosity)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPorosity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPorosity);
+    }
+  
+  if (!error && NULL != meshGroundwaterMethod)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMethod", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterMethod);
+    }
+  
+  if (!error && NULL != meshMeshNeighborsRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "meshMeshNeighborsRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsRegion);
+    }
+  
+  if (!error && NULL != meshChannelNeighborsRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "meshChannelNeighborsRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighborsRegion);
+    }
+  
+  if (!error && NULL != channelRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "channelRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelRegion);
+    }
+  
+  if (!error && NULL != channelChannelType)
+    {
+      error = NetCDFWriteVariable(fileID, "channelChannelType", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelChannelType);
+    }
+  
+  if (!error && NULL != channelReachCode)
+    {
+      error = NetCDFWriteVariable(fileID, "channelReachCode", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelReachCode);
+    }
+  
+  if (!error && NULL != channelBaseWidth)
+    {
+      error = NetCDFWriteVariable(fileID, "channelBaseWidth", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelBaseWidth);
+    }
+  
+  if (!error && NULL != channelSideSlope)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSideSlope", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSideSlope);
+    }
+  
+  if (!error && NULL != channelBedConductivity)
+    {
+      error = NetCDFWriteVariable(fileID, "channelBedConductivity", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelBedConductivity);
+    }
+  
+  if (!error && NULL != channelBedThickness)
+    {
+      error = NetCDFWriteVariable(fileID, "channelBedThickness", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelBedThickness);
+    }
+  
+  if (!error && NULL != channelManningsN)
+    {
+      error = NetCDFWriteVariable(fileID, "channelManningsN", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelManningsN);
+    }
+  
+  if (!error && NULL != channelMeshNeighborsRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "channelMeshNeighborsRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighborsRegion);
+    }
+  
+  if (!error && NULL != channelChannelNeighborsRegion)
+    {
+      error = NetCDFWriteVariable(fileID, "channelChannelNeighborsRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements,
+                                  CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighborsRegion);
+    }
+  
+  // Close the parameter file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFWriteParameter: unable to close NetCDF parameter file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  return error;
+}
+
+bool FileManager::NetCDFWriteState()
+{
+  bool error    = false; // Error flag.
+  int  ncErrorCode;      // Return value of NetCDF functions.
+  int  fileID;           // ID of NetCDF file.
+  bool fileOpen = false; // Whether fileID refers to an open file.
+  
+  // Open the state file.
+  error = NetCDFCreateOrOpenForWriteState(&fileID);
+
+  if (!error)
+    {
+      fileOpen = true;
+    }
+
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "geometryInstance", stateInstance, 0, 1, 1, &geometryInstance);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "parameterInstance", stateInstance, 0, 1, 1, &parameterInstance);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "referenceDate", stateInstance, 0, 1, 1, &ADHydro::referenceDate);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "currentTime", stateInstance, 0, 1, 1, &ADHydro::currentTime);
+    }
+  
+  if (!error && NULL != meshSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterDepth);
+    }
+  
+  if (!error && NULL != meshSurfacewaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterError);
+    }
+  
+  if (!error && NULL != meshGroundwaterHead)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterHead", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterHead);
+    }
+  
+  if (!error && NULL != meshGroundwaterRecharge)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterRecharge", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterRecharge);
+    }
+  
+  if (!error && NULL != meshGroundwaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterError);
+    }
+  
+  if (!error && NULL != meshPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshEvaporationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshEvaporationRate);
+    }
+  
+  if (!error && NULL != meshEvaporationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshEvaporationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshEvaporationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshEvaporationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshTranspirationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspirationRate);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshTranspirationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshTranspirationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshEvapoTranspirationState)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvapoTranspirationState", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshEvapoTranspirationState);
+    }
+  
+  // FIXME write vadose zone
+  
+  if (!error && NULL != meshSurfacewaterMeshNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterMeshNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != meshSurfacewaterMeshNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshGroundwaterMeshNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMeshNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != meshGroundwaterMeshNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshSurfacewaterChannelNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshGroundwaterChannelNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterChannelNeighborsExpirationTime", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != meshGroundwaterChannelNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSurfacewaterDepth);
+    }
+  
+  if (!error && NULL != channelSurfacewaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterError", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSurfacewaterError);
+    }
+  
+  if (!error && NULL != channelPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationRate);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelEvaporationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationRate);
+    }
+  
+  if (!error && NULL != channelEvaporationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelEvaporationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelEvapoTranspirationState)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvapoTranspirationState", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvapoTranspirationState);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsExpirationTime", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelGroundwaterMeshNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "channelGroundwaterMeshNeighborsExpirationTime", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != channelGroundwaterMeshNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelGroundwaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelSurfacewaterChannelNeighborsExpirationTime)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterChannelNeighborsExpirationTime", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsExpirationTime);
+    }
+  
+  if (!error && NULL != channelSurfacewaterChannelNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterChannelNeighborsFlowRate", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
+    }
+  
+  // Close the state file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFWriteState: unable to close NetCDF state file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  return error;
+}
+
+bool FileManager::NetCDFWriteDisplay()
+{
+  bool error    = false; // Error flag.
+  int  ncErrorCode;      // Return value of NetCDF functions.
+  int  fileID;           // ID of NetCDF file.
+  bool fileOpen = false; // Whether fileID refers to an open file.
+  
+  // Open the display file.
+  error = NetCDFCreateOrOpenForWriteDisplay(&fileID);
+
+  if (!error)
+    {
+      fileOpen = true;
+    }
+
+  // FIXME decide what should go into the display file.
+  
+  // Close the state file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFWriteDisplay: unable to close NetCDF display file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
+  return error;
+}
 
 void FileManager::initializeFromNetCDFFiles()
 {
-  bool   error = false;     // Error flag.
-  size_t geometryInstance;  // Instance index for geometry file.
-  size_t parameterInstance; // Instance index for parameter file.
-  size_t stateInstance;     // Instance index for state file.
+  bool error = false; // Error flag.
   
-  // Copy state instance value to a size_t variable.
+  // Copy state instance value requested by user.
   stateInstance = ADHydro::adhydroInputStateInstance;
   
-  error = NetCDFReadInstances(&geometryInstance, &parameterInstance, &stateInstance);
+  error = NetCDFReadInstances();
   
   if (!error)
     {
-      // We may have gotten the state instance form the file so put it back in the ADHydro variable to be accessible.
-      ADHydro::adhydroInputStateInstance = stateInstance;
+      error = NetCDFReadGeometry();
     }
   
   if (!error)
     {
-      error = NetCDFReadGeometry(geometryInstance);
+      error = NetCDFReadParameter();
     }
   
   if (!error)
     {
-      error = NetCDFReadParameter(parameterInstance);
-    }
-  
-  if (!error)
-    {
-      error = NetCDFReadState(ADHydro::adhydroInputStateInstance);
+      error = NetCDFReadState();
     }
 
   if (error)
@@ -4778,1245 +5661,298 @@ void FileManager::initializeFromNetCDFFiles()
     }
 }
 
-/*
-
 void FileManager::writeNetCDFFiles()
 {
-  bool    error             = false; // Error flag.
-  int     ii;                        // Loop couner;
-  int     geometryFileID;            // ID of geometry NetCDF file.
-  int     parameterFileID;           // ID of parameter NetCDF file.
-  int     stateFileID;               // ID of state NetCDF file.
-  int     displayFileID;             // ID of display NetCDF file.
-  bool    geometryFileOpen  = false; // Whether geometryFileID refers to an open file.
-  bool    parameterFileOpen = false; // Whether parameterFileID refers to an open file.
-  bool    stateFileOpen     = false; // Whether stateFileID refers to an open file.
-  bool    displayFileOpen   = false; // Whether displayFileID refers to an open file.
-  size_t  geometryInstance;          // Instance index for geometry file.
-  size_t  parameterInstance;         // Instance index for parameter file.
-  size_t  stateInstance;             // Instance index for state file.
-  size_t  displayInstance;           // Instance index for display file.
-  bool    writeState        = true;  // Whether to write the state file.
-  bool    writeDisplay      = true;  // Whether to write the display file.
-  int     ncErrorCode;               // Return value of NetCDF functions.
-  int     variableID;                // ID of variable in NetCDF file.
-  size_t  start[NC_MAX_VAR_DIMS];    // For specifying subarrays when reading from NetCDF file.
-  size_t  count[NC_MAX_VAR_DIMS];    // For specifying subarrays when reading from NetCDF file.
-  double* currentTimes;              // The list of times in the state file.
+  bool   error          = false; // Error flag.
+  int    ncErrorCode;            // Return value of NetCDF functions.
+  int    fileID;                 // ID of NetCDF file.
+  bool   fileOpen       = false; // Whether fileID refers to an open file.
+  bool   writeGeometry  = false; // Whether to write a new geometry instance.
+  bool   writeParameter = false; // Whether to write a new parameter instance.
+  bool   writeState     = false; // Whether to write a new state instance.
+  bool   writeDisplay   = false; // Whether to write a new display instance.
+  size_t geometryInstancesSize;  // Number of instances in geometry file.
+  size_t parameterInstancesSize; // Number of instances in parameter file.
+  size_t stateInstancesSize;     // Number of instances in state file.
+  size_t displayInstancesSize;   // Number of instances in display file.
   
-  // Open files.
-  error            = geometryCreateOrOpenForWrite(&geometryFileID);
-  geometryFileOpen = !error;
+  // First, decide whether we need to write each file.
   
-  if (!error)
+  // For the geometry file, there are three cases:
+  // 1) The geometry has been changed.  In this case the geometry must always be written.
+  // 2) The geometry was loaded, has not been changed, and this is the first time we are checking whether the geometry needs to be written.  In this case the
+  //    geometry needs to be written unless the user is appending output to the existing input file that already has the geometry in it.  It's difficult to
+  //    know whether the specified output file already has the correct geometry in it.  The user could accidentally point at a NetCDF file that has instances
+  //    that are not the geometry that was loaded.  However, we are not going to worry about this right now.  We will look in the file, and if it has the
+  //    instance number that was loaded we will assume that's the right geometry and it does not need to be written.  If we initialized from ASCII files the
+  //    instance number will be -1 and so will never match.
+  // 3) The geometry has not been changed, and we have checked that the geometry is already in the output file.  In this case the geometry does not need to be
+  //    written.
+  if (geometryChanged)
     {
-      error             = parameterCreateOrOpenForWrite(&parameterFileID);
-      parameterFileOpen = !error;
+      writeGeometry = true;
     }
-  
-  if (!error)
+  else if (!geometryInstanceChecked && (size_t)-1 == geometryInstance)
     {
-      error         = stateCreateOrOpenForWrite(&stateFileID);
-      stateFileOpen = !error;
+      writeGeometry = true;
     }
-  
-  if (!error)
+  else if (!geometryInstanceChecked)
     {
-      error           = displayCreateOrOpenForWrite(&displayFileID);
-      displayFileOpen = !error;
-    }
-  
-  // Check how many instances are already in the geometry file.
-  if (!error)
-    {
-      error = NetCDFReadDimensionSize(geometryFileID, "instances", &geometryInstance);
-    }
-  
-  if (!error)
-    {
-      if (0 == geometryInstance)
-        {
-          // Only write geometry if there isn't already an instance of it.
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "centralMeridian", geometryInstance, 0, 1, 1, &ADHydro::centralMeridian);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "falseEasting", geometryInstance, 0, 1, 1, &ADHydro::falseEasting);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "falseNorthing", geometryInstance, 0, 1, 1, &ADHydro::falseNorthing);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "numberOfMeshNodes", geometryInstance, 0, 1, 1, &globalNumberOfMeshNodes);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "numberOfMeshElements", geometryInstance, 0, 1, 1, &globalNumberOfMeshElements);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "numberOfChannelNodes", geometryInstance, 0, 1, 1, &globalNumberOfChannelNodes);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(geometryFileID, "numberOfChannelElements", geometryInstance, 0, 1, 1, &globalNumberOfChannelElements);
-            }
-          
-          if (!error && NULL != meshNodeX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshNodeX", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeX);
-            }
-          
-          if (!error && NULL != meshNodeY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshNodeY", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeY);
-            }
-          
-          if (!error && NULL != meshNodeZSurface)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshNodeZSurface", geometryInstance, localMeshNodeStart, localNumberOfMeshNodes, 1, meshNodeZSurface);
-            }
-          
-          if (!error && NULL != meshElementVertices)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementVertices", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshElementVertices);
-            }
-          
-          if (!error && NULL != meshVertexX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshVertexX", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshVertexX);
-            }
-          
-          if (!error && NULL != meshVertexY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshVertexY", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshVertexY);
-            }
-          
-          if (!error && NULL != meshVertexZSurface)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshVertexZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshVertexZSurface);
-            }
-          
-          if (!error && NULL != meshElementX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementX);
-            }
-          
-          if (!error && NULL != meshElementY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementY);
-            }
-          
-          if (!error && NULL != meshElementZSurface)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementZSurface", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                          meshElementZSurface);
-            }
-          
-          if (!error && NULL != meshElementSoilDepth)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementSoilDepth", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                          meshElementSoilDepth);
-            }
-          
-          if (!error && NULL != meshElementLayerZBottom)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementLayerZBottom", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                          meshElementLayerZBottom);
-            }
-          
-          if (!error && NULL != meshElementArea)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementArea", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementArea);
-            }
-          
-          if (!error && NULL != meshElementSlopeX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementSlopeX", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementSlopeX);
-            }
-          
-          if (!error && NULL != meshElementSlopeY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshElementSlopeY", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshElementSlopeY);
-            }
-          
-          if (!error && NULL != meshLatitude)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshLatitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshLatitude);
-            }
-          
-          if (!error && NULL != meshLongitude)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshLongitude", geometryInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshLongitude);
-            }
-          
-          if (!error && NULL != meshMeshNeighbors)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshMeshNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighbors);
-            }
-          
-          if (!error && NULL != meshMeshNeighborsChannelEdge)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshMeshNeighborsChannelEdge", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsChannelEdge);
-            }
-          
-          if (!error && NULL != meshMeshNeighborsEdgeLength)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshMeshNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeLength);
-            }
-          
-          if (!error && NULL != meshMeshNeighborsEdgeNormalX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshMeshNeighborsEdgeNormalX", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeNormalX);
-            }
-          
-          if (!error && NULL != meshMeshNeighborsEdgeNormalY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshMeshNeighborsEdgeNormalY", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsEdgeNormalY);
-            }
-          
-          if (!error && NULL != meshSurfacewaterMeshNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshSurfacewaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsConnection);
-            }
-          
-          if (!error && NULL != meshGroundwaterMeshNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshGroundwaterMeshNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsConnection);
-            }
-          
-          if (!error && NULL != meshChannelNeighbors)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshChannelNeighbors", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighbors);
-            }
-          
-          if (!error && NULL != meshChannelNeighborsEdgeLength)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshChannelNeighborsEdgeLength", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighborsEdgeLength);
-            }
-          
-          if (!error && NULL != meshSurfacewaterChannelNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshSurfacewaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsConnection);
-            }
-          
-          if (!error && NULL != meshGroundwaterChannelNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "meshGroundwaterChannelNeighborsConnection", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsConnection);
-            }
-          
-          if (!error && NULL != channelNodeX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelNodeX", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeX);
-            }
-          
-          if (!error && NULL != channelNodeY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelNodeY", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeY);
-            }
-          
-          if (!error && NULL != channelNodeZBank)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelNodeZBank", geometryInstance, localChannelNodeStart, localNumberOfChannelNodes, 1, channelNodeZBank);
-            }
-          
-          if (!error && NULL != channelElementVertices)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementVertices", geometryInstance, localChannelElementStart, localNumberOfChannelElements, XDMF_SIZE,
-                                          channelElementVertices);
-            }
-          
-          if (!error && NULL != channelVertexX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelVertexX", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_VERTICES_SIZE, channelVertexX);
-            }
-          
-          if (!error && NULL != channelVertexY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelVertexY", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_VERTICES_SIZE, channelVertexY);
-            }
-          
-          if (!error && NULL != channelVertexZBank)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelVertexZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_VERTICES_SIZE, channelVertexZBank);
-            }
-          
-          if (!error && NULL != channelElementX)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementX", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementX);
-            }
-          
-          if (!error && NULL != channelElementY)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementY", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelElementY);
-            }
-          
-          if (!error && NULL != channelElementZBank)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementZBank", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelElementZBank);
-            }
-          
-          if (!error && NULL != channelElementBankFullDepth)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementBankFullDepth", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelElementBankFullDepth);
-            }
-          
-          if (!error && NULL != channelElementZBed)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementZBed", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelElementZBed);
-            }
-          
-          if (!error && NULL != channelElementLength)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelElementLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelElementLength);
-            }
-          
-          if (!error && NULL != channelLatitude)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelLatitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelLatitude);
-            }
-          
-          if (!error && NULL != channelLongitude)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelLongitude", geometryInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelLongitude);
-            }
-          
-          if (!error && NULL != channelMeshNeighbors)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelMeshNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighbors);
-            }
-          
-          if (!error && NULL != channelMeshNeighborsEdgeLength)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelMeshNeighborsEdgeLength", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighborsEdgeLength);
-            }
-          
-          if (!error && NULL != channelSurfacewaterMeshNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelSurfacewaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsConnection);
-            }
-          
-          if (!error && NULL != channelGroundwaterMeshNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelGroundwaterMeshNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsConnection);
-            }
-          
-          if (!error && NULL != channelChannelNeighbors)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelChannelNeighbors", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighbors);
-            }
-          
-          if (!error && NULL != channelChannelNeighborsDownstream)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelChannelNeighborsDownstream", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighborsDownstream);
-            }
-          
-          if (!error && NULL != channelSurfacewaterChannelNeighborsConnection)
-            {
-              error = writeNetCDFVariable(geometryFileID, "channelSurfacewaterChannelNeighborsConnection", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsConnection);
-            }
-        }
-      else
-        {
-          // We're not creating a new instance so use the last instance with index one less than the dimension length.
-          geometryInstance--;
+      // Open the geometry file.
+      error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
 
-          // FIXME check if the number of nodes and elements is consisitent?
+      if (!error)
+        {
+          fileOpen = true;
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(fileID, "instances", &geometryInstancesSize);
+        }
+      
+      if (!error && !(geometryInstance < geometryInstancesSize))
+        {
+          writeGeometry = true;
         }
     }
   
-  // Check how many instances are already in the parameter file.
-  if (!error)
+  // If we do need to write the geometry we will write a new instance one after the last instance currently in the file.
+  if (!error && writeGeometry)
     {
-      error = NetCDFReadDimensionSize(parameterFileID, "instances", &parameterInstance);
-    }
-  
-  if (!error)
-    {
-      if (0 == parameterInstance)
+      // Get the number of instances in the geometry file if we haven't already.
+      if (!fileOpen)
         {
-          // Only write parameter if there isn't already an instance of it.
-          if (!error)
-            {
-              error = writeNetCDFVariable(parameterFileID, "geometryInstance", parameterInstance, 0, 1, 1, &geometryInstance);
-            }
-          
-          if (!error)
-            {
-              error = writeNetCDFVariable(parameterFileID, "numberOfRegions", parameterInstance, 0, 1, 1, &globalNumberOfRegions);
-            }
-          
-          if (!error && NULL != regionNumberOfMeshElements)
-            {
-              error = writeNetCDFVariable(parameterFileID, "regionNumberOfMeshElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, regionNumberOfMeshElements);
-            }
-          
-          if (!error && NULL != regionNumberOfChannelElements)
-            {
-              error = writeNetCDFVariable(parameterFileID, "regionNumberOfChannelElements", parameterInstance, localRegionStart, localNumberOfRegions, 1, regionNumberOfChannelElements);
-            }
-          
-          if (!error && NULL != meshRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshRegion", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshRegion);
-            }
-          
-          if (!error && NULL != meshCatchment)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshCatchment", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshCatchment);
-            }
-          
-          if (!error && NULL != meshVegetationType)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshVegetationType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                          meshVegetationType);
-            }
-          
-          if (!error && NULL != meshSoilType)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshSoilType", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSoilType);
-            }
-          
-          if (!error && NULL != meshAlluvium)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshAlluvium", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshAlluvium);
-            }
-          
-          if (!error && NULL != meshManningsN)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshManningsN", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshManningsN);
-            }
-          
-          if (!error && NULL != meshConductivity)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshConductivity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshConductivity);
-            }
-          
-          if (!error && NULL != meshPorosity)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshPorosity", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPorosity);
-            }
-          
-          if (!error && NULL != meshInfiltrationMethod)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshInfiltrationMethod", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshInfiltrationMethod);
-            }
-          
-          if (!error && NULL != meshGroundwaterMethod)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshGroundwaterMethod", parameterInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterMethod);
-            }
-          
-          if (!error && NULL != meshMeshNeighborsRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshMeshNeighborsRegion", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshMeshNeighborsRegion);
-            }
-          
-          if (!error && NULL != meshChannelNeighborsRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "meshChannelNeighborsRegion", geometryInstance, localMeshElementStart, localNumberOfMeshElements,
-                                          MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshChannelNeighborsRegion);
-            }
-          
-          if (!error && NULL != channelRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelRegion", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelRegion);
-            }
-          
-          if (!error && NULL != channelChannelType)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelChannelType", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelChannelType);
-            }
-          
-          if (!error && NULL != channelReachCode)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelReachCode", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelReachCode);
-            }
-          
-          if (!error && NULL != channelBaseWidth)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelBaseWidth", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelBaseWidth);
-            }
-          
-          if (!error && NULL != channelSideSlope)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelSideSlope", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelSideSlope);
-            }
-          
-          if (!error && NULL != channelBedConductivity)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelBedConductivity", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelBedConductivity);
-            }
-          
-          if (!error && NULL != channelBedThickness)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelBedThickness", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelBedThickness);
-            }
-          
-          if (!error && NULL != channelManningsN)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelManningsN", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                          channelManningsN);
-            }
-          
-          if (!error && NULL != channelMeshNeighborsRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelMeshNeighborsRegion", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelMeshNeighborsRegion);
-            }
-          
-          if (!error && NULL != channelChannelNeighborsRegion)
-            {
-              error = writeNetCDFVariable(parameterFileID, "channelChannelNeighborsRegion", geometryInstance, localChannelElementStart, localNumberOfChannelElements,
-                                          CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelChannelNeighborsRegion);
-            }
-        }
-      else
-        {
-          // We're not creating a new instance so use the last instance with index one less than the dimension length.
-          parameterInstance--;
+          // Open the geometry file.
+          error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
 
-          // FIXME check if the number of elements is consisitent?
+          if (!error)
+            {
+              fileOpen = true;
+            }
+          
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(fileID, "instances", &geometryInstancesSize);
+            }
         }
+      
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      geometryInstance = geometryInstancesSize;
+      
+      // Once the geometry is written it is no longer changed and it has been checked that the geometry exists in the output file.
+      geometryChanged         = false;
+      geometryInstanceChecked = true;
     }
   
-  // FIXME if this is not a multiple of checkpoint period set writeState to false.
-  
-  // Check how many instances are already in the state file.
-  if (!error && writeState)
+  // Close the geometry file.
+  if (fileOpen)
     {
-      error = NetCDFReadDimensionSize(stateFileID, "instances", &stateInstance);
-    }
-  
-  // Read in the times to check if the current time is already in the file
-  if (!error && writeState && 0 < stateInstance)
-    {
-      currentTimes = new double[stateInstance];
-      
-      // Get the variable ID.
-      ncErrorCode = nc_inq_varid(stateFileID, "currentTime", &variableID);
-      
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
         {
-          CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable currentTime in NetCDF file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
+          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF geometry file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      
-      // Get the variable data.
+    }
+  
+  // The parameter file has the same three cases as the geometry file plus if the geometry is being written the parameter file must be written so that it links
+  // back to the correct geometry.
+  if (writeGeometry)
+    {
+      writeParameter = true;
+    }
+  if (parameterChanged)
+    {
+      writeParameter = true;
+    }
+  else if (!parameterInstanceChecked && (size_t)-1 == parameterInstance)
+    {
+      writeParameter = true;
+    }
+  else if (!parameterInstanceChecked)
+    {
+      // Open the parameter file.
+      error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+
       if (!error)
         {
-          start[0] = 0;
-          count[0] = stateInstance;
+          fileOpen = true;
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(fileID, "instances", &parameterInstancesSize);
+        }
+      
+      if (!error && !(parameterInstance < parameterInstancesSize))
+        {
+          writeParameter = true;
+        }
+    }
+  
+  // If we do need to write the parameter file we will write a new instance one after the last instance currently in the file.
+  if (!error && writeParameter)
+    {
+      // Get the number of instances in the parameter file if we haven't already.
+      if (!fileOpen)
+        {
+          // Open the parameter file.
+          error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+
+          if (!error)
+            {
+              fileOpen = true;
+            }
           
-          ncErrorCode = nc_get_vara(stateFileID, variableID, start, count, currentTimes);
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(fileID, "instances", &parameterInstancesSize);
+            }
+        }
+      
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      parameterInstance = parameterInstancesSize;
+      
+      // Once the parameter file is written it is no longer changed and it has been checked that the parameter instance exists in the output file.
+      parameterChanged         = false;
+      parameterInstanceChecked = true;
+    }
+  
+  // Close the parameter file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable currentTime in NetCDF file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      // If currentTime already exists in the list don't write another copy of the state information.  Start at the end of the list because if the current time is in the file it is most likely at the end.
-      if (!error)
+      if (!(NC_NOERR == ncErrorCode))
         {
-          for (ii = stateInstance - 1; writeState && ii >= 0; --ii)
+          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF parameter file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // FIXME Implement write criteria for the state and display files.  For now, always write a new instance.
+  writeState = true;
+  
+  // If we do need to write the state we will write a new instance one after the last instance currently in the file.
+  if (!error && writeState)
+    {
+      // Get the number of instances in the state file if we haven't already.
+      if (!fileOpen)
+        {
+          // Open the state file.
+          error = NetCDFCreateOrOpenForWriteState(&fileID);
+
+          if (!error)
             {
-              if (currentTimes[ii] == ADHydro::currentTime)
-                {
-                  writeState    = false;
-                  stateInstance = ii;
-                }
+              fileOpen = true;
+            }
+          
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(fileID, "instances", &stateInstancesSize);
             }
         }
       
-      delete[] currentTimes;
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      stateInstance = stateInstancesSize;
+    }
+  
+  // Close the state file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // FIXME Implement write criteria for the state and display files.  For now, always write a new instance.
+  writeDisplay = true;
+  
+  // If we do need to write the display we will write a new instance one after the last instance currently in the file.
+  if (!error && writeDisplay)
+    {
+      // Get the number of instances in the display file if we haven't already.
+      if (!fileOpen)
+        {
+          // Open the display file.
+          error = NetCDFCreateOrOpenForWriteDisplay(&fileID);
+
+          if (!error)
+            {
+              fileOpen = true;
+            }
+          
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(fileID, "instances", &displayInstancesSize);
+            }
+        }
+      
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      displayInstance = displayInstancesSize;
+    }
+  
+  // Close the display file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF display file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Write instances as necessary.
+  // FIXME if we had to open the files above figure out how to use the already open files instead of reopening them.
+  if (!error && writeGeometry)
+    {
+      error = NetCDFWriteGeometry();
+    }
+  
+  if (!error && writeParameter)
+    {
+      error = NetCDFWriteParameter();
     }
   
   if (!error && writeState)
     {
-      if (!error)
-        {
-          error = writeNetCDFVariable(stateFileID, "geometryInstance", stateInstance, 0, 1, 1, &geometryInstance);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(stateFileID, "parameterInstance", stateInstance, 0, 1, 1, &parameterInstance);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(stateFileID, "referenceDate", stateInstance, 0, 1, 1, &ADHydro::referenceDate);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(stateFileID, "currentTime", stateInstance, 0, 1, 1, &ADHydro::currentTime);
-        }
-      
-      if (!error && NULL != meshSurfacewaterDepth)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshSurfacewaterDepth);
-        }
-      
-      if (!error && NULL != meshSurfacewaterError)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshSurfacewaterError);
-        }
-      
-      if (!error && NULL != meshGroundwaterHead)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterHead", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterHead);
-        }
-      
-      if (!error && NULL != meshGroundwaterRecharge)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterRecharge", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterRecharge);
-        }
-      
-      if (!error && NULL != meshGroundwaterError)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshGroundwaterError);
-        }
-      
-      if (!error && NULL != meshPrecipitationRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
-        }
-      
-      if (!error && NULL != meshPrecipitationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshPrecipitationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshPrecipitationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshPrecipitationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshEvaporationRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshEvaporationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshEvaporationRate);
-        }
-      
-      if (!error && NULL != meshEvaporationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshEvaporationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshEvaporationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshEvaporationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshEvaporationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshEvaporationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshTranspirationRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshTranspirationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspirationRate);
-        }
-      
-      if (!error && NULL != meshTranspirationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshTranspirationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshTranspirationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshTranspirationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshTranspirationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshTranspirationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterDepth)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelSurfacewaterDepth);
-        }
-      
-      if (!error && NULL != channelSurfacewaterError)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterError", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelSurfacewaterError);
-        }
-      
-      if (!error && NULL != channelPrecipitationRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationRate);
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelEvaporationRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelEvaporationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationRate);
-        }
-      
-      if (!error && NULL != channelEvaporationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelEvaporationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelEvaporationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelEvaporationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelGroundwaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterChannelNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(stateFileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
-        }
-    }
-  
-  // FIXME if this is not a multiple of output period set writeDisplay to false.
-  
-  // Check how many instances are already in the display file.
-  if (!error && writeDisplay)
-    {
-      error = NetCDFReadDimensionSize(displayFileID, "instances", &displayInstance);
-    }
-  
-  // Read in the times to check if the current time is already in the file
-  if (!error && writeDisplay && 0 < displayInstance)
-    {
-      currentTimes = new double[displayInstance];
-      
-      // Get the variable ID.
-      ncErrorCode = nc_inq_varid(displayFileID, "currentTime", &variableID);
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable currentTime in NetCDF file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      
-      // Get the variable data.
-      if (!error)
-        {
-          start[0] = 0;
-          count[0] = displayInstance;
-          
-          ncErrorCode = nc_get_vara(displayFileID, variableID, start, count, currentTimes);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable currentTime in NetCDF file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      
-      // If currentTime already exists in the list don't write another copy of the display information.  Start at the end of the list because if the current time is in the file it is most likely at the end.
-      if (!error)
-        {
-          for (ii = displayInstance - 1; writeDisplay && ii >= 0; --ii)
-            {
-              if (currentTimes[ii] == ADHydro::currentTime)
-                {
-                  writeDisplay    = false;
-                  displayInstance = ii;
-                }
-            }
-        }
-      
-      delete[] currentTimes;
+      error = NetCDFWriteState();
     }
   
   if (!error && writeDisplay)
     {
-      if (!error)
-        {
-          error = writeNetCDFVariable(displayFileID, "geometryInstance", stateInstance, 0, 1, 1, &geometryInstance);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(displayFileID, "parameterInstance", stateInstance, 0, 1, 1, &parameterInstance);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(displayFileID, "referenceDate", stateInstance, 0, 1, 1, &ADHydro::referenceDate);
-        }
-      
-      if (!error)
-        {
-          error = writeNetCDFVariable(displayFileID, "currentTime", stateInstance, 0, 1, 1, &ADHydro::currentTime);
-        }
-      
-      if (!error && NULL != meshSurfacewaterDepth)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshSurfacewaterDepth);
-        }
-      
-      if (!error && NULL != meshSurfacewaterError)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshSurfacewaterError);
-        }
-      
-      if (!error && NULL != meshGroundwaterHead)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterHead", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterHead);
-        }
-      
-      if (!error && NULL != meshGroundwaterRecharge)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterRecharge", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterRecharge);
-        }
-      
-      if (!error && NULL != meshGroundwaterError)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshGroundwaterError);
-        }
-      
-      if (!error && NULL != meshPrecipitationRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
-        }
-      
-      if (!error && NULL != meshPrecipitationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshPrecipitationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshPrecipitationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshPrecipitationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshEvaporationRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshEvaporationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshEvaporationRate);
-        }
-      
-      if (!error && NULL != meshEvaporationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshEvaporationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshEvaporationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshEvaporationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshEvaporationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshEvaporationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshTranspirationRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshTranspirationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspirationRate);
-        }
-      
-      if (!error && NULL != meshTranspirationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshTranspirationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshTranspirationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshTranspirationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshTranspirationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                      meshTranspirationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterMeshNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_MESH_NEIGHBORS_SIZE, meshGroundwaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                      MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != meshGroundwaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                      localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshGroundwaterChannelNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterDepth)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelSurfacewaterDepth);
-        }
-      
-      if (!error && NULL != channelSurfacewaterError)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterError", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelSurfacewaterError);
-        }
-      
-      if (!error && NULL != channelPrecipitationRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationRate);
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelPrecipitationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelEvaporationRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelEvaporationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationRate);
-        }
-      
-      if (!error && NULL != channelEvaporationCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelEvaporationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelEvaporationCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelEvaporationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                      channelEvaporationCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelGroundwaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelGroundwaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelGroundwaterMeshNeighborsFlowCumulativeLongTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowRate)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterChannelNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowRate);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
-        }
-      
-      if (!error && NULL != channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = writeNetCDFVariable(displayFileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                      localNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
-        }
+      error = NetCDFWriteDisplay();
     }
   
-  if (geometryFileOpen)
+  if (error)
     {
-      nc_close(geometryFileID);
-    }
-  
-  if (parameterFileOpen)
-    {
-      nc_close(parameterFileID);
-    }
-  
-  if (stateFileOpen)
-    {
-      nc_close(stateFileID);
-    }
-  
-  if (displayFileOpen)
-    {
-      nc_close(displayFileID);
+      CkExit();
     }
 }
-
-FIXME uncomment */
 
 void FileManager::updateVertices()
 {

@@ -340,48 +340,25 @@ public:
   // Read which instances to use in the NetCDF files.
   //
   // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // geometryInstance  - Scalar passed by reference will be filled in with the
-  //                     instance to use in the geometry file.
-  // parameterInstance - Scalar passed by reference will be filled in with the
-  //                     instance to use in the parameter file.
-  // stateInstance     - Scalar passed by reference containing the instance to
-  //                     use in the state file, or can contain -1 in which case
-  //                     the last instance in the state file will be used and
-  //                     that instance number will be filled in to this
-  //                     variable.
-  bool NetCDFReadInstances(size_t* geometryInstance, size_t* parameterInstance, size_t* stateInstance);
+  bool NetCDFReadInstances();
   
-  // Read variables from the geometry file.
+  // Read variables from the geometry file.  geometryInstance must already be
+  // set to the instance to read.
   //
   // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // instance - The instance to read from the file.
-  bool NetCDFReadGeometry(size_t instance);
+  bool NetCDFReadGeometry();
   
-  // Read variables from the parameter file.
+  // Read variables from the parameter file.  parameterInstance must already be
+  // set to the instance to read.
   //
   // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // instance - The instance to read from the file.
-  bool NetCDFReadParameter(size_t instance);
+  bool NetCDFReadParameter();
   
-  // Read variables from the state file.
+  // Read variables from the state file.  stateInstance must already be
+  // set to the instance to read.
   //
   // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // instance - The instance to read from the file.
-  bool NetCDFReadState(size_t instance);
-  
-  /* FIXME uncomment
+  bool NetCDFReadState();
   
   // Write a variable to a NetCDF file.
   //
@@ -409,17 +386,33 @@ public:
   bool NetCDFWriteVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
                            size_t memoryDimension, void* variable);
   
-  */
+  // Write variables to the geometry file.  geometryInstance must already be
+  // set to the instance to write.
+  //
+  // Returns: true if there is an error, false otherwise.
+  bool NetCDFWriteGeometry();
+  
+  // Write variables to the parameter file.  parameterInstance must already be
+  // set to the instance to write.
+  //
+  // Returns: true if there is an error, false otherwise.
+  bool NetCDFWriteParameter();
+  
+  // Write variables to the state file.  stateInstance must already be
+  // set to the instance to write.
+  //
+  // Returns: true if there is an error, false otherwise.
+  bool NetCDFWriteState();
+  
+  // Write variables to the display file.  displayInstance must already be
+  // set to the instance to write.
+  bool NetCDFWriteDisplay();
   
   // Initialize the file manager from NetCDF files.
   void initializeFromNetCDFFiles();
   
-  /*
-  
-  // FIXME comment
+  // Write out file manager data to NetCDF files.
   void writeNetCDFFiles();
-  
-  FIXME uncomment */
   
   // Check if vertex variables need to be updated from node variables and if so
   // send out get vertex data messages.
@@ -764,6 +757,16 @@ public:
   std::map< int, std::vector< std::pair< int, int > > > channelNodeLocation;
   BoolArrayMMN*                                         meshVertexUpdated;
   BoolArrayCV*                                          channelVertexUpdated;
+  
+  // These record which instance to use in NetCDF files.
+  size_t geometryInstance;
+  bool   geometryInstanceChecked;
+  bool   geometryChanged;
+  size_t parameterInstance;
+  bool   parameterInstanceChecked;
+  bool   parameterChanged;
+  size_t stateInstance;
+  size_t displayInstance;
 };
 
 #endif // __FILE_MANAGER_H__

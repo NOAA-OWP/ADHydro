@@ -91,7 +91,18 @@ module file_manager
       // FIXME receive state updates and output to file until simulation is finished.
       serial
       {
-        // FIXME uncomment writeNetCDFFiles();
+        // Write output files.
+        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+          {
+            CkPrintf("Writing output files.\n");
+          }
+        
+        writeNetCDFFiles();
+        
+        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+          {
+            CkPrintf("Finished writing output files.\n");
+          }
       }
     }; // End entry void runUntilSimulationEnd().
     
