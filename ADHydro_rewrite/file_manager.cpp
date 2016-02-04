@@ -3096,10 +3096,11 @@ bool FileManager::NetCDFCreateOrOpenForWriteState(int* fileID)
 
 bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
 {
-  bool error    = false; // Error flag.
-  int  ncErrorCode;      // Return value of NetCDF functions.
-  bool created;          // Whether the file is being created.
-  bool fileOpen = false; // Whether the file is open.
+  bool error    = false;     // Error flag.
+  int  ncErrorCode;          // Return value of NetCDF functions.
+  bool created;              // Whether the file is being created.
+  bool fileOpen = false;     // Whether the file is open.
+  int  instancesDimensionID; // ID of dimension in NetCDF file.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != fileID))
@@ -3123,6 +3124,11 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
   if (!error && created)
     {
       // Create display dimensions.
+      if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "instances", NC_UNLIMITED, &instancesDimensionID);
+        }
+      
       // FIXME decide what should go into the display file
       
       // Create display variables.
@@ -7465,6 +7471,13 @@ void FileManager::meshMassage()
             }
           else if (InfiltrationAndGroundwater::DEEP_AQUIFER == meshGroundwaterMethod[ii])
             {
+              // FIXME this is a really tangled knot.  If a mesh element has any channel neighbors we set it to alluvium so that it will have a shallow
+              // aquifer, groundwater neighbor connections, etc.  We do this early in calculateDerivedValues because we want to have alluvium set before we set
+              // meshGroundwaterMethod, which is used to set a bunch of other things that have to come before here for various reasons.  So there's a cyclic
+              // dependency.  Alternatively, we could try to change everything at this point to what it would have been if the element had been alluvium, but
+              // That would create a maintainence nightmare to keep the behavior here exactly the same as the behavior in other parts of the code.
+              // For now, what we are doing is just not making those elements alluvium.  This doesn't seem like too bad behavior since the only purpose of
+              // making this connection is to allow the channel to drain surfacewater from the element.
               if (2 <= ADHydro::verbosityLevel)
                 {
                   CkError("WARNING in FileManager::meshMassage: mesh element %d was a digital dam that got connected to a stream, but it is not alluvial.\n",
