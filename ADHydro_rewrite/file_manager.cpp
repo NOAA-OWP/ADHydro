@@ -7469,15 +7469,17 @@ void FileManager::meshMassage()
                           "it to.\n", ii, meshCatchment[ii]);
                 }
             }
-          else if (InfiltrationAndGroundwater::DEEP_AQUIFER == meshGroundwaterMethod[ii])
+          else if (!meshAlluvium[ii])
             {
               // FIXME this is a really tangled knot.  If a mesh element has any channel neighbors we set it to alluvium so that it will have a shallow
               // aquifer, groundwater neighbor connections, etc.  We do this early in calculateDerivedValues because we want to have alluvium set before we set
               // meshGroundwaterMethod, which is used to set a bunch of other things that have to come before here for various reasons.  So there's a cyclic
-              // dependency.  Alternatively, we could try to change everything at this point to what it would have been if the element had been alluvium, but
-              // That would create a maintainence nightmare to keep the behavior here exactly the same as the behavior in other parts of the code.
-              // For now, what we are doing is just not making those elements alluvium.  This doesn't seem like too bad behavior since the only purpose of
-              // making this connection is to allow the channel to drain surfacewater from the element.
+              // dependency and we can't just set alluvium true here.  Alternatively, we could try to redo everything here to make it what it would have been
+              // if the element had been alluvium, but that would create a maintainence nightmare to keep the behavior here exactly the same as the behavior in
+              // other parts of the code.  For now, what we are doing is just not making those elements alluvium.  This doesn't seem like too bad behavior
+              // since the only purpose of making this connection is to allow the channel to drain surfacewater from the element so it's not as important that
+              // the element have groundwater connections.  One final thing you can do to fix this is to edit the .geolType file to set the element to be
+              // alluvium from the start and re-load from ASCII files.
               if (2 <= ADHydro::verbosityLevel)
                 {
                   CkError("WARNING in FileManager::meshMassage: mesh element %d was a digital dam that got connected to a stream, but it is not alluvial.\n",
@@ -7515,7 +7517,7 @@ void FileManager::calculateDerivedValues()
     {
       for (ii = 0; ii < localNumberOfMeshElements; ii++)
         {
-          if (NOFLOW != meshChannelNeighbors[ii][0]) // Channel neighbors are compacted to the front so we only need to check the first one.
+          if (!meshAlluvium[ii] && NOFLOW != meshChannelNeighbors[ii][0]) // Channel neighbors are compacted to the front so we only need to check the first one.
             {
               meshAlluvium[ii] = true;
             }
