@@ -758,7 +758,7 @@ def getSoilContent(s):
    co_key_rows = Hrz_metadata[Hrz_metadata['cokey'] == COKEY]
    #Make sure we got at least one row, and sort it based on horizon depth
    if not co_key_rows.empty:
-      co_key_rows.sort_values('hzdept_r', axis=0, inplace=True)
+      co_key_rows = co_key_rows.sort_values('hzdept_r', axis=0)
    else:
       #No soil data found
       s['SoilType'] = np.nan
