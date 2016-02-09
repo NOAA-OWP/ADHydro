@@ -1618,6 +1618,7 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
   int    ii;
   int    last_bin      = find_groundwater_last_bin(domain);
   double maximum_depth = 0.0;
+  double minimum_depth = 0.0;
   double space         = 0.0;
 
   // Take groundwater by lowering the depth of bins last_bin through 1.
@@ -1660,11 +1661,22 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
           maximum_depth = domain->bottom_depth;
         }
 
-      space = (maximum_depth - domain->top_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
+      if (domain->surface_front_theta[0] < domain->surface_front_theta[1])
+        {
+          minimum_depth = domain->surface_front_depth[1];
+        }
+      else
+        {
+          minimum_depth = domain->top_depth;
+        }
+
+      assert(maximum_depth > minimum_depth);
+
+      space = (maximum_depth - minimum_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
 
       if (space > -*groundwater_recharge)
         {
-          domain->surface_front_theta[0] += *groundwater_recharge / (maximum_depth - domain->top_depth);
+          domain->surface_front_theta[0] += *groundwater_recharge / (maximum_depth - minimum_depth);
           *groundwater_recharge           = 0.0;
         }
       else
