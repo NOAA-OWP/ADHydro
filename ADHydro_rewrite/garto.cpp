@@ -381,6 +381,14 @@ void garto_check_invariant(garto_domain* domain)
                    CkAssert(domain->groundwater_front_depth[ii - 1] <= domain->groundwater_front_depth[ii]); 
                  } 
              }
+
+          // Scan from right to left for the last bin that exists.
+          for (ii = domain->parameters->num_bins; ii > 0 && domain->groundwater_front_theta[ii] <= domain->groundwater_front_theta[0]; ii--)
+            {
+              // no-op
+            }
+
+          CkAssert(domain->groundwater_front_theta[ii] == domain->parameters->theta_s);
         }
     }
 }
