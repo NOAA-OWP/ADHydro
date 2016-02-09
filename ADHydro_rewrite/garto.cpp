@@ -275,10 +275,13 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, doub
       delta_water_content                = (parameters->theta_s - (*domain)->initial_water_content) / parameters->num_bins;
 
       // (*domain)->groundwater_front_theta[0] will be used in the simulation.
-      for (ii = 0; ii <= parameters->num_bins; ii++)
+      for (ii = 0; ii < parameters->num_bins; ii++)
         {
           (*domain)->groundwater_front_theta[ii] = (*domain)->initial_water_content + ii * delta_water_content;
         }
+
+      // The last groundwater front bin should be exactly theta_s.
+      (*domain)->groundwater_front_theta[parameters->num_bins] = parameters->theta_s;
 
       // Allocate and initialize groundwater_front_depth.
       (*domain)->groundwater_front_depth = new double[parameters->num_bins + 1];
