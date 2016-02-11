@@ -275,10 +275,13 @@ int garto_domain_alloc(garto_domain** domain, garto_parameters* parameters, doub
       delta_water_content                = (parameters->theta_s - (*domain)->initial_water_content) / parameters->num_bins;
 
       // (*domain)->groundwater_front_theta[0] will be used in the simulation.
-      for (ii = 0; ii <= parameters->num_bins; ii++)
+      for (ii = 0; ii < parameters->num_bins; ii++)
         {
           (*domain)->groundwater_front_theta[ii] = (*domain)->initial_water_content + ii * delta_water_content;
         }
+
+      // The last groundwater front bin should be exactly theta_s.
+      (*domain)->groundwater_front_theta[parameters->num_bins] = parameters->theta_s;
 
       // Allocate and initialize groundwater_front_depth.
       (*domain)->groundwater_front_depth = new double[parameters->num_bins + 1];
@@ -381,6 +384,14 @@ void garto_check_invariant(garto_domain* domain)
                    CkAssert(domain->groundwater_front_depth[ii - 1] <= domain->groundwater_front_depth[ii]); 
                  } 
              }
+
+          // Scan from right to left for the last bin that exists.
+          for (ii = domain->parameters->num_bins; ii > 0 && domain->groundwater_front_theta[ii] <= domain->groundwater_front_theta[0]; ii--)
+            {
+              // no-op
+            }
+
+          CkAssert(domain->groundwater_front_theta[ii] == domain->parameters->theta_s);
         }
     }
 }
@@ -1618,6 +1629,7 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
   int    ii;
   int    last_bin      = find_groundwater_last_bin(domain);
   double maximum_depth = 0.0;
+  double minimum_depth = 0.0;
   double space         = 0.0;
 
   // Take groundwater by lowering the depth of bins last_bin through 1.
@@ -1660,11 +1672,22 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
           maximum_depth = domain->bottom_depth;
         }
 
-      space = (maximum_depth - domain->top_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
+      if (domain->surface_front_theta[0] < domain->surface_front_theta[1])
+        {
+          minimum_depth = domain->surface_front_depth[1];
+        }
+      else
+        {
+          minimum_depth = domain->top_depth;
+        }
+
+      assert(maximum_depth > minimum_depth);
+
+      space = (maximum_depth - minimum_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
 
       if (space > -*groundwater_recharge)
         {
-          domain->surface_front_theta[0] += *groundwater_recharge / (maximum_depth - domain->top_depth);
+          domain->surface_front_theta[0] += *groundwater_recharge / (maximum_depth - minimum_depth);
           *groundwater_recharge           = 0.0;
         }
       else

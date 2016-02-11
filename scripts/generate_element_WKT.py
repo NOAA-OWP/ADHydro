@@ -8,19 +8,20 @@ from subprocess import call
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
+input_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh"
 
 # This script will write its output to this directory
-# the files it will write are:
+# the files it will create are:
 #
 # output_directory_path/elements.wkt
-output_directory_path = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
+# output_directory_path/elements.shp
+
+output_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh"
 #Triangle Node and Element files
 ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
 NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
 #WKT output file
 output_element_wkt_file = os.path.join(output_directory_path, 'elements.wkt')
-
 
 def addWKT(s):
     """
@@ -49,19 +50,30 @@ elements['WKT'] = 'POLYGON(('
 #Complete the polygon information
 elements = elements.apply(addWKT, axis=1)
 
-elements['WKT'].to_csv(output_element_wkt_file, index=False, header=['Polygon'])
+with open(output_element_wkt_file, 'wb') as outFile:
+    outFile.write('Polygon,ID\n')
+    elements['WKT'].to_csv(outFile, index=False)
 
-gdal_vrt="\
+#Now we create a virtual layer definition for the CSV file
+out_vrt = os.path.join(output_directory_path, 'elements.vrt')
+gdal_vrt="""\
 <OGRVRTDataSource>
     <OGRVRTLayer name="mesh">
-        <SrcDataSource>CSV:elements.wkt</SrcDataSource>
+        <SrcDataSource>CSV:"""+output_element_wkt_file+"""</SrcDataSource>
         <SrcLayer>elements</SrcLayer>
         <LayerSRS>+proj=sinu +lon_0=-109 +x_0=20000000 +y_0=10000000 +datum=WGS84 +units=m +no_defs</LayerSRS>
         <GeometryType>wkbPolygon</GeometryType>
         <GeometryField encoding="WKT" field="Polygon"/>
     </OGRVRTLayer>
-</OGRVRTDataSource>"
-with open(os.path.join(output_directory_path, 'elements.vrt'), 'wb') as f:
+</OGRVRTDataSource>"""
+#Save the file
+with open(out_vrt, 'wb') as f:
   f.write(gdal_vrt)
+#Now shell out and let gdal create a shapefile from the wkt
+out_shp = os.path.join(output_directory_path, 'elements.shp')
+command = 'ogr2ogr -f "ESRI Shapefile" '+out_shp+' '+out_vrt
+#print command
+call(command, shell=True)
+#call(['ogr2ogr', '-f', '"ESRI Shapefile"', out_shp, out_vrt])
 
-call(['ogr2ogr', '-f', '"ESRI Shapefile"', 'elements.shp', 'elements.vrt'])
+
