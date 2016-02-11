@@ -68,6 +68,7 @@ adhydro.o: adhydro.cpp           \
            adhydro.h             \
            adhydro.decl.h        \
            adhydro.def.h         \
+           file_manager.h        \
            file_manager.decl.h   \
            region.h              \
            region.decl.h         \
@@ -183,6 +184,7 @@ surfacewater.o: surfacewater.cpp      \
                 surfacewater.h        \
                 adhydro.h             \
                 adhydro.decl.h        \
+                file_manager.h        \
                 file_manager.decl.h   \
                 region.h              \
                 region.decl.h         \
@@ -199,6 +201,7 @@ groundwater.o: groundwater.cpp       \
                groundwater.h         \
                adhydro.h             \
                adhydro.decl.h        \
+               file_manager.h        \
                file_manager.decl.h   \
                region.h              \
                region.decl.h         \
@@ -215,6 +218,7 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        adhydro.h               \
                        adhydro.decl.h          \
+                       file_manager.h        \
                        file_manager.decl.h     \
                        region.h                \
                        region.decl.h           \

@@ -602,6 +602,9 @@ public:
   // end of the timestep.
   void receiveInflowsAndAdvanceTime();
   
+  // FIXME comment
+  void sendStateMessages();
+  
   // Compute values relevant to the mass balance calculation.  To calculate the
   // mass balance take waterInDomain and add externalFlows and subtract
   // waterError.  This will undo any insertion or removal of water from the
@@ -666,9 +669,12 @@ public:
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator       itChannelGroundwaterMeshNeighbor;
   
   // Time and simulation control variables.
-  double regionalDtLimit; // FIXME figure out how to set this limit.  Currently, it is hard coded to 60 seconds.
-  bool   needToCheckInvariant;
-  bool   simulationFinished;
+  double regionalDtLimit;      // The largest expiration time dt that will be allowed for elements of this region.
+                               // FIXME figure out how to set this limit.  Currently, it is hard coded to 60 seconds.
+  bool   needToCheckInvariant; // Flage to indicate if the invariant needs tobe checked.
+  int    nextCheckpointIndex;  // This multiplied by ADHydro::checkpointPeriod is the next time that a checkpoint will be done.
+  int    nextOutputIndex;      // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
+  bool   simulationFinished;   // Flag to indicate the simulation is finished.
 };
 
 #endif // __REGION_H__

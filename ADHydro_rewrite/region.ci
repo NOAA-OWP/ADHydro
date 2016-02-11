@@ -158,40 +158,7 @@ module region
         {
           serial
           {
-            // Do output including a mass balance.
-            // FIXME do output of state
-            bool   error                = false;
-            double massBalanceValues[3] = {0.0, 0.0, 0.0};
-            double nextCheckpointTime;
-            double nextOutputTime;
-            
-            error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
-            
-            if (!error)
-              {
-                contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
-              }
-            else
-              {
-                CkExit();
-              }
-            
-            // Advance nextSyncTime.
-            nextCheckpointTime = (floor(currentTime / ADHydro::checkpointPeriod) + 1) * ADHydro::checkpointPeriod;
-            nextOutputTime     = (floor(currentTime / ADHydro::outputPeriod)     + 1) * ADHydro::outputPeriod;
-            nextSyncTime       = nextCheckpointTime;
-            
-            if (nextSyncTime > nextOutputTime)
-              {
-                nextSyncTime = nextOutputTime;
-              }
-            
-            if (nextSyncTime > simulationEndTime)
-              {
-                nextSyncTime = simulationEndTime;
-              }
-            
-            // Check the invariant.
+            // Start the invariant check.  Do this early because the regions can go on as soon as all neighbor invariant messages arrive.
             if (needToCheckInvariant)
               {
                 if (checkInvariant())
@@ -199,8 +166,39 @@ module region
                     CkExit();
                   }
               }
+            
+            // Send state messages unless it is at the beginning of the simulation because the file managers already have the state at the beginning of the
+            // simulation.
+            if (currentTime != ADHydro::currentTime)
+              {
+                sendStateMessages();
+              }
+            
+            // Advance nextCheckpointTime, nextOutputTime, and nextSyncTime.
+            if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
+              {
+                ++nextCheckpointIndex;
+              }
+            
+            if (nextOutputIndex * ADHydro::outputPeriod == currentTime)
+              {
+                ++nextOutputIndex;
+              }
+            
+            nextSyncTime = nextCheckpointIndex * ADHydro::checkpointPeriod;
+            
+            if (nextSyncTime > nextOutputIndex * ADHydro::outputPeriod)
+              {
+                nextSyncTime = nextOutputIndex * ADHydro::outputPeriod;
+              }
+            
+            if (nextSyncTime > simulationEndTime)
+              {
+                nextSyncTime = simulationEndTime;
+              }
           } // End serial inside of if (currentTime == nextSyncTime).
           
+          // Wait for all neighbor invariant messages.
           while (needToCheckInvariant && !allNeighborInvariantsChecked())
           {
             case
@@ -269,6 +267,21 @@ module region
             // If debug level does not include internal invariants only check the invariant at most once at the beginning of the simulation.
             needToCheckInvariant = false;
 #endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+            
+            // Do a mass balance.
+            bool   error                = false;
+            double massBalanceValues[3] = {0.0, 0.0, 0.0};
+            
+            error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
+            
+            if (!error)
+              {
+                contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+              }
+            else
+              {
+                CkExit();
+              }
           }
         } // End if (currentTime == nextSyncTime).
         
@@ -338,12 +351,6 @@ module region
           }
         } // End if (currentTime < simulationEndTime).
       } // End while (!simulationFinished).
-      
-      serial
-      {
-        // FIXME this does not allow the final output to complete before exiting.
-        contribute(CkCallback(CkCallback::ckExit));
-      }
     }; // End entry void runUntilSimulationEnd();
     
     entry void sendMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime, int neighbor, MeshSurfacewaterMeshNeighborProxy neighborsProxy);

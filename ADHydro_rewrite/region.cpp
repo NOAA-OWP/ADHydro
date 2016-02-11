@@ -294,6 +294,8 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
 #else // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   needToCheckInvariant(false),
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  nextCheckpointIndex(1 + (int)floor(currentTimeInit / ADHydro::checkpointPeriod)),
+  nextOutputIndex(1 + (int)floor(currentTimeInit / ADHydro::outputPeriod)),
   simulationFinished(false)
 {
   FileManager* fileManagerLocalBranch = ADHydro::fileManagerProxy.ckLocalBranch();            // Used for access to local public member variables.
@@ -3268,6 +3270,133 @@ void Region::receiveInflowsAndAdvanceTime()
   if (error)
     {
       CkExit();
+    }
+}
+
+void Region::sendStateMessages()
+{
+  // FIXME these could become member variables like outgoingMessages.  The benefit of that would be that the vectors don't need to be constructed every time.
+  std::map<int, std::vector<ElementStateMessage> >           meshElementStateMessages;    // Aggregator for messages going out to file managers.
+                                                                                          // Key is PE number.
+  std::map<int, std::vector<ElementStateMessage> >           channelElementStateMessages; // Aggregator for messages going out to file managers.
+                                                                                          // Key is PE number.
+  std::map<int, std::vector<ElementStateMessage> >::iterator it;                          // Loop iterator
+  FileManager*                                               fileManagerLocalBranch = ADHydro::fileManagerProxy.ckLocalBranch();
+                                                                                          // Used for access to local public member variables.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  // Iterators must not be in use at this time.
+  CkAssert(!pupItMeshAndItChannel && !pupItNeighbor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+    {
+      ElementStateMessage state((*itMesh).second.elementNumber, (*itMesh).second.surfacewaterDepth, (*itMesh).second.surfacewaterError,
+                                (*itMesh).second.underground.groundwaterHead, (*itMesh).second.underground.groundwaterRecharge,
+                                (*itMesh).second.underground.groundwaterError, (*itMesh).second.precipitationRate,
+                                (*itMesh).second.precipitationCumulativeShortTerm, (*itMesh).second.precipitationCumulativeLongTerm,
+                                (*itMesh).second.evaporationRate, (*itMesh).second.evaporationCumulativeShortTerm,
+                                (*itMesh).second.evaporationCumulativeLongTerm, (*itMesh).second.transpirationRate,
+                                (*itMesh).second.transpirationCumulativeShortTerm, (*itMesh).second.transpirationCumulativeLongTerm,
+                                (*itMesh).second.evapoTranspirationState);
+      
+      for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin();
+           itMeshSurfacewaterMeshNeighbor != (*itMesh).second.meshNeighbors.end(); ++itMeshSurfacewaterMeshNeighbor)
+        {
+          state.surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(
+              (*itMeshSurfacewaterMeshNeighbor).expirationTime, (*itMeshSurfacewaterMeshNeighbor).nominalFlowRate,
+              (*itMeshSurfacewaterMeshNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterMeshNeighbor).flowCumulativeLongTerm, 0,
+              (*itMeshSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+
+      for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
+           itMeshGroundwaterMeshNeighbor != (*itMesh).second.underground.meshNeighbors.end(); ++itMeshGroundwaterMeshNeighbor)
+        {
+          state.groundwaterMeshNeighbors.push_back(simpleNeighborInfo(
+              (*itMeshGroundwaterMeshNeighbor).expirationTime, (*itMeshGroundwaterMeshNeighbor).nominalFlowRate,
+              (*itMeshGroundwaterMeshNeighbor).flowCumulativeShortTerm, (*itMeshGroundwaterMeshNeighbor).flowCumulativeLongTerm, 0,
+              (*itMeshGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+
+      for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
+           itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
+        {
+          state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
+              (*itMeshSurfacewaterChannelNeighbor).expirationTime, (*itMeshSurfacewaterChannelNeighbor).nominalFlowRate,
+              (*itMeshSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
+              (*itMeshSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+
+      for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
+           itMeshGroundwaterChannelNeighbor != (*itMesh).second.underground.channelNeighbors.end(); ++itMeshGroundwaterChannelNeighbor)
+        {
+          state.groundwaterChannelNeighbors.push_back(simpleNeighborInfo(
+              (*itMeshGroundwaterChannelNeighbor).expirationTime, (*itMeshGroundwaterChannelNeighbor).nominalFlowRate,
+              (*itMeshGroundwaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshGroundwaterChannelNeighbor).flowCumulativeLongTerm, 0,
+              (*itMeshGroundwaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+      
+      meshElementStateMessages[FileManager::home((*itMesh).second.elementNumber, fileManagerLocalBranch->globalNumberOfMeshElements)].push_back(state);
+    }
+  
+  for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+    {
+      ElementStateMessage state((*itChannel).second.elementNumber, (*itChannel).second.surfacewaterDepth, (*itChannel).second.surfacewaterError, 0.0, 0.0, 0.0,
+                                (*itChannel).second.precipitationRate, (*itChannel).second.precipitationCumulativeShortTerm,
+                                (*itChannel).second.precipitationCumulativeLongTerm, (*itChannel).second.evaporationRate,
+                                (*itChannel).second.evaporationCumulativeShortTerm, (*itChannel).second.evaporationCumulativeLongTerm, 0.0, 0.0, 0.0,
+                                (*itChannel).second.evapoTranspirationState);
+      
+      for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin();
+           itChannelSurfacewaterMeshNeighbor != (*itChannel).second.meshNeighbors.end(); ++itChannelSurfacewaterMeshNeighbor)
+        {
+          state.surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(
+              (*itChannelSurfacewaterMeshNeighbor).expirationTime, (*itChannelSurfacewaterMeshNeighbor).nominalFlowRate,
+              (*itChannelSurfacewaterMeshNeighbor).flowCumulativeShortTerm, (*itChannelSurfacewaterMeshNeighbor).flowCumulativeLongTerm, 0,
+              (*itChannelSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+
+      for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin();
+           itChannelGroundwaterMeshNeighbor != (*itChannel).second.undergroundMeshNeighbors.end(); ++itChannelGroundwaterMeshNeighbor)
+        {
+          state.groundwaterMeshNeighbors.push_back(simpleNeighborInfo(
+              (*itChannelGroundwaterMeshNeighbor).expirationTime, (*itChannelGroundwaterMeshNeighbor).nominalFlowRate,
+              (*itChannelGroundwaterMeshNeighbor).flowCumulativeShortTerm, (*itChannelGroundwaterMeshNeighbor).flowCumulativeLongTerm, 0,
+              (*itChannelGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+
+      for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
+           itChannelSurfacewaterChannelNeighbor != (*itChannel).second.channelNeighbors.end(); ++itChannelSurfacewaterChannelNeighbor)
+        {
+          state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
+              (*itChannelSurfacewaterChannelNeighbor).expirationTime, (*itChannelSurfacewaterChannelNeighbor).nominalFlowRate,
+              (*itChannelSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itChannelSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
+              (*itChannelSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+        }
+      
+      channelElementStateMessages[FileManager::home((*itChannel).second.elementNumber, fileManagerLocalBranch->globalNumberOfChannelElements)].push_back(state);
+    }
+  
+  // Send messages to file managers.  First loop over all of the PEs in the mesh messages map.
+  for (it = meshElementStateMessages.begin(); it != meshElementStateMessages.end(); ++it)
+    {
+      int fileManager = (*it).first;
+      
+      if ((*it).second.size() > 0 || channelElementStateMessages[fileManager].size() > 0)
+        {
+          ADHydro::fileManagerProxy[fileManager].sendElementStateMessages(currentTime, (*it).second, channelElementStateMessages[fileManager]);
+        }
+    }
+  
+  // Now find any PEs in the channel messages map that weren't in the mesh messages map.
+  for (it = channelElementStateMessages.begin(); it != channelElementStateMessages.end(); ++it)
+    {
+      int fileManager = (*it).first;
+      
+      if ((*it).second.size() > 0 && meshElementStateMessages.end() == meshElementStateMessages.find(fileManager))
+        {
+          ADHydro::fileManagerProxy[fileManager].sendElementStateMessages(currentTime, std::vector<ElementStateMessage>(), (*it).second);
+        }
     }
 }
 

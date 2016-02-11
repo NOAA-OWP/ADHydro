@@ -2,6 +2,63 @@
 #define __FILE_MANAGER_H__
 
 #include "region.h"
+
+// An ElementStateMessage is used for regions to send updated element state to
+// file managers for writing out to file.
+class ElementStateMessage
+{
+public:
+  
+  // Default constructor.  Only needed for pup_stl.h code.
+  ElementStateMessage();
+  
+  // Constructor.
+  //
+  // All parameters directly initialize member variables.  For description see
+  // member variables.
+  ElementStateMessage(int elementNumberInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                      double groundwaterRechargeInit, double groundwaterErrorInit, double precipitationRateInit,
+                      double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+                      double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
+                      double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                      EvapoTranspirationStateStruct& evapoTranspirationStateInit);
+  
+  // Charm++ pack/unpack method.
+  //
+  // Parameters:
+  //
+  // p - Pack/unpack processing object.
+  void pup(PUP::er &p);
+  
+  // Check invariant conditions.
+  //
+  // Returns: true if the invariant is violated, false otherwise.
+  bool checkInvariant();
+  
+  int                             elementNumber;
+  double                          surfacewaterDepth;
+  double                          surfacewaterError;
+  double                          groundwaterHead;
+  double                          groundwaterRecharge;
+  double                          groundwaterError;
+  double                          precipitationRate;
+  double                          precipitationCumulativeShortTerm;
+  double                          precipitationCumulativeLongTerm;
+  double                          evaporationRate;
+  double                          evaporationCumulativeShortTerm;
+  double                          evaporationCumulativeLongTerm;
+  double                          transpirationRate;
+  double                          transpirationCumulativeShortTerm;
+  double                          transpirationCumulativeLongTerm;
+  EvapoTranspirationStateStruct   evapoTranspirationState;
+  // FIXME vadose zone state
+  std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors;
+  std::vector<simpleNeighborInfo> groundwaterMeshNeighbors;
+  std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors;
+  std::vector<simpleNeighborInfo> groundwaterChannelNeighbors;
+};
+
+// file_manager.decl.h has to be included after ElementStateMessage because it passes parameters of type ElementStateMessage.
 #include "file_manager.decl.h"
 #include <netcdf.h>
 
@@ -538,6 +595,23 @@ public:
   // regionProxy - A proxy to the chare array of regions.
   void handleSendInitializationMessages(CProxy_Region regionProxy);
   
+  // Returns: true if all element information is updated, false otherwise.
+  bool allStateUpdated();
+  
+  // Store the updated state received from a mesh element.
+  //
+  // Parameters:
+  //
+  // message - The updated state.
+  void handleMeshElementStateMessage(ElementStateMessage& message);
+  
+  // Store the updated state received from a channel element.
+  //
+  // Parameters:
+  //
+  // message - The updated state.
+  void handleChannelElementStateMessage(ElementStateMessage& message);
+  
   int globalNumberOfRegions;         // Number of regions across all file managers.
   int localRegionStart;              // Index of first region owned by this local branch.
   int localNumberOfRegions;          // Number of regions owned by this local branch.
@@ -752,6 +826,8 @@ public:
   std::map< int, std::vector< std::pair< int, int > > > channelNodeLocation;
   BoolArrayMMN*                                         meshVertexUpdated;
   BoolArrayCV*                                          channelVertexUpdated;
+  bool*                                                 meshElementUpdated;
+  bool*                                                 channelElementUpdated;
   
   // These record which instance to use in NetCDF files.
   size_t geometryInstance;
@@ -762,6 +838,13 @@ public:
   bool   parameterChanged;
   size_t stateInstance;
   size_t displayInstance;
+  
+  // Time and simulation control variables.
+  double currentTime;         // Current simulation time in seconds since ADHydro::referenceDate.
+  int    nextCheckpointIndex; // This multiplied by ADHydro::checkpointPeriod is the next time that a checkpoint will be done.
+  int    nextOutputIndex;     // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
+  double simulationEndTime;   // Simulation time to end the simulation in seconds since ADHydro::referenceDate.
+  bool   simulationFinished;  // Flag to indicate the simulation is finished.
 };
 
 #endif // __FILE_MANAGER_H__

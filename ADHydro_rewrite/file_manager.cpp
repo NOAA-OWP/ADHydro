@@ -5,6 +5,93 @@
 #include <libgen.h>
 #include <netcdf_par.h>
 
+ElementStateMessage::ElementStateMessage() :
+  elementNumber(0), // Dummy values will be overwritten by pup_stl.h code.
+  surfacewaterDepth(0.0),
+  surfacewaterError(0.0),
+  groundwaterHead(0.0),
+  groundwaterRecharge(0.0),
+  groundwaterError(0.0),
+  precipitationRate(0.0),
+  precipitationCumulativeShortTerm(0.0),
+  precipitationCumulativeLongTerm(0.0),
+  evaporationRate(0.0),
+  evaporationCumulativeShortTerm(0.0),
+  evaporationCumulativeLongTerm(0.0),
+  transpirationRate(0.0),
+  transpirationCumulativeShortTerm(0.0),
+  transpirationCumulativeLongTerm(0.0),
+  evapoTranspirationState(),
+  surfacewaterMeshNeighbors(),
+  groundwaterMeshNeighbors(),
+  surfacewaterChannelNeighbors(),
+  groundwaterChannelNeighbors()
+{
+  // Initialization handled by initialization list.
+}
+
+ElementStateMessage::ElementStateMessage(int elementNumberInit, double surfacewaterDepthInit, double surfacewaterErrorInit, double groundwaterHeadInit,
+                                         double groundwaterRechargeInit, double groundwaterErrorInit, double precipitationRateInit,
+                                         double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
+                                         double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
+                                         double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
+                                         EvapoTranspirationStateStruct& evapoTranspirationStateInit) :
+  elementNumber(elementNumberInit),
+  surfacewaterDepth(surfacewaterDepthInit),
+  surfacewaterError(surfacewaterErrorInit),
+  groundwaterHead(groundwaterHeadInit),
+  groundwaterRecharge(groundwaterRechargeInit),
+  groundwaterError(groundwaterErrorInit),
+  precipitationRate(precipitationRateInit),
+  precipitationCumulativeShortTerm(precipitationCumulativeShortTermInit),
+  precipitationCumulativeLongTerm(precipitationCumulativeLongTermInit),
+  evaporationRate(evaporationRateInit),
+  evaporationCumulativeShortTerm(evaporationCumulativeShortTermInit),
+  evaporationCumulativeLongTerm(evaporationCumulativeLongTermInit),
+  transpirationRate(transpirationRateInit),
+  transpirationCumulativeShortTerm(transpirationCumulativeShortTermInit),
+  transpirationCumulativeLongTerm(transpirationCumulativeLongTermInit),
+  evapoTranspirationState(evapoTranspirationStateInit),
+  surfacewaterMeshNeighbors(),
+  groundwaterMeshNeighbors(),
+  surfacewaterChannelNeighbors(),
+  groundwaterChannelNeighbors()
+{
+}
+
+void ElementStateMessage::pup(PUP::er &p)
+{
+  p | elementNumber;
+  p | surfacewaterDepth;
+  p | surfacewaterError;
+  p | groundwaterHead;
+  p | groundwaterRecharge;
+  p | groundwaterError;
+  p | precipitationRate;
+  p | precipitationCumulativeShortTerm;
+  p | precipitationCumulativeLongTerm;
+  p | evaporationRate;
+  p | evaporationCumulativeShortTerm;
+  p | evaporationCumulativeLongTerm;
+  p | transpirationRate;
+  p | transpirationCumulativeShortTerm;
+  p | transpirationCumulativeLongTerm;
+  p | evapoTranspirationState;
+  p | surfacewaterMeshNeighbors;
+  p | groundwaterMeshNeighbors;
+  p | surfacewaterChannelNeighbors;
+  p | groundwaterChannelNeighbors;
+}
+
+bool ElementStateMessage::checkInvariant()
+{
+  bool error = false; // Error flag.
+  
+  // FIXME error check
+  
+  return error;
+}
+
 void FileManager::printOutMassBalance(double waterInDomain, double externalFlows, double waterError)
 {
   static double startTime           = NAN;
@@ -241,6 +328,8 @@ FileManager::FileManager() :
   channelNodeLocation(),
   meshVertexUpdated(NULL),
   channelVertexUpdated(NULL),
+  meshElementUpdated(NULL),
+  channelElementUpdated(NULL),
   geometryInstance(-1),
   geometryInstanceChecked(false),
   geometryChanged(false),
@@ -248,7 +337,12 @@ FileManager::FileManager() :
   parameterInstanceChecked(false),
   parameterChanged(false),
   stateInstance(-1),
-  displayInstance(-1)
+  displayInstance(-1),
+  currentTime(0.0),
+  nextCheckpointIndex(0),
+  nextOutputIndex(0),
+  simulationEndTime(0.0),
+  simulationFinished(false)
 {
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();
@@ -385,6 +479,8 @@ FileManager::~FileManager()
   delete[] channelPruned;
   delete[] meshVertexUpdated;
   delete[] channelVertexUpdated;
+  delete[] meshElementUpdated;
+  delete[] channelElementUpdated;
 }
 
 bool FileManager::readNodeAndZFiles(bool readMesh)
@@ -5277,7 +5373,7 @@ bool FileManager::NetCDFWriteState()
   
   if (!error)
     {
-      error = NetCDFWriteVariable(fileID, "currentTime", stateInstance, 0, 1, 1, &ADHydro::currentTime);
+      error = NetCDFWriteVariable(fileID, "currentTime", stateInstance, 0, 1, 1, &currentTime);
     }
   
   if (!error && NULL != meshSurfacewaterDepth)
@@ -9177,17 +9273,21 @@ void FileManager::calculateDerivedValues()
     }
 
   // Allocate arrays to record when state update messages are received.
-  // FIXME we will need this eventually.
-  //if (0 < localNumberOfMeshElements)
-  //  {
-  //    meshElementUpdated = new bool[localNumberOfMeshElements];
-  //  }
-  //
-  //if (0 < localNumberOfChannelElements)
-  //  {
-  //    channelElementUpdated = new bool[localNumberOfChannelElements];
-  //  }
+  if (0 < localNumberOfMeshElements)
+    {
+      meshElementUpdated = new bool[localNumberOfMeshElements];
+    }
+
+  if (0 < localNumberOfChannelElements)
+    {
+      channelElementUpdated = new bool[localNumberOfChannelElements];
+    }
   
+  currentTime         = ADHydro::currentTime;
+  nextCheckpointIndex = 1 + (int)floor(currentTime / ADHydro::checkpointPeriod);
+  nextOutputIndex     = 1 + (int)floor(currentTime / ADHydro::outputPeriod);
+  simulationEndTime   = currentTime + ADHydro::simulationDuration;
+
   // Fix digital dams and similar problems.
   if (ADHydro::doMeshMassage)
     {
@@ -10096,6 +10196,231 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
     {
       CkExit();
     }
+}
+
+bool FileManager::allStateUpdated()
+{
+  int  ii;             // Loop counter.
+  bool updated = true; // Flag to record whether we have found an unupdated vertex.
+  
+  for (ii = 0; updated && ii < localNumberOfMeshElements; ++ii)
+    {
+      updated = meshElementUpdated[ii];
+    }
+  
+  for (ii = 0; updated && ii < localNumberOfChannelElements; ++ii)
+    {
+      updated = channelElementUpdated[ii];
+    }
+  
+  return updated;
+}
+
+void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
+{
+  int                                       ii; // Loop counter.
+  std::vector<simpleNeighborInfo>::iterator it; // Loop iterator.
+  
+  // FIXME error check inputs
+  
+  meshSurfacewaterDepth[message.elementNumber]                = message.surfacewaterDepth;
+  meshSurfacewaterError[message.elementNumber]                = message.surfacewaterError;
+  meshGroundwaterHead[message.elementNumber]                  = message.groundwaterHead;
+  meshGroundwaterRecharge[message.elementNumber]              = message.groundwaterRecharge;
+  meshGroundwaterError[message.elementNumber]                 = message.groundwaterError;
+  meshPrecipitationRate[message.elementNumber]                = message.precipitationRate;
+  meshPrecipitationCumulativeShortTerm[message.elementNumber] = message.precipitationCumulativeShortTerm;
+  meshPrecipitationCumulativeLongTerm[message.elementNumber]  = message.precipitationCumulativeLongTerm;
+  meshEvaporationRate[message.elementNumber]                  = message.evaporationRate;
+  meshEvaporationCumulativeShortTerm[message.elementNumber]   = message.evaporationCumulativeShortTerm;
+  meshEvaporationCumulativeLongTerm[message.elementNumber]    = message.evaporationCumulativeLongTerm;
+  meshTranspirationRate[message.elementNumber]                = message.transpirationRate;
+  meshTranspirationCumulativeShortTerm[message.elementNumber] = message.transpirationCumulativeShortTerm;
+  meshTranspirationCumulativeLongTerm[message.elementNumber]  = message.transpirationCumulativeLongTerm;
+  meshEvapoTranspirationState[message.elementNumber]          = message.evapoTranspirationState;
+  
+  for (it = message.surfacewaterMeshNeighbors.begin(); it != message.surfacewaterMeshNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
+        {
+          if (meshMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              meshSurfacewaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              meshSurfacewaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(MESH_ELEMENT_MESH_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Mesh element %d does not have %d as a mesh neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  for (it = message.groundwaterMeshNeighbors.begin(); it != message.groundwaterMeshNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
+        {
+          if (meshMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              meshGroundwaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              meshGroundwaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              meshGroundwaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(MESH_ELEMENT_MESH_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Mesh element %d does not have %d as a mesh neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  for (it = message.surfacewaterChannelNeighbors.begin(); it != message.surfacewaterChannelNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
+        {
+          if (meshChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              meshSurfacewaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              meshSurfacewaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Mesh element %d does not have %d as a channel neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  for (it = message.groundwaterChannelNeighbors.begin(); it != message.groundwaterChannelNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
+        {
+          if (meshChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              meshGroundwaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              meshGroundwaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Mesh element %d does not have %d as a channel neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  meshElementUpdated[message.elementNumber] = true;
+}
+
+void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
+{
+  int                                       ii; // Loop counter.
+  std::vector<simpleNeighborInfo>::iterator it; // Loop iterator.
+  
+  // FIXME error check inputs
+  
+  channelSurfacewaterDepth[message.elementNumber]                = message.surfacewaterDepth;
+  channelSurfacewaterError[message.elementNumber]                = message.surfacewaterError;
+  channelPrecipitationRate[message.elementNumber]                = message.precipitationRate;
+  channelPrecipitationCumulativeShortTerm[message.elementNumber] = message.precipitationCumulativeShortTerm;
+  channelPrecipitationCumulativeLongTerm[message.elementNumber]  = message.precipitationCumulativeLongTerm;
+  channelEvaporationRate[message.elementNumber]                  = message.evaporationRate;
+  channelEvaporationCumulativeShortTerm[message.elementNumber]   = message.evaporationCumulativeShortTerm;
+  channelEvaporationCumulativeLongTerm[message.elementNumber]    = message.evaporationCumulativeLongTerm;
+  channelEvapoTranspirationState[message.elementNumber]          = message.evapoTranspirationState;
+  
+  for (it = message.surfacewaterMeshNeighbors.begin(); it != message.surfacewaterMeshNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
+        {
+          if (channelMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              channelSurfacewaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              channelSurfacewaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Channel element %d does not have %d as a mesh neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  for (it = message.groundwaterMeshNeighbors.begin(); it != message.groundwaterMeshNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
+        {
+          if (channelMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              channelGroundwaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              channelGroundwaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: Channel element %d does not have %d as a mesh neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  for (it = message.surfacewaterChannelNeighbors.begin(); it != message.surfacewaterChannelNeighbors.end(); ++it)
+    {
+      for (ii = 0; ii < CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
+        {
+          if (channelChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+            {
+              channelSurfacewaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
+              channelSurfacewaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
+              channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
+              channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              break;
+            }
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!(CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE > ii))
+        {
+          CkError("ERROR in FileManager::handleMeshElementStateMessage: channel element %d does not have %d as a channel neighbor.\n", message.elementNumber, it->neighbor);
+          CkExit();
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  channelElementUpdated[message.elementNumber] = true;
 }
 
 #include "file_manager.def.h"

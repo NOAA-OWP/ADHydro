@@ -2,6 +2,7 @@
 #define __ADHYDRO_H__
 
 #include "region.h"
+#include "file_manager.h"
 #include "adhydro.decl.h"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its

@@ -78,8 +78,7 @@ module file_manager
               }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
             
-            ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, ADHydro::currentTime, ADHydro::currentTime + ADHydro::simulationDuration,
-                                                        globalNumberOfRegions);
+            ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, currentTime, simulationEndTime, globalNumberOfRegions);
             
             ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
             
@@ -96,22 +95,114 @@ module file_manager
         }
       }
       
-      // FIXME receive state updates and output to file until simulation is finished.
-      serial
+      // Receive state updates and output to file until simulation is finished.
+      while (!simulationFinished)
       {
-        // Write output files.
-        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
-          {
-            CkPrintf("Writing output files.\n");
-          }
+        serial
+        {
+          // Write output files.
+          if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+            {
+              CkPrintf("Writing output files for time %.0lf.\n", currentTime);
+            }
+          
+          writeNetCDFFiles();
+          
+          if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+            {
+              CkPrintf("Finished writing output files.\n");
+            }
+        }
         
-        writeNetCDFFiles();
-        
-        if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+        if (currentTime == simulationEndTime)
+        {
+          serial
           {
-            CkPrintf("Finished writing output files.\n");
+            simulationFinished = true;
           }
-      }
+        }
+        else // if (currentTime < simulationEndTime)
+        {
+          serial
+          {
+            int ii; // Loop counter.
+            
+            // Advance time.
+            if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
+              {
+                ++nextCheckpointIndex;
+              }
+            
+            if (nextOutputIndex * ADHydro::outputPeriod == currentTime)
+              {
+                ++nextOutputIndex;
+              }
+            
+            currentTime = nextCheckpointIndex * ADHydro::checkpointPeriod;
+            
+            if (currentTime > nextOutputIndex * ADHydro::outputPeriod)
+              {
+                currentTime = nextOutputIndex * ADHydro::outputPeriod;
+              }
+            
+            if (currentTime > simulationEndTime)
+              {
+                currentTime = simulationEndTime;
+              }
+            
+            // Set all element state to not updated.
+            for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+              {
+                meshElementUpdated[ii] = false;
+              }
+            
+            for (ii = 0; ii < localNumberOfChannelElements; ++ii)
+              {
+                channelElementUpdated[ii] = false;
+              }
+          }
+          
+          while (!allStateUpdated())
+          {
+            // Receive state updates.
+            when sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
+                                          std::vector<ElementStateMessage> channelElementStateMessages)
+            {
+              serial
+              {
+                std::vector<ElementStateMessage>::iterator it; // For looping over state messages.
+                
+                if (messageTime > currentTime)
+                  {
+                    // Message from the future.  Don't receive yet.
+                    thisProxy[CkMyPe()].sendElementStateMessages(messageTime, meshElementStateMessages, channelElementStateMessages);
+                  }
+                else if (messageTime == currentTime)
+                  {
+                    for (it = meshElementStateMessages.begin(); it != meshElementStateMessages.end(); ++it)
+                      {
+                        handleMeshElementStateMessage(*it);
+                      }
+                    
+                    for (it = channelElementStateMessages.begin(); it != channelElementStateMessages.end(); ++it)
+                      {
+                        handleChannelElementStateMessage(*it);
+                      }
+                  }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                else
+                  {
+                    CkError("ERROR in FileManager::runUntilSimulationEnd: state message received from the past.  This should never happen.\n");
+                    CkExit();
+                  }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              }
+            }
+          }
+        } // End else if (currentTime < simulationEndTime)
+      } // End while (!simulationFinished)
+      
+      // FIXME wait until last mass balance is done and then exit.
     }; // End entry void runUntilSimulationEnd().
     
     entry void getMeshVertexDataMessage(int requester, int node);
@@ -119,5 +210,7 @@ module file_manager
     entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
     entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void sendInitializationMessages(CProxy_Region regionProxy);
+    entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
+                                        std::vector<ElementStateMessage> channelElementStateMessages);
   }; // End group FileManager.
 }; // End module file_manager.
