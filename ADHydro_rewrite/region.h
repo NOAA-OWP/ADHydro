@@ -671,7 +671,7 @@ public:
   // Time and simulation control variables.
   double regionalDtLimit;      // The largest expiration time dt that will be allowed for elements of this region.
                                // FIXME figure out how to set this limit.  Currently, it is hard coded to 60 seconds.
-  bool   needToCheckInvariant; // Flage to indicate if the invariant needs tobe checked.
+  bool   needToCheckInvariant; // Flag to indicate if the invariant needs tobe checked.
   int    nextCheckpointIndex;  // This multiplied by ADHydro::checkpointPeriod is the next time that a checkpoint will be done.
   int    nextOutputIndex;      // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
   bool   simulationFinished;   // Flag to indicate the simulation is finished.

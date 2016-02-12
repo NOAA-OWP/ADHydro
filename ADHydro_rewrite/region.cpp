@@ -337,6 +337,8 @@ Region::Region(CkMigrateMessage* msg) :
   itChannelGroundwaterMeshNeighbor(),
   regionalDtLimit(0.0),
   needToCheckInvariant(false),
+  nextCheckpointIndex(0),
+  nextOutputIndex(0),
   simulationFinished(false)
 {
   // Initialization handled by initialization list.
@@ -606,6 +608,8 @@ void Region::pup(PUP::er &p)
   
   p | regionalDtLimit;
   p | needToCheckInvariant;
+  p | nextCheckpointIndex;
+  p | nextOutputIndex;
   p | simulationFinished;
 }
 
@@ -3380,22 +3384,18 @@ void Region::sendStateMessages()
   // Send messages to file managers.  First loop over all of the PEs in the mesh messages map.
   for (it = meshElementStateMessages.begin(); it != meshElementStateMessages.end(); ++it)
     {
-      int fileManager = (*it).first;
-      
-      if ((*it).second.size() > 0 || channelElementStateMessages[fileManager].size() > 0)
+      if ((*it).second.size() > 0 || channelElementStateMessages[(*it).first].size() > 0)
         {
-          ADHydro::fileManagerProxy[fileManager].sendElementStateMessages(currentTime, (*it).second, channelElementStateMessages[fileManager]);
+          ADHydro::fileManagerProxy[(*it).first].sendElementStateMessages(currentTime, (*it).second, channelElementStateMessages[(*it).first]);
         }
     }
   
   // Now find any PEs in the channel messages map that weren't in the mesh messages map.
   for (it = channelElementStateMessages.begin(); it != channelElementStateMessages.end(); ++it)
     {
-      int fileManager = (*it).first;
-      
-      if ((*it).second.size() > 0 && meshElementStateMessages.end() == meshElementStateMessages.find(fileManager))
+      if ((*it).second.size() > 0 && meshElementStateMessages.end() == meshElementStateMessages.find((*it).first))
         {
-          ADHydro::fileManagerProxy[fileManager].sendElementStateMessages(currentTime, std::vector<ElementStateMessage>(), (*it).second);
+          ADHydro::fileManagerProxy[(*it).first].sendElementStateMessages(currentTime, std::vector<ElementStateMessage>(), (*it).second);
         }
     }
 }
