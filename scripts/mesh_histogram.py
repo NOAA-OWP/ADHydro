@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import pandas as pd
 import geopandas as gpd
+#Need raster backend to handle large data
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 import sys
@@ -35,6 +38,8 @@ qgishome='/project/CI-WATER/nfrazie1/local'
 app = QgsApplication([], True)
 app.setPrefixPath(qgishome, True)
 app.initQgis()
+
+from parallelSort import numpyParallelSort
 
 # input_directory_path
 input_directory_path =  os.path.abspath(args.meshDirectory)
@@ -72,10 +77,11 @@ def dissolve_mesh():
     #relatively quickly (a little over an hour on the Upper Colorado River (~9,000,000 elements)
     #To increase speed, can union the geometry of mesh_catchments.shp, takes about 20 minutes,
     #and provides an outline polygon almost identical (difference is 0.359375 square meters!) 
+    #df = gpd.read_file(os.path.join(input_directory_path, 'elements.shp'))
     df = gpd.read_file(os.path.join(input_directory_path, 'mesh_catchments.shp'))
     g = df.geometry
     g = gpd.GeoSeries([g.unary_union])
-    g.to_file(os.path.join(output_directory_path, 'mesh_catchments_outline.shp'))
+    g.to_file(os.path.join(output_directory_path, 'outline.shp'))
     return 
     
 def calculate_elem_geom():
@@ -159,18 +165,19 @@ def slope_hist(elements):
   slopes = pd.Series(cum_dist, index=s)
   print slopes
   fig = plt.figure()
-  slopes.plot(drawstyle='steps')
+  ax = slopes.plot(drawstyle='steps')
   ax.set_xlim(smin, smax)
-  plt.gca().set_xlabel("Mesh Slope ($\\frac{S*A}{\sum{}{}A}$)")
-  plt.gca().set_title(mesh_name)
+  ax.set_xlabel("Mesh Slope")
+  ax.set_title(mesh_name)
   fig.savefig(output_file)
 
 def area_hist(elements):
   """
     Create a histogram (pdf) of the areas of TIN elements
   """
-  #hitsogram output file
-  output_file = os.path.join(output_directory_path, 'tin_area_histogram.pdf')
+  #hitsogram output file  i
+  name = os.path.split(input_directory_path)[-1]
+  output_file = os.path.join(output_directory_path, 'area_'+name+'.pdf')
   areas = elements['Area']
   #Area is square meters, convert to ha
   areas = areas/10000
@@ -180,14 +187,17 @@ def area_hist(elements):
   bin_range = pd.np.arange(areas.min(), areas.max() + bin_width, bin_width) 
   #bin_range = pd.np.linspace(areas.min(), areas.max(), 10)
   #print bin_range
-  areas.plot(kind='hist', bins=bin_range, log=True)
-  plt.xlim(areas.min(), areas.max())
-  plt.gca().set_xlabel("Area (ha)")
-  plt.gca().set_title(mesh_name)
+  ax = areas.plot(kind='hist', bins=bin_range, log=True)
+  ax.set_xlim(areas.min(), areas.max())
+  ax.set_xlabel("Area (ha)")
+  ax.set_title(mesh_name)
   fig.savefig(output_file)
+  print "Created ",output_file
 
+from math import pi
 def dem_hist():
-    output_file = os.path.join(output_directory_path, 'dem_slope_histogram.pdf')
+    name = os.path.split(input_directory_path)[-1]
+    output_file = os.path.join(output_directory_path, 'dem_slope_'+name+'.pdf')
     data = gdal.Open(raster_path)
     if data is None:
         sys.exit("Error opening raster")
@@ -195,72 +205,112 @@ def dem_hist():
     y = data.RasterYSize
     #Assume single band raster
     band = data.GetRasterBand(1)
+    noData = band.GetNoDataValue()
+    if not noData:
+        noData = -1
     #really only care about the values at this point
     raster = band.ReadAsArray().flatten()
+    raster = raster[ raster != noData ] 
     #df = pd.DataFrame(band.ReadAsArray()).replace(-1, pd.np.nan)
-    df = pd.Series(raster).replace(-1, pd.np.nan)
-    #df_count = df.count()
-    #p_area = 9.31978**2
-    #total_area = df_count*p_area
-    #df = df*p_area/total_area
-    #print df.dropna()
-    #print "DEM: Pixel Count {}, Pixel Area {}, Total_Area {}. ".format(df_count, p_area, total_area)
+    print len(raster)
+    print type(raster[0])
+    numpyParallelSort(raster)
+    print type(raster[0])
+    #df = pd.Series(raster)
+    #print "0 - pi/2  ", len(raster[raster < pi/2 ])
+    #print "pi/2 - 3pi/2  ", len(raster[(raster > pi/2) & (raster < 3*pi/2)])
+    #print "3pi/2 - 5pi/2  ", len(raster[(raster > 3*pi/2) & (raster < 5*pi/2)])
+    #print "5pi/2 - 7pi/2  ", len(raster[(raster > 5*pi/2) & (raster < 7*pi/2)])
+    #print "7pi/2 - 9pi/2  ", len(raster[(raster > 7*pi/2) & (raster < 9*pi/2)])
+    #print "9pi/2 - 11pi/2  ", len(raster[(raster > 9*pi/2) & (raster < 11*pi/2)])
+    cum_dist = pd.np.linspace(0.0,1.0,len(raster))
+    #slopes = pd.Series(cum_dist, index=df)
     fig = plt.figure()
-    bin_width = 0.01
-    bin_range = pd.np.arange(df.min(), df.max() + bin_width, bin_width)
-    #df.plot(kind='hist', bins=bin_range, log=True)
-    ax = df.plot(kind='hist', bins=bin_range, normed=True, cumulative=True, label="DEM")
-    ax.set_xlim(df.min(), df.max())
-    #plt.gca().set_xlabel("DEM Slope ($\\frac{S*P_{area}}{T_{area}}$), $P_{area}=$"+str(p_area))
-    plt.gca().set_xlabel("DEM Slope")
-    plt.gca().set_title(mesh_name)
+    
+    plt.plot(raster, cum_dist, drawstyle='step', label="DEM Slope")
+    ax = plt.gca()
+    ax.set_xlim(raster[0], 1.3)
+    ax.set_xlabel("DEM Slope")
+    ax.set_title(mesh_name)
     fig.savefig(output_file)
+    print "Created ",output_file
 
 def slope_compare(elements):
-    output_file = os.path.join(output_directory_path, 'dem_tin_weighted_compare2.pdf')
+    #Init the plot 
+    fig = plt.figure()
+    #Set the output file
+    name = os.path.split(input_directory_path)[-1]
+    output_file = os.path.join(output_directory_path, 'slope_comparison_'+name+'.pdf')
+    #Read raster
     data = gdal.Open(raster_path)
     if data is None:
         sys.exit("Error opening raster")
     x = data.RasterXSize
     y = data.RasterYSize
-    #Assume single band raster
+    ##Assume single band raster
     band = data.GetRasterBand(1)
+    noData = band.GetNoDataValue()
+    if not noData:
+        noData = -1
     #really only care about the values at this point
     raster = band.ReadAsArray().flatten()
-    #df = pd.DataFrame(band.ReadAsArray()).replace(-1, pd.np.nan)
-    rs = pd.Series(raster).replace(-1, pd.np.nan).dropna()
-    rs = rs.sort_values()
-    cum_dist = pd.np.linspace(0.0, 1.0, len(rs))
-    raster_slopes = pd.Series(cum_dist, index=rs)
-    
-    fs = elements['Slope']
-    fs = fs.sort_values()
-    cum_dist = pd.np.linspace(0.0,1.0,len(fs))
-    pure_slopes = pd.Series(cum_dist, index=fs)
-    print raster_slopes 
+    del band
+    raster = raster[ raster != noData ] 
+    #To speed up large mesh processing, sort in parallel
+    numpyParallelSort(raster)
+    rmin = raster[0]
+    rmax = raster[-1]
+    raster_cum_dist = pd.np.linspace(0.0,1.0,len(raster))
+    #Plot this distribution
+
+    plt.plot(raster, raster_cum_dist, drawstyle='step', label="% of DEM with Slope S")
+    #Clean up the memory used by the raster
+    del raster
+    del raster_cum_dist
+
+    #Now plot pure slope distribution
+    tin = elements['Slope'].values
+    numpyParallelSort(tin)
+    tmin = tin[0]
+    tmax = tin[-1]
+    tin_cum_dist = pd.np.linspace(0.0,1.0,len(tin))
+    plt.plot(tin, tin_cum_dist, drawstyle='step', label='% of TIN elements with Slope S')
+    #clean up memory
+    del tin
+    del tin_cum_dist
+
     p_area = 9.31978**2
-    #Each TIN elements accounts for UAC pixels worth of area
+    #Each TIN elements accounts for UAC (Unit Area Count) pixels worth of area
     elements['UAC'] = elements['Area']/p_area
     tot  = elements['UAC'].sum()
-    print tot
+    
+    ms = elements[['UAC','Slope']].sort_values('Slope')
+    ms['UAC'] = ms['UAC']/tot
+    ms.set_index('Slope', inplace=True)
+    ms['CUM'] = ms.cumsum()
+    """
+    #Compared this to ^^^ method, and they are the same...onle ^^^ is much faster ;)
     elements['CUM'] = elements.apply(lambda x : (elements['UAC'][elements['Slope'] <= x['Slope']].sum())/tot, axis=1)
-    print elements
-    #t_units = elements['UAC'].sum()
-    #elements['UAC'] = elements['UAC']/t_units
-    #ms = elements['UAC'] 
-    ms = elements[['Slope','UAC','CUM']].set_index('Slope').sort_values('CUM')
+    #print elements
+    cs = elements[['Slope','UAC','CUM']].set_index('Slope').sort_values('CUM')
+    print cs
     print ms
-    smin = min(elements['Slope'].min(), rs.iloc[0])
-    smax = max(elements['Slope'].max(), rs.iloc[-1])
-    fig = plt.figure()
+    print cs[ cs['CUM'] != ms['CUM'] ]
+    diff = cs['CUM'] - ms['CUM']
+    print diff.max()
+    """ 
+    #Min should always be 0.  Due to the raster sometimes have excessively large slopes
+    #for a small number of elements, set the max to be the max of the slopes found for the elements
+    smin = min(tmin, rmin)
+    smax = tmax if rmax - tmax > 1.5 else max(tmax, rmax)
     ax = ms['CUM'].plot(drawstyle='steps', label='% of DEM Area covered\nby TIN elements with Slope S')
-    ax = pure_slopes.plot(drawstyle='steps', label='% of TIN elements with Slope S')
-    ax = raster_slopes.plot(drawstyle='steps', label='% of DEM with Slope S')
     ax.legend(loc='lower right')
     ax.set_xlim(smin, smax)
-    plt.gca().set_xlabel("Slope")
-    plt.gca().set_title(mesh_name)
+    ax.set_ylim(0,1)
+    ax.set_xlabel("Slope")
+    ax.set_title(mesh_name)
     fig.savefig(output_file)
+    print "Created ",output_file
 
 if __name__ == "__main__":
   
@@ -272,7 +322,7 @@ if __name__ == "__main__":
     elements = calculate_elem_geom()
   else:
     print "Reading element_geometry.msg"
-    #elements = pd.read_msgpack((os.path.join(output_directory_path, 'element_geometry.msg')))
+    elements = pd.read_msgpack((os.path.join(output_directory_path, 'element_geometry.msg')))
   
   if args.polygon:
     print "Dissolving mesh"
@@ -285,7 +335,7 @@ if __name__ == "__main__":
     slope_hist(elements)
   if args.dem:
     print "Creating DEM slope histogram"
-    dem_hist(elements)
+    dem_hist()
   if args.both:
     print "Creating DEM/TIN comparison histogram"
     slope_compare(elements)
