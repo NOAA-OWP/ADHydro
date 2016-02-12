@@ -258,15 +258,48 @@ SSURGO_PROJ_WKT = 'GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",63
 Only difference in the SSURGO and STATSGO projections is that STATSGO provides athority info...I think we can use just one and get proper transformations
 
 """
+#GEOL has a different projection, will have to have a transform for this
+GEOL_PROJ_WKT = """GEOGCS["GCS_North_American_1927", 
+                    DATUM["North_American_Datum_1927", 
+                        SPHEROID["Clarke_1866",6378206.4,294.9786982]], 
+                        PRIMEM["Greenwich",0], 
+                    UNIT["Degree",0.017453292519943295]]"""
+
+#NLCD has yet another different projection
+NLCD_PROJ_WKT = """PROJCS["unnamed",
+                    GEOGCS["GRS 1980(IUGG, 1980)",
+                        DATUM["unknown",
+                            SPHEROID["GRS80",6378137,298.257222101],
+                            TOWGS84[0,0,0,0,0,0,0]],
+                        PRIMEM["Greenwich",0],
+                        UNIT["degree",0.0174532925199433]],
+                    PROJECTION["Sinusoidal"],
+                    PARAMETER["longitude_of_center",-109],
+                    PARAMETER["false_easting",20000000],
+                    PARAMETER["false_northing",10000000],
+                    UNIT["metre",1,
+                    AUTHORITY["EPSG","9001"]]]"""
+
 AD_HYDRO_PROJ_WKT = 'PROJCS["Sinusoidal", GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]], PROJECTION["Sinusoidal"], PARAMETER["longitude_of_center",-109], PARAMETER["false_easting",20000000], PARAMETER["false_northing",10000000], UNIT["Meter",1]]'
 
 #Create the references for the two different coordinate systems
-src_crs = QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT)
-dest_crs = QgsCoordinateReferenceSystem(STATSGO_PROJ_WKT)
 #Create a transform object to transform between the coordinate systems
-xform = QgsCoordinateTransform(src_crs, dest_crs)
+#Transfrom from param 1 to param 2
+STATSGO_xform = QgsCoordinateTransform(\
+                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
+                        QgsCoordinateReferenceSystem(STATSGO_PROJ_WKT))
 
-def coordTransform(s):
+GEOL_xform = QgsCoordinateTransform(\
+                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
+                        QgsCoordinateReferenceSystem(GEOL_PROJ_WKT))
+
+NLCD_xform = QgsCoordinateTransform(\
+                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
+                        QgsCoordinateReferenceSystem(NLCD_PROJ_WKT))
+
+
+
+def coordTransform(s, xform):
     """
         Helper function to apply a coordinate transformation between the sinusoidal and spheroid projections
         Required Arguements:
@@ -367,7 +400,7 @@ def getSoilTypDRV(subset):
    """
    
    #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
-   elements = elements.apply(coordTransform, axis=1) #Slower since it is not vectorizable, but more accurate!
+   elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
    
    #elements now contains coordinates for the center of each element in three different coordinates:
    #  X, Y sinusoidal projection X_center, Y_center
@@ -405,7 +438,9 @@ def getSoilTypDRV(subset):
    #elements = pd.read_pickle(output_element_data_file)
    
    print who()+'Finding Geologic Units.'
-
+   
+   #Now transform coordinates to the Geologic Units CRS
+   elements = elements.apply(coordTransform, args=(GEOL_xform,), axis=1)
    #find the geologic unit for each element, this adds the following columns to elements:
    #ROCKTYPE
    t0 = time.time()
@@ -445,7 +480,8 @@ def getSoilTypDRV(subset):
    elements.to_pickle(output_element_data_file)
 
    print who()+'Finding vegetation type.'
-
+   #Now transform coordinates to the NLCD CRS
+   elements = elements.apply(coordTransform, args=(NLCD_xform,), axis=1)
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
    #VegParm
    t0 = time.time()
@@ -841,13 +877,14 @@ def getVegParm(s):
        
        Required Arguements:
            s -- pandas series object containing the following columns:
-               AD_X
-               AD_Y
+               lat_center
+               long_center
                AreaSym
+      note that lat and long should be in the NLCD projection!
    """
    #  Find the path for the chorizon file in STATSGO
-   x = s['AD_X']
-   y = s['AD_Y']
+   x = s['lat_center']
+   y = s['long_center']
    AreaSym = s['AreaSym']
    if AreaSym not in veg_parm_dict:
       if s['inSSURGO']:
