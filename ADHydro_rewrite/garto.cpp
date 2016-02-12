@@ -1681,7 +1681,9 @@ void garto_take_groundwater(garto_domain* domain, double water_table, double* gr
           minimum_depth = domain->top_depth;
         }
 
-      assert(maximum_depth > minimum_depth);
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(maximum_depth > minimum_depth);
+#endif
 
       space = (maximum_depth - minimum_depth) * (domain->surface_front_theta[0] - domain->parameters->theta_r);
 

@@ -10223,32 +10223,32 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
   
   // FIXME error check inputs
   
-  meshSurfacewaterDepth[message.elementNumber]                = message.surfacewaterDepth;
-  meshSurfacewaterError[message.elementNumber]                = message.surfacewaterError;
-  meshGroundwaterHead[message.elementNumber]                  = message.groundwaterHead;
-  meshGroundwaterRecharge[message.elementNumber]              = message.groundwaterRecharge;
-  meshGroundwaterError[message.elementNumber]                 = message.groundwaterError;
-  meshPrecipitationRate[message.elementNumber]                = message.precipitationRate;
-  meshPrecipitationCumulativeShortTerm[message.elementNumber] = message.precipitationCumulativeShortTerm;
-  meshPrecipitationCumulativeLongTerm[message.elementNumber]  = message.precipitationCumulativeLongTerm;
-  meshEvaporationRate[message.elementNumber]                  = message.evaporationRate;
-  meshEvaporationCumulativeShortTerm[message.elementNumber]   = message.evaporationCumulativeShortTerm;
-  meshEvaporationCumulativeLongTerm[message.elementNumber]    = message.evaporationCumulativeLongTerm;
-  meshTranspirationRate[message.elementNumber]                = message.transpirationRate;
-  meshTranspirationCumulativeShortTerm[message.elementNumber] = message.transpirationCumulativeShortTerm;
-  meshTranspirationCumulativeLongTerm[message.elementNumber]  = message.transpirationCumulativeLongTerm;
-  meshEvapoTranspirationState[message.elementNumber]          = message.evapoTranspirationState;
+  meshSurfacewaterDepth[               message.elementNumber - localMeshElementStart] = message.surfacewaterDepth;
+  meshSurfacewaterError[               message.elementNumber - localMeshElementStart] = message.surfacewaterError;
+  meshGroundwaterHead[                 message.elementNumber - localMeshElementStart] = message.groundwaterHead;
+  meshGroundwaterRecharge[             message.elementNumber - localMeshElementStart] = message.groundwaterRecharge;
+  meshGroundwaterError[                message.elementNumber - localMeshElementStart] = message.groundwaterError;
+  meshPrecipitationRate[               message.elementNumber - localMeshElementStart] = message.precipitationRate;
+  meshPrecipitationCumulativeShortTerm[message.elementNumber - localMeshElementStart] = message.precipitationCumulativeShortTerm;
+  meshPrecipitationCumulativeLongTerm[ message.elementNumber - localMeshElementStart] = message.precipitationCumulativeLongTerm;
+  meshEvaporationRate[                 message.elementNumber - localMeshElementStart] = message.evaporationRate;
+  meshEvaporationCumulativeShortTerm[  message.elementNumber - localMeshElementStart] = message.evaporationCumulativeShortTerm;
+  meshEvaporationCumulativeLongTerm[   message.elementNumber - localMeshElementStart] = message.evaporationCumulativeLongTerm;
+  meshTranspirationRate[               message.elementNumber - localMeshElementStart] = message.transpirationRate;
+  meshTranspirationCumulativeShortTerm[message.elementNumber - localMeshElementStart] = message.transpirationCumulativeShortTerm;
+  meshTranspirationCumulativeLongTerm[ message.elementNumber - localMeshElementStart] = message.transpirationCumulativeLongTerm;
+  meshEvapoTranspirationState[         message.elementNumber - localMeshElementStart] = message.evapoTranspirationState;
   
   for (it = message.surfacewaterMeshNeighbors.begin(); it != message.surfacewaterMeshNeighbors.end(); ++it)
     {
       for (ii = 0; ii < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
         {
-          if (meshMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (meshMeshNeighbors[message.elementNumber - localMeshElementStart][ii] == it->neighbor)
             {
-              meshSurfacewaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              meshSurfacewaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              meshSurfacewaterMeshNeighborsExpirationTime[         message.elementNumber - localMeshElementStart][ii] = it->expirationTime;
+              meshSurfacewaterMeshNeighborsFlowRate[               message.elementNumber - localMeshElementStart][ii] = it->nominalFlowRate;
+              meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeShortTerm;
+              meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10266,12 +10266,12 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
     {
       for (ii = 0; ii < MESH_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
         {
-          if (meshMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (meshMeshNeighbors[message.elementNumber - localMeshElementStart][ii] == it->neighbor)
             {
-              meshGroundwaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              meshGroundwaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              meshGroundwaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              meshGroundwaterMeshNeighborsExpirationTime[         message.elementNumber - localMeshElementStart][ii] = it->expirationTime;
+              meshGroundwaterMeshNeighborsFlowRate[               message.elementNumber - localMeshElementStart][ii] = it->nominalFlowRate;
+              meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeShortTerm;
+              meshGroundwaterMeshNeighborsFlowCumulativeLongTerm[ message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10289,12 +10289,12 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
     {
       for (ii = 0; ii < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
         {
-          if (meshChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (meshChannelNeighbors[message.elementNumber - localMeshElementStart][ii] == it->neighbor)
             {
-              meshSurfacewaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              meshSurfacewaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              meshSurfacewaterChannelNeighborsExpirationTime[         message.elementNumber - localMeshElementStart][ii] = it->expirationTime;
+              meshSurfacewaterChannelNeighborsFlowRate[               message.elementNumber - localMeshElementStart][ii] = it->nominalFlowRate;
+              meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeShortTerm;
+              meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10312,12 +10312,12 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
     {
       for (ii = 0; ii < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
         {
-          if (meshChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (meshChannelNeighbors[message.elementNumber - localMeshElementStart][ii] == it->neighbor)
             {
-              meshGroundwaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              meshGroundwaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              meshGroundwaterChannelNeighborsExpirationTime[         message.elementNumber - localMeshElementStart][ii] = it->expirationTime;
+              meshGroundwaterChannelNeighborsFlowRate[               message.elementNumber - localMeshElementStart][ii] = it->nominalFlowRate;
+              meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeShortTerm;
+              meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[ message.elementNumber - localMeshElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10331,7 +10331,7 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
-  meshElementUpdated[message.elementNumber] = true;
+  meshElementUpdated[message.elementNumber - localMeshElementStart] = true;
 }
 
 void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
@@ -10341,26 +10341,26 @@ void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
   
   // FIXME error check inputs
   
-  channelSurfacewaterDepth[message.elementNumber]                = message.surfacewaterDepth;
-  channelSurfacewaterError[message.elementNumber]                = message.surfacewaterError;
-  channelPrecipitationRate[message.elementNumber]                = message.precipitationRate;
-  channelPrecipitationCumulativeShortTerm[message.elementNumber] = message.precipitationCumulativeShortTerm;
-  channelPrecipitationCumulativeLongTerm[message.elementNumber]  = message.precipitationCumulativeLongTerm;
-  channelEvaporationRate[message.elementNumber]                  = message.evaporationRate;
-  channelEvaporationCumulativeShortTerm[message.elementNumber]   = message.evaporationCumulativeShortTerm;
-  channelEvaporationCumulativeLongTerm[message.elementNumber]    = message.evaporationCumulativeLongTerm;
-  channelEvapoTranspirationState[message.elementNumber]          = message.evapoTranspirationState;
+  channelSurfacewaterDepth[               message.elementNumber - localChannelElementStart] = message.surfacewaterDepth;
+  channelSurfacewaterError[               message.elementNumber - localChannelElementStart] = message.surfacewaterError;
+  channelPrecipitationRate[               message.elementNumber - localChannelElementStart] = message.precipitationRate;
+  channelPrecipitationCumulativeShortTerm[message.elementNumber - localChannelElementStart] = message.precipitationCumulativeShortTerm;
+  channelPrecipitationCumulativeLongTerm[ message.elementNumber - localChannelElementStart] = message.precipitationCumulativeLongTerm;
+  channelEvaporationRate[                 message.elementNumber - localChannelElementStart] = message.evaporationRate;
+  channelEvaporationCumulativeShortTerm[  message.elementNumber - localChannelElementStart] = message.evaporationCumulativeShortTerm;
+  channelEvaporationCumulativeLongTerm[   message.elementNumber - localChannelElementStart] = message.evaporationCumulativeLongTerm;
+  channelEvapoTranspirationState[         message.elementNumber - localChannelElementStart] = message.evapoTranspirationState;
   
   for (it = message.surfacewaterMeshNeighbors.begin(); it != message.surfacewaterMeshNeighbors.end(); ++it)
     {
       for (ii = 0; ii < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
         {
-          if (channelMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (channelMeshNeighbors[message.elementNumber - localChannelElementStart][ii] == it->neighbor)
             {
-              channelSurfacewaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              channelSurfacewaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              channelSurfacewaterMeshNeighborsExpirationTime[         message.elementNumber - localChannelElementStart][ii] = it->expirationTime;
+              channelSurfacewaterMeshNeighborsFlowRate[               message.elementNumber - localChannelElementStart][ii] = it->nominalFlowRate;
+              channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeShortTerm;
+              channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10378,12 +10378,12 @@ void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
     {
       for (ii = 0; ii < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE; ++ii)
         {
-          if (channelMeshNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (channelMeshNeighbors[message.elementNumber - localChannelElementStart][ii] == it->neighbor)
             {
-              channelGroundwaterMeshNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              channelGroundwaterMeshNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              channelGroundwaterMeshNeighborsExpirationTime[         message.elementNumber - localChannelElementStart][ii] = it->expirationTime;
+              channelGroundwaterMeshNeighborsFlowRate[               message.elementNumber - localChannelElementStart][ii] = it->nominalFlowRate;
+              channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeShortTerm;
+              channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[ message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10401,12 +10401,12 @@ void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
     {
       for (ii = 0; ii < CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++ii)
         {
-          if (channelChannelNeighbors[message.elementNumber][ii] == it->neighbor)
+          if (channelChannelNeighbors[message.elementNumber - localChannelElementStart][ii] == it->neighbor)
             {
-              channelSurfacewaterChannelNeighborsExpirationTime[message.elementNumber][ii]          = it->expirationTime;
-              channelSurfacewaterChannelNeighborsFlowRate[message.elementNumber][ii]                = it->nominalFlowRate;
-              channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber][ii] = it->flowCumulativeShortTerm;
-              channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[message.elementNumber][ii]  = it->flowCumulativeLongTerm;
+              channelSurfacewaterChannelNeighborsExpirationTime[         message.elementNumber - localChannelElementStart][ii] = it->expirationTime;
+              channelSurfacewaterChannelNeighborsFlowRate[               message.elementNumber - localChannelElementStart][ii] = it->nominalFlowRate;
+              channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeShortTerm;
+              channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ message.elementNumber - localChannelElementStart][ii] = it->flowCumulativeLongTerm;
               break;
             }
         }
@@ -10420,7 +10420,7 @@ void FileManager::handleChannelElementStateMessage(ElementStateMessage& message)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
-  channelElementUpdated[message.elementNumber] = true;
+  channelElementUpdated[message.elementNumber - localChannelElementStart] = true;
 }
 
 #include "file_manager.def.h"
