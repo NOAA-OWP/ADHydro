@@ -92,12 +92,16 @@ bool ElementStateMessage::checkInvariant()
   return error;
 }
 
-void FileManager::printOutMassBalance(double waterInDomain, double externalFlows, double waterError)
+double FileManager::wallclockTimeAtStart = time(NULL); // We want to record the wallclock time as early as possible when the program starts.  Doing it when the
+                                                       // variable is created seems like a good time.
+double FileManager::massBalanceTime      = NAN;        // The simulation time of the last mass balance.  Starts out as NAN until a mass balance completes.
+double FileManager::massBalanceShouldBe  = NAN;        // The first mass balance value to use as the "should be" value for the rest of the simulation.
+                                                       // Starts out as NAN until a mass balance completes.
+
+void FileManager::printOutMassBalance(double messageTime, double waterInDomain, double externalFlows, double waterError)
 {
-  static double startTime           = NAN;
-  double        currentTime         = time(NULL);
-  static double massBalanceShouldBe = NAN; // This stores the first value received and uses it as the "should be" value for the rest of the simulation.
-  double        massBalance         = waterInDomain + externalFlows - waterError;
+  double wallclockTime = time(NULL);
+  double massBalance   = waterInDomain + externalFlows - waterError;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 <= waterInDomain))
@@ -107,9 +111,9 @@ void FileManager::printOutMassBalance(double waterInDomain, double externalFlows
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
-  if (isnan(startTime))
+  if (!(massBalanceTime > messageTime))
     {
-      startTime = currentTime;
+      massBalanceTime = messageTime;
     }
   
   if (isnan(massBalanceShouldBe))
@@ -117,8 +121,12 @@ void FileManager::printOutMassBalance(double waterInDomain, double externalFlows
       massBalanceShouldBe = massBalance;
     }
   
-  CkPrintf("elapsed wallclock time = %lg, waterInDomain = %lg, externalFlows = %lg, waterError = %lg, massBalance = %lg, massBalanceError = %lg, all values in cubic meters.\n",
-           currentTime - startTime, waterInDomain, externalFlows, waterError, massBalance, massBalance - massBalanceShouldBe);
+  CkPrintf("simulation time = %lg [s], elapsed wallclock time = %lg [s], waterInDomain = %lg [m^3], externalFlows = %lg [m^3], waterError = %lg [m^3], "
+           "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", massBalanceTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
+           waterError, massBalance, massBalance - massBalanceShouldBe);
+  
+  // Signal file manager zero in case it is waiting for the last mass balance to finish.
+  ADHydro::fileManagerProxy[0].massBalanceDone();
 }
 
 int FileManager::home(int item, int globalNumberOfItems)

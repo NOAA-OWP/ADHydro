@@ -2,7 +2,7 @@ module file_manager
 {
   group FileManager
   {
-    entry [reductiontarget] void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+    entry [reductiontarget] void printOutMassBalance(double messageTime, double waterInDomain, double externalFlows, double waterError);
     
     entry FileManager();
     
@@ -78,9 +78,14 @@ module file_manager
               }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
             
+            // Create the chare array of regions.
             ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, currentTime, simulationEndTime, globalNumberOfRegions);
             
+            // Regions use a reduction to do mass balance.
             ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
+            
+            // File managers use a reduction to exit the program.
+            thisProxy.ckSetReductionClient(new CkCallback(CkCallback::ckExit));
             
             thisProxy.sendInitializationMessages(ADHydro::regionProxy);
           }
@@ -202,7 +207,20 @@ module file_manager
         } // End else if (currentTime < simulationEndTime)
       } // End while (!simulationFinished)
       
-      // FIXME wait until last mass balance is done and then exit.
+      // On PE zero wait for the last mass balance reduction to finish before exiting.
+      while (0 == CkMyPe() && massBalanceTime != simulationEndTime)
+      {
+        when massBalanceDone()
+        {
+          // No-op.
+        }
+      }
+      
+      // Wait until all file managers finish before exiting.
+      serial
+      {
+        contribute();
+      }
     }; // End entry void runUntilSimulationEnd().
     
     entry void getMeshVertexDataMessage(int requester, int node);
@@ -212,5 +230,6 @@ module file_manager
     entry void sendInitializationMessages(CProxy_Region regionProxy);
     entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
                                         std::vector<ElementStateMessage> channelElementStateMessages);
+    entry void massBalanceDone();
   }; // End group FileManager.
 }; // End module file_manager.

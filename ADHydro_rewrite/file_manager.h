@@ -107,8 +107,19 @@ class FileManager : public CBase_FileManager
   
 public:
   
+  // The wallclock time when the simulation starts for printing elapsed time.
+  static double wallclockTimeAtStart;
+  
+  // The simulation time in seconds since ADHydro::referenceDate of the last
+  // mass balance reduction to have completed.
+  static double massBalanceTime;
+  
+  // The mass balance value produced the first time the mass balance completes.
+  // This is saved as a "should be" value for the rest of the simulation.
+  static double massBalanceShouldBe;
+  
   // Print out the mass balance check.  This is a reduction target that
-  // collects all mass balance values from the entire mesh.  To calculate the
+  // collects all mass balance values from all regions.  To calculate the
   // mass balance take waterInDomain and add externalFlows and subtract
   // waterError.  This will undo any insertion or removal of water from the
   // "black box" of the simulation domain leaving the amount of water that was
@@ -117,18 +128,21 @@ public:
   //
   // Parameters:
   //
-  // waterInDomain - The amount of water in cubic meters in the entire mesh.
+  // messageTime   - The simulation time in seconds since
+  //                 ADHydro::referenceDate when the mass balance was
+  //                 collected.
+  // waterInDomain - The amount of water in cubic meters in the entire domain.
   //                 Positive means the existance of water.  Must be
   //                 non-negative.
   // externalFlows - The amount of water in cubic meters that has flowed to or
   //                 from external sources and sinks (boundary conditions,
-  //                 precipitation, E-T, etc.) for the entire mesh.  Positive
-  //                 means flow out of the mesh.  Negative means flow into
-  //                 the mesh.
+  //                 precipitation, E-T, etc.) for the entire domain.  Positive
+  //                 means flow out of the domain.  Negative means flow into
+  //                 the domain.
   // waterError    - The amount of water in cubic meters that was created or
-  //                 destroyed be error in the entire mesh.  Positive means
+  //                 destroyed be error in the entire domain.  Positive means
   //                 water was created.  Negative means water was destroyed.
-  static void printOutMassBalance(double waterInDomain, double externalFlows, double waterError);
+  static void printOutMassBalance(double messageTime, double waterInDomain, double externalFlows, double waterError);
 
   // Calculate which file manager owns a given item.  Items are generally mesh
   // elements, although this function can be used to distribute any set of

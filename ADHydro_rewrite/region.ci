@@ -167,9 +167,11 @@ module region
                   }
               }
             
-            // Send state messages unless it is at the beginning of the simulation because the file managers already have the state at the beginning of the
-            // simulation.
-            if (currentTime != ADHydro::currentTime)
+            // Send state messages if it is a checkpoint time, output time, or the end of the simulation, unless it is also the beginning of the simulation
+            // because the file managers already have the state at the beginning of the simulation.  ADHydro::currentTime is never updated so it continues to
+            // hold the time at the beginning of the simulation.
+            if ((nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime || nextOutputIndex * ADHydro::outputPeriod == currentTime ||
+                 simulationEndTime == currentTime) && ADHydro::currentTime != currentTime)
               {
                 sendStateMessages();
               }
@@ -270,13 +272,22 @@ module region
             
             // Do a mass balance.
             bool   error                = false;
-            double massBalanceValues[3] = {0.0, 0.0, 0.0};
+            double massBalanceValues[4] = {0.0, 0.0, 0.0, 0.0};
             
-            error = massBalance(massBalanceValues[0], massBalanceValues[1], massBalanceValues[2]);
+            // I want to pass currentTime to the reduction target, but any values that I contribute to the reduction will be summed.  I couldn't figure out how
+            // to make a reduction where some of the values are summed, and others are just passed as parameters.  I suspect that capability doesn't exist in
+            // Charm++.  To create the same effect I'm having region zero contribute currentTime and all other regions contribute zero so that the sum will be
+            // currentTime.
+            if (0 == thisIndex)
+              {
+                massBalanceValues[0] = currentTime;
+              }
+            
+            error = massBalance(massBalanceValues[1], massBalanceValues[2], massBalanceValues[3]);
             
             if (!error)
               {
-                contribute(3 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+                contribute(4 * sizeof(double), massBalanceValues, CkReduction::sum_double);
               }
             else
               {
