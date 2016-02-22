@@ -346,6 +346,31 @@ FileManager::FileManager() :
   parameterChanged(false),
   stateInstance(-1),
   displayInstance(-1),
+  jultimeSize(0),
+  jultime(NULL),
+  jultimeNextInstance(0),
+  t2(NULL),
+  psfc(NULL),
+  u(NULL),
+  v(NULL),
+  qVapor(NULL),
+  qCloud(NULL),
+  swDown(NULL),
+  gLw(NULL),
+  tPrec(NULL),
+  tslb(NULL),
+  pblh(NULL),
+  t2_c(NULL),
+  psfc_c(NULL),
+  u_c(NULL),
+  v_c(NULL),
+  qVapor_c(NULL),
+  qCloud_c(NULL),
+  swDown_c(NULL),
+  gLw_c(NULL),
+  tPrec_c(NULL),
+  tslb_c(NULL),
+  pblh_c(NULL),
   currentTime(0.0),
   nextCheckpointIndex(0),
   nextOutputIndex(0),
@@ -489,6 +514,29 @@ FileManager::~FileManager()
   delete[] channelVertexUpdated;
   delete[] meshElementUpdated;
   delete[] channelElementUpdated;
+  delete[] jultime;
+  delete[] t2;
+  delete[] psfc;
+  delete[] u;
+  delete[] v;
+  delete[] qVapor;
+  delete[] qCloud;
+  delete[] swDown;
+  delete[] gLw;
+  delete[] tPrec;
+  delete[] tslb;
+  delete[] pblh;
+  delete[] t2_c;
+  delete[] psfc_c;
+  delete[] u_c;
+  delete[] v_c;
+  delete[] qVapor_c;
+  delete[] qCloud_c;
+  delete[] swDown_c;
+  delete[] gLw_c;
+  delete[] tPrec_c;
+  delete[] tslb_c;
+  delete[] pblh_c;
 }
 
 bool FileManager::readNodeAndZFiles(bool readMesh)
@@ -9303,36 +9351,291 @@ void FileManager::calculateDerivedValues()
     }
 }
 
+bool FileManager::readForcingData()
+{
+  bool   error       = false; // Error flag.
+  int    ncErrorCode;         // Return value of NetCDF functions.
+  int    fileID;              // ID of NetCDF file.
+  bool   fileOpen    = false; // Whether fileID refers to an open file.
+  int    variableID;          // ID of variable in NetCDF file.
+  double forcingDate = ADHydro::referenceDate + (ADHydro::drainDownMode ? ADHydro::drainDownTime : currentTime) / (24.0 * 3600.0);
+                              // The date and time to read forcing data for as a Julian date.
+  long   forcingDataYear;     // For calculating Gregorian date from Julian date.
+  long   forcingDataMonth;    // For calculating Gregorian date from Julian date.
+  long   forcingDataDay;      // For calculating Gregorian date from Julian date.
+  long   forcingDataHour;     // For calculating Gregorian date from Julian date.
+  long   forcingDataMinute;   // For calculating Gregorian date from Julian date.
+  double forcingDataSecond;   // For calculating Gregorian date from Julian date.
+  long   simulationYear;      // For calculating Gregorian date from Julian date.
+  long   simulationMonth;     // For calculating Gregorian date from Julian date.
+  long   simulationDay;       // For calculating Gregorian date from Julian date.
+  long   simulationHour;      // For calculating Gregorian date from Julian date.
+  long   simulationMinute;    // For calculating Gregorian date from Julian date.
+  double simulationSecond;    // For calculating Gregorian date from Julian date.
+  
+  // Open the forcing file.
+  error = NetCDFOpenForRead(ADHydro::adhydroInputForcingFilePath.c_str(), &fileID);
+  
+  if (!error)
+    {
+      fileOpen = true;
+    }
+  
+  // Get the list of Julian dates in the forcing file.
+  if (NULL == jultime)
+    {
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(fileID, "Time", &jultimeSize);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!error && !(0 < jultimeSize))
+            {
+              CkError("ERROR in FileManager::readForcingData: No forcing data in NetCDF forcing file.\n");
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+
+      if (!error)
+        {
+          // Get the variable ID.
+          ncErrorCode = nc_inq_varid(fileID, "JULTIME", &variableID);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::readForcingData: unable to get variable JULTIME in NetCDF forcing file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      if (!error)
+        {
+          jultime = new double[jultimeSize];
+          
+          // Get the variable data.
+          ncErrorCode = nc_get_var(fileID, variableID, jultime);
+
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::readForcingData: unable to read variable JULTIME in NetCDF forcing file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+      
+      // Search for the last instance that is before or equal to the current date and time.
+      // FIXME to improve efficiency make this a binary search.
+      if (!error)
+        {
+          jultimeNextInstance = 0;
+
+          if (!(jultime[0] <= forcingDate))
+            {
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in FileManager::readForcingData: All forcing data in the NetCDF forcing file is in the future.  Using the first forcing "
+                          "data instance.\n");
+                }
+            }
+          else
+            {
+              while (jultimeNextInstance + 1 < jultimeSize && jultime[jultimeNextInstance + 1] <= forcingDate)
+                {
+                  jultimeNextInstance++;
+                }
+            }
+        }
+    }
+  
+  if (!error)
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // jultimeNextInstance is now the index of the forcing data we will use.
+      CkAssert(jultimeSize > jultimeNextInstance);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+      if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+        {
+          julianToGregorian(jultime[jultimeNextInstance], &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour, &forcingDataMinute,
+                            &forcingDataSecond);
+          julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                            &simulationMinute, &simulationSecond);
+
+          CkPrintf("Reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
+                   forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
+                   simulationHour, simulationMinute, simulationSecond);
+        }
+    }
+  
+  // Read forcing data
+  if (0 < localNumberOfMeshElements)
+    {
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "T2", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &t2);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "PSFC", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &psfc);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "U", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &u);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "V", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &v);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "QVAPOR", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &qVapor);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "QCLOUD", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &qCloud);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "SWDOWN", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &swDown);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "GLW", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &gLw);
+        }
+      
+      if (!error && !ADHydro::drainDownMode)
+        {
+          error = NetCDFReadVariable(fileID, "TPREC", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tPrec);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "TSLB", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tslb);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "PBLH", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &pblh);
+        }
+    }
+  
+  if (0 < localNumberOfChannelElements)
+    {
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "T2_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &t2_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "PSFC_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &psfc_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "U_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &u_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "V_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &v_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "QVAPOR_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qVapor_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "QCLOUD_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qCloud_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "SWDOWN_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &swDown_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "GLW_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &gLw_c);
+        }
+
+      if (!error && !ADHydro::drainDownMode)
+        {
+          error = NetCDFReadVariable(fileID, "TPREC_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "TSLB_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tslb_c);
+        }
+
+      if (!error)
+        {
+          error = NetCDFReadVariable(fileID, "PBLH_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &pblh_c);
+        }
+    }
+  
+  if (!error)
+    {
+      if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+        {
+          CkPrintf("Finished reading forcing data.\n");
+        }
+      
+      // Increment to the next instance
+      jultimeNextInstance++;
+      
+      // FIXME deal with the next instance possibly being in the past.
+      
+      if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && !(jultimeSize > jultimeNextInstance))
+        {
+          CkError("WARNING in FileManager::readForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will "
+                  "be loaded after this no matter how long the simulation runs.\n");
+        }
+    }
+  
+  // Close the forcing file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::readForcingData: unable to close NetCDF forcing file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  return error;
+}
+
 void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
 {
-  bool                            error = false;                // Error flag.
-  int                             ii, jj, kk;                   // Loop counters.
-  std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors;    // For initializing mesh neighbors.
-  std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors; // For initializing mesh neighbors.
-  std::vector<simpleNeighborInfo> groundwaterMeshNeighbors;     // For initializing mesh neighbors.
-  std::vector<simpleNeighborInfo> groundwaterChannelNeighbors;  // For initializing mesh neighbors.
-  
-  // FIXME do we want to load forcing data at init time or later?
-  EvapoTranspirationForcingStruct evapoTranspirationForcingInit;
-  
-  evapoTranspirationForcingInit.dz8w   = 20.0;
-  evapoTranspirationForcingInit.sfcTmp = 300.0;
-  evapoTranspirationForcingInit.sfcPrs = 101300.0;
-  evapoTranspirationForcingInit.psfc   = 101200.0;
-  evapoTranspirationForcingInit.uu     = 0.0;
-  evapoTranspirationForcingInit.vv     = 0.0;
-  evapoTranspirationForcingInit.q2     = 0.0;
-  evapoTranspirationForcingInit.qc     = 0.0;
-  evapoTranspirationForcingInit.solDn  = 1000.0;
-  evapoTranspirationForcingInit.lwDn   = 300.0;
-  evapoTranspirationForcingInit.prcp   = 0.0;
-  evapoTranspirationForcingInit.tBot   = 300.0;
-  evapoTranspirationForcingInit.pblh   = 10000.0;
-  
-  // The region array is not created before the end of the mainchare
-  // constructor so its proxy is not copied to all PEs by the Charm++ readonly
-  // construct.  This sets the correct value on all PEs.
-  ADHydro::regionProxy = regionProxy;
+  bool                            error = false;                 // Error flag.
+  int                             ii, jj, kk;                    // Loop counters.
+  EvapoTranspirationForcingStruct evapoTranspirationForcingInit; // For initializing forcing data.
+  std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors;     // For initializing mesh neighbors.
+  std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors;  // For initializing mesh neighbors.
+  std::vector<simpleNeighborInfo> groundwaterMeshNeighbors;      // For initializing mesh neighbors.
+  std::vector<simpleNeighborInfo> groundwaterChannelNeighbors;   // For initializing mesh neighbors.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // Error check for existence of arrays.
@@ -9984,9 +10287,30 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
         }
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  // The region array is not created before the end of the mainchare
+  // constructor so its proxy is not copied to all PEs by the Charm++ readonly
+  // construct.  This sets the correct value on all PEs.
+  ADHydro::regionProxy = regionProxy;
 
+  error = readForcingData();
+  
   for (ii = 0; !error && ii < localNumberOfMeshElements; ++ii)
     {
+      evapoTranspirationForcingInit.dz8w   = 20.0f;
+      evapoTranspirationForcingInit.sfcTmp = t2[ii] + ZERO_C_IN_KELVIN;
+      evapoTranspirationForcingInit.sfcPrs = psfc[ii];
+      evapoTranspirationForcingInit.psfc   = psfc[ii] - 120.0f;
+      evapoTranspirationForcingInit.uu     = u[ii];
+      evapoTranspirationForcingInit.vv     = v[ii];
+      evapoTranspirationForcingInit.q2     = qVapor[ii];
+      evapoTranspirationForcingInit.qc     = qCloud[ii];
+      evapoTranspirationForcingInit.solDn  = swDown[ii];
+      evapoTranspirationForcingInit.lwDn   = gLw[ii];
+      evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0 : tPrec[ii];
+      evapoTranspirationForcingInit.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
+      evapoTranspirationForcingInit.pblh   = pblh[ii];
+      
       surfacewaterMeshNeighbors.clear();
       groundwaterMeshNeighbors.clear();
       surfacewaterChannelNeighbors.clear();
@@ -10101,6 +10425,20 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
 
   for (ii = 0; !error && ii < localNumberOfChannelElements; ++ii)
     {
+      evapoTranspirationForcingInit.dz8w   = 20.0f;
+      evapoTranspirationForcingInit.sfcTmp = t2_c[ii] + ZERO_C_IN_KELVIN;
+      evapoTranspirationForcingInit.sfcPrs = psfc_c[ii];
+      evapoTranspirationForcingInit.psfc   = psfc_c[ii] - 120.0f;
+      evapoTranspirationForcingInit.uu     = u_c[ii];
+      evapoTranspirationForcingInit.vv     = v_c[ii];
+      evapoTranspirationForcingInit.q2     = qVapor_c[ii];
+      evapoTranspirationForcingInit.qc     = qCloud_c[ii];
+      evapoTranspirationForcingInit.solDn  = swDown_c[ii];
+      evapoTranspirationForcingInit.lwDn   = gLw_c[ii];
+      evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0 : tPrec_c[ii];
+      evapoTranspirationForcingInit.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
+      evapoTranspirationForcingInit.pblh   = pblh_c[ii];
+      
       surfacewaterMeshNeighbors.clear();
       groundwaterMeshNeighbors.clear();
       surfacewaterChannelNeighbors.clear();

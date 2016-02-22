@@ -602,6 +602,9 @@ public:
   // cannot be derived its array is unallocated and left as NULL.
   void calculateDerivedValues();
   
+  // FIXME comment
+  bool readForcingData();
+  
   // Send mesh and channel element initialization messages to regions.
   //
   // Parameters:
@@ -852,6 +855,33 @@ public:
   bool   parameterChanged;
   size_t stateInstance;
   size_t displayInstance;
+  
+  // These are used to load forcing data.
+  size_t  jultimeSize;         // The size of the allocated array pointed to by jultime.
+  double* jultime;             // Array of Julian dates of all instances in forcing file.
+  size_t  jultimeNextInstance; // The next instance to use in the forcing file.
+  float*  t2;                  // Used to read air temperature at 2m height forcing for mesh elements.
+  float*  psfc;                // Used to read surface pressure forcing for mesh elements.
+  float*  u;                   // Used to read wind speed U component forcing for mesh elements.
+  float*  v;                   // Used to read wind speed V component forcing for mesh elements.
+  float*  qVapor;              // Used to read water vapor mixing ratio forcing for mesh elements.
+  float*  qCloud;              // Used to read cloud water mixing ratio forcing for mesh elements.
+  float*  swDown;              // Used to read downward shortwave flux forcing for mesh elements.
+  float*  gLw;                 // Used to read downward longwave flux forcing for mesh elements.
+  float*  tPrec;               // Used to read total precipitation forcing for mesh elements.
+  float*  tslb;                // Used to read soil temperature at the deepest layer forcing for mesh elements.
+  float*  pblh;                // Used to read planetary boundary layer height forcing for mesh elements.
+  float*  t2_c;                // Used to read air temperature at 2m height forcing for channel elements.
+  float*  psfc_c;              // Used to read surface pressure forcing for channel elements.
+  float*  u_c;                 // Used to read wind speed U component forcing for channel elements.
+  float*  v_c;                 // Used to read wind speed V component forcing for channel elements.
+  float*  qVapor_c;            // Used to read water vapor mixing ratio forcing for channel elements.
+  float*  qCloud_c;            // Used to read cloud water mixing ratio forcing for channel elements.
+  float*  swDown_c;            // Used to read downward shortwave flux forcing for channel elements.
+  float*  gLw_c;               // Used to read downward longwave flux forcing for channel elements.
+  float*  tPrec_c;             // Used to read total precipitation forcing for channel elements.
+  float*  tslb_c;              // Used to read soil temperature at the deepest layer forcing for channel elements.
+  float*  pblh_c;              // Used to read planetary boundary layer height forcing for channel elements.
   
   // Time and simulation control variables.
   double currentTime;         // Current simulation time in seconds since ADHydro::referenceDate.
