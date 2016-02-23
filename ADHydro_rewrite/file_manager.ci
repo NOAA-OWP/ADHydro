@@ -84,8 +84,8 @@ module file_manager
             // Regions use a reduction to do mass balance.
             ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
             
-            // File managers use a reduction to exit the program.
-            thisProxy.ckSetReductionClient(new CkCallback(CkCallback::ckExit));
+            // File managers use a reduction as a barrier before writing to NetCDF files.
+            thisProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, barrier), thisProxy));
             
             thisProxy.sendInitializationMessages(ADHydro::regionProxy);
           }
@@ -108,15 +108,41 @@ module file_manager
           // Write output files.
           if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
             {
-              CkPrintf("Writing output files for time %.0lf.\n", currentTime);
+              long   simulationYear;   // For calculating Gregorian date from Julian date.
+              long   simulationMonth;  // For calculating Gregorian date from Julian date.
+              long   simulationDay;    // For calculating Gregorian date from Julian date.
+              long   simulationHour;   // For calculating Gregorian date from Julian date.
+              long   simulationMinute; // For calculating Gregorian date from Julian date.
+              double simulationSecond; // For calculating Gregorian date from Julian date.
+              
+              julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                                &simulationMinute, &simulationSecond);
+
+              CkPrintf("Writing output files for simulation time %.2lf, date %02d/%02d/%04d %02d:%02d:%05.2lf.\n", currentTime, simulationMonth, simulationDay,
+                       simulationYear, simulationHour, simulationMinute, simulationSecond);
             }
           
-          writeNetCDFFiles();
-          
-          if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
-            {
-              CkPrintf("Finished writing output files.\n");
-            }
+          // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library, which
+          // waits for all other file managers to hit the barrier.  Because Charm++ is single threaded on each PE, when a file manager enters writeNetCDFFiles
+          // and hits that barrier no further Charm++ operations can take place on that PE until all file managers reach the NetCDF barrier.  But there may be
+          // another file manager that is waiting for a state message from a region that has migrated to that PE, and that message will never be sent because
+          // that PE is locked by the file manager waiting at the NetCDF barrier.  The solution is to put a Charm++ barrier (implemented as a reduction) before
+          // the NetCDF barrier because the Charm++ barrier is implemented in such a way that other Charm++ operations can continue while a file manager is
+          // waiting at the barrier.
+          contribute();
+        }
+        
+        when barrier()
+        {
+          serial
+          {
+            writeNetCDFFiles();
+            
+            if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+              {
+                CkPrintf("Finished writing output files.\n");
+              }
+          }
         }
         
         if (currentTime == simulationEndTime)
@@ -219,7 +245,7 @@ module file_manager
       // Wait until all file managers finish before exiting.
       serial
       {
-        contribute();
+        contribute(CkCallback(CkCallback::ckExit));
       }
     }; // End entry void runUntilSimulationEnd().
     
@@ -231,5 +257,6 @@ module file_manager
     entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
                                         std::vector<ElementStateMessage> channelElementStateMessages);
     entry void massBalanceDone();
+    entry [reductiontarget] void barrier();
   }; // End group FileManager.
 }; // End module file_manager.

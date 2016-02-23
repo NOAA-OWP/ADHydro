@@ -1226,7 +1226,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           evaporation            += crossSectionArea * elementLength;
           crossSectionArea        = 0.0;
 
-          if ((2 <= ADHydro::verbosityLevel && 1.0 < unsatisfiedEvaporation) || (3 <= ADHydro::verbosityLevel && 0.0 < unsatisfiedEvaporation))
+          if ((2 <= ADHydro::verbosityLevel && 10.0 < unsatisfiedEvaporation) || (3 <= ADHydro::verbosityLevel && 0.0 < unsatisfiedEvaporation))
             {
               CkError("WARNING in ChannelElement::doPointProcessesAndSendOutflows, element %d: unsatisfied evaporation from ground of %le cubic meters.\n",
                       elementNumber, unsatisfiedEvaporation);
