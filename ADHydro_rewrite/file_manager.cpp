@@ -92,7 +92,7 @@ bool ElementStateMessage::checkInvariant()
   return error;
 }
 
-double FileManager::wallclockTimeAtStart = time(NULL); // We want to record the wallclock time as early as possible when the program starts.  Doing it when the
+time_t FileManager::wallclockTimeAtStart = time(NULL); // We want to record the wallclock time as early as possible when the program starts.  Doing it when the
                                                        // variable is created seems like a good time.
 double FileManager::massBalanceTime      = NAN;        // The simulation time of the last mass balance.  Starts out as NAN until a mass balance completes.
 double FileManager::massBalanceShouldBe  = NAN;        // The first mass balance value to use as the "should be" value for the rest of the simulation.
@@ -100,7 +100,7 @@ double FileManager::massBalanceShouldBe  = NAN;        // The first mass balance
 
 void FileManager::printOutMassBalance(double messageTime, double waterInDomain, double externalFlows, double waterError)
 {
-  double wallclockTime = time(NULL);
+  time_t wallclockTime = time(NULL);
   double massBalance   = waterInDomain + externalFlows - waterError;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -121,8 +121,8 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
       massBalanceShouldBe = massBalance;
     }
   
-  CkPrintf("simulation time = %lg [s], elapsed wallclock time = %lg [s], waterInDomain = %lg [m^3], externalFlows = %lg [m^3], waterError = %lg [m^3], "
-           "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", massBalanceTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
+  CkPrintf("simulation time = %.0lf [s], elapsed wallclock time = %d [s], waterInDomain = %lg [m^3], externalFlows = %lg [m^3], waterError = %lg [m^3], "
+           "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
   // Signal file manager zero in case it is waiting for the last mass balance to finish.
@@ -9467,7 +9467,7 @@ bool FileManager::readForcingData()
           julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
                             &simulationMinute, &simulationSecond);
 
-          CkPrintf("Reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf UTC at simulation time %.2lf, date %02d/%02d/%04d %02d:%02d:%05.2lf UTC.\n",
+          CkPrintf("Reading forcing data for %02d/%02d/%04d %02d:%02d:%02.0lf UTC at simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n",
                    forcingDataMonth, forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, currentTime, simulationMonth,
                    simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
         }

@@ -3200,7 +3200,7 @@ bool Region::sendWater(int recipientRegion, RegionMessage waterMessage)
   if (!(0 <= recipientRegion && recipientRegion < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
     {
       CkError("ERROR in Region::sendWater: recipientRegion must be greater than or equal to zero and less than globalNumberOfRegions.\n");
-      CkExit();
+      error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   

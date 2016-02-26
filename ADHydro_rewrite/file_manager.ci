@@ -118,8 +118,8 @@ module file_manager
               julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
                                 &simulationMinute, &simulationSecond);
 
-              CkPrintf("Writing output files for simulation time %.2lf, date %02d/%02d/%04d %02d:%02d:%05.2lf.\n", currentTime, simulationMonth, simulationDay,
-                       simulationYear, simulationHour, simulationMinute, simulationSecond);
+              CkPrintf("Writing output files for simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n", currentTime, simulationMonth,
+                       simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
             }
           
           // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library, which
