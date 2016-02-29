@@ -1,8 +1,0 @@
-mainmodule test_random_simulation
-{
-  mainchare TestRandomSimulation
-  {
-    entry TestRandomSimulation(CkArgMsg* msg);
-    entry void runSimulation();
-  };
-};

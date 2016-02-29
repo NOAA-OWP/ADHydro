@@ -10288,28 +10288,54 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  // The region array is not created before the end of the mainchare
-  // constructor so its proxy is not copied to all PEs by the Charm++ readonly
-  // construct.  This sets the correct value on all PEs.
-  ADHydro::regionProxy = regionProxy;
+  if (!error)
+    {
+      // The region array is not created before the end of the mainchare
+      // constructor so its proxy is not copied to all PEs by the Charm++ readonly
+      // construct.  This sets the correct value on all PEs.
+      ADHydro::regionProxy = regionProxy;
 
-  error = readForcingData();
+      // Only load forcing data if the simulation duration is greater than zero.
+      if (currentTime < simulationEndTime)
+        {
+          error = readForcingData();
+        }
+      else
+        {
+          evapoTranspirationForcingInit.dz8w   = 20.0f;
+          evapoTranspirationForcingInit.sfcTmp = 300.0f;
+          evapoTranspirationForcingInit.sfcPrs = 101300.0f;
+          evapoTranspirationForcingInit.psfc   = 101180.0f;
+          evapoTranspirationForcingInit.uu     = 0.0f;
+          evapoTranspirationForcingInit.vv     = 0.0f;
+          evapoTranspirationForcingInit.q2     = 0.0f;
+          evapoTranspirationForcingInit.qc     = 0.0f;
+          evapoTranspirationForcingInit.solDn  = 800.0f;
+          evapoTranspirationForcingInit.lwDn   = 300.0f;
+          evapoTranspirationForcingInit.prcp   = 0.0f;
+          evapoTranspirationForcingInit.tBot   = 300.0f;
+          evapoTranspirationForcingInit.pblh   = 0.0f;
+        }
+    }
   
   for (ii = 0; !error && ii < localNumberOfMeshElements; ++ii)
     {
-      evapoTranspirationForcingInit.dz8w   = 20.0f;
-      evapoTranspirationForcingInit.sfcTmp = t2[ii] + ZERO_C_IN_KELVIN;
-      evapoTranspirationForcingInit.sfcPrs = psfc[ii];
-      evapoTranspirationForcingInit.psfc   = psfc[ii] - 120.0f;
-      evapoTranspirationForcingInit.uu     = u[ii];
-      evapoTranspirationForcingInit.vv     = v[ii];
-      evapoTranspirationForcingInit.q2     = qVapor[ii];
-      evapoTranspirationForcingInit.qc     = qCloud[ii];
-      evapoTranspirationForcingInit.solDn  = swDown[ii];
-      evapoTranspirationForcingInit.lwDn   = gLw[ii];
-      evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0 : tPrec[ii];
-      evapoTranspirationForcingInit.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
-      evapoTranspirationForcingInit.pblh   = pblh[ii];
+      if (currentTime < simulationEndTime)
+        {
+          evapoTranspirationForcingInit.dz8w   = 20.0f;
+          evapoTranspirationForcingInit.sfcTmp = t2[ii] + ZERO_C_IN_KELVIN;
+          evapoTranspirationForcingInit.sfcPrs = psfc[ii];
+          evapoTranspirationForcingInit.psfc   = psfc[ii] - 120.0f;
+          evapoTranspirationForcingInit.uu     = u[ii];
+          evapoTranspirationForcingInit.vv     = v[ii];
+          evapoTranspirationForcingInit.q2     = qVapor[ii];
+          evapoTranspirationForcingInit.qc     = qCloud[ii];
+          evapoTranspirationForcingInit.solDn  = swDown[ii];
+          evapoTranspirationForcingInit.lwDn   = gLw[ii];
+          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec[ii];
+          evapoTranspirationForcingInit.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
+          evapoTranspirationForcingInit.pblh   = pblh[ii];
+        }
       
       surfacewaterMeshNeighbors.clear();
       groundwaterMeshNeighbors.clear();
@@ -10425,19 +10451,22 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
 
   for (ii = 0; !error && ii < localNumberOfChannelElements; ++ii)
     {
-      evapoTranspirationForcingInit.dz8w   = 20.0f;
-      evapoTranspirationForcingInit.sfcTmp = t2_c[ii] + ZERO_C_IN_KELVIN;
-      evapoTranspirationForcingInit.sfcPrs = psfc_c[ii];
-      evapoTranspirationForcingInit.psfc   = psfc_c[ii] - 120.0f;
-      evapoTranspirationForcingInit.uu     = u_c[ii];
-      evapoTranspirationForcingInit.vv     = v_c[ii];
-      evapoTranspirationForcingInit.q2     = qVapor_c[ii];
-      evapoTranspirationForcingInit.qc     = qCloud_c[ii];
-      evapoTranspirationForcingInit.solDn  = swDown_c[ii];
-      evapoTranspirationForcingInit.lwDn   = gLw_c[ii];
-      evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0 : tPrec_c[ii];
-      evapoTranspirationForcingInit.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
-      evapoTranspirationForcingInit.pblh   = pblh_c[ii];
+      if (currentTime < simulationEndTime)
+        {
+          evapoTranspirationForcingInit.dz8w   = 20.0f;
+          evapoTranspirationForcingInit.sfcTmp = t2_c[ii] + ZERO_C_IN_KELVIN;
+          evapoTranspirationForcingInit.sfcPrs = psfc_c[ii];
+          evapoTranspirationForcingInit.psfc   = psfc_c[ii] - 120.0f;
+          evapoTranspirationForcingInit.uu     = u_c[ii];
+          evapoTranspirationForcingInit.vv     = v_c[ii];
+          evapoTranspirationForcingInit.q2     = qVapor_c[ii];
+          evapoTranspirationForcingInit.qc     = qCloud_c[ii];
+          evapoTranspirationForcingInit.solDn  = swDown_c[ii];
+          evapoTranspirationForcingInit.lwDn   = gLw_c[ii];
+          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec_c[ii];
+          evapoTranspirationForcingInit.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
+          evapoTranspirationForcingInit.pblh   = pblh_c[ii];
+        }
       
       surfacewaterMeshNeighbors.clear();
       groundwaterMeshNeighbors.clear();

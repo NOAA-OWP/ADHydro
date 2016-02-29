@@ -108,7 +108,7 @@ class FileManager : public CBase_FileManager
 public:
   
   // The wallclock time when the simulation starts for printing elapsed time.
-  static double wallclockTimeAtStart;
+  static time_t wallclockTimeAtStart;
   
   // The simulation time in seconds since ADHydro::referenceDate of the last
   // mass balance reduction to have completed.

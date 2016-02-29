@@ -105,23 +105,6 @@ module file_manager
       {
         serial
         {
-          // Write output files.
-          if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
-            {
-              long   simulationYear;   // For calculating Gregorian date from Julian date.
-              long   simulationMonth;  // For calculating Gregorian date from Julian date.
-              long   simulationDay;    // For calculating Gregorian date from Julian date.
-              long   simulationHour;   // For calculating Gregorian date from Julian date.
-              long   simulationMinute; // For calculating Gregorian date from Julian date.
-              double simulationSecond; // For calculating Gregorian date from Julian date.
-              
-              julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
-                                &simulationMinute, &simulationSecond);
-
-              CkPrintf("Writing output files for simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n", currentTime, simulationMonth,
-                       simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
-            }
-          
           // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library, which
           // waits for all other file managers to hit the barrier.  Because Charm++ is single threaded on each PE, when a file manager enters writeNetCDFFiles
           // and hits that barrier no further Charm++ operations can take place on that PE until all file managers reach the NetCDF barrier.  But there may be
@@ -136,6 +119,23 @@ module file_manager
         {
           serial
           {
+            // Write output files.
+            if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+              {
+                long   simulationYear;   // For calculating Gregorian date from Julian date.
+                long   simulationMonth;  // For calculating Gregorian date from Julian date.
+                long   simulationDay;    // For calculating Gregorian date from Julian date.
+                long   simulationHour;   // For calculating Gregorian date from Julian date.
+                long   simulationMinute; // For calculating Gregorian date from Julian date.
+                double simulationSecond; // For calculating Gregorian date from Julian date.
+                
+                julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                                  &simulationMinute, &simulationSecond);
+                
+                CkPrintf("Writing output files for simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n", currentTime, simulationMonth,
+                         simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
+            }
+            
             writeNetCDFFiles();
             
             if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
