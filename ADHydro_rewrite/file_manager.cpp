@@ -94,7 +94,6 @@ bool ElementStateMessage::checkInvariant()
 
 time_t FileManager::wallclockTimeAtStart = time(NULL); // We want to record the wallclock time as early as possible when the program starts.  Doing it when the
                                                        // variable is created seems like a good time.
-double FileManager::massBalanceTime      = NAN;        // The simulation time of the last mass balance.  Starts out as NAN until a mass balance completes.
 double FileManager::massBalanceShouldBe  = NAN;        // The first mass balance value to use as the "should be" value for the rest of the simulation.
                                                        // Starts out as NAN until a mass balance completes.
 
@@ -111,11 +110,6 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   
-  if (!(massBalanceTime > messageTime))
-    {
-      massBalanceTime = messageTime;
-    }
-  
   if (isnan(massBalanceShouldBe))
     {
       massBalanceShouldBe = massBalance;
@@ -125,8 +119,11 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
            "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
-  // Signal file manager zero in case it is waiting for the last mass balance to finish.
-  ADHydro::fileManagerProxy[0].massBalanceDone();
+  // Signal file manager zero when the last mass balance is finished.
+  if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
+    {
+      ADHydro::fileManagerProxy[0].massBalanceDone();
+    }
 }
 
 int FileManager::home(int item, int globalNumberOfItems)
@@ -9355,6 +9352,7 @@ bool FileManager::readForcingData()
 {
   bool   error       = false; // Error flag.
   int    ncErrorCode;         // Return value of NetCDF functions.
+  int    ii;                  // Loop counter.
   int    fileID;              // ID of NetCDF file.
   bool   fileOpen    = false; // Whether fileID refers to an open file.
   int    variableID;          // ID of variable in NetCDF file.
@@ -9447,7 +9445,15 @@ bool FileManager::readForcingData()
             {
               while (jultimeNextInstance + 1 < jultimeSize && jultime[jultimeNextInstance + 1] <= forcingDate)
                 {
-                  jultimeNextInstance++;
+                  ++jultimeNextInstance;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+                  if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && !(jultime[jultimeNextInstance] > jultime[jultimeNextInstance - 1]))
+                    {
+                      CkError("WARNING in FileManager::readForcingData: Julian date of instance %d in NetCDF forcing file is not monotonically increasing.\n",
+                              jultimeNextInstance);
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
                 }
             }
         }
@@ -9457,7 +9463,7 @@ bool FileManager::readForcingData()
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // jultimeNextInstance is now the index of the forcing data we will use.
-      CkAssert(jultimeSize > jultimeNextInstance);
+      CkAssert(jultimeNextInstance < jultimeSize);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
       if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
@@ -9519,6 +9525,15 @@ bool FileManager::readForcingData()
       if (!error && !ADHydro::drainDownMode)
         {
           error = NetCDFReadVariable(fileID, "TPREC", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tPrec);
+          
+          // FIXME There is a problem with WRF precipitation output being too low.  It hardly ever rises above the conductivity of the soil, which means you
+          // hardly ever get infiltration excess runoff.  This is not realistic for the mountain west.  We think the issue might be that thunderstorms are
+          // often smaller than a single 4km WRF grid square so their precipitation gets smeared out over a larger area and thus a lower intensity.
+          // We are applying this kludge until we figure out the right way to handle this.
+          for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+            {
+              tPrec[ii] *= 32.0f;
+            }
         }
       
       if (!error)
@@ -9577,6 +9592,15 @@ bool FileManager::readForcingData()
       if (!error && !ADHydro::drainDownMode)
         {
           error = NetCDFReadVariable(fileID, "TPREC_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec_c);
+          
+          // FIXME There is a problem with WRF precipitation output being too low.  It hardly ever rises above the conductivity of the soil, which means you
+          // hardly ever get infiltration excess runoff.  This is not realistic for the mountain west.  We think the issue might be that thunderstorms are
+          // often smaller than a single 4km WRF grid square so their precipitation gets smeared out over a larger area and thus a lower intensity.
+          // We are applying this kludge until we figure out the right way to handle this.
+          for (ii = 0; ii < localNumberOfChannelElements; ++ii)
+            {
+              tPrec_c[ii] *= 32.0f;
+            }
         }
 
       if (!error)
@@ -9596,16 +9620,30 @@ bool FileManager::readForcingData()
         {
           CkPrintf("Finished reading forcing data.\n");
         }
-      
-      // Increment to the next instance
-      jultimeNextInstance++;
-      
-      // FIXME deal with the next instance possibly being in the past.
-      
-      if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && !(jultimeSize > jultimeNextInstance))
+
+      // Increment to the first instance that is not before or equal to the current date and time.
+      if (!ADHydro::drainDownMode)
         {
-          CkError("WARNING in FileManager::readForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will "
-                  "be loaded after this no matter how long the simulation runs.\n");
+          do
+            {
+              ++jultimeNextInstance;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+              if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && jultimeNextInstance < jultimeSize &&
+                  !(jultime[jultimeNextInstance] > jultime[jultimeNextInstance - 1]))
+                {
+                  CkError("WARNING in FileManager::readForcingData: Julian date of instance %d in NetCDF forcing file is not monotonically increasing.\n",
+                          jultimeNextInstance);
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+            }
+          while (jultimeNextInstance < jultimeSize && jultime[jultimeNextInstance] <= forcingDate);
+
+          if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && !(jultimeNextInstance < jultimeSize))
+            {
+              CkError("WARNING in FileManager::readForcingData: Using the last forcing data instance in NetCDF forcing file.  No new forcing data will be "
+                      "loaded after this no matter how long the simulation runs.\n");
+            }
         }
     }
   

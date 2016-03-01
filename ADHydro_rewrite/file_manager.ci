@@ -103,47 +103,58 @@ module file_manager
       // Receive state updates and output to file until simulation is finished.
       while (!simulationFinished)
       {
+        // Output simulation state if it is a checkpoint time, output time, the end of the simulation, or the beginning of the simulation.
+        // ADHydro::currentTime is never updated so it continues to hold the time at the beginning of the simulation.
         serial
         {
-          // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library, which
-          // waits for all other file managers to hit the barrier.  Because Charm++ is single threaded on each PE, when a file manager enters writeNetCDFFiles
-          // and hits that barrier no further Charm++ operations can take place on that PE until all file managers reach the NetCDF barrier.  But there may be
-          // another file manager that is waiting for a state message from a region that has migrated to that PE, and that message will never be sent because
-          // that PE is locked by the file manager waiting at the NetCDF barrier.  The solution is to put a Charm++ barrier (implemented as a reduction) before
-          // the NetCDF barrier because the Charm++ barrier is implemented in such a way that other Charm++ operations can continue while a file manager is
-          // waiting at the barrier.
-          contribute();
+          sdagCondition = (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime || nextOutputIndex * ADHydro::outputPeriod == currentTime ||
+                           simulationEndTime == currentTime || ADHydro::currentTime == currentTime);
         }
         
-        when barrier()
+        if (sdagCondition)
         {
           serial
           {
-            // Write output files.
-            if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
-              {
-                long   simulationYear;   // For calculating Gregorian date from Julian date.
-                long   simulationMonth;  // For calculating Gregorian date from Julian date.
-                long   simulationDay;    // For calculating Gregorian date from Julian date.
-                long   simulationHour;   // For calculating Gregorian date from Julian date.
-                long   simulationMinute; // For calculating Gregorian date from Julian date.
-                double simulationSecond; // For calculating Gregorian date from Julian date.
-                
-                julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
-                                  &simulationMinute, &simulationSecond);
-                
-                CkPrintf("Writing output files for simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n", currentTime, simulationMonth,
-                         simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
-            }
-            
-            writeNetCDFFiles();
-            
-            if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
-              {
-                CkPrintf("Finished writing output files.\n");
-              }
+            // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library,
+            // which waits for all other file managers to hit the barrier.  Because Charm++ is single threaded on each PE, when a file manager enters
+            // writeNetCDFFiles and hits that barrier no further Charm++ operations can take place on that PE until all file managers reach the NetCDF barrier.
+            // But there may be another file manager that is waiting for a state message from a region that has migrated to that PE, and that message will
+            // never be sent because that PE is locked by the file manager waiting at the NetCDF barrier.  The solution is to put a Charm++ barrier
+            // (implemented as a reduction) before the NetCDF barrier because the Charm++ barrier is implemented in such a way that other Charm++ operations
+            // can continue while a file manager is waiting at the barrier.
+            contribute();
           }
-        }
+          
+          when barrier()
+          {
+            serial
+            {
+              // Write output files.
+              if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+                {
+                  long   simulationYear;   // For calculating Gregorian date from Julian date.
+                  long   simulationMonth;  // For calculating Gregorian date from Julian date.
+                  long   simulationDay;    // For calculating Gregorian date from Julian date.
+                  long   simulationHour;   // For calculating Gregorian date from Julian date.
+                  long   simulationMinute; // For calculating Gregorian date from Julian date.
+                  double simulationSecond; // For calculating Gregorian date from Julian date.
+                  
+                  julianToGregorian(ADHydro::referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
+                                    &simulationMinute, &simulationSecond);
+                  
+                  CkPrintf("Writing output files for simulation time %.0lf, date %02d/%02d/%04d %02d:%02d:%02.0lf UTC.\n", currentTime, simulationMonth,
+                           simulationDay, simulationYear, simulationHour, simulationMinute, simulationSecond);
+              }
+              
+              writeNetCDFFiles();
+              
+              if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
+                {
+                  CkPrintf("Finished writing output files.\n");
+                }
+            }
+          }
+        } // End if (sdagCondition).
         
         if (currentTime == simulationEndTime)
         {
@@ -154,11 +165,9 @@ module file_manager
         }
         else // if (currentTime < simulationEndTime)
         {
+          // Advance time.
           serial
           {
-            int ii; // Loop counter.
-            
-            // Advance time.
             if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
               {
                 ++nextCheckpointIndex;
@@ -181,60 +190,87 @@ module file_manager
                 currentTime = simulationEndTime;
               }
             
-            // Set all element state to not updated.
-            for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+            if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize && currentTime >= (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0))
               {
-                meshElementUpdated[ii] = false;
-              }
-            
-            for (ii = 0; ii < localNumberOfChannelElements; ++ii)
-              {
-                channelElementUpdated[ii] = false;
-              }
-          }
-          
-          while (!allStateUpdated())
-          {
-            // Receive state updates.
-            when sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
-                                          std::vector<ElementStateMessage> channelElementStateMessages)
-            {
-              serial
-              {
-                std::vector<ElementStateMessage>::iterator it; // For looping over state messages.
+                currentTime = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
                 
-                if (messageTime > currentTime)
+                // Read forcing data.
+                if (readForcingData())
                   {
-                    // Message from the future.  Don't receive yet.
-                    thisProxy[CkMyPe()].sendElementStateMessages(messageTime, meshElementStateMessages, channelElementStateMessages);
-                  }
-                else if (messageTime == currentTime)
-                  {
-                    for (it = meshElementStateMessages.begin(); it != meshElementStateMessages.end(); ++it)
-                      {
-                        handleMeshElementStateMessage(*it);
-                      }
-                    
-                    for (it = channelElementStateMessages.begin(); it != channelElementStateMessages.end(); ++it)
-                      {
-                        handleChannelElementStateMessage(*it);
-                      }
-                  }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-                else
-                  {
-                    CkError("ERROR in FileManager::runUntilSimulationEnd: state message received from the past.  This should never happen.\n");
                     CkExit();
                   }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                
+                // Send forcing data.  This allows forcing data to be sent ahead of time to hide communication latency.  The only thing throttling how far
+                // ahead forcing data is sent is the file managers waiting for element state messages.  If output times are less frequent than forcing data
+                // times there can be multiple forcing data messages in transit at the same time.
+                // FIXME implement.
               }
-            }
+            
+            sdagCondition = (currentTime == nextCheckpointIndex * ADHydro::checkpointPeriod || currentTime == nextOutputIndex * ADHydro::outputPeriod ||
+                             currentTime == simulationEndTime);
           }
-        } // End else if (currentTime < simulationEndTime)
-      } // End while (!simulationFinished)
+          
+          if (sdagCondition)
+          {
+            serial
+            {
+              int ii; // Loop counter.
+              
+              // Set all element state to not updated.
+              for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+                {
+                  meshElementUpdated[ii] = false;
+                }
+              
+              for (ii = 0; ii < localNumberOfChannelElements; ++ii)
+                {
+                  channelElementUpdated[ii] = false;
+                }
+            }
+            
+            while (!allStateUpdated())
+            {
+              // Receive state updates.
+              when sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
+                                            std::vector<ElementStateMessage> channelElementStateMessages)
+              {
+                serial
+                {
+                  std::vector<ElementStateMessage>::iterator it; // For looping over state messages.
+                  
+                  if (messageTime > currentTime)
+                    {
+                      // Message from the future.  Don't receive yet.
+                      thisProxy[CkMyPe()].sendElementStateMessages(messageTime, meshElementStateMessages, channelElementStateMessages);
+                    }
+                  else if (messageTime == currentTime)
+                    {
+                      for (it = meshElementStateMessages.begin(); it != meshElementStateMessages.end(); ++it)
+                        {
+                          handleMeshElementStateMessage(*it);
+                        }
+                      
+                      for (it = channelElementStateMessages.begin(); it != channelElementStateMessages.end(); ++it)
+                        {
+                          handleChannelElementStateMessage(*it);
+                        }
+                    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  else
+                    {
+                      CkError("ERROR in FileManager::runUntilSimulationEnd: state message received from the past.  This should never happen.\n");
+                      CkExit();
+                    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                } // End serial inside of receive state updates.
+              } // End receive state updates.
+            } // End while (!allStateUpdated()).
+          } // End if (sdagCondition).
+        } // End else if (currentTime < simulationEndTime).
+      } // End while (!simulationFinished).
       
       // On PE zero wait for the last mass balance reduction to finish before exiting.
-      while (0 == CkMyPe() && massBalanceTime != simulationEndTime)
+      if (0 == CkMyPe())
       {
         when massBalanceDone()
         {
@@ -254,9 +290,9 @@ module file_manager
     entry void meshVertexDataMessage(int node, double x, double y, double zSurface);
     entry void channelVertexDataMessage(int node, double x, double y, double zBank);
     entry void sendInitializationMessages(CProxy_Region regionProxy);
+    entry [reductiontarget] void barrier();
     entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
                                         std::vector<ElementStateMessage> channelElementStateMessages);
     entry void massBalanceDone();
-    entry [reductiontarget] void barrier();
   }; // End group FileManager.
 }; // End module file_manager.

@@ -110,10 +110,6 @@ public:
   // The wallclock time when the simulation starts for printing elapsed time.
   static time_t wallclockTimeAtStart;
   
-  // The simulation time in seconds since ADHydro::referenceDate of the last
-  // mass balance reduction to have completed.
-  static double massBalanceTime;
-  
   // The mass balance value produced the first time the mass balance completes.
   // This is saved as a "should be" value for the rest of the simulation.
   static double massBalanceShouldBe;
@@ -889,6 +885,7 @@ public:
   int    nextOutputIndex;     // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
   double simulationEndTime;   // Simulation time to end the simulation in seconds since ADHydro::referenceDate.
   bool   simulationFinished;  // Flag to indicate the simulation is finished.
+  bool   sdagCondition;       // Dummy temporary variable for calculating complex SDAG if conditions in a previous serial block.
 };
 
 #endif // __FILE_MANAGER_H__
