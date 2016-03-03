@@ -1650,15 +1650,11 @@ bool InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows(double
             {
               groundwaterAvailable = (groundwaterRecharge + (groundwaterHead - layerZBottom) * porosity) * elementArea;
               
-              // This can still happen if groundwaterRecharge is negative, but it shouldn't for reasonable conditions.
+              // groundwaterAvailable can go negative if groundwaterRecharge is negative and larger in magnitude than the groundwater below the water table.
+              // This most commonly happens when evapo-transpiration is removing water from the vadose zone, which tries to return to hydrostatic by sucking up
+              // water from groundwaterRecharge, and the water table is just a sliver above bedrock so not much water is available.
               if (0.0 > groundwaterAvailable)
                 {
-                  if (2 <= ADHydro::verbosityLevel)
-                    {
-                      CkError("WARNING in InfiltrationAndGroundwater::doInfiltrationAndSendGroundwaterOutflows: groundwaterAvailable is negative.  This "
-                              "shouldn't happen for reasonable conditions.\n");
-                    }
-                  
                   groundwaterAvailable = 0.0;
                 }
             }
@@ -1947,6 +1943,7 @@ MeshElement::MeshElement() :
   transpirationCumulativeShortTerm(0.0),
   transpirationCumulativeLongTerm(0.0),
   evapoTranspirationForcing(),
+  forcingUpdated(false),
   evapoTranspirationState(),
   underground(),
   meshNeighbors(),
@@ -1992,6 +1989,7 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   transpirationCumulativeShortTerm(transpirationCumulativeShortTermInit),
   transpirationCumulativeLongTerm(transpirationCumulativeLongTermInit),
   evapoTranspirationForcing(evapoTranspirationForcingInit),
+  forcingUpdated(false),
   evapoTranspirationState(evapoTranspirationStateInit),
   underground(groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit, groundwaterHeadInit,
               groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneInit),
@@ -2145,6 +2143,7 @@ void MeshElement::pup(PUP::er &p)
   p | transpirationCumulativeShortTerm;
   p | transpirationCumulativeLongTerm;
   p | evapoTranspirationForcing;
+  p | forcingUpdated;
   p | evapoTranspirationState;
   p | underground;
   p | meshNeighbors;

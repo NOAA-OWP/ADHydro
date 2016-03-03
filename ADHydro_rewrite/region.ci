@@ -20,7 +20,7 @@ module region
                                          double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                          double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                          InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
                                          InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
@@ -36,8 +36,8 @@ module region
                                           precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
                                           evaporationCumulativeShortTermInit, evaporationCumulativeLongTermInit, transpirationRateInit,
                                           transpirationCumulativeShortTermInit, transpirationCumulativeLongTermInit, evapoTranspirationForcingInit,
-                                          evapoTranspirationStateInit, groundwaterMethodInit, vadoseZoneInit, surfacewaterMeshNeighbors,
-                                          surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
+                                          nextForcingDataTimeInit, evapoTranspirationStateInit, groundwaterMethodInit, vadoseZoneInit,
+                                          surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
             }
           }
           
@@ -47,7 +47,7 @@ module region
                                             double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
                                             double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                             double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
-                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                             EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
@@ -60,7 +60,8 @@ module region
                                              bedThicknessInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, precipitationRateInit,
                                              precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
                                              evaporationCumulativeShortTermInit, evaporationCumulativeLongTermInit, evapoTranspirationForcingInit,
-                                             evapoTranspirationStateInit, surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
+                                             nextForcingDataTimeInit, evapoTranspirationStateInit, surfacewaterMeshNeighbors, surfacewaterChannelNeighbors,
+                                             groundwaterMeshNeighbors);
             }
           }
         } // End case inside of while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements).
@@ -173,9 +174,79 @@ module region
             if ((nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime || nextOutputIndex * ADHydro::outputPeriod == currentTime ||
                  simulationEndTime == currentTime) && ADHydro::currentTime != currentTime)
               {
-                sendStateMessages();
+                sendStateToFileManagers();
               }
+          }
+          
+          if (nextForcingDataTime == currentTime && currentTime < simulationEndTime)
+          {
+            serial
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              // Iterators must not be in use at this time.
+              CkAssert(!pupItMeshAndItChannel && !pupItNeighbor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              
+              for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+                {
+                  (*itMesh).second.forcingUpdated = false;
+                }
+              
+              for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+                {
+                  (*itChannel).second.forcingUpdated = false;
+                }
+            }
             
+            while(!allForcingUpdated())
+            {
+              case
+              {
+                when sendMeshForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData)
+                {
+                  serial
+                  {
+                    if (messageTime > currentTime)
+                      {
+                        // Message from the future.  Don't receive yet.
+                        thisProxy[thisIndex].sendMeshForcingMessage(messageTime, nextTime, element, newForcingData);
+                      }
+                    else // FIXME error check for message from the past
+                      {
+                        // FIXME error check
+                        
+                        nextForcingDataTime                             = nextTime;
+                        meshElements[element].evapoTranspirationForcing = newForcingData;
+                        meshElements[element].forcingUpdated            = true;
+                      }
+                  }
+                }
+                
+                when sendChannelForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData)
+                {
+                  serial
+                  {
+                    if (messageTime > currentTime)
+                      {
+                        // Message from the future.  Don't receive yet.
+                        thisProxy[thisIndex].sendChannelForcingMessage(messageTime, nextTime, element, newForcingData);
+                      }
+                    else // FIXME error check for message from the past
+                      {
+                        // FIXME error check
+                        
+                        nextForcingDataTime                                = nextTime;
+                        channelElements[element].evapoTranspirationForcing = newForcingData;
+                        channelElements[element].forcingUpdated            = true;
+                      }
+                  }
+                }
+              }
+            } // End while(!allForcingUpdated()).
+          } // End if (nextForcingDataTime == currentTime).
+          
+          serial
+          {
             // Advance nextCheckpointTime, nextOutputTime, and nextSyncTime.
             if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
               {
@@ -198,7 +269,36 @@ module region
               {
                 nextSyncTime = simulationEndTime;
               }
-          } // End serial inside of if (currentTime == nextSyncTime).
+            
+            if (nextSyncTime > nextForcingDataTime)
+              {
+                nextSyncTime = nextForcingDataTime;
+              }
+            
+            // Do a mass balance.
+            bool   error                = false;
+            double massBalanceValues[4] = {0.0, 0.0, 0.0, 0.0};
+            
+            // I want to pass currentTime to the reduction target, but any values that I contribute to the reduction will be summed.  I couldn't figure out how
+            // to make a reduction where some of the values are summed, and others are just passed as parameters.  I suspect that capability doesn't exist in
+            // Charm++.  To create the same effect I'm having region zero contribute currentTime and all other regions contribute zero so that the sum will be
+            // currentTime.
+            if (0 == thisIndex)
+              {
+                massBalanceValues[0] = currentTime;
+              }
+            
+            error = massBalance(massBalanceValues[1], massBalanceValues[2], massBalanceValues[3]);
+            
+            if (!error)
+              {
+                contribute(4 * sizeof(double), massBalanceValues, CkReduction::sum_double);
+              }
+            else
+              {
+                CkExit();
+              }
+          }
           
           // Wait for all neighbor invariant messages.
           while (needToCheckInvariant && !allNeighborInvariantsChecked())
@@ -269,30 +369,6 @@ module region
             // If debug level does not include internal invariants only check the invariant at most once at the beginning of the simulation.
             needToCheckInvariant = false;
 #endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-            
-            // Do a mass balance.
-            bool   error                = false;
-            double massBalanceValues[4] = {0.0, 0.0, 0.0, 0.0};
-            
-            // I want to pass currentTime to the reduction target, but any values that I contribute to the reduction will be summed.  I couldn't figure out how
-            // to make a reduction where some of the values are summed, and others are just passed as parameters.  I suspect that capability doesn't exist in
-            // Charm++.  To create the same effect I'm having region zero contribute currentTime and all other regions contribute zero so that the sum will be
-            // currentTime.
-            if (0 == thisIndex)
-              {
-                massBalanceValues[0] = currentTime;
-              }
-            
-            error = massBalance(massBalanceValues[1], massBalanceValues[2], massBalanceValues[3]);
-            
-            if (!error)
-              {
-                contribute(4 * sizeof(double), massBalanceValues, CkReduction::sum_double);
-              }
-            else
-              {
-                CkExit();
-              }
           }
         } // End if (currentTime == nextSyncTime).
         
@@ -379,7 +455,7 @@ module region
                                          double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                          double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                          InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
                                          InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
@@ -391,7 +467,7 @@ module region
                                             double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
                                             double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                             double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
-                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                            EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                             EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
@@ -420,5 +496,7 @@ module region
     entry void calculateNominalFlowRatesForInternalNeighbors();
     entry void sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages);
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);
+    entry void sendMeshForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
+    entry void sendChannelForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
   }; // End array [1D] Region.
 }; // End module region.

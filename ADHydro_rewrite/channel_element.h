@@ -392,6 +392,7 @@ public:
   
   // Evapo-transpiration variables.
   EvapoTranspirationForcingStruct evapoTranspirationForcing; // Input variables that come from forcing data.
+  bool                            forcingUpdated;            // Whether the forcing data has been updated.
   EvapoTranspirationStateStruct   evapoTranspirationState;   // State variables whose values are updated and passed to the next timestep.
   
   // Neighbors.
