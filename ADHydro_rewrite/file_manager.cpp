@@ -372,7 +372,8 @@ FileManager::FileManager() :
   nextCheckpointIndex(0),
   nextOutputIndex(0),
   simulationEndTime(0.0),
-  simulationFinished(false)
+  simulationFinished(false),
+  sdagCondition(false)
 {
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();
@@ -9674,6 +9675,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
   std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors;  // For initializing mesh neighbors.
   std::vector<simpleNeighborInfo> groundwaterMeshNeighbors;      // For initializing mesh neighbors.
   std::vector<simpleNeighborInfo> groundwaterChannelNeighbors;   // For initializing mesh neighbors.
+  double                          nextForcingDataTimeInit;       // Simulation time to receive the next forcing data in seconds since ADHydro::referenceDate.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // Error check for existence of arrays.
@@ -10337,6 +10339,18 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (currentTime < simulationEndTime)
         {
           error = readForcingData();
+          
+          if (!error)
+            {
+              if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize)
+                {
+                  nextForcingDataTimeInit = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
+                }
+              else
+                {
+                  nextForcingDataTimeInit = INFINITY;
+                }
+            }
         }
       else
         {
@@ -10353,6 +10367,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.prcp   = 0.0f;
           evapoTranspirationForcingInit.tBot   = 300.0f;
           evapoTranspirationForcingInit.pblh   = 0.0f;
+          nextForcingDataTimeInit              = INFINITY;
         }
     }
   
@@ -10482,8 +10497,9 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
               meshSurfacewaterDepth[ii], meshSurfacewaterError[ii], meshGroundwaterHead[ii], meshGroundwaterRecharge[ii], meshGroundwaterError[ii],
               meshPrecipitationRate[ii], meshPrecipitationCumulativeShortTerm[ii], meshPrecipitationCumulativeLongTerm[ii], meshEvaporationRate[ii],
               meshEvaporationCumulativeShortTerm[ii], meshEvaporationCumulativeLongTerm[ii], meshTranspirationRate[ii], meshTranspirationCumulativeShortTerm[ii],
-              meshTranspirationCumulativeLongTerm[ii], evapoTranspirationForcingInit, meshEvapoTranspirationState[ii], meshGroundwaterMethod[ii],
-              meshVadoseZone[ii], surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors, groundwaterChannelNeighbors);
+              meshTranspirationCumulativeLongTerm[ii], evapoTranspirationForcingInit, nextForcingDataTimeInit, meshEvapoTranspirationState[ii],
+              meshGroundwaterMethod[ii], meshVadoseZone[ii], surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors,
+              groundwaterChannelNeighbors);
         }
     }
 
@@ -10600,8 +10616,8 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
               channelLongitude[ii], channelBaseWidth[ii], channelSideSlope[ii], channelBedConductivity[ii], channelBedThickness[ii], channelManningsN[ii],
               channelSurfacewaterDepth[ii], channelSurfacewaterError[ii], channelPrecipitationRate[ii], channelPrecipitationCumulativeShortTerm[ii],
               channelPrecipitationCumulativeLongTerm[ii], channelEvaporationRate[ii], channelEvaporationCumulativeShortTerm[ii],
-              channelEvaporationCumulativeLongTerm[ii], evapoTranspirationForcingInit, channelEvapoTranspirationState[ii], surfacewaterMeshNeighbors,
-              surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
+              channelEvaporationCumulativeLongTerm[ii], evapoTranspirationForcingInit, nextForcingDataTimeInit, channelEvapoTranspirationState[ii],
+              surfacewaterMeshNeighbors, surfacewaterChannelNeighbors, groundwaterMeshNeighbors);
         }
     }
 

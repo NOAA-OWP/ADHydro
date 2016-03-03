@@ -368,7 +368,7 @@ public:
                                    double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                    double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
                                    double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                                   EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                   EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                    EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                    InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
                                    InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
@@ -395,7 +395,7 @@ public:
                                       double precipitationRateInit, double precipitationCumulativeShortTermInit,
                                       double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
                                       double evaporationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
-                                      EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                                      double nextForcingDataTimeInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                       std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                       std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                       std::vector<simpleNeighborInfo> groundwaterMeshNeighbors);
@@ -603,7 +603,12 @@ public:
   void receiveInflowsAndAdvanceTime();
   
   // FIXME comment
-  void sendStateMessages();
+  void sendStateToFileManagers();
+  
+  // Scan elements to see if all forcing data has been updated.
+  //
+  // Returns: true if all forcing data has been updated, false otherwise.
+  bool allForcingUpdated();
   
   // Compute values relevant to the mass balance calculation.  To calculate the
   // mass balance take waterInDomain and add externalFlows and subtract
@@ -675,6 +680,7 @@ public:
   int    nextCheckpointIndex;  // This multiplied by ADHydro::checkpointPeriod is the next time that a checkpoint will be done.
   int    nextOutputIndex;      // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
   bool   simulationFinished;   // Flag to indicate the simulation is finished.
+  double nextForcingDataTime;  // Simulation time to receive the next forcing data in seconds since ADHydro::referenceDate.
 };
 
 #endif // __REGION_H__

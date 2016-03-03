@@ -750,6 +750,7 @@ public:
   
   // Evapo-transpiration variables.
   EvapoTranspirationForcingStruct evapoTranspirationForcing; // Input variables that come from forcing data.
+  bool                            forcingUpdated;            // Whether the forcing data has been updated.
   EvapoTranspirationStateStruct   evapoTranspirationState;   // State variables whose values are updated and passed to the next timestep.
   
   // This is the first element of a linked list of objects that represent the

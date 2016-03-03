@@ -296,7 +296,8 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS) || (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   nextCheckpointIndex(1 + (int)floor(currentTimeInit / ADHydro::checkpointPeriod)),
   nextOutputIndex(1 + (int)floor(currentTimeInit / ADHydro::outputPeriod)),
-  simulationFinished(false)
+  simulationFinished(false),
+  nextForcingDataTime(NAN)
 {
   FileManager* fileManagerLocalBranch = ADHydro::fileManagerProxy.ckLocalBranch();            // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localRegionStart; // Index of this element in local file manager arrays.
@@ -339,7 +340,8 @@ Region::Region(CkMigrateMessage* msg) :
   needToCheckInvariant(false),
   nextCheckpointIndex(0),
   nextOutputIndex(0),
-  simulationFinished(false)
+  simulationFinished(false),
+  nextForcingDataTime(NAN)
 {
   // Initialization handled by initialization list.
 }
@@ -611,6 +613,7 @@ void Region::pup(PUP::er &p)
   p | nextCheckpointIndex;
   p | nextOutputIndex;
   p | simulationFinished;
+  p | nextForcingDataTime;
 }
 
 bool Region::checkInvariant()
@@ -1588,7 +1591,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
                                          double precipitationRateInit, double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit,
                                          double evaporationRateInit, double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit,
                                          double transpirationRateInit, double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
+                                         EvapoTranspirationForcingStruct& evapoTranspirationForcingInit, double nextForcingDataTimeInit,
                                          EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                          InfiltrationAndGroundwater::GroundwaterMethodEnum groundwaterMethodInit,
                                          InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
@@ -1600,6 +1603,8 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   // Most parameters are error checked in the MeshElement constructor.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  // FIXME error check nextForcingDataTimeInit.
+  
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       if ((*it).checkInvariant())
@@ -1632,6 +1637,8 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
         }
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  
+  nextForcingDataTime = nextForcingDataTimeInit;
   
   // Insert element in this region's elements vector.
   meshElements.insert(std::pair<int, MeshElement>(elementNumberInit,
@@ -1715,7 +1722,7 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
                                             double precipitationRateInit, double precipitationCumulativeShortTermInit,
                                             double precipitationCumulativeLongTermInit, double evaporationRateInit, double evaporationCumulativeShortTermInit,
                                             double evaporationCumulativeLongTermInit, EvapoTranspirationForcingStruct& evapoTranspirationForcingInit,
-                                            EvapoTranspirationStateStruct& evapoTranspirationStateInit,
+                                            double nextForcingDataTimeInit, EvapoTranspirationStateStruct& evapoTranspirationStateInit,
                                             std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                             std::vector<simpleNeighborInfo> groundwaterMeshNeighbors)
@@ -1725,6 +1732,8 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   // Most parameters are error checked in the ChannelElement constructor.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  // FIXME error check nextForcingDataTimeInit.
+  
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       if ((*it).checkInvariant())
@@ -1749,6 +1758,8 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
         }
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  
+  nextForcingDataTime = nextForcingDataTimeInit;
   
   // Insert element in this region's elements vector.
   channelElements.insert(std::pair<int, ChannelElement>(elementNumberInit,
@@ -3319,7 +3330,7 @@ void Region::receiveInflowsAndAdvanceTime()
     }
 }
 
-void Region::sendStateMessages()
+void Region::sendStateToFileManagers()
 {
   // FIXME these could become member variables like outgoingMessages.  The benefit of that would be that the vectors don't need to be constructed every time.
   std::map<int, std::vector<ElementStateMessage> >           meshElementStateMessages;    // Aggregator for messages going out to file managers.
@@ -3440,6 +3451,30 @@ void Region::sendStateMessages()
           ADHydro::fileManagerProxy[(*it).first].sendElementStateMessages(currentTime, std::vector<ElementStateMessage>(), (*it).second);
         }
     }
+}
+
+bool Region::allForcingUpdated()
+{
+  bool allUpdated = true; // Stays true until we find one that is not updated.
+  
+  // FIXLATER I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  It's only done each time forcing data is sent, not once per timestep
+  // so the performance benefit would be less.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  // Iterators must not be in use at this time.
+  CkAssert(!pupItMeshAndItChannel && !pupItNeighbor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  for (itMesh = meshElements.begin(); allUpdated && itMesh != meshElements.end(); ++itMesh)
+    {
+      allUpdated = (*itMesh).second.forcingUpdated;
+    }
+  
+  for (itChannel = channelElements.begin(); allUpdated && itChannel != channelElements.end(); ++itChannel)
+    {
+      allUpdated = (*itChannel).second.forcingUpdated;
+    }
+  
+  return allUpdated;
 }
 
 bool Region::massBalance(double& waterInDomain, double& externalFlows, double& waterError)

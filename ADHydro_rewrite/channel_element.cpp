@@ -596,6 +596,7 @@ ChannelElement::ChannelElement() :
   evaporationCumulativeShortTerm(0.0),
   evaporationCumulativeLongTerm(0.0),
   evapoTranspirationForcing(),
+  forcingUpdated(false),
   evapoTranspirationState(),
   meshNeighbors(),
   channelNeighbors(),
@@ -635,6 +636,7 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   evaporationCumulativeShortTerm(evaporationCumulativeShortTermInit),
   evaporationCumulativeLongTerm(evaporationCumulativeLongTermInit),
   evapoTranspirationForcing(evapoTranspirationForcingInit),
+  forcingUpdated(false),
   evapoTranspirationState(evapoTranspirationStateInit),
   meshNeighbors(),
   channelNeighbors(),
@@ -779,6 +781,7 @@ void ChannelElement::pup(PUP::er &p)
   p | evaporationCumulativeShortTerm;
   p | evaporationCumulativeLongTerm;
   p | evapoTranspirationForcing;
+  p | forcingUpdated;
   p | evapoTranspirationState;
   p | meshNeighbors;
   p | channelNeighbors;
