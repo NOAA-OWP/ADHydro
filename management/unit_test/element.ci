@@ -1,0 +1,8 @@
+module element
+{
+    array[1D] Element
+    {
+        entry Element();
+        entry void process();
+    }
+}
