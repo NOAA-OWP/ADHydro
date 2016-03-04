@@ -44,8 +44,10 @@ class Reservoir : public PUP::able
               to this function
         This is a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
     */
- //   virtual double release() = 0;
-    virtual double release(double curr_inflow, double curr_volume, int curr_date){};
+    //virtual double release() = 0;
+    //Cannot be pure virtual because charm cannot migrate an abstract object.
+    //"error: cannot allocate an object of abstract type ‘Reservoir’"
+    virtual double release(double curr_inflow, double curr_volume, int curr_date){return 0;};
 
     /*
         Add PUP support
@@ -125,7 +127,7 @@ _cxx_general_class_string = \
 #ifndef _${NAME}_
 #define _${NAME}_
 #include "Reservoir.h"
-#include "../common/common_utilities.h"
+#include "common_utilities.h"
 // TODO/FIXME might want to remove the subregion directory structure
 // That way a reservoir could simple sublcass one SUBREGION and the
 // correct substitution occurs
@@ -142,7 +144,9 @@ private:
 		double min_volume;	//maximum capacity of the reservoir (af)
 		double max_volume;	//minimum capacity of the reservoir (af)
 		double basemonth_volume;	//The average volume in the base month (af)
-		double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+		//Old c++ standards don't like this initilization        
+        //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        static double curr_target_rate[12];
         
 public:
 
@@ -194,6 +198,7 @@ public:
     }
     
 };
+double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
 #include "${NAME}.def.h"
 #endif
 """
@@ -205,7 +210,7 @@ _cxx_region_class_string = \
 #ifndef _${NAME}_
 #define _${NAME}_
 #include "Reservoir.h"
-#include "../common/common_utilities.h"
+#include "common_utilities.h"
 // TODO/FIXME might want to remove the subregion directory structure
 // That way a reservoir could simple sublcass one SUBREGION and the
 // correct substitution occurs
@@ -222,7 +227,9 @@ private:
 		double min_volume;	//maximum capacity of the reservoir (af)
 		double max_volume;	//minimum capacity of the reservoir (af)
 		double basemonth_volume;	//The average volume in the base month (af)
-		double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+		//Old c++ standards don't like this initilization        
+        //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        static double curr_target_rate[12];
         
 public:
 
@@ -275,6 +282,7 @@ public:
     }
 
 };
+double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
 #include "${NAME}.def.h"
 #endif
 """

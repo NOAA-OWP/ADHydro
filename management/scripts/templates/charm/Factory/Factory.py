@@ -213,7 +213,7 @@ class Factory():
         return self.template.safe_substitute()
 
     def creators(self, names):
-        include_list = ['#include "../reservoirs/{0}.cpp"'.format(n) for n in names]
+        include_list = ['#include "{0}.cpp"'.format(n) for n in names]
         include_string = linesep.join(include_list)
         creator_list = ['\tcreators.push_back(new ReservoirCreator<{0}>({0}::reachCode, this));'.format(n) for n in names]
         creator_string = linesep.join(creator_list)
