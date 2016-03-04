@@ -1,6 +1,6 @@
 #ifndef __ELEMENT_H__
 #define __ELEMENT_H__
-#include "../generated_code/charm_reservoirs/Reservoir.h"
+#include "Reservoir.h"
 class Element : public CBase_Element
 {
 private:

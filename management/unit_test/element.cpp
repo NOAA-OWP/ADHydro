@@ -2,15 +2,15 @@
 
 #include "element.h"
 #include "main.decl.h"
-#include "../generated_code/charm_factory/ReservoirFactory.h"
+#include "ReservoirFactory.h"
 extern CProxy_Main mainProxy;
 Element::Element()
 {
 //Define some reachCodes for testing
 	int numRes = 2;
 	long long codes[numRes];
-	codes[0] = -1;
-	codes[1] = 14050001002504;
+	codes[0] = 14050001021460;
+	codes[1] = 14050001002419;
 	
 	//Create the ReservoirFactory used to create the indvidual reservoirs
     ReservoirFactory* resFactory = new ReservoirFactory();

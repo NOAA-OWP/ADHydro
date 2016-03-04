@@ -44,13 +44,13 @@ _cxx_region_class_string = \
 */
 #ifndef _${NAME}_
 #define _${NAME}_
-#include "../Region.h"
+#include "Region.h"
 #define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
 
 #include <iostream>
 #include <ctime>
 
-#include "../../common/common_utilities.h"
+#include "common_utilities.h"
 
 /*
     A regional sublcass implementing the virtual release function
@@ -63,8 +63,9 @@ class ${NAME} : Region
         double min_volume_region;	//maximum capacity of the reservoir (af)
         double max_volume_region;	//minimum capacity of the reservoir (af)
         double basemonth_volume_region;	//The average volume in the base month (af)
-        double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
-
+        //Old c++ standards don't like this initilization        
+        //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        static double curr_target_rate[12];
     	
     public:
     ${NAME}()
@@ -88,7 +89,7 @@ class ${NAME} : Region
     }
 
 };
-
+double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};
 #endif
 """
 
@@ -104,7 +105,7 @@ _cxx_subregion_class_string = \
 #include <iostream>
 #include <ctime>
 
-#include "../../common/common_utilities.h"
+#include "common_utilities.h"
 
 /*
     A regional sublcass implementing the virtual release function
@@ -117,8 +118,9 @@ class ${NAME} : public ${PARENT_REGION}
         double min_volume_region;	//maximum capacity of the reservoir (af)
         double max_volume_region;	//minimum capacity of the reservoir (af)
         double basemonth_volume_region;	//The average volume in the base month (af)
-        double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
-
+        //Old c++ standards don't like this initilization        
+        //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        static double curr_target_rate[12];
     	
     public:
     ${NAME}()
@@ -142,7 +144,7 @@ class ${NAME} : public ${PARENT_REGION}
     }
 
 };
-
+double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};
 #endif
 """
 
@@ -158,7 +160,7 @@ _cxx_subregion_parent_class_string = \
 #include <iostream>
 #include <ctime>
 
-#include "../../common/common_utilities.h"
+#include "common_utilities.h"
 
 /*
     A regional sublcass implementing the virtual release function
@@ -171,7 +173,9 @@ class ${NAME} : public ${PARENT_REGION}
         double min_volume_region;	//maximum capacity of the reservoir (af)
         double max_volume_region;	//minimum capacity of the reservoir (af)
         double basemonth_volume_region;	//The average volume in the base month (af)
-        double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        //Old c++ standards don't like this initilization        
+        //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
+        static double curr_target_rate[12];
 
     	
     public:
@@ -196,7 +200,7 @@ class ${NAME} : public ${PARENT_REGION}
     }
 
 };
-
+double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};
 #endif
 """
 
