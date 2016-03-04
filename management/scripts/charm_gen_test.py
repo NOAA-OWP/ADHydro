@@ -9,6 +9,7 @@ Management Template Test Script
 import templates.charm.Reservoir as rt
 import templates.charm.Region as rg
 import templates.charm.Factory as rf
+import templates.common.Utilities as ut
 import pandas as pd
 res_dir = "../generated_code/charm_reservoirs"
 fact_dir = "../generated_code/charm_factory"
@@ -102,6 +103,11 @@ def main():
         if not path.exists(reg_path):
             makedirs(path.join(res_dir,region))
     regions.apply(makeRegionClassFiles, axis=1)
+
+    #Generate the common utilities, simply put them in the res_dir
+    for k,v in ut.classes().iteritems():
+        with open(path.join(res_dir, k), 'w') as output:
+            output.write(v)
 
 if __name__ == "__main__":
     main()
