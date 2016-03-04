@@ -373,7 +373,8 @@ FileManager::FileManager() :
   nextOutputIndex(0),
   simulationEndTime(0.0),
   simulationFinished(false),
-  sdagCondition(false)
+  sdagCondition(false),
+  reservoirFactory()
 {
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();

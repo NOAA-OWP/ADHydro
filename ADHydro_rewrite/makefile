@@ -26,7 +26,7 @@ METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
 
-VPATH  := ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
+VPATH  := ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../management/build ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
 EXES := adhydro
 
@@ -41,6 +41,10 @@ ADHYDRO_OBJS := adhydro.o             \
                 groundwater.o         \
                 evapo_transpiration.o \
                 garto.o
+
+MANAGEMENT_OBJS := ReservoirFactory.o \
+                   Reservoir.o        \
+                   common_utilities.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
                module_sf_noahmplsm.o          \
@@ -61,7 +65,7 @@ all: $(EXES)
 
 .PHONY: all
 
-adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
+adhydro: $(ADHYDRO_OBJS) $(MANAGEMENT_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
 
 adhydro.o: adhydro.cpp           \
