@@ -168,9 +168,9 @@ module file_manager
           // Advance time.
           serial
           {
-            int                             ii;                  // Loop counter.
-            double                          nextForcingDataTime; // Simulation time of the next forcing data in seconds since ADHydro::referenceDate.
-            EvapoTranspirationForcingStruct newForcingData;      // Updated forcing data to send to elements.
+            int                             ii;             // Loop counter.
+            double                          nextTime;       // Simulation time of the next forcing data in seconds since ADHydro::referenceDate.
+            EvapoTranspirationForcingStruct newForcingData; // Updated forcing data to send to elements.
             
             if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
               {
@@ -207,14 +207,7 @@ module file_manager
                         CkExit();
                       }
                     
-                    if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize)
-                      {
-                        nextForcingDataTime = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
-                      }
-                    else
-                      {
-                        nextForcingDataTime = INFINITY;
-                      }
+                    nextTime = nextForcingDataTime();
                     
                     // Send forcing data.  This allows forcing data to be sent ahead of time to hide communication latency.  The only thing throttling how far
                     // ahead forcing data is sent is the file managers waiting for element state messages.  If output times are less frequent than forcing data
@@ -235,8 +228,7 @@ module file_manager
                         newForcingData.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh[ii];
                         
-                        ADHydro::regionProxy[meshRegion[ii]].sendMeshForcingMessage(currentTime, nextForcingDataTime, ii + localMeshElementStart,
-                                                                                    newForcingData);
+                        ADHydro::regionProxy[meshRegion[ii]].sendMeshForcingMessage(currentTime, nextTime, ii + localMeshElementStart, newForcingData);
                       }
                     
                     for (ii = 0; ii < localNumberOfChannelElements; ++ii)
@@ -255,8 +247,7 @@ module file_manager
                         newForcingData.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh_c[ii];
                         
-                        ADHydro::regionProxy[channelRegion[ii]].sendChannelForcingMessage(currentTime, nextForcingDataTime, ii + localChannelElementStart,
-                                                                                          newForcingData);
+                        ADHydro::regionProxy[channelRegion[ii]].sendChannelForcingMessage(currentTime, nextTime, ii + localChannelElementStart, newForcingData);
                       }
                   } // End read and send forcing data.
               }  // End if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize &&

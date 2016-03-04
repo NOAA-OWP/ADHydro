@@ -2,6 +2,7 @@
 #define __FILE_MANAGER_H__
 
 #include "region.h"
+#include "ReservoirFactory.h"
 
 // An ElementStateMessage is used for regions to send updated element state to
 // file managers for writing out to file.
@@ -600,6 +601,9 @@ public:
   
   // FIXME comment
   bool readForcingData();
+  
+  // FIXME comment
+  double nextForcingDataTime();
   
   // Send mesh and channel element initialization messages to regions.
   //

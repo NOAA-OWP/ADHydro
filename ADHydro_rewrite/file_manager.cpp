@@ -9428,7 +9428,8 @@ bool FileManager::readForcingData()
     #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
       
-      // Search for the last instance that is before or equal to the current date and time.
+      // Search for the last instance that is before or equal to the current date and time.  Instances up to one second in the future are considered equal to
+      // the current date and time.
       // FIXME to improve efficiency make this a binary search.
       if (!error)
         {
@@ -9444,7 +9445,7 @@ bool FileManager::readForcingData()
             }
           else
             {
-              while (jultimeNextInstance + 1 < jultimeSize && jultime[jultimeNextInstance + 1] <= forcingDate)
+              while (jultimeNextInstance + 1 < jultimeSize && jultime[jultimeNextInstance + 1] <= forcingDate + 1.0 / (24.0 * 3600.0))
                 {
                   ++jultimeNextInstance;
 
@@ -9622,7 +9623,8 @@ bool FileManager::readForcingData()
           CkPrintf("Finished reading forcing data.\n");
         }
 
-      // Increment to the first instance that is not before or equal to the current date and time.
+      // Increment to the first instance that is not before or equal to the current date and time.  Instances up to one second in the future are considered
+      // equal to the current date and time.
       if (!ADHydro::drainDownMode)
         {
           do
@@ -9638,7 +9640,7 @@ bool FileManager::readForcingData()
                 }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
             }
-          while (jultimeNextInstance < jultimeSize && jultime[jultimeNextInstance] <= forcingDate);
+          while (jultimeNextInstance < jultimeSize && jultime[jultimeNextInstance] <= forcingDate + 1.0 / (24.0 * 3600.0));
 
           if (0 == CkMyPe() && 2 <= ADHydro::verbosityLevel && !(jultimeNextInstance < jultimeSize))
             {
@@ -9664,6 +9666,33 @@ bool FileManager::readForcingData()
     }
   
   return error;
+}
+
+double FileManager::nextForcingDataTime()
+{
+  double nextTime = INFINITY; // Simulation time of the next forcing data in seconds since ADHydro::referenceDate.
+  
+  if (!ADHydro::drainDownMode && NULL != jultime && jultimeNextInstance < jultimeSize)
+    {
+      nextTime = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
+      
+      // If the time of the next entry in the file is within one second of a sync point (checkpoint time, output time, or the end of the simulation) treat it as
+      // equal to that sync point.
+      if (1.0 > fabs(nextTime - round(nextTime / ADHydro::checkpointPeriod) * ADHydro::checkpointPeriod))
+        {
+          nextTime = round(nextTime / ADHydro::checkpointPeriod) * ADHydro::checkpointPeriod;
+        }
+      else if (1.0 > fabs(nextTime - round(nextTime / ADHydro::outputPeriod) * ADHydro::outputPeriod))
+        {
+          nextTime = round(nextTime / ADHydro::outputPeriod) * ADHydro::outputPeriod;
+        }
+      else if (1.0 > fabs(nextTime - simulationEndTime))
+        {
+          nextTime = simulationEndTime;
+        }
+    }
+  
+  return nextTime;
 }
 
 void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
@@ -10339,18 +10368,6 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
       if (currentTime < simulationEndTime)
         {
           error = readForcingData();
-          
-          if (!error)
-            {
-              if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize)
-                {
-                  nextForcingDataTimeInit = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
-                }
-              else
-                {
-                  nextForcingDataTimeInit = INFINITY;
-                }
-            }
         }
       else
         {
@@ -10367,8 +10384,12 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.prcp   = 0.0f;
           evapoTranspirationForcingInit.tBot   = 300.0f;
           evapoTranspirationForcingInit.pblh   = 0.0f;
-          nextForcingDataTimeInit              = INFINITY;
         }
+    }
+    
+  if (!error)
+    {
+      nextForcingDataTimeInit = nextForcingDataTime();
     }
   
   for (ii = 0; !error && ii < localNumberOfMeshElements; ++ii)

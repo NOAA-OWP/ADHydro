@@ -23,10 +23,10 @@ CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
 
-VPATH  := ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
+VPATH  := ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
 EXES := adhydro
 
