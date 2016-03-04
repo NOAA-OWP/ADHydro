@@ -890,6 +890,9 @@ public:
   double simulationEndTime;   // Simulation time to end the simulation in seconds since ADHydro::referenceDate.
   bool   simulationFinished;  // Flag to indicate the simulation is finished.
   bool   sdagCondition;       // Dummy temporary variable for calculating complex SDAG if conditions in a previous serial block.
+  
+  // These are used for water management.
+  ReservoirFactory reservoirFactory; // A singleton factory for creating Reservoir objects.
 };
 
 #endif // __FILE_MANAGER_H__

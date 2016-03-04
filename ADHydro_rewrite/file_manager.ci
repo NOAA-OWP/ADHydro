@@ -194,10 +194,9 @@ module file_manager
                 currentTime = simulationEndTime;
               }
             
-            if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize &&
-                currentTime >= (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0))
+            if (!ADHydro::drainDownMode && jultimeNextInstance < jultimeSize && currentTime >= nextForcingDataTime())
               {
-                currentTime = (jultime[jultimeNextInstance] - ADHydro::referenceDate) * (24.0 * 3600.0);
+                currentTime = nextForcingDataTime();
                 
                 // Read and send forcing data.
                 if (currentTime < simulationEndTime)
