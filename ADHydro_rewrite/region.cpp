@@ -3355,7 +3355,7 @@ void Region::sendStateToFileManagers()
                                 (*itMesh).second.evaporationRate, (*itMesh).second.evaporationCumulativeShortTerm,
                                 (*itMesh).second.evaporationCumulativeLongTerm, (*itMesh).second.transpirationRate,
                                 (*itMesh).second.transpirationCumulativeShortTerm, (*itMesh).second.transpirationCumulativeLongTerm,
-                                (*itMesh).second.evapoTranspirationState);
+                                (*itMesh).second.evapoTranspirationState, (*itMesh).second.underground.vadoseZone);
       
       for (itMeshSurfacewaterMeshNeighbor  = (*itMesh).second.meshNeighbors.begin();
            itMeshSurfacewaterMeshNeighbor != (*itMesh).second.meshNeighbors.end(); ++itMeshSurfacewaterMeshNeighbor)
@@ -3402,7 +3402,7 @@ void Region::sendStateToFileManagers()
                                 (*itChannel).second.precipitationRate, (*itChannel).second.precipitationCumulativeShortTerm,
                                 (*itChannel).second.precipitationCumulativeLongTerm, (*itChannel).second.evaporationRate,
                                 (*itChannel).second.evaporationCumulativeShortTerm, (*itChannel).second.evaporationCumulativeLongTerm, 0.0, 0.0, 0.0,
-                                (*itChannel).second.evapoTranspirationState);
+                                (*itChannel).second.evapoTranspirationState, InfiltrationAndGroundwater::VadoseZone());
       
       for (itChannelSurfacewaterMeshNeighbor  = (*itChannel).second.meshNeighbors.begin();
            itChannelSurfacewaterMeshNeighbor != (*itChannel).second.meshNeighbors.end(); ++itChannelSurfacewaterMeshNeighbor)

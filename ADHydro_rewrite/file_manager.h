@@ -22,7 +22,7 @@ public:
                       double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
                       double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
                       double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                      EvapoTranspirationStateStruct& evapoTranspirationStateInit);
+                      EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::VadoseZone vadoseZoneInit);
   
   // Charm++ pack/unpack method.
   //
@@ -36,27 +36,27 @@ public:
   // Returns: true if the invariant is violated, false otherwise.
   bool checkInvariant();
   
-  int                             elementNumber;
-  double                          surfacewaterDepth;
-  double                          surfacewaterError;
-  double                          groundwaterHead;
-  double                          groundwaterRecharge;
-  double                          groundwaterError;
-  double                          precipitationRate;
-  double                          precipitationCumulativeShortTerm;
-  double                          precipitationCumulativeLongTerm;
-  double                          evaporationRate;
-  double                          evaporationCumulativeShortTerm;
-  double                          evaporationCumulativeLongTerm;
-  double                          transpirationRate;
-  double                          transpirationCumulativeShortTerm;
-  double                          transpirationCumulativeLongTerm;
-  EvapoTranspirationStateStruct   evapoTranspirationState;
-  // FIXME vadose zone state
-  std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors;
-  std::vector<simpleNeighborInfo> groundwaterMeshNeighbors;
-  std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors;
-  std::vector<simpleNeighborInfo> groundwaterChannelNeighbors;
+  int                                    elementNumber;
+  double                                 surfacewaterDepth;
+  double                                 surfacewaterError;
+  double                                 groundwaterHead;
+  double                                 groundwaterRecharge;
+  double                                 groundwaterError;
+  double                                 precipitationRate;
+  double                                 precipitationCumulativeShortTerm;
+  double                                 precipitationCumulativeLongTerm;
+  double                                 evaporationRate;
+  double                                 evaporationCumulativeShortTerm;
+  double                                 evaporationCumulativeLongTerm;
+  double                                 transpirationRate;
+  double                                 transpirationCumulativeShortTerm;
+  double                                 transpirationCumulativeLongTerm;
+  EvapoTranspirationStateStruct          evapoTranspirationState;
+  InfiltrationAndGroundwater::VadoseZone vadoseZone;
+  std::vector<simpleNeighborInfo>        surfacewaterMeshNeighbors;
+  std::vector<simpleNeighborInfo>        groundwaterMeshNeighbors;
+  std::vector<simpleNeighborInfo>        surfacewaterChannelNeighbors;
+  std::vector<simpleNeighborInfo>        groundwaterChannelNeighbors;
 };
 
 // file_manager.decl.h has to be included after ElementStateMessage because it passes parameters of type ElementStateMessage.

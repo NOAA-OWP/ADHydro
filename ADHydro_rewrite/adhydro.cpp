@@ -40,6 +40,9 @@ InfiltrationAndGroundwater::InfiltrationMethodEnum ADHydro::infiltrationMethod;
 bool                                               ADHydro::drainDownMode;
 double                                             ADHydro::drainDownTime;
 bool                                               ADHydro::doMeshMassage;
+bool                                               ADHydro::zeroExpirationTime;
+bool                                               ADHydro::zeroCumulativeFlow;
+bool                                               ADHydro::zeroWaterError;
 int                                                ADHydro::verbosityLevel;
 CProxy_FileManager                                 ADHydro::fileManagerProxy;
 CProxy_Region                                      ADHydro::regionProxy;
@@ -278,6 +281,9 @@ ADHydro::ADHydro(CkArgMsg* msg)
   drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
   drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
   doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false);
+  zeroExpirationTime = superfile.GetBoolean("", "zeroExpirationTime", false);
+  zeroCumulativeFlow = superfile.GetBoolean("", "zeroCumulativeFlow", false);
+  zeroWaterError     = superfile.GetBoolean("", "zeroWaterError", false);
   verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);
   
   // Create file manager.

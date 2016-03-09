@@ -44,6 +44,9 @@ mainmodule adhydro
     readonly bool                                               drainDownMode;
     readonly double                                             drainDownTime;
     readonly bool                                               doMeshMassage;
+    readonly bool                                               zeroExpirationTime;
+    readonly bool                                               zeroCumulativeFlow;
+    readonly bool                                               zeroWaterError;
     readonly int                                                verbosityLevel;
     readonly CProxy_FileManager                                 fileManagerProxy;
     readonly CProxy_Region                                      regionProxy;

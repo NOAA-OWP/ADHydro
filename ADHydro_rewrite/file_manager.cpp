@@ -22,6 +22,7 @@ ElementStateMessage::ElementStateMessage() :
   transpirationCumulativeShortTerm(0.0),
   transpirationCumulativeLongTerm(0.0),
   evapoTranspirationState(),
+  vadoseZone(),
   surfacewaterMeshNeighbors(),
   groundwaterMeshNeighbors(),
   surfacewaterChannelNeighbors(),
@@ -35,7 +36,7 @@ ElementStateMessage::ElementStateMessage(int elementNumberInit, double surfacewa
                                          double precipitationCumulativeShortTermInit, double precipitationCumulativeLongTermInit, double evaporationRateInit,
                                          double evaporationCumulativeShortTermInit, double evaporationCumulativeLongTermInit, double transpirationRateInit,
                                          double transpirationCumulativeShortTermInit, double transpirationCumulativeLongTermInit,
-                                         EvapoTranspirationStateStruct& evapoTranspirationStateInit) :
+                                         EvapoTranspirationStateStruct& evapoTranspirationStateInit, InfiltrationAndGroundwater::VadoseZone vadoseZoneInit) :
   elementNumber(elementNumberInit),
   surfacewaterDepth(surfacewaterDepthInit),
   surfacewaterError(surfacewaterErrorInit),
@@ -52,6 +53,7 @@ ElementStateMessage::ElementStateMessage(int elementNumberInit, double surfacewa
   transpirationCumulativeShortTerm(transpirationCumulativeShortTermInit),
   transpirationCumulativeLongTerm(transpirationCumulativeLongTermInit),
   evapoTranspirationState(evapoTranspirationStateInit),
+  vadoseZone(vadoseZoneInit),
   surfacewaterMeshNeighbors(),
   groundwaterMeshNeighbors(),
   surfacewaterChannelNeighbors(),
@@ -77,6 +79,7 @@ void ElementStateMessage::pup(PUP::er &p)
   p | transpirationCumulativeShortTerm;
   p | transpirationCumulativeLongTerm;
   p | evapoTranspirationState;
+  p | vadoseZone;
   p | surfacewaterMeshNeighbors;
   p | groundwaterMeshNeighbors;
   p | surfacewaterChannelNeighbors;
@@ -4421,7 +4424,7 @@ bool FileManager::NetCDFReadState()
                                      &meshSurfacewaterDepth);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroWaterError)
         {
           error = NetCDFReadVariable(fileID, "meshSurfacewaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshSurfacewaterError);
@@ -4439,7 +4442,7 @@ bool FileManager::NetCDFReadState()
                                      &meshGroundwaterRecharge);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroWaterError)
         {
           error = NetCDFReadVariable(fileID, "meshGroundwaterError", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0, false,
                                      &meshGroundwaterError);
@@ -4451,13 +4454,13 @@ bool FileManager::NetCDFReadState()
                                      &meshPrecipitationRate);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshPrecipitationCumulativeShortTerm);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshPrecipitationCumulativeLongTerm);
@@ -4469,13 +4472,13 @@ bool FileManager::NetCDFReadState()
                                      &meshEvaporationRate);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
                                      false, &meshEvaporationCumulativeShortTerm);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshEvaporationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0,
                                      false, &meshEvaporationCumulativeLongTerm);
@@ -4487,13 +4490,13 @@ bool FileManager::NetCDFReadState()
                                      &meshTranspirationRate);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshTranspirationCumulativeShortTerm);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshTranspirationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true,
                                      0.0, false, &meshTranspirationCumulativeLongTerm);
@@ -4507,7 +4510,7 @@ bool FileManager::NetCDFReadState()
       
       // FIXME read in vadose zone
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4523,21 +4526,21 @@ bool FileManager::NetCDFReadState()
                                      (double**)&meshSurfacewaterMeshNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4553,21 +4556,21 @@ bool FileManager::NetCDFReadState()
                                      (double**)&meshGroundwaterMeshNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshMeshNeighborsSize, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterMeshNeighborsFlowCumulativeLongTerm);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4583,21 +4586,21 @@ bool FileManager::NetCDFReadState()
                                      (double**)&meshSurfacewaterChannelNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4613,14 +4616,14 @@ bool FileManager::NetCDFReadState()
                                      (double**)&meshGroundwaterChannelNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&meshGroundwaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements,
                                      meshChannelNeighborsSize, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
@@ -4636,7 +4639,7 @@ bool FileManager::NetCDFReadState()
                                      true, 0.0, false, &channelSurfacewaterDepth);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroWaterError)
         {
           error = NetCDFReadVariable(fileID, "channelSurfacewaterError", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1,
                                      true, 0.0, false, &channelSurfacewaterError);
@@ -4648,13 +4651,13 @@ bool FileManager::NetCDFReadState()
                                      &channelPrecipitationRate);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      0.0, false, &channelPrecipitationCumulativeShortTerm);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
                                      0.0, false, &channelPrecipitationCumulativeLongTerm);
@@ -4666,13 +4669,13 @@ bool FileManager::NetCDFReadState()
                                      &channelEvaporationRate);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelEvaporationCumulativeShortTerm);
         }
       
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelEvaporationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelEvaporationCumulativeLongTerm);
@@ -4684,7 +4687,7 @@ bool FileManager::NetCDFReadState()
                                      dummyEvapoTranspirationStateStruct, false, &channelEvapoTranspirationState);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4700,21 +4703,21 @@ bool FileManager::NetCDFReadState()
                                      (double**)&channelSurfacewaterMeshNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4730,21 +4733,21 @@ bool FileManager::NetCDFReadState()
                                      (double**)&channelGroundwaterMeshNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelGroundwaterMeshNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelMeshNeighborsSize, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelGroundwaterMeshNeighborsFlowCumulativeLongTerm);
         }
 
-      if (!error && useCurrentTimeFromFile)
+      if (!error && useCurrentTimeFromFile && !ADHydro::zeroExpirationTime)
         {
           // If we are using the currentTime value from the file then the expiration times in the file are valid so read them in.  Otherwise, do not read them
           // in and they will default to currentTime in calculateDerivedValues.
@@ -4760,14 +4763,14 @@ bool FileManager::NetCDFReadState()
                                      (double**)&channelSurfacewaterChannelNeighborsFlowRate);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
                                      (double**)&channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
         }
 
-      if (!error)
+      if (!error && !ADHydro::zeroCumulativeFlow)
         {
           error = NetCDFReadVariable(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements,
                                      channelChannelNeighborsSize, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, false, 0.0, false,
@@ -10689,6 +10692,7 @@ void FileManager::handleMeshElementStateMessage(ElementStateMessage& message)
   meshTranspirationCumulativeShortTerm[message.elementNumber - localMeshElementStart] = message.transpirationCumulativeShortTerm;
   meshTranspirationCumulativeLongTerm[ message.elementNumber - localMeshElementStart] = message.transpirationCumulativeLongTerm;
   meshEvapoTranspirationState[         message.elementNumber - localMeshElementStart] = message.evapoTranspirationState;
+  meshVadoseZone[                      message.elementNumber - localMeshElementStart] = message.vadoseZone;
   
   for (it = message.surfacewaterMeshNeighbors.begin(); it != message.surfacewaterMeshNeighbors.end(); ++it)
     {

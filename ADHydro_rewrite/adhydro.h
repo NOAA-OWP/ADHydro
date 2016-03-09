@@ -52,6 +52,9 @@ public:
   static bool                                               drainDownMode;      // Flag.
   static double                                             drainDownTime;      // Seconds.
   static bool                                               doMeshMassage;      // Flag.
+  static bool                                               zeroExpirationTime; // Flag.
+  static bool                                               zeroCumulativeFlow; // Flag.
+  static bool                                               zeroWaterError;     // Flag.
   static int                                                verbosityLevel;     // Unitless.
   static CProxy_FileManager                                 fileManagerProxy;
   static CProxy_Region                                      regionProxy;
