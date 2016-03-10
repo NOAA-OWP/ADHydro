@@ -127,7 +127,7 @@ public:
 // don't need to have separate time variables.  Since the only things in the
 // Element class are time variables MeshElement and ChannelElement don't
 // inherit from Element.  Instead, Region does.
-class Region : public CBase_Region, Element
+class Region : public CBase_Region, public Element
 {
   Region_SDAG_CODE
   

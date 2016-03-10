@@ -1344,9 +1344,12 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // snowmelt out the bottom of the snowpack is not negative.
       CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
       
-      // Verify that there is no water, no evaporation, no transpiration, and no snowfall interception in the non-existant canopy.
+      // Verify that there is no water, no evaporation, no transpiration, and no snowfall interception in the non-existant canopy.  The check against qSnow has
+      // to be epsilon equal because inside Noah-MP precipitation is split into convective precipitation and large-scale precipitation.  Even if all of the
+      // precipitation eventually becomes qSnow, adding those values back together can cause roundoff error.  This problem doesn't occur in
+      // evapoTranspirationSoil because there we assume any difference is canopy interception.
       CkAssert(0.0 == evapoTranspirationState->canLiq && 0.0 == evapoTranspirationState->canIce && 0.0 == eCan && 0.0 == eTran &&
-               evapoTranspirationForcing->prcp * fpIce == qSnow);
+               epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Store fIce from the beginning of the timestep in fIceOld.
@@ -1794,8 +1797,11 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
       // snowmelt out the bottom of the snowpack is not negative.
       CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
       
-      // Verify that there is no snowfall interception in the non-existant canopy.
-      CkAssert(evapoTranspirationForcing->prcp * fpIce == qSnow);
+      // Verify that there is no snowfall interception in the non-existant canopy.  The check has to be epsilon equal because inside Noah-MP precipitation is
+      // split into convective precipitation and large-scale precipitation.  Even if all of the precipitation eventually becomes qSnow, adding those values
+      // back together can cause roundoff error.  This problem doesn't occur in evapoTranspirationSoil because there we assume any difference is canopy
+      // interception.
+      CkAssert(epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Store fIce from the beginning of the timestep in fIceOld.
