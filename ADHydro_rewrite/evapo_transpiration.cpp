@@ -22,6 +22,8 @@
 #define NOAHMP_POROSITY        __noahmp_globals_MOD_smcmax
 #endif // INTEL_COMPILER
 
+#define NOAHMP_TFRZ (273.16f) // TFRZ from module_sf_noahmplsm.F
+
 extern "C" void READ_MP_VEG_PARAMETERS(const char* landUse, const char* mpTableFile, size_t landUseSize, size_t mpTableFileSize);
 extern "C" void SOIL_VEG_GEN_PARM(const char* landUse, const char* soil, const char* vegParmFile, const char* soilParmFile, const char* genParmFile,
                                   int* verbosityLevel, size_t landUseSize, size_t soilSize, size_t vegParmFileSize, size_t soilParmFileSize,
@@ -1047,6 +1049,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
                                    // surface.  Negative means water condensed on to the surface.  Surface evaporation sometimes comes from snow and is taken
                                    // out by Noah-MP, but if there is not enough snow we have to take the evaporation from the water in the ADHydro state
                                    // variables.
+  float thrownAwaySnow;            // If a waterbody surface is above freezing Noah-MP throws away any snowfall.  This variable is used to put it back. It is
+                                   // the quantity of snow that was thrown away in millimeters of water equivalent.  Must be non-negative.
   float snowfall;                  // Quantity of snowfall in millimeters of water equivalent.  Must be non-negative.
   float snowmeltOnGround;          // Quantity of water that reaches the ground from the snow layer in millimeters of water.  Must be non-negative.
   float rainfall;                  // Quantity of rainfall in millimeters of water.  Must be non-negative.
@@ -1344,13 +1348,34 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // snowmelt out the bottom of the snowpack is not negative.
       CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
       
-      // Verify that there is no water, no evaporation, no transpiration, and no snowfall interception in the non-existant canopy.  The check against qSnow has
-      // to be epsilon equal because inside Noah-MP precipitation is split into convective precipitation and large-scale precipitation.  Even if all of the
-      // precipitation eventually becomes qSnow, adding those values back together can cause roundoff error.  This problem doesn't occur in
-      // evapoTranspirationSoil because there we assume any difference is canopy interception.
-      CkAssert(0.0 == evapoTranspirationState->canLiq && 0.0 == evapoTranspirationState->canIce && 0.0 == eCan && 0.0 == eTran &&
-               epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
+      // Verify that there is no water, no evaporation, and no transpiration, in the non-existant canopy.
+      CkAssert(0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce && 0.0f == eCan && 0.0f == eTran);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      // Verify that there is no snowfall interception in the non-existant canopy.
+      if (evapoTranspirationState->tg > NOAHMP_TFRZ)
+        {
+          // There is something weird in the Noah-MP code.  If ist is 2 indicating a waterbody, and the ground temperature is above freezing, then any snow
+          // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.
+          thrownAwaySnow = evapoTranspirationForcing->prcp * dt * fpIce;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == qSnow);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
+      else
+        {
+          thrownAwaySnow = 0.0f;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // If qSnow does not get set to zero it should be equal to prcp * fpIce, but it could be epsilon equal because inside Noah-MP, precipitation is split
+          // into convective precipitation and large-scale precipitation.  Even if all of the precipitation eventually becomes qSnow, adding those values back
+          // together can cause roundoff error.  This problem doesn't occur in evapoTranspirationSoil because there we assume any difference is canopy
+          // interception.  This problem doesn't occur in evapoTranspirationGlacier because that code does not split precipitation into convective
+          // precipitation and large-scale precipitation.
+          CkAssert(epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
       
       // Store fIce from the beginning of the timestep in fIceOld.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
@@ -1434,7 +1459,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonGreaterOrEqual(0.001f, snEqvShouldBe));
+          CkAssert(epsilonGreaterOrEqual(0.001f + thrownAwaySnow, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
           evapoTranspirationState->snEqv = snEqvShouldBe;
@@ -1469,12 +1494,31 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           // Put the water back in snEqv.
           evapoTranspirationState->snEqv = snEqvShouldBe;
         }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
+          if (0.0f < thrownAwaySnow)
+            {
+              evapoTranspirationState->snEqv += thrownAwaySnow;
+              evapoTranspirationState->snowH += thrownAwaySnow / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+
+              if (0 > evapoTranspirationState->iSnow)
+                {
+                  evapoTranspirationState->zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] = -evapoTranspirationState->snowH;
+
+                  for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+                    {
+                      evapoTranspirationState->zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] =
+                          evapoTranspirationState->zSnso[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] + zSoil[ii];
+                    }
+
+                  evapoTranspirationState->snIce[EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1] += thrownAwaySnow;
+                }
+            }
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe));
-        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       CkAssert(!checkEvapoTranspirationStateStructInvariant(evapoTranspirationState));
@@ -1797,11 +1841,8 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
       // snowmelt out the bottom of the snowpack is not negative.
       CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
       
-      // Verify that there is no snowfall interception in the non-existant canopy.  The check has to be epsilon equal because inside Noah-MP precipitation is
-      // split into convective precipitation and large-scale precipitation.  Even if all of the precipitation eventually becomes qSnow, adding those values
-      // back together can cause roundoff error.  This problem doesn't occur in evapoTranspirationSoil because there we assume any difference is canopy
-      // interception.
-      CkAssert(epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
+      // Verify that there is no snowfall interception in the non-existant canopy.
+      CkAssert(evapoTranspirationForcing->prcp * fpIce == qSnow);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Store fIce from the beginning of the timestep in fIceOld.
