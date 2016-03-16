@@ -811,14 +811,22 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // of snEqv to back out the value of snowmeltOnGround.
       if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
         {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
           snowmeltOnGround = snEqvOriginal + snowfallBelowCanopy - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else
+      else if (0 == evapoTranspirationState->iSnow)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-          snowmeltOnGround += snEqvOriginal - evapoTranspirationState->snEqvO;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
@@ -1441,14 +1449,22 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // of snEqv to back out the value of snowmeltOnGround.
       if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
         {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
           snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else
+      else if (0 == evapoTranspirationState->iSnow)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-          snowmeltOnGround += snEqvOriginal - evapoTranspirationState->snEqvO;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
@@ -1859,34 +1875,6 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
         }
          
       // Calculate derived output variables.
-      evaporationFromSurface = eDir * dt;
-
-      // Surface condensation is added to the snow layer if any snow exists or otherwise added to the ground as water.  Surface evaporation is taken first from
-      // the snow layer up to the amount in snEqvO, and then any remaining is taken from the ground.
-      if (0.0f > evaporationFromSurface)
-        {
-          if (0.0f < evapoTranspirationState->snEqvO)
-            {
-              *evaporationFromSnow   = evaporationFromSurface;
-              *evaporationFromGround = 0.0f;
-            }
-          else
-            {
-              *evaporationFromSnow   = 0.0f;
-              *evaporationFromGround = evaporationFromSurface;
-            }
-        }
-      else if (evaporationFromSurface <= evapoTranspirationState->snEqvO)
-        {
-          *evaporationFromSnow   = evaporationFromSurface;
-          *evaporationFromGround = 0.0f;
-        }
-      else
-        {
-          *evaporationFromSnow   = evapoTranspirationState->snEqvO;
-          *evaporationFromGround = evaporationFromSurface - evapoTranspirationState->snEqvO;
-        }
-      
       snowfall         = evapoTranspirationForcing->prcp * dt * fpIce;
       snowmeltOnGround = qSnBot * dt;
       rainfall         = evapoTranspirationForcing->prcp * dt - snowfall;
@@ -1903,20 +1891,59 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           rainfallOnGround          = rainfall;
         }
       
+      evaporationFromSurface = eDir * dt;
+
+      // Surface condensation is added to the snow layer if any snow exists or otherwise added to the ground as water.  Surface evaporation is taken first from
+      // the snow layer up to the amount available, and then any remaining is taken from the ground.
+      if (0.0f > evaporationFromSurface)
+        {
+          if (0.0f < evapoTranspirationState->snEqvO)
+            {
+              *evaporationFromSnow   = evaporationFromSurface;
+              *evaporationFromGround = 0.0f;
+            }
+          else
+            {
+              *evaporationFromSnow   = 0.0f;
+              *evaporationFromGround = evaporationFromSurface;
+            }
+        }
+      // In NOAHMP_GLACIER, unlike NOAHMP_SFLX, evaporationFromGround is taken after precipitation is added to the snow layer.  So if it is snowing the maximum
+      // amount of evaporation from snow is different.  I am unsure whether snowmeltOnGround is taken before or after evaporation, or how the two situations
+      // below which modify snowmeltOnGround would affect this.  I am doing it like this for now, and we'll see if any assertion is violated.
+      else if (evaporationFromSurface <= evapoTranspirationState->snEqvO + snowfall + rainfallInterceptedBySnow - snowmeltOnGround)
+        {
+          *evaporationFromSnow   = evaporationFromSurface;
+          *evaporationFromGround = 0.0f;
+        }
+      else
+        {
+          *evaporationFromSnow   = evapoTranspirationState->snEqvO + snowfall + rainfallInterceptedBySnow - snowmeltOnGround;
+          *evaporationFromGround = evaporationFromSurface - *evaporationFromSnow;
+        }
+      
       // When the total snow height gets less than 2.5 cm the multi-layer snow simulation turns off.  When this happens all of the liquid water in snLiq
       // becomes snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during
       // the timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value
       // of snEqv to back out the value of snowmeltOnGround.
       if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
         {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
           snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else
+      else if (0 == evapoTranspirationState->iSnow)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-          snowmeltOnGround += snEqvOriginal - evapoTranspirationState->snEqvO;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0f == snowmeltOnGround);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
