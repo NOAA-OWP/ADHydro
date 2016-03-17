@@ -7,10 +7,10 @@ EXTRALDFLAGS  := -lnetcdf -lshp -fdiagnostics-show-option
 
 # Use these values for all.
 
-CPPFLAGS := $(EXTRACPPFLAGS) -I../ADHydro_rewrite -g -Wall
+CPPFLAGS := $(EXTRACPPFLAGS) -I../ADHydro -g -Wall
 LDFLAGS  := $(EXTRALDFLAGS) -g -Wall
 
-VPATH := ../ADHydro_rewrite
+VPATH := ../ADHydro
 
 EXES := adhydro_channel_preprocessing    \
         adhydro_mesh_check               \
