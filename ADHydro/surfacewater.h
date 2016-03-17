@@ -1,7 +1,7 @@
 #ifndef __SURFACEWATER_H__
 #define __SURFACEWATER_H__
 
-#include "all.h"
+#include "all_charm.h"
 
 // Calculate the surfacewater flow rate in cubic meters per second across a
 // mesh boundary edge.  Positive means flow out of the element across the edge.
@@ -17,6 +17,9 @@
 //
 // flowRate          - Scalar passed by reference will be filled in with the
 //                     flow rate in cubic meters per second.
+// dtNew             - Scalar passed by reference containing the suggested
+//                     value for the next timestep duration in seconds.  May be
+//                     updated to be shorter.
 // boundary          - What type of boundary.
 // inflowXVelocity   - X component of water velocity in meters per second for
 //                     INFLOW boundary.  Ignored for NOFLOW or OUTFLOW
@@ -29,9 +32,11 @@
 // edgeLength        - Length of edge in meters.
 // edgeNormalX       - X component of edge normal unit vector.
 // edgeNormalY       - Y component of edge normal unit vector.
+// elementArea       - Area of element in square meters.
 // surfacewaterDepth - Surfacewater depth of element in meters.
-bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity, double inflowHeight,
-                                      double edgeLength, double edgeNormalX, double edgeNormalY, double surfacewaterDepth);
+bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity,
+                                      double inflowHeight, double edgeLength, double edgeNormalX, double edgeNormalY, double elementArea,
+                                      double surfacewaterDepth);
 
 // Calculate the surfacewater flow rate in cubic meters per second across a
 // channel boundary edge.  Positive means flow out of the element across the
@@ -41,13 +46,17 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, BoundaryConditionEnum bo
 // INFLOW, flowRate is forced to be non-positive.  If boundary is OUTFLOW,
 // flowRate is forced to be non-negative.
 //
-// The governing equation for outflow is:
+// The governing equation for outflow is a free outflow boundary condtion:
 //
-// assume free outflow boundary condtion: u = sqrt(g * A/T);
-// where   u = velocity,                  [m/s];
-//         g = gravitational accerlation, [9.81 m/s^2];
-//         A = flow cross section area,   [m^2];
-//         T = channel top width,         [m];
+// u = sqrt(g*A/T);
+// u = velocity,                  [m/s];
+// g = gravitational accerlation, [9.81 m/s^2];
+// A = flow cross section area,   [m^2];
+// T = channel top width,         [m];
+//
+// Therefore:
+//
+// Q = flow rate (flux) = u*A,    [m^3/s];
 //
 // Returns: true if there is an error, false otherwise.
 //
@@ -75,14 +84,18 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
 // into the neighbor.  Negative means flow into the element out of the
 // neighbor.
 //
-// The governing equation for diffusive wave is:
+// The governing equation is the diffusive wave equation:
 //
-// (dh/dt) = - divergent(-h*k*grad(Z))+qr = -divergernt(- h^(5/3)*grad(Z)/(manning_n*(grad(Z))^1/2))+qr
-//  h      = overland water depth
-//  Z      = water surface elevation = water depth + ground elevation(h+zg)
-//  qr     = rainfall rate [m/s]
-//  k      = conductance = h^(2/3)/(manning_n*(grad(Z))^1/2) in [m/s]
-//  the flux across edge = -h*k*grad(Z) in [m^2/s]
+// (dh/dt) = -divergent(-h*k*grad(Z))+qr = -divergernt(-h^(5/3)*grad(Z)/(manning_n*(grad(Z))^1/2))+qr;
+//  h      = overland water depth,                                          [m];
+//  Z      = water surface elevation = water depth+ground elevation = h+zg, [m];
+//  qr     = rainfall rate,                                                 [m/s];
+//  k      = conductance = h^(2/3)/(manning_n*(grad(Z))^1/2),               [m/s];
+//
+//  Therefore:
+//
+//  f      = flux per unit edge length = -h*k*grad(Z),                      [m^2/s];
+//  Q      = flow rate (flux) = f*edge length,                              [m^3/s];
 //
 // Returns: true if there is an error, false otherwise.
 //
@@ -118,15 +131,13 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 // element into the mesh element.
 //
 // FIXLATER For now we are calculating flow as if the higher of the mesh or
-// channel water levels were flowing over a broad crested weir.
-// surfacewaterMeshBoundaryFlowRate is used to calculate that flow rate.
-// The weir elevation is set at the highest of meshZSurface, channelZBank, or
-// the water level in the element that water is flowing in to.
-//
-// FIXLATER This calculation is correct if only one of the water levels is over
-// the higher of the mesh surface or channel bank, but if both are we should
-// really be using a different equation rather than assuming the higher water
-// level is flowing over a weir at the elevation of the lower water level.
+// channel water levels were flowing over a broad crested weir.  The weir
+// elevation is set at the highest of meshZSurface, channelZBank, or the water
+// level in the element that water is flowing in to.  This calculation is
+// correct if only one of the water levels is over the weir (the higher of
+// meshZSurface or channelZBank), but if both are we should really be using a
+// different equation rather than assuming the higher water level is flowing
+// over a weir at the elevation of the lower water level.
 //
 // Returns: true if there is an error, false otherwise.
 //
@@ -134,23 +145,30 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 //
 // flowRate                 - Scalar passed by reference will be filled in with
 //                            the flow rate in cubic meters per second.
-// edgeLength               - Length of intersection of mesh and channel
-//                            elements in meters.
+// dtNew                     - Scalar passed by reference containing the
+//                             suggested value for the next timestep duration
+//                             in seconds.  May be updated to be shorter.
+// edgeLength               - Length of common edge in meters.
 // meshZSurface             - Surface Z coordinate of mesh element in meters.
+// meshArea                 - Area of mesh element in square meters.
 // meshSurfacewaterDepth    - Surfacewater depth of mesh element in meters.
 // channelZBank             - Bank Z coordinate of channel element in meters.
 // channelZBed              - Bed Z coordinate of channel element in meters.
+// channelBaseWidth         - Base width of channel element in meters.
+// channelSideSlope         - Side slope of channel element, unitless.
 // channelSurfacewaterDepth - Surfacewater depth of channel element in meters.
-bool surfacewaterMeshChannelFlowRate(double* flowRate, double edgeLength, double meshZSurface, double meshSurfacewaterDepth, double channelZBank,
-                                     double channelZBed, double channelSurfacewaterDepth);
+bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edgeLength, double meshZSurface, double meshArea, double meshSurfacewaterDepth,
+                                     double channelZBank, double channelZBed, double channelBaseWidth, double channelSideSlope,
+                                     double channelSurfacewaterDepth);
 
 // Calculate the surfacewater flow rate in cubic meters per second between a
-// channel element and its chanel neighbor.  Positive means flow out of the
+// channel element and its channel neighbor.  Positive means flow out of the
 // element into the neighbor.  Negative means flow into the element out of
 // the neighbor.
 //
-// The algorithm for calculating the flow rate depends on the channel types of
-// the two elements.  For details see private functions in surfacewater.cpp.
+// The equation for calculating the flow rate depends on the channel types of
+// the two elements.  For details see comments of private functions in
+// surfacewater.cpp.
 //
 // Returns: true if there is an error, false otherwise.
 //

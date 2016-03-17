@@ -1,63 +1,56 @@
 mainmodule adhydro
 {
   extern module file_manager;
-  extern module mesh_element;
-  extern module channel_element;
+  extern module region;
   
-  mainchare [migratable] ADHydro
+  mainchare ADHydro
   {
-    readonly bool   appendToInputFiles;
-    readonly bool   drainDownMode;
-    readonly double drainDownTime;
-    readonly bool   doMeshMassage;
-    readonly int    verbosityLevel;
+    // Global readonly variables.
+    readonly std::string                                        evapoTranspirationInitMpTableFilePath;
+    readonly std::string                                        evapoTranspirationInitVegParmFilePath;
+    readonly std::string                                        evapoTranspirationInitSoilParmFilePath;
+    readonly std::string                                        evapoTranspirationInitGenParmFilePath;
+    readonly bool                                               initializeFromASCIIFiles;
+    readonly std::string                                        ASCIIInputMeshNodeFilePath;
+    readonly std::string                                        ASCIIInputMeshZFilePath;
+    readonly std::string                                        ASCIIInputMeshElementFilePath;
+    readonly std::string                                        ASCIIInputMeshNeighborFilePath;
+    readonly std::string                                        ASCIIInputMeshLandCoverFilePath;
+    readonly std::string                                        ASCIIInputMeshSoilTypeFilePath;
+    readonly std::string                                        ASCIIInputMeshGeolTypeFilePath;
+    readonly std::string                                        ASCIIInputMeshEdgeFilePath;
+    readonly std::string                                        ASCIIInputChannelNodeFilePath;
+    readonly std::string                                        ASCIIInputChannelZFilePath;
+    readonly std::string                                        ASCIIInputChannelElementFilePath;
+    readonly std::string                                        ASCIIInputChannelPruneFilePath;
+    readonly std::string                                        adhydroInputGeometryFilePath;
+    readonly std::string                                        adhydroInputParameterFilePath;
+    readonly std::string                                        adhydroInputStateFilePath;
+    readonly std::string                                        adhydroInputForcingFilePath;
+    readonly int                                                adhydroInputStateInstance;
+    readonly std::string                                        adhydroOutputGeometryFilePath;
+    readonly std::string                                        adhydroOutputParameterFilePath;
+    readonly std::string                                        adhydroOutputStateFilePath;
+    readonly std::string                                        adhydroOutputDisplayFilePath;
+    readonly double                                             centralMeridian;
+    readonly double                                             falseEasting;
+    readonly double                                             falseNorthing;
+    readonly double                                             referenceDate;
+    readonly double                                             currentTime;
+    readonly double                                             simulationDuration;
+    readonly double                                             checkpointPeriod;
+    readonly double                                             outputPeriod;
+    readonly InfiltrationAndGroundwater::InfiltrationMethodEnum infiltrationMethod;
+    readonly bool                                               drainDownMode;
+    readonly double                                             drainDownTime;
+    readonly bool                                               doMeshMassage;
+    readonly bool                                               zeroExpirationTime;
+    readonly bool                                               zeroCumulativeFlow;
+    readonly bool                                               zeroWaterError;
+    readonly int                                                verbosityLevel;
+    readonly CProxy_FileManager                                 fileManagerProxy;
+    readonly CProxy_Region                                      regionProxy;
     
-    initproc void setLoadBalancingToManual();
     entry ADHydro(CkArgMsg* msg);
-    entry [reductiontarget] void fileManagerInitialized();
-    entry [reductiontarget] void writeFiles();
-    entry [reductiontarget] void checkForcingData();
-    
-    entry void waitForForcingDataToFinish()
-    {
-      when meshForcingDataDone(), channelForcingDataDone()
-      {
-        serial
-        {
-          forcingDataDone();
-        }
-      }
-    };
-    
-    entry [reductiontarget] void meshForcingDataDone();
-    entry [reductiontarget] void channelForcingDataDone();
-    
-    entry void waitForInvariantToFinish()
-    {
-      when meshInvariantDone(), channelInvariantDone()
-      {
-        serial
-        {
-          doTimestep();
-        }
-      }
-    };
-    
-    entry [reductiontarget] void meshInvariantDone();
-    entry [reductiontarget] void channelInvariantDone();
-    
-    entry void waitForTimestepToFinish()
-    {
-      when meshTimestepDone(double dtNewMesh), channelTimestepDone(double dtNewChannel)
-      {
-        serial
-        {
-          timestepDone((dtNewMesh < dtNewChannel) ? dtNewMesh : dtNewChannel);
-        }
-      }
-    };
-    
-    entry [reductiontarget] void meshTimestepDone(double dtNewMesh);
-    entry [reductiontarget] void channelTimestepDone(double dtNewChannel);
-  }; // End mainchare [migratable] ADHydro.
+  }; // End mainchare ADHydro.
 }; // End mainmodule adhydro.

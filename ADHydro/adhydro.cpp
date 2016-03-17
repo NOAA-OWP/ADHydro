@@ -1,31 +1,144 @@
 #include "adhydro.h"
-#include "file_manager.h"
 #include "INIReader.h"
 
-// Read-only global variables.
-bool   ADHydro::appendToInputFiles;
-bool   ADHydro::drainDownMode;
-double ADHydro::drainDownTime;
-bool   ADHydro::doMeshMassage;
-int    ADHydro::verbosityLevel;
+// Global readonly variables.
+std::string                                        ADHydro::evapoTranspirationInitMpTableFilePath;
+std::string                                        ADHydro::evapoTranspirationInitVegParmFilePath;
+std::string                                        ADHydro::evapoTranspirationInitSoilParmFilePath;
+std::string                                        ADHydro::evapoTranspirationInitGenParmFilePath;
+bool                                               ADHydro::initializeFromASCIIFiles;
+std::string                                        ADHydro::ASCIIInputMeshNodeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshZFilePath;
+std::string                                        ADHydro::ASCIIInputMeshElementFilePath;
+std::string                                        ADHydro::ASCIIInputMeshNeighborFilePath;
+std::string                                        ADHydro::ASCIIInputMeshLandCoverFilePath;
+std::string                                        ADHydro::ASCIIInputMeshSoilTypeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshGeolTypeFilePath;
+std::string                                        ADHydro::ASCIIInputMeshEdgeFilePath;
+std::string                                        ADHydro::ASCIIInputChannelNodeFilePath;
+std::string                                        ADHydro::ASCIIInputChannelZFilePath;
+std::string                                        ADHydro::ASCIIInputChannelElementFilePath;
+std::string                                        ADHydro::ASCIIInputChannelPruneFilePath;
+std::string                                        ADHydro::adhydroInputGeometryFilePath;
+std::string                                        ADHydro::adhydroInputParameterFilePath;
+std::string                                        ADHydro::adhydroInputStateFilePath;
+std::string                                        ADHydro::adhydroInputForcingFilePath;
+int                                                ADHydro::adhydroInputStateInstance;
+std::string                                        ADHydro::adhydroOutputGeometryFilePath;
+std::string                                        ADHydro::adhydroOutputParameterFilePath;
+std::string                                        ADHydro::adhydroOutputStateFilePath;
+std::string                                        ADHydro::adhydroOutputDisplayFilePath;
+double                                             ADHydro::centralMeridian;
+double                                             ADHydro::falseEasting;
+double                                             ADHydro::falseNorthing;
+double                                             ADHydro::referenceDate;
+double                                             ADHydro::currentTime;
+double                                             ADHydro::simulationDuration;
+double                                             ADHydro::checkpointPeriod;
+double                                             ADHydro::outputPeriod;
+InfiltrationAndGroundwater::InfiltrationMethodEnum ADHydro::infiltrationMethod;
+bool                                               ADHydro::drainDownMode;
+double                                             ADHydro::drainDownTime;
+bool                                               ADHydro::doMeshMassage;
+bool                                               ADHydro::zeroExpirationTime;
+bool                                               ADHydro::zeroCumulativeFlow;
+bool                                               ADHydro::zeroWaterError;
+int                                                ADHydro::verbosityLevel;
+CProxy_FileManager                                 ADHydro::fileManagerProxy;
+CProxy_Region                                      ADHydro::regionProxy;
 
-void ADHydro::setLoadBalancingToManual()
+bool ADHydro::getLatLong(double x, double y, double& latitude, double& longitude)
 {
-  // Charm++ call to set load balancing to manual.
-  TurnManualLBOn();
+  bool error = false; // Error flag.
+  
+  latitude  = (y - falseNorthing) / POLAR_RADIUS_OF_EARTH;
+  longitude = centralMeridian + (x - falseEasting) / (POLAR_RADIUS_OF_EARTH * cos(latitude));
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(-M_PI / 2.0 <= latitude && M_PI / 2.0 >= latitude))
+    {
+      CkError("ERROR in ADHydro::getLatLong: x and y must produce a latitude greater than or equal to negative PI over two and less than or equal to PI over "
+              "two.\n");
+      error = true;
+    }
+  
+  if (!(-M_PI * 2.0 <= longitude && M_PI * 2.0 >= longitude))
+    {
+      CkError("ERROR in ADHydro::getLatLong: x and y must produce a longitude greater than or equal to negative two PI and less than or equal to two PI.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  return error;
+}
+
+double ADHydro::newExpirationTime(double currentTime, double dtNew)
+{
+  int          ii;                                                     // Loop counter.
+  const int    numberOfDts               = 15;                         // Unitless.
+  const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 2.0 * 60.0, 3.0 * 60.0, 5.0 * 60.0, 10.0 * 60.0, 15.0 * 60.0,
+                                            30.0 * 60.0, 60.0 * 60.0}; // Seconds.
+  double       selectedDt;                                             // Seconds.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0.0 < dtNew))
+    {
+      CkError("ERROR in ADHydro::newExpirationTime: dtNew must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  if (dtNew < allowableDts[0])
+    {
+      selectedDt = allowableDts[0] * 0.5;
+      
+      while (dtNew < selectedDt)
+        {
+          selectedDt *= 0.5;
+        }
+    }
+  else
+    {
+      ii = 0;
+      
+      while (ii + 1 < numberOfDts && dtNew >= allowableDts[ii + 1])
+        {
+          ++ii;
+        }
+      
+      selectedDt = allowableDts[ii];
+    }
+  
+  ii = floor(currentTime / selectedDt) + 1;
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(ii * selectedDt <= currentTime + dtNew);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  while ((ii + 1) * selectedDt <= currentTime + dtNew)
+    {
+      ++ii;
+    }
+  
+  return ii * selectedDt;
 }
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
   const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
-  INIReader   superfile(superfileName);                                // superfile reader object.
+  INIReader   superfile(superfileName);                                // Superfile reader object.
+  std::string evapoTranspirationInitDirectoryPath;                     // Directory path to use with default filenames if file paths not specified.
+  std::string ASCIIInputDirectoryPath;                                 // Directory path to use with default filenames if file paths not specified.
+  std::string ASCIIInputFileBasename;                                  // Directory path to use with default filenames if file paths not specified.
+  std::string adhydroInputDirectoryPath;                               // Directory path to use with default filenames if file paths not specified.
+  std::string adhydroOutputDirectoryPath;                              // Directory path to use with default filenames if file paths not specified.
   long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
   long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
   long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
   long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
   long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
   double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
-  std::string asciiFileBasename;                                       // The basename of the ASCII files if initializing from ASCII files.
+  std::string infiltrationMethodString;                                // For converting text to enum value.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   // If the superfile cannot be read print usage message and exit.
@@ -41,31 +154,65 @@ ADHydro::ADHydro(CkArgMsg* msg)
         }
       
       CkError("\nUsage:\n\nadhydro <superfile>\n\n");
-      CkError("E.g.:\n\nadhydro ../input/mesh.1/run_1.superfile\n\n");
+      CkError("E.g.:\n\nadhydro ../input/example_superfile_v2.0.ini\n\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  // Get initialization values from the superfile.
-  inputDirectory     = superfile.Get("", "inputDirectory", "");
-  appendToInputFiles = superfile.GetBoolean("", "appendToInputFiles", false); // If appendToInputFiles is not in the superfile it defaults to false and new
-                                                                              // output files will be created in outputDirectory.
+  // Get readonly variables from the superfile.
+  evapoTranspirationInitDirectoryPath    = superfile.Get("", "evapoTranspirationInitDirectoryPath", ".");
+  evapoTranspirationInitMpTableFilePath  = superfile.Get("", "evapoTranspirationInitMpTableFilePath",  evapoTranspirationInitDirectoryPath + "/MPTABLE.TBL");
+  evapoTranspirationInitVegParmFilePath  = superfile.Get("", "evapoTranspirationInitVegParmFilePath",  evapoTranspirationInitDirectoryPath + "/VEGPARM.TBL");
+  evapoTranspirationInitSoilParmFilePath = superfile.Get("", "evapoTranspirationInitSoilParmFilePath", evapoTranspirationInitDirectoryPath + "/SOILPARM.TBL");
+  evapoTranspirationInitGenParmFilePath  = superfile.Get("", "evapoTranspirationInitGenParmFilePath",  evapoTranspirationInitDirectoryPath + "/GENPARM.TBL");
+  initializeFromASCIIFiles               = superfile.GetBoolean("", "initializeFromASCIIFiles", false);
+  ASCIIInputDirectoryPath                = superfile.Get("", "ASCIIInputDirectoryPath", ".");
+  ASCIIInputFileBasename                 = superfile.Get("", "ASCIIInputFileBasename", "mesh.1");
+  ASCIIInputMeshNodeFilePath             = superfile.Get("", "ASCIIInputMeshNodeFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".node");
+  ASCIIInputMeshZFilePath                = superfile.Get("", "ASCIIInputMeshZFilePath",          ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".z");
+  ASCIIInputMeshElementFilePath          = superfile.Get("", "ASCIIInputMeshElementFilePath",    ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".ele");
+  ASCIIInputMeshNeighborFilePath         = superfile.Get("", "ASCIIInputMeshNeighborFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".neigh");
+  ASCIIInputMeshLandCoverFilePath        = superfile.Get("", "ASCIIInputMeshLandCoverFilePath",  ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".landCover");
+  ASCIIInputMeshSoilTypeFilePath         = superfile.Get("", "ASCIIInputMeshSoilTypeFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".soilType");
+  ASCIIInputMeshGeolTypeFilePath         = superfile.Get("", "ASCIIInputMeshGeolTypeFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".geolType");
+  ASCIIInputMeshEdgeFilePath             = superfile.Get("", "ASCIIInputMeshEdgeFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".edge");
+  ASCIIInputChannelNodeFilePath          = superfile.Get("", "ASCIIInputChannelNodeFilePath",    ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.node");
+  ASCIIInputChannelZFilePath             = superfile.Get("", "ASCIIInputChannelZFilePath",       ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.z");
+  ASCIIInputChannelElementFilePath       = superfile.Get("", "ASCIIInputChannelElementFilePath", ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.ele");
+  ASCIIInputChannelPruneFilePath         = superfile.Get("", "ASCIIInputChannelPruneFilePath",   ASCIIInputDirectoryPath + "/" + ASCIIInputFileBasename + ".chan.prune");
+  adhydroInputDirectoryPath              = superfile.Get("", "adhydroInputDirectoryPath", ".");
+  adhydroInputGeometryFilePath           = superfile.Get("", "adhydroInputGeometryFilePath",  adhydroInputDirectoryPath + "/geometry.nc");
+  adhydroInputParameterFilePath          = superfile.Get("", "adhydroInputParameterFilePath", adhydroInputDirectoryPath + "/parameter.nc");
+  adhydroInputStateFilePath              = superfile.Get("", "adhydroInputStateFilePath",     adhydroInputDirectoryPath + "/state.nc");
+  adhydroInputForcingFilePath            = superfile.Get("", "adhydroInputForcingFilePath",   adhydroInputDirectoryPath + "/forcing.nc");
+  adhydroInputStateInstance              = superfile.GetInteger("", "adhydroInputStateInstance", -1);
+  adhydroOutputDirectoryPath             = superfile.Get("", "adhydroOutputDirectoryPath", ".");
+  adhydroOutputGeometryFilePath          = superfile.Get("", "adhydroOutputGeometryFilePath",  adhydroOutputDirectoryPath + "/geometry.nc");
+  adhydroOutputParameterFilePath         = superfile.Get("", "adhydroOutputParameterFilePath", adhydroOutputDirectoryPath + "/parameter.nc");
+  adhydroOutputStateFilePath             = superfile.Get("", "adhydroOutputStateFilePath",     adhydroOutputDirectoryPath + "/state.nc");
+  adhydroOutputDisplayFilePath           = superfile.Get("", "adhydroOutputDisplayFilePath",   adhydroOutputDirectoryPath + "/display.nc");
   
-  if (appendToInputFiles)
+  centralMeridian = superfile.GetReal("", "centralMeridianRadians", NAN);
+  
+  if (isnan(centralMeridian))
     {
-      outputDirectory = inputDirectory;
+      centralMeridian = superfile.GetReal("", "centralMeridianDegrees", NAN) * M_PI / 180.0;
     }
-  else
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(isnan(centralMeridian) || (-M_PI * 2.0 <= centralMeridian && M_PI * 2.0 >= centralMeridian)))
     {
-      outputDirectory = superfile.Get("", "outputDirectory", "");
+      CkError("ERROR in ADHydro::ADHydro: centralMeridian must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+      CkExit();
     }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  referenceDate = superfile.GetReal("", "referenceDate", NAN); // If referenceDate is not in the superfile it will first attempt to convert the Gregorian date
-                                                               // in referenceDateYear, referenceDateMonth, referenceDateDay, referenceDateHour,
-                                                               // referenceDateMinute, and referenceDateSecond to a Julian date.  If that is unsuccessful it
-                                                               // will be taken from the input NetCDF files.
+  falseEasting  = superfile.GetReal("", "falseEasting", NAN);
+  falseNorthing = superfile.GetReal("", "falseNorthing", NAN);
   
-  // If there is no referenceDate read a Gregorian date and convert to julian date.
+  referenceDate = superfile.GetReal("", "referenceDateJulian", NAN);
+  
+  // If there is no referenceDate read a Gregorian date and convert to Julian date.
   if (isnan(referenceDate))
     {
       referenceDateYear   = superfile.GetInteger("", "referenceDateYear", -1);
@@ -84,511 +231,63 @@ ADHydro::ADHydro(CkArgMsg* msg)
         }
     }
   
-  currentTime        = superfile.GetReal("", "currentTime", NAN);        // If currentTime is not in the superfile it will be taken from the input NetCDF
-                                                                         // files.
-  simulationDuration = superfile.GetReal("", "simulationDuration", 0.0); // If simulationDuration is not in the superfile it defaults to zero and the
-                                                                         // simulation will not run any timesteps.
-  dt                 = superfile.GetReal("", "dt", NAN);                 // If dt is not in the superfile it will be taken from the input NetCDF files.
-  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", 0.0);   // If checkpointPeriod is not in the superfile it defaults to zero and the simulation will
-                                                                         // checkpoint every timestep.
-  outputPeriod       = superfile.GetReal("", "outputPeriod", 0.0);       // If outputPeriod is not in the superfile it defaults to zero and the simulation will
-                                                                         // output every timestep.
-  iteration          = superfile.GetInteger("", "iteration", -1);        // If iteration is not in the superfile it will be taken from the input NetCDF files.
-  drainDownMode      = superfile.GetBoolean("", "drainDownMode", false); // If drainDownMode is not in the superfile it defaults to false and the simulation
-                                                                         // will run in normal mode.
-  drainDownTime      = superfile.GetReal("", "drainDownTime", NAN);      // If drainDownTime is not in the superfile it will be taken from currentTime.
-  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false); // If doMeshMassage is not in the superfile it defaults to false and mesh massage will
-                                                                         // not be run.
-  verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);    // If verbosityLevel is not in the superfile it defaults to two.
+  currentTime        = superfile.GetReal("", "currentTime", NAN);
+  simulationDuration = superfile.GetReal("", "simulationDuration", 0.0);
+  checkpointPeriod   = superfile.GetReal("", "checkpointPeriod", INFINITY);
+  outputPeriod       = superfile.GetReal("", "outputPeriod", INFINITY);
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (!(0.0 <= simulationDuration))
+    {
+      CkError("ERROR in ADHydro::ADHydro: simulationDuration must be greater than or equal to zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < checkpointPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: checkpointPeriod must be greater than zero.\n");
+      CkExit();
+    }
+  
+  if (!(0.0 < outputPeriod))
+    {
+      CkError("ERROR in ADHydro::ADHydro: outputPeriod must be greater than zero.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  infiltrationMethodString = superfile.Get("", "infiltrationMethod", "NO_INFILTRATION");
+  
+  if ("NO_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::NO_INFILTRATION;
+    }
+  else if ("TRIVIAL_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::TRIVIAL_INFILTRATION;
+    }
+  else if ("GARTO_INFILTRATION" == infiltrationMethodString)
+    {
+      infiltrationMethod = InfiltrationAndGroundwater::GARTO_INFILTRATION;
+    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  else
+    {
+      CkError("ERROR in ADHydro::ADHydro: infiltrationMethod in superfile must be a valid enum value.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  
+  drainDownMode      = superfile.GetBoolean("", "drainDownMode", false);
+  drainDownTime      = superfile.GetReal("", "drainDownTime", 0.0);
+  doMeshMassage      = superfile.GetBoolean("", "doMeshMassage", false);
+  zeroExpirationTime = superfile.GetBoolean("", "zeroExpirationTime", false);
+  zeroCumulativeFlow = superfile.GetBoolean("", "zeroCumulativeFlow", false);
+  zeroWaterError     = superfile.GetBoolean("", "zeroWaterError", false);
+  verbosityLevel     = superfile.GetInteger("", "verbosityLevel", 2);
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();
-  
-  // Set the callback to continue initialization when the file manager is ready.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, fileManagerInitialized), thisProxy));
-  
-  // Initialize the file manager.
-  if (superfile.GetBoolean("", "initializeFromASCIIFiles", false))
-    {
-      if (appendToInputFiles)
-        {
-          CkError("ERROR in ADHydro::ADHydro: superfile options appendToInputFiles and initializeFromASCIIFiles are mutually exclusive.  We cannot place "
-                  "output in the ASCII file format.\n");
-          CkExit();
-        }
-      
-      asciiFileBasename = superfile.Get("", "asciiFileBasename", "");
-      
-      fileManagerProxy.initializeFromASCIIFiles(inputDirectory.length() + 1, inputDirectory.c_str(), asciiFileBasename.length() + 1,
-                                                asciiFileBasename.c_str());
-    }
-  else
-    {
-      // FIXME send a std::string in the message instead of a C string and length?
-      // FIXME or make inputDirectory and outputDirectory read only variables?
-      fileManagerProxy.initializeFromNetCDFFiles(inputDirectory.length() + 1, inputDirectory.c_str());
-    }
-  
-  if (1 <= verbosityLevel)
-    {
-      CkPrintf("Reading input files.\n");
-    }
 }
 
-ADHydro::ADHydro(CkMigrateMessage* msg)
-{
-  // Do nothing.
-}
-
-void ADHydro::pup(PUP::er &p)
-{
-  CBase_ADHydro::pup(p);
-  __sdag_pup(p);
-  p | meshProxy;
-  p | channelProxy;
-  p | fileManagerProxy;
-  p | inputDirectory;
-  p | outputDirectory;
-  p | referenceDate;
-  p | currentTime;
-  p | simulationDuration;
-  p | endTime;
-  p | dt;
-  p | checkpointPeriod;
-  p | nextCheckpointTime;
-  p | outputPeriod;
-  p | nextOutputTime;
-  p | iteration;
-  p | startingIteration;
-  p | writeGeometry;
-  p | writeParameter;
-  p | needToCheckInvariant;
-  p | printMessage;
-}
-
-void ADHydro::fileManagerInitialized()
-{
-  if (1 <= verbosityLevel)
-    {
-      CkPrintf("Finished reading input files.\n");
-      
-      if (appendToInputFiles)
-        {
-          printMessage = false;
-        }
-      else
-        {
-          CkPrintf("Writing output files.\n");
-          
-          printMessage = true;
-        }
-    }
-  
-  // Initialize member variables.
-  if (isnan(referenceDate))
-    {
-      referenceDate = fileManagerProxy.ckLocalBranch()->referenceDate;
-    }
-  
-  if (isnan(currentTime))
-    {
-      currentTime = fileManagerProxy.ckLocalBranch()->currentTime;
-    }
-  
-  endTime = currentTime + simulationDuration;
-  
-  if (isnan(dt))
-    {
-      dt = fileManagerProxy.ckLocalBranch()->dt;
-    }
-  
-  nextCheckpointTime = currentTime + checkpointPeriod;
-  nextOutputTime     = currentTime + outputPeriod;
-  
-  if ((size_t)-1 == iteration)
-    {
-      iteration = fileManagerProxy.ckLocalBranch()->iteration;
-    }
-  
-  if (isnan(drainDownTime))
-    {
-      drainDownTime = currentTime;
-    }
-  
-  startingIteration    = iteration;
-  needToCheckInvariant = true;
-  
-  // Create mesh and channels.
-  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-    {
-      meshProxy = CProxy_MeshElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements);
-    }
-  
-  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-    {
-      channelProxy = CProxy_ChannelElement::ckNew(fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements);
-    }
-
-  // Initialize mesh and channels.
-  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-    {
-      meshProxy.initialize(channelProxy, fileManagerProxy);
-    }
-  
-  if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-    {
-      channelProxy.initialize(meshProxy, fileManagerProxy);
-    }
-  
-  if (appendToInputFiles)
-    {
-      // Do not need to write the geometry and parameter files when appending to input files.
-      writeGeometry  = false;
-      writeParameter = false;
-      writeState     = false;
-      writeDisplay   = false;
-      
-      checkForcingData();
-    }
-  else
-    {
-      // Need to write the geometry and parameter files when creating new output files.
-      writeGeometry  = true;
-      writeParameter = true;
-      writeState     = true;
-      writeDisplay   = true;
-      
-      // Set the callback to write output files after they are created.
-      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
-
-      // Have the file manager create output files.
-      fileManagerProxy.createFiles(outputDirectory.length() + 1, outputDirectory.c_str());
-    }
-}
-
-void ADHydro::writeFiles()
-{
-  // Set the callback to check forcing data when files are written.
-  fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, checkForcingData), thisProxy));
-  
-  fileManagerProxy.writeFiles(outputDirectory.length() + 1, outputDirectory.c_str(), writeGeometry, writeParameter, writeState, writeDisplay, referenceDate,
-                              currentTime, dt, iteration);
-  
-  // Now that we have outputted the geometry and parameters we don't need to do it again unless they change.
-  writeGeometry  = false;
-  writeParameter = false;
-  writeState     = false;
-  writeDisplay   = false;
-}
-
-void ADHydro::checkForcingData()
-{
-  if (printMessage)
-    {
-      CkPrintf("Finished writing output files.\n");
-      
-      printMessage = false;
-    }
-  
-  if (endTime > currentTime && (!fileManagerProxy.ckLocalBranch()->forcingDataInitialized ||
-                                fileManagerProxy.ckLocalBranch()->nextForcingDataDate <= referenceDate + currentTime / (24.0 * 3600.0)))
-    {
-      if (1 <= verbosityLevel)
-        {
-          CkPrintf("Reading forcing data.\n");
-          
-          printMessage = true;
-        }
-      
-      // Set callback.
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-        {
-          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshForcingDataDone), thisProxy));
-        }
-      else
-        {
-          thisProxy.meshForcingDataDone();
-        }
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-        {
-          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelForcingDataDone), thisProxy));
-        }
-      else
-        {
-          thisProxy.channelForcingDataDone();
-        }
-
-      // Update forcing data.
-      fileManagerProxy.readForcingData(inputDirectory.length() + 1, inputDirectory.c_str(), meshProxy, channelProxy, referenceDate,
-                                       currentTime);
-      thisProxy.waitForForcingDataToFinish();
-    }
-  else
-    {
-      forcingDataDone();
-    }
-}
-
-void ADHydro::forcingDataDone()
-{
-  long   forcingDataYear;   // For calculating Gregorian date from Julian date.
-  long   forcingDataMonth;  // For calculating Gregorian date from Julian date.
-  long   forcingDataDay;    // For calculating Gregorian date from Julian date.
-  long   forcingDataHour;   // For calculating Gregorian date from Julian date.
-  long   forcingDataMinute; // For calculating Gregorian date from Julian date.
-  double forcingDataSecond; // For calculating Gregorian date from Julian date.
-  long   simulationYear;    // For calculating Gregorian date from Julian date.
-  long   simulationMonth;   // For calculating Gregorian date from Julian date.
-  long   simulationDay;     // For calculating Gregorian date from Julian date.
-  long   simulationHour;    // For calculating Gregorian date from Julian date.
-  long   simulationMinute;  // For calculating Gregorian date from Julian date.
-  double simulationSecond;  // For calculating Gregorian date from Julian date.
-  
-  if (printMessage)
-    {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(fileManagerProxy.ckLocalBranch()->forcingDataInitialized);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  
-      julianToGregorian(fileManagerProxy.ckLocalBranch()->forcingDataDate, &forcingDataYear, &forcingDataMonth, &forcingDataDay, &forcingDataHour,
-                        &forcingDataMinute, &forcingDataSecond);
-      julianToGregorian(referenceDate + currentTime / (24.0 * 3600.0), &simulationYear, &simulationMonth, &simulationDay, &simulationHour,
-                        &simulationMinute, &simulationSecond);
-      
-      CkPrintf("Finished reading forcing data for %02d/%02d/%04d %02d:%02d:%05.2lf at simulation time %02d/%02d/%04d %02d:%02d:%05.2lf.\n", forcingDataMonth,
-               forcingDataDay, forcingDataYear, forcingDataHour, forcingDataMinute, forcingDataSecond, simulationMonth, simulationDay, simulationYear,
-               simulationHour, simulationMinute, simulationSecond);
-      
-      printMessage = false;
-    }
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-  // If debug level is set to internal invariants check every timestep.
-  checkInvariant();
-#elif (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
-  // If debug level is set to user input invariants check once at the beginning.
-  if (needToCheckInvariant)
-    {
-      checkInvariant();
-      
-      needToCheckInvariant = false;
-    }
-  else
-    {
-      doTimestep();
-    }
-#else // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-  // Otherwise do not check the invariant and just start the timestep.
-  doTimestep();
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-}
-
-void ADHydro::checkInvariant()
-{
-  bool error = false; // Error flag.
-  
-  if (!(currentTime <= endTime))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: currentTime must be less than or equal to endTime.\n");
-      error = true;
-    }
-  
-  if (!(0.0 < dt))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: dt must be greater than zero.\n");
-      error = true;
-    }
-  
-  if (!(0.0 <= checkpointPeriod))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: checkpointPeriod must be greater than or equal to zero.\n");
-      error = true;
-    }
-  
-  if (!(0.0 <= outputPeriod))
-    {
-      CkError("ERROR in ADHydro::checkInvariant: outputPeriod must be greater than or equal to zero.\n");
-      error = true;
-    }
-  
-  if (!error)
-    {
-      // Set callbacks and check invariant.
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-        {
-          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshInvariantDone), thisProxy));
-          meshProxy.checkInvariant();
-        }
-      else
-        {
-          thisProxy.meshInvariantDone();
-        }
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-        {
-          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelInvariantDone), thisProxy));
-          channelProxy.checkInvariant();
-        }
-      else
-        {
-          thisProxy.channelInvariantDone();
-        }
-
-      thisProxy.waitForInvariantToFinish();
-    }
-  else
-    {
-      CkExit();
-    }
-}
-
-void ADHydro::doTimestep()
-{
-  double date; // The julian date to use for sun position calculations.
-  
-  if (endTime > currentTime)
-    {
-      // Limit dt to time remaining.
-      if (endTime - currentTime < dt)
-        {
-          dt = endTime - currentTime;
-        }
-
-      // Print at beginning of timestep.
-      if (1 <= verbosityLevel)
-        {
-          CkPrintf("currentTime = %lf, dt = %lf, iteration = %lu.\n", currentTime, dt, iteration);
-        }
-
-      // Set callbacks and start timestep.
-      if (drainDownMode)
-        {
-          date = referenceDate + drainDownTime / (24.0 * 3600.0);
-        }
-      else
-        {
-          date = referenceDate + currentTime / (24.0 * 3600.0);
-        }
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-        {
-          meshProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, meshTimestepDone), thisProxy));
-          meshProxy.doTimestep(iteration, date, dt);
-        }
-      else
-        {
-          thisProxy.meshTimestepDone(2.0 * dt);
-        }
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-        {
-          channelProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, channelTimestepDone), thisProxy));
-          channelProxy.doTimestep(iteration, date, dt);
-        }
-      else
-        {
-          thisProxy.channelTimestepDone(2.0 * dt);
-        }
-
-      thisProxy.waitForTimestepToFinish();
-    }
-  else
-    {
-      if (1 <= verbosityLevel)
-        {
-          CkPrintf("currentTime = %lf, simulation finished.\n", currentTime);
-        }
-      
-      CkExit();
-    }
-}
-
-void ADHydro::timestepDone(double dtNew)
-{
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(0.0 < dtNew))
-    {
-      CkError("ERROR in ADHydro::timestepDone: dtNew must be greater than zero.\n");
-      CkExit();
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-
-  // Update time and iteration number.
-  currentTime += dt;
-  dt           = dtNew;
-  iteration++;
-
-  // Load balance once after waiting a few iterations to generate load statistics.
-  if (startingIteration + 5 == iteration && 1 < CkNumPes())
-    {
-      if (1 <= verbosityLevel)
-        {
-          CkPrintf("Starting load balancing.\n");
-        }
-      
-      CkStartLB();
-    }
-
-  // Check if it is time to output to file.
-  if (currentTime >= nextCheckpointTime || currentTime >= nextOutputTime || currentTime >= endTime)
-    {
-      if (currentTime >= nextCheckpointTime || currentTime >= endTime)
-        {
-          writeState = true;
-          
-          if (currentTime >= nextCheckpointTime && 0.0 < checkpointPeriod)
-            {
-              // Advance nextCheckpointTime by multiples of checkpointPeriod until it is greater than currentTime.
-              nextCheckpointTime += checkpointPeriod * (floor((currentTime - nextCheckpointTime) / checkpointPeriod) + 1);
-            }
-        }
-      
-      if (currentTime >= nextOutputTime || currentTime >= endTime)
-        {
-          writeDisplay = true;
-          
-          if (currentTime >= nextOutputTime && 0.0 < outputPeriod)
-            {
-              // Advance nextOutputTime by multiples of outputPeriod until it is greater than currentTime.
-              nextOutputTime += outputPeriod * (floor((currentTime - nextOutputTime) / outputPeriod) + 1);
-            }
-        }
-      
-      if (1 <= verbosityLevel)
-        {
-          CkPrintf("Writing output files.\n");
-          
-          printMessage = true;
-        }
-
-      // Set the callback to write output files after state information is updated.
-      fileManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(ADHydro, writeFiles), thisProxy));
-
-      // Start the output phase.
-      fileManagerProxy.updateState();
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)
-        {
-          meshProxy.updateState();
-        }
-      
-      if (0 < fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements)
-        {
-          channelProxy.updateState();
-        }
-    }
-  else
-    {
-      checkForcingData();
-    }
-}
-
-// Suppress warnings in the The Charm++ autogenerated code.
-#ifndef INTEL_COMPILER
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#endif  // INTEL_COMPILER
 #include "adhydro.def.h"
-#ifndef INTEL_COMPILER
-#pragma GCC diagnostic warning "-Wunused-variable"
-#endif  // INTEL_COMPILER
