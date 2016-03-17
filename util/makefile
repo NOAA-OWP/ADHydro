@@ -15,6 +15,7 @@ VPATH := ../ADHydro_rewrite
 EXES := adhydro_channel_preprocessing    \
         adhydro_mesh_check               \
         adhydro_create_channel_shapefile \
+        adhydro_create_xdmf_file         \
         test_date_functions
 
 all: $(EXES)
@@ -26,6 +27,8 @@ adhydro_channel_preprocessing: all.h # Uses implicit rule to compile from adhydr
 adhydro_mesh_check: all.h # Uses implicit rule to compile from adhydro_mesh_check.cpp.  This just adds the header file dependency.
 
 adhydro_create_channel_shapefile: all.h # Uses implicit rule to compile from adhydro_create_channel_shapefile.cpp.  This just adds the header file dependency.
+
+adhydro_create_xdmf_file: all.h # Uses implicit rule to compile from adhydro_create_xdmf_file.cpp.  This just adds the header file dependency.
 
 test_date_functions: all.h # Uses implicit rule to compile from test_date_functions.cpp.  This just adds the header file dependency.
 

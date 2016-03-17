@@ -828,6 +828,12 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           
           snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      else
+        {
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
@@ -1466,6 +1472,12 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           
           snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      else
+        {
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
@@ -1945,6 +1957,12 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           
           snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
         }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      else
+        {
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
@@ -2468,11 +2486,11 @@ bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* 
       CkError("ERROR in checkEvapoTranspirationStateStructInvariant: sai must be greater than or equal to zero.\n");
       error = true;
     }
-  else if (!(1.5f >= evapoTranspirationState->sai))
+  else if (!(1.6f >= evapoTranspirationState->sai))
     {
       if (2 <= ADHydro::verbosityLevel)
         {
-          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above 1.5.\n");
+          CkError("WARNING in checkEvapoTranspirationStateStructInvariant: sai above 1.6.\n");
         }
     }
 
