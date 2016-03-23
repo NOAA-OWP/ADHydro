@@ -45,8 +45,10 @@ bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dime
 
 int main(void)
 {
-  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
-  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
+  //const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
+  //const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
+  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/yampa_mesh/geometry.nc";
+  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/yampa_mesh/channel_elements";
 
   bool       error            = false; // Error flag.
   size_t     ii;                       // Loop counter.
@@ -66,6 +68,7 @@ int main(void)
   size_t     count[NC_MAX_VAR_DIMS];   // For specifying subarrays when reading from NetCDF file.
   size_t     numberOfUniqueVertices;
   SHPHandle  shpFile          = NULL;
+  DBFHandle  dbfFile          = NULL;
   SHPObject* shape = NULL;
   size_t     newShapeNumber;
 
@@ -151,16 +154,28 @@ int main(void)
       count[2] = channelVerticesSize;
       
       shpFile = SHPCreate(shpFileBasename, SHPT_ARCZ);
-
+      dbfFile = DBFCreate(shpFileBasename);
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NULL != shpFile))
+      if (!(NULL != shpFile || NULL != dbfFile))
         {
           fprintf(stderr, "ERROR in main: Could not create shp file %s.\n", shpFileBasename);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
-  
+    //Create elementNumber field in thd dbf
+    //with type Integer
+    //width of 10
+    //and 0 decimals
+  int elementNumberField = DBFAddField(dbfFile, "elementNumber", FTInteger, 10, 0);
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (-1 == elementNumberField)
+  {
+    fprintf(stderr, "ERROR in main: Could not create elementNumber attribute for shp file %s.\n", shpFileBasename);
+    error = true;
+  }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
   for (ii = 0; !error && ii < channelElementsSize; ++ii)
     {
       if (0 == ii % 10000)
@@ -234,7 +249,11 @@ int main(void)
           newShapeNumber = SHPWriteObject(shpFile, -1, shape);
           
           SHPDestroyObject(shape);
-          
+          if(! DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, ii))
+          {
+            fprintf(stderr, "ERROR in main: Failed to write elementNumber %ld attribute; or truncated attribute.\n", newShapeNumber);
+            error = true;
+          }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(ii == newShapeNumber))
             {
@@ -249,7 +268,11 @@ int main(void)
     {
       SHPClose(shpFile);
     }
-  
+  if (NULL != dbfFile)
+  {
+    DBFClose(dbfFile);
+  }
+
   delete[] channelVertexX;
   delete[] channelVertexY;
   delete[] channelVertexZ;
