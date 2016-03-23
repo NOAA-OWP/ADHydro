@@ -249,7 +249,7 @@ int main(void)
           newShapeNumber = SHPWriteObject(shpFile, -1, shape);
           
           SHPDestroyObject(shape);
-          if(! DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, newShapeNumber))
+          if(! DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, ii))
           {
             fprintf(stderr, "ERROR in main: Failed to write elementNumber %ld attribute; or truncated attribute.\n", newShapeNumber);
             error = true;
