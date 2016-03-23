@@ -9538,7 +9538,7 @@ bool FileManager::readForcingData()
           // We are applying this kludge until we figure out the right way to handle this.
           for (ii = 0; ii < localNumberOfMeshElements; ++ii)
             {
-              tPrec[ii] *= 32.0f;
+              tPrec[ii] *= 4.0f;
             }
         }
       
@@ -9605,7 +9605,7 @@ bool FileManager::readForcingData()
           // We are applying this kludge until we figure out the right way to handle this.
           for (ii = 0; ii < localNumberOfChannelElements; ++ii)
             {
-              tPrec_c[ii] *= 32.0f;
+              tPrec_c[ii] *= 4.0f;
             }
         }
 

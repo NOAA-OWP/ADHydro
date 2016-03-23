@@ -45,15 +45,14 @@ bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dime
 
 int main(void)
 {
-  //const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
-  //const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
-  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/yampa_mesh/geometry.nc";
-  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/yampa_mesh/channel_elements";
+  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
+  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
 
   bool       error            = false; // Error flag.
   size_t     ii;                       // Loop counter.
   int        geometryFileID;
   int        ncErrorCode;              // Return value of NetCDF functions.
+  bool       shpErrorCode;             // Return value of shapelib functions.
   bool       geometryFileOpen = false;
   size_t     instancesSize;
   size_t     channelElementsSize;
@@ -69,7 +68,8 @@ int main(void)
   size_t     numberOfUniqueVertices;
   SHPHandle  shpFile          = NULL;
   DBFHandle  dbfFile          = NULL;
-  SHPObject* shape = NULL;
+  SHPObject* shape            = NULL;
+  int        elementNumberField;
   size_t     newShapeNumber;
 
   ncErrorCode = nc_open(geometryFilename, NC_NOWRITE, &geometryFileID);
@@ -155,6 +155,7 @@ int main(void)
       
       shpFile = SHPCreate(shpFileBasename, SHPT_ARCZ);
       dbfFile = DBFCreate(shpFileBasename);
+
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NULL != shpFile || NULL != dbfFile))
         {
@@ -163,18 +164,20 @@ int main(void)
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
-    //Create elementNumber field in thd dbf
-    //with type Integer
-    //width of 10
-    //and 0 decimals
-  int elementNumberField = DBFAddField(dbfFile, "elementNumber", FTInteger, 10, 0);
+  
+  if (!error)
+    {
+      // In the DBF file create a field called elementNumber of type FTInteger.  Field width is 10 digits with 0 digits after the decimal point
+      elementNumberField = DBFAddField(dbfFile, "elementNumber", FTInteger, 10, 0);
+
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (-1 == elementNumberField)
-  {
-    fprintf(stderr, "ERROR in main: Could not create elementNumber attribute for shp file %s.\n", shpFileBasename);
-    error = true;
-  }
+      if (-1 == elementNumberField)
+        {
+          fprintf(stderr, "ERROR in main: Could not create elementNumber attribute for shp file %s.\n", shpFileBasename);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
 
   for (ii = 0; !error && ii < channelElementsSize; ++ii)
     {
@@ -249,11 +252,7 @@ int main(void)
           newShapeNumber = SHPWriteObject(shpFile, -1, shape);
           
           SHPDestroyObject(shape);
-          if(! DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, ii))
-          {
-            fprintf(stderr, "ERROR in main: Failed to write elementNumber %ld attribute; or truncated attribute.\n", newShapeNumber);
-            error = true;
-          }
+          
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(ii == newShapeNumber))
             {
@@ -262,16 +261,30 @@ int main(void)
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
+      
+      if (!error)
+        {
+          shpErrorCode = DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, ii);
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if(!shpErrorCode)
+          {
+            fprintf(stderr, "ERROR in main: Failed to write attribute or truncated attribute for shape %ld.\n", newShapeNumber);
+            error = true;
+          }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
     }
 
   if (NULL != shpFile)
     {
       SHPClose(shpFile);
     }
+  
   if (NULL != dbfFile)
-  {
-    DBFClose(dbfFile);
-  }
+    {
+      DBFClose(dbfFile);
+    }
 
   delete[] channelVertexX;
   delete[] channelVertexY;
