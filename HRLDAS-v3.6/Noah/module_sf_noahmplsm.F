@@ -6420,6 +6420,23 @@ contains
          SH2O(1) = SH2O(1) + SICE(1)
          SICE(1) = 0.
       END IF
+      
+      ! RCS There was a bug here.  Evaporation or condensation was being taken
+      ! from or added to SICE and possibly SH2O, but the value of SMC was not
+      ! being updated to match.
+      IF (SH2O(1) < 0.) THEN
+        ! Excess evaporation must be put back into QSEVA.
+        QSEVA   = (-SH2O(1)) * (DZSNSO(1)*1000.) / DT
+        SH2O(1) = 0.
+      ELSE IF (SH2O(1) + SICE(1) > SMCMAX) THEN
+        ! Excess condensation must be put back into QSDEW.
+        QSDEW   = (SH2O(1) + SICE(1) - SMCMAX) * (DZSNSO(1)*1000.) / DT
+        SICE(1) = SMCMAX - SH2O(1)
+      ENDIF
+      
+      SMC(1) = SH2O(1) + SICE(1)
+      ! End RCS
+      
    END IF
 
 ! convert units (mm/s -> m/s)
