@@ -838,7 +838,18 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfallBelowCanopy + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
-      runoff        = (runSrf + runSub) * dt;
+      
+      // snEqvShouldBe can go negative due to round-off error.
+      if (0.0f > snEqvShouldBe)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snEqvShouldBe = 0.0f;
+        }
+      
+      runoff = (runSrf + runSub) * dt;
       
       if (0.0f == evapoTranspirationState->snEqv)
         {
@@ -1482,7 +1493,18 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
-      runoff        = (runSrf + runSub) * dt;
+      
+      // snEqvShouldBe can go negative due to round-off error.
+      if (0.0f > snEqvShouldBe)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snEqvShouldBe = 0.0f;
+        }
+      
+      runoff = (runSrf + runSub) * dt;
       
       if (0.0f == evapoTranspirationState->snEqv)
         {
@@ -1967,7 +1989,18 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
       // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
       // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
-      runoff        = (runSrf + runSub) * dt;
+      
+      // snEqvShouldBe can go negative due to round-off error.
+      if (0.0f > snEqvShouldBe)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          snEqvShouldBe = 0.0f;
+        }
+      
+      runoff = (runSrf + runSub) * dt;
       
       if (0.0 == evapoTranspirationState->snEqv)
         {

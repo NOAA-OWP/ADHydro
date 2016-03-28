@@ -52,6 +52,7 @@ int main(void)
   size_t     ii;                       // Loop counter.
   int        geometryFileID;
   int        ncErrorCode;              // Return value of NetCDF functions.
+  bool       shpErrorCode;             // Return value of shapelib functions.
   bool       geometryFileOpen = false;
   size_t     instancesSize;
   size_t     channelElementsSize;
@@ -66,7 +67,9 @@ int main(void)
   size_t     count[NC_MAX_VAR_DIMS];   // For specifying subarrays when reading from NetCDF file.
   size_t     numberOfUniqueVertices;
   SHPHandle  shpFile          = NULL;
-  SHPObject* shape = NULL;
+  DBFHandle  dbfFile          = NULL;
+  SHPObject* shape            = NULL;
+  int        elementNumberField;
   size_t     newShapeNumber;
 
   ncErrorCode = nc_open(geometryFilename, NC_NOWRITE, &geometryFileID);
@@ -151,9 +154,10 @@ int main(void)
       count[2] = channelVerticesSize;
       
       shpFile = SHPCreate(shpFileBasename, SHPT_ARCZ);
+      dbfFile = DBFCreate(shpFileBasename);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NULL != shpFile))
+      if (!(NULL != shpFile || NULL != dbfFile))
         {
           fprintf(stderr, "ERROR in main: Could not create shp file %s.\n", shpFileBasename);
           error = true;
@@ -161,6 +165,20 @@ int main(void)
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
+  if (!error)
+    {
+      // In the DBF file create a field called elementNumber of type FTInteger.  Field width is 10 digits with 0 digits after the decimal point
+      elementNumberField = DBFAddField(dbfFile, "elementNumber", FTInteger, 10, 0);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (-1 == elementNumberField)
+        {
+          fprintf(stderr, "ERROR in main: Could not create elementNumber attribute for shp file %s.\n", shpFileBasename);
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+
   for (ii = 0; !error && ii < channelElementsSize; ++ii)
     {
       if (0 == ii % 10000)
@@ -243,6 +261,19 @@ int main(void)
             }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         }
+      
+      if (!error)
+        {
+          shpErrorCode = DBFWriteIntegerAttribute(dbfFile, newShapeNumber, elementNumberField, ii);
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if(!shpErrorCode)
+          {
+            fprintf(stderr, "ERROR in main: Failed to write attribute or truncated attribute for shape %ld.\n", newShapeNumber);
+            error = true;
+          }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
     }
 
   if (NULL != shpFile)
@@ -250,6 +281,11 @@ int main(void)
       SHPClose(shpFile);
     }
   
+  if (NULL != dbfFile)
+    {
+      DBFClose(dbfFile);
+    }
+
   delete[] channelVertexX;
   delete[] channelVertexY;
   delete[] channelVertexZ;

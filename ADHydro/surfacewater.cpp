@@ -470,11 +470,18 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
           
           if (0.0 < channelSurfacewaterDepth)
             {
+              // FIXME Out of bank flow from channel to mesh makes the timestep really small.  For now we are forbidding that flow and setting the new timestep
+              // to five seconds.  We need to figure out what to really do here.
+              // flowRate has already been assigned to zero above.
+              dtTemp = 5.0;
+              
+              /* FIXME uncomment
               // Assume critical velocity flow over a broad crested weir.  Flow from channel to mesh is negative.
               *flowRate = -sqrt(GRAVITY * channelSurfacewaterDepth) * channelSurfacewaterDepth * edgeLength;
               
               // Suggest new timestep.
               dtTemp = COURANT_DIFFUSIVE * channelTopWidth / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
+              */
               
               if (*dtNew > dtTemp)
                 {
