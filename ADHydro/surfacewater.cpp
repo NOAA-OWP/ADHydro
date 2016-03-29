@@ -359,8 +359,11 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
   double channelSurfacewaterHead = channelSurfacewaterDepth + channelZBed; // The elevation in meters of the channel surfacewater.
   double weirElevation           = (meshZSurface > channelZBank) ?         // The elevation in meters of the thing that water has to flow over.
                                    meshZSurface : channelZBank;
+  /* FIXME This variable is only used to calculate a new timestep when there is out of bank flow.  Since that is commented out I am commenting this out to
+   *  prevent an unused variable warning.
   double channelTopWidth         = channelBaseWidth +                      // Width of channel at water surface in meters.
                                    2.0 * channelSideSlope * channelSurfacewaterDepth;
+  */
   double dtTemp;                                                           // Temporary variable for suggesting new timestep.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

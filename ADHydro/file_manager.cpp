@@ -122,7 +122,10 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
            "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
-  // Signal file manager zero when the last mass balance is finished.
+  // Signal all regions when each mass balance finishes so that they don't create overlapping reductions.
+  ADHydro::regionProxy.massBalanceDone();
+  
+  // Signal file manager zero when the last mass balance finishes so that it knows it can end the program.
   if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
     {
       ADHydro::fileManagerProxy[0].massBalanceDone();

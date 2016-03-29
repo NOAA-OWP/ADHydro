@@ -245,9 +245,9 @@ module region
             } // End while(!allForcingUpdated()).
           } // End if (nextForcingDataTime == currentTime).
           
+          // Advance nextCheckpointIndex, nextOutputIndex, and nextSyncTime.
           serial
           {
-            // Advance nextCheckpointTime, nextOutputTime, and nextSyncTime.
             if (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime)
               {
                 ++nextCheckpointIndex;
@@ -274,8 +274,20 @@ module region
               {
                 nextSyncTime = nextForcingDataTime;
               }
-            
-            // Do a mass balance.
+          }
+          
+          // The regions must not be allowed to start a new mass balance reduction until the last one finishes.  Therefore, they must wait here until the last
+          // mass balance signals that it is done.
+          // FIXLATER To better overlap computation and communication we could do the mass balance computation first and then put this barrier right before
+          // calling contribute.  However, that made the code more complicated so I'm leaving it to later.
+          when massBalanceDone()
+          {
+            // No-op.
+          }
+          
+          // Do a mass balance.
+          serial
+          {
             bool   error                = false;
             double massBalanceValues[4] = {0.0, 0.0, 0.0, 0.0};
             
@@ -498,5 +510,6 @@ module region
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);
     entry void sendMeshForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
     entry void sendChannelForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
+    entry void massBalanceDone();
   }; // End array [1D] Region.
 }; // End module region.
