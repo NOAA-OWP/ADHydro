@@ -4,7 +4,7 @@
 """
 
 This is a template class for automatically generating 
-Region subclasses for ADHydro.
+WaterManagementRegion subclasses for ADHydro.
 
 """
 
@@ -16,13 +16,13 @@ _cxx_abstract_region_class_string = \
 #define WATER_REGION
 
 /*
-    Region parent class used to hold data at a regional scope
+    WaterManagementRegion parent class used to hold data at a regional scope
 */
-class Region
+class WaterManagementRegion
 {
     private:
     /*
-        Any private data that is common to all Regions can be declared here
+        Any private data that is common to all WaterManagementRegions can be declared here
         If there is private data declared, an appropriate constructor should
         also be implemented.
     */
@@ -32,7 +32,7 @@ class Region
         Virtual functions that subclasses should implement
     */
     virtual double release(double curr_inflow, double curr_volume, int curr_date) = 0;
-    virtual ~Region(){}
+    virtual ~WaterManagementRegion(){}
 };
 
 #endif
@@ -44,7 +44,7 @@ _cxx_region_class_string = \
 */
 #ifndef _${NAME}_
 #define _${NAME}_
-#include "Region.h"
+#include "WaterManagementRegion.h"
 #define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
 
 #include <iostream>
@@ -55,7 +55,7 @@ _cxx_region_class_string = \
 /*
     A regional sublcass implementing the virtual release function
 */
-class ${NAME} : Region
+class ${NAME} : WaterManagementRegion
 {
     private:
         double min_release_region;	//minimum release rate (cfs)
@@ -256,4 +256,4 @@ class Region():
 
 def abstract():
     #Return the abstract region class string
-    return {'Region.h':_cxx_abstract_region_class_string}
+    return {'WaterManagementRegion.h':_cxx_abstract_region_class_string}
