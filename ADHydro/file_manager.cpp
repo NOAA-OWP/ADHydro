@@ -10462,7 +10462,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterMeshNeighborsExpirationTime[ii][jj],
                       meshSurfacewaterMeshNeighborsFlowRate[ii][jj], meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], meshMeshNeighborsRegion[ii][jj], meshMeshNeighbors[ii][jj],
-                      meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj]));
+                      meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj], false));
                 }
 
               if (meshGroundwaterMeshNeighborsConnection[ii][jj])
@@ -10470,7 +10470,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   groundwaterMeshNeighbors.push_back(simpleNeighborInfo(meshGroundwaterMeshNeighborsExpirationTime[ii][jj],
                       meshGroundwaterMeshNeighborsFlowRate[ii][jj], meshGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshGroundwaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], meshMeshNeighborsRegion[ii][jj], meshMeshNeighbors[ii][jj],
-                      meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj]));
+                      meshMeshNeighborsEdgeLength[ii][jj], meshMeshNeighborsEdgeNormalX[ii][jj], meshMeshNeighborsEdgeNormalY[ii][jj], false));
                 }
             }
         }
@@ -10504,7 +10504,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(meshSurfacewaterChannelNeighborsExpirationTime[ii][jj],
                       meshSurfacewaterChannelNeighborsFlowRate[ii][jj], meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshChannelNeighborsRegion[ii][jj], meshChannelNeighbors[ii][jj],
-                      meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
+                      meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0, false));
                 }
 
               if (meshGroundwaterChannelNeighborsConnection[ii][jj])
@@ -10512,7 +10512,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   groundwaterChannelNeighbors.push_back(simpleNeighborInfo(meshGroundwaterChannelNeighborsExpirationTime[ii][jj],
                       meshGroundwaterChannelNeighborsFlowRate[ii][jj], meshGroundwaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                       meshGroundwaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], meshChannelNeighborsRegion[ii][jj], meshChannelNeighbors[ii][jj],
-                      meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0));
+                      meshChannelNeighborsEdgeLength[ii][jj], 1.0, 0.0, false));
                 }
             }
         }
@@ -10583,7 +10583,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterMeshNeighborsExpirationTime[ii][jj],
                       channelSurfacewaterMeshNeighborsFlowRate[ii][jj], channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelMeshNeighborsRegion[ii][jj], channelMeshNeighbors[ii][jj],
-                      channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
+                      channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0, false));
                 }
 
               if (channelGroundwaterMeshNeighborsConnection[ii][jj])
@@ -10591,7 +10591,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
                   groundwaterMeshNeighbors.push_back(simpleNeighborInfo(channelGroundwaterMeshNeighborsExpirationTime[ii][jj],
                       channelGroundwaterMeshNeighborsFlowRate[ii][jj], channelGroundwaterMeshNeighborsFlowCumulativeShortTerm[ii][jj],
                       channelGroundwaterMeshNeighborsFlowCumulativeLongTerm[ii][jj], channelMeshNeighborsRegion[ii][jj], channelMeshNeighbors[ii][jj],
-                      channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0));
+                      channelMeshNeighborsEdgeLength[ii][jj], 1.0, 0.0, false));
                 }
             }
         }
@@ -10633,7 +10633,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
               surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(channelSurfacewaterChannelNeighborsExpirationTime[ii][jj],
                   channelSurfacewaterChannelNeighborsFlowRate[ii][jj], channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm[ii][jj],
                   channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm[ii][jj], channelChannelNeighborsRegion[ii][jj],
-                  channelChannelNeighbors[ii][jj], 1.0, 1.0, 0.0));
+                  channelChannelNeighbors[ii][jj], 1.0, 1.0, 0.0, channelChannelNeighborsDownstream[ii][jj]));
             }
         }
 

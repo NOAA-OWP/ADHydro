@@ -5,7 +5,7 @@
 #include "groundwater.h"
 
 ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -19,12 +19,12 @@ ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+ChannelSurfacewaterMeshNeighborProxy::ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                            double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                                                            int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                                                            double neighborZSurfaceInit, double neighborZOffsetInit, double neighborAreaInit,
                                                                            double edgeLengthInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -130,7 +130,7 @@ bool ChannelSurfacewaterMeshNeighborProxy::checkInvariant()
 }
 
 ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -147,14 +147,14 @@ ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy
   // Initialization handled by initialization list.
 }
 
-ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+ChannelSurfacewaterChannelNeighborProxy::ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                                  double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                                                                  int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                                                                  ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
                                                                                  double neighborZBedInit, double neighborLengthInit,
                                                                                  double neighborBaseWidthInit, double neighborSideSlopeInit,
                                                                                  double neighborManningsNInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -445,7 +445,7 @@ bool ChannelSurfacewaterChannelNeighborProxy::checkInvariant()
 }
 
 ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -459,11 +459,11 @@ ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+ChannelGroundwaterMeshNeighborProxy::ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                          double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                                                          int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
                                                                          double neighborLayerZBottomInit, double neighborZOffsetInit, double edgeLengthInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -600,7 +600,9 @@ ChannelElement::ChannelElement() :
   evapoTranspirationState(),
   meshNeighbors(),
   channelNeighbors(),
-  undergroundMeshNeighbors()
+  undergroundMeshNeighbors(),
+  reservoir(NULL),
+  reservoirReleaseRecipient(-1)
 {
   // Initialization handled by initialization list.
 }
@@ -640,7 +642,9 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   evapoTranspirationState(evapoTranspirationStateInit),
   meshNeighbors(),
   channelNeighbors(),
-  undergroundMeshNeighbors()
+  undergroundMeshNeighbors(),
+  reservoir(NULL),
+  reservoirReleaseRecipient(-1)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
@@ -753,7 +757,14 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+  
+  if (WATERBODY == channelType)
+    {
+      reservoir = ADHydro::fileManagerProxy.ckLocalBranch()->reservoirFactory.create(reachCode);
+    }
 }
+
+// FIXME destructor to delete reservoir
 
 void ChannelElement::pup(PUP::er &p)
 {
@@ -786,6 +797,8 @@ void ChannelElement::pup(PUP::er &p)
   p | meshNeighbors;
   p | channelNeighbors;
   p | undergroundMeshNeighbors;
+  p | reservoir;
+  p | reservoirReleaseRecipient;
 }
 
 bool ChannelElement::checkInvariant()
@@ -1078,6 +1091,42 @@ bool ChannelElement::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double 
   return error;
 }
 
+bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex)
+{
+  bool error = false; // Error flag.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(0 <= neighborProxyIndex && neighborProxyIndex < channelNeighbors.size()))
+    {
+      CkError("ERROR in ChannelElement::calculateNominalFlowRateForReservoirRelease: neighborProxyIndex must be greater than or equal to zero and "
+              "less than channelNeighbors.size().\n");
+      error = true;
+    }
+  
+  if (!(NULL != reservoir))
+    {
+      CkError("ERROR in ChannelElement::calculateNominalFlowRateForReservoirRelease: reservoir must not be NULL.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  // Calculate nominal flow rate.
+  if (!error)
+    {
+      channelNeighbors[neighborProxyIndex].nominalFlowRate = 2.0; // FIXME calculate = reservoir->release();
+      
+      // Make it expire in one day.
+      // FIXME maybe we want to have water management decisions made at a particular time of day.  I think the release function should calculate this.
+      channelNeighbors[neighborProxyIndex].expirationTime  = floor((currentTime / 86400.0) + 1) * 86400.0;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 <= channelNeighbors[neighborProxyIndex].nominalFlowRate);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    }
+  
+  return error;
+}
+
 bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region)
 {
   bool   error                   = false;                                           // Error flag.
@@ -1308,9 +1357,11 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
               // Water for an inflow boundary arrives immediately.
               error = (*itChannel).insertMaterial(SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, -(*itChannel).nominalFlowRate * dt));
             }
-          else if (0.0 < (*itChannel).nominalFlowRate)
+          else if (0.0 < (*itChannel).nominalFlowRate ||
+                   (NULL != reservoir && !isBoundary((*itChannel).neighbor) && (*itChannel).neighbor == reservoirReleaseRecipient))
             {
-              // Send water for an outflow.
+              // Send water for an outflow.  We need to send a water message for one-way-flow neighbor relationships even if the flow rate is zero because the
+              // recipient doesn't know what the calculated flow rate is.
               waterSent                             = (*itChannel).nominalFlowRate * dt * outwardFlowRateFraction;
               crossSectionArea                     -= waterSent / elementLength;
               (*itChannel).flowCumulativeShortTerm += waterSent;
@@ -1383,7 +1434,7 @@ bool ChannelElement::allInflowsArrived(double currentTime, double timestepEndTim
     {
       for (itMesh = meshNeighbors.begin(); allArrived && itMesh != meshNeighbors.end(); ++itMesh)
         {
-          if (0.0 > (*itMesh).nominalFlowRate)
+          if (0.0 > (*itMesh).nominalFlowRate || (*itMesh).inflowOnly)
             {
               allArrived = (*itMesh).allMaterialHasArrived(currentTime, timestepEndTime);
             }
@@ -1391,7 +1442,7 @@ bool ChannelElement::allInflowsArrived(double currentTime, double timestepEndTim
       
       for (itChannel = channelNeighbors.begin(); allArrived && itChannel != channelNeighbors.end(); ++itChannel)
         {
-          if (0.0 > (*itChannel).nominalFlowRate)
+          if (0.0 > (*itChannel).nominalFlowRate || (*itChannel).inflowOnly)
             {
               allArrived = (*itChannel).allMaterialHasArrived(currentTime, timestepEndTime);
             }
@@ -1399,7 +1450,7 @@ bool ChannelElement::allInflowsArrived(double currentTime, double timestepEndTim
       
       for (itUndergroundMesh = undergroundMeshNeighbors.begin(); allArrived && itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
         {
-          if (0.0 > (*itUndergroundMesh).nominalFlowRate)
+          if (0.0 > (*itUndergroundMesh).nominalFlowRate || (*itUndergroundMesh).inflowOnly)
             {
               allArrived = (*itUndergroundMesh).allMaterialHasArrived(currentTime, timestepEndTime);
             }

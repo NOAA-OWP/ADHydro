@@ -79,7 +79,7 @@ public:
   // member variables.
   simpleNeighborInfo(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
                      double flowCumulativeLongTermInit, int regionInit, int neighborInit, double edgeLengthInit, double edgeNormalXInit,
-                     double edgeNormalYInit);
+                     double edgeNormalYInit, bool downstreamInit);
   
   // Charm++ pack/unpack method.
   //
@@ -109,10 +109,11 @@ public:
   int region;   // Region number where the neighbor is.
   int neighbor; // Element ID number of the neighbor or boundary condition code.
   
-  // Geometric coordinates.
+  // Geometric coordinates and relationships.
   double edgeLength;  // Meters.  2-D distance ignoring Z coordinates.
   double edgeNormalX; // X component of normal unit vector, unitless.
   double edgeNormalY; // Y component of normal unit vector, unitless.
+  bool   downstream;  // Whether the neighbor is downstream of the element.  Only used for channel-channel neighbors.
 };
 
 #include "region.decl.h"
@@ -500,7 +501,7 @@ public:
   // For description see member variables.
   void handleChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                            double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
-                                                           double neighborSideSlope, double neighborManningsN);
+                                                           double neighborSideSlope, double neighborManningsN, bool inflowOnly);
   
   // Initialize neighbor information for a channel element's groundwater
   // neighbor that is a mesh element.

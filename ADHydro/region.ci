@@ -130,12 +130,12 @@ module region
           
           when sendChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                                  double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
-                                                                 double neighborSideSlope, double neighborManningsN)
+                                                                 double neighborSideSlope, double neighborManningsN, bool inflowOnly)
           {
             serial
             {
               handleChannelSurfacewaterChannelNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborChannelType, neighborZBank, neighborZBed,
-                                                                  neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN);
+                                                                  neighborLength, neighborBaseWidth, neighborSideSlope, neighborManningsN, inflowOnly);
             }
           }
           
@@ -501,7 +501,7 @@ module region
                                                               double neighborArea, double neighborSlopeX, double neighborSlopeY);
     entry void sendChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                                  double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
-                                                                 double neighborSideSlope, double neighborManningsN);
+                                                                 double neighborSideSlope, double neighborManningsN, bool inflowOnly);
     entry void sendChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
                                                              double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
                                                              double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);

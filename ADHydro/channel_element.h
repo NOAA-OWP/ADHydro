@@ -3,6 +3,7 @@
 
 #include "neighbor_proxy.h"
 #include "evapo_transpiration.h"
+#include "Reservoir.h"
 
 // channel_element.h needs to know about the Region class, but region.h includes channel_element.h so we just do a forward declaration of the Region class to
 // break the circularity.
@@ -23,7 +24,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+  ChannelSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                        double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                        int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                        double neighborZSurfaceInit, double neighborZOffsetInit, double neighborAreaInit,
@@ -76,7 +77,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+  ChannelSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                           double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                           int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                           ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
@@ -135,7 +136,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+  ChannelGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                       double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZSurfaceInit,
                                       double neighborLayerZBottomInit, double neighborZOffsetInit, double edgeLengthInit);
@@ -274,6 +275,22 @@ public:
                                                            std::vector<ChannelGroundwaterMeshNeighborProxy>::size_type neighborProxyIndex,
                                                            double neighborSurfacewaterDepth, double neighborGroundwaterHead);
   
+  // Calculate new values for nominalFlowRate and expirationTime for a proxy in
+  // channelNeighbors that is the recipient of a reservoir release.
+  // regionalDtLimit is not needed as an input because water management
+  // decisions are not limited to the time scales needed to accurately simulate
+  // natural flows.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // currentTime        - Current simulation time in seconds since
+  //                      Element::referenceDate.
+  // neighborProxyIndex - Which index of channelNeighbors is the proxy for the
+  //                      neighbor.
+  bool calculateNominalFlowRateForReservoirRelease(double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex);
+  
   // Update state for point processes that require no communication with other
   // elements.  Then send outflow water to neighbors.
   //
@@ -399,6 +416,10 @@ public:
   std::vector<ChannelSurfacewaterMeshNeighborProxy>    meshNeighbors;
   std::vector<ChannelSurfacewaterChannelNeighborProxy> channelNeighbors;
   std::vector<ChannelGroundwaterMeshNeighborProxy>     undergroundMeshNeighbors;
+  
+  Reservoir* reservoir;                 // If the element is a reservoir this will point to the Reservoir object.  Otherwise it will be NULL.
+  int        reservoirReleaseRecipient; // If the element is a reservoir this will contain the elementNumber of the channel element where the release goes to.
+                                        // Otherwise it will be -1.
   
 private:
   

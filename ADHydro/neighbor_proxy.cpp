@@ -92,14 +92,20 @@ bool SimpleNeighborProxy::MaterialTransfer::checkInvariant()
   return error;
 }
 
-SimpleNeighborProxy::SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit, double flowCumulativeLongTermInit) :
+SimpleNeighborProxy::SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
+                                         double flowCumulativeLongTermInit) :
   NeighborProxy::NeighborProxy(expirationTimeInit),
   nominalFlowRate(nominalFlowRateInit),
+  inflowOnly(inflowOnlyInit),
   flowCumulativeShortTerm(flowCumulativeShortTermInit),
   flowCumulativeLongTerm(flowCumulativeLongTermInit),
   incomingMaterial()
 {
-  // Initialization handled by initialization list.
+  if (inflowOnly)
+    {
+      expirationTime  = INFINITY;
+      nominalFlowRate = -1.0;
+    }
 }
 
 void SimpleNeighborProxy::pup(PUP::er &p)
@@ -107,6 +113,7 @@ void SimpleNeighborProxy::pup(PUP::er &p)
   NeighborProxy::pup(p);
   
   p | nominalFlowRate;
+  p | inflowOnly;
   p | flowCumulativeShortTerm;
   p | flowCumulativeLongTerm;
   p | incomingMaterial;
@@ -118,6 +125,21 @@ bool SimpleNeighborProxy::checkInvariant()
   std::list<MaterialTransfer>::iterator it    = incomingMaterial.begin();        // Loop iterator.
   double                                previousEndTime;                         // To check that the elements of incomingMaterial are sorted and
                                                                                  // non-overlapping.
+  
+  if (inflowOnly)
+    {
+      if (!(INFINITY == expirationTime))
+        {
+          CkError("ERROR in SimpleNeighborProxy::checkInvariant: If inflowOnly is true expirationTime must be INFINITY.\n");
+          error = true;
+        }
+      
+      if (!(-1.0 == nominalFlowRate))
+        {
+          CkError("ERROR in SimpleNeighborProxy::checkInvariant: If inflowOnly is true nominalFlowRate must be -1.0.\n");
+          error = true;
+        }
+    }
   
   while (it != incomingMaterial.end())
     {

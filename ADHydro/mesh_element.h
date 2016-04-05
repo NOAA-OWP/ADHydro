@@ -23,7 +23,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+  MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
                                     double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                     int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                     double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
@@ -80,7 +80,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+  MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                        double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                        int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                        double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
@@ -138,7 +138,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+  MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
                                    double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                    double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
@@ -198,7 +198,7 @@ public:
   //
   // incomingMaterial is initialized to empty.  neighborInitialized and
   // neighborInvariantChecked are initialized to false.
-  MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+  MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                       double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                       int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
                                       double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,

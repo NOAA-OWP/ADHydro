@@ -140,14 +140,15 @@ simpleNeighborInfo::simpleNeighborInfo() :
   neighbor(0),
   edgeLength(0.0),
   edgeNormalX(0.0),
-  edgeNormalY(0.0)
+  edgeNormalY(0.0),
+  downstream(false)
 {
   // Initialization handled by initialization list.
 }
 
 simpleNeighborInfo::simpleNeighborInfo(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
                                        double flowCumulativeLongTermInit, int regionInit, int neighborInit, double edgeLengthInit, double edgeNormalXInit,
-                                       double edgeNormalYInit) :
+                                       double edgeNormalYInit, bool downstreamInit) :
   expirationTime(expirationTimeInit),
   nominalFlowRate(nominalFlowRateInit),
   flowCumulativeShortTerm(flowCumulativeShortTermInit),
@@ -156,7 +157,8 @@ simpleNeighborInfo::simpleNeighborInfo(double expirationTimeInit, double nominal
   neighbor(neighborInit),
   edgeLength(edgeLengthInit),
   edgeNormalX(edgeNormalXInit),
-  edgeNormalY(edgeNormalYInit)
+  edgeNormalY(edgeNormalYInit),
+  downstream(downstreamInit)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     if (!(0 <= regionInit && regionInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfRegions))
@@ -198,6 +200,7 @@ void simpleNeighborInfo::pup(PUP::er &p)
   p | edgeLength;
   p | edgeNormalX;
   p | edgeNormalY;
+  p | downstream;
 }
 
 bool simpleNeighborInfo::checkInvariant()
@@ -781,16 +784,20 @@ void Region::handleMeshSurfacewaterMeshNeighborCheckInvariant(double messageTime
           CkExit();
         }
 
-      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleMeshSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(meshElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -898,16 +905,20 @@ void Region::handleMeshSurfacewaterChannelNeighborCheckInvariant(double messageT
           CkExit();
         }
 
-      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleMeshSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(meshElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -991,18 +1002,22 @@ void Region::handleMeshGroundwaterMeshNeighborCheckInvariant(double messageTime,
           CkExit();
         }
 
-      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-            neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+              neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-            -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+              -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleMeshGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -1122,18 +1137,22 @@ void Region::handleMeshGroundwaterChannelNeighborCheckInvariant(double messageTi
           CkExit();
         }
 
-      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-            neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+              neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-            -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+              -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleMeshGroundwaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(meshElements[neighborsProxy.neighbor].underground.channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -1218,16 +1237,20 @@ void Region::handleChannelSurfacewaterMeshNeighborCheckInvariant(double messageT
           CkExit();
         }
 
-      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(channelElements[neighborsProxy.neighbor].meshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -1323,16 +1346,20 @@ void Region::handleChannelSurfacewaterChannelNeighborCheckInvariant(double messa
           CkExit();
         }
 
-      if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime == neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate == -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleChannelSurfacewaterChannelNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(channelElements[neighborsProxy.neighbor].channelNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -1434,18 +1461,22 @@ void Region::handleChannelGroundwaterMeshNeighborCheckInvariant(double messageTi
           CkExit();
         }
 
-      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
-            neighborsProxy.expirationTime))
+      // expirationTime and nominalFlowRate won't match if this is a one-way-flow neighbor relationship.
+      if (!channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].inflowOnly && ! neighborsProxy.inflowOnly)
         {
-          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
-          CkExit();
-        }
+          if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].expirationTime ==
+              neighborsProxy.expirationTime))
+            {
+              CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor expirationTime does not match.\n");
+              CkExit();
+            }
 
-      if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
-            -neighborsProxy.nominalFlowRate))
-        {
-          CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
-          CkExit();
+          if (!(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].nominalFlowRate ==
+              -neighborsProxy.nominalFlowRate))
+            {
+              CkError("ERROR in Region::handleChannelGroundwaterMeshNeighborCheckInvariant: neighbor nominalFlowRate does not match.\n");
+              CkExit();
+            }
         }
 
       if (!epsilonEqual(channelElements[neighborsProxy.neighbor].undergroundMeshNeighbors[neighborsProxy.reciprocalNeighborProxy].flowCumulativeShortTerm,
@@ -1656,7 +1687,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].meshNeighbors.push_back(
-          MeshSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          MeshSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                             (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength,
                                             (*it).edgeNormalX, (*it).edgeNormalY, isBoundary((*it).neighbor) ? 0.0 : 1.0));
       
@@ -1675,7 +1706,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].channelNeighbors.push_back(
-          MeshSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          MeshSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                                (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0));
       
       thisProxy[(*it).region].sendChannelSurfacewaterMeshNeighborInitMessage(
@@ -1686,7 +1717,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].underground.meshNeighbors.push_back(
-          MeshGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          MeshGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                            (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, 0.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, (*it).edgeLength,
                                            (*it).edgeNormalX, (*it).edgeNormalY, isBoundary((*it).neighbor) ? 0.0 : 1.0,
                                            isBoundary((*it).neighbor) ? 0.0 : 1.0));
@@ -1706,7 +1737,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
   for (it = groundwaterChannelNeighbors.begin(); it != groundwaterChannelNeighbors.end(); ++it)
     {
       meshElements[elementNumberInit].underground.channelNeighbors.push_back(
-          MeshGroundwaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          MeshGroundwaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                               (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0, 1.0, 1.0));
       
       thisProxy[(*it).region].sendChannelGroundwaterMeshNeighborInitMessage(
@@ -1775,7 +1806,7 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
     {
       channelElements[elementNumberInit].meshNeighbors.push_back(
-          ChannelSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          ChannelSurfacewaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                                (*it).region, (*it).neighbor, 0, 0.0, 0.0, 1.0, (*it).edgeLength));
       
       thisProxy[(*it).region].sendMeshSurfacewaterChannelNeighborInitMessage(
@@ -1785,8 +1816,27 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
     {
+      // If the channel element is a resevoir, release to the first downstream neighbor.
+      if (NULL != channelElements[elementNumberInit].reservoir && !isBoundary((*it).neighbor) && (*it).downstream)
+        {
+          if (-1 == channelElements[elementNumberInit].reservoirReleaseRecipient)
+            {
+              channelElements[elementNumberInit].reservoirReleaseRecipient = (*it).neighbor;
+            }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          else
+            {
+              if (2 <= ADHydro::verbosityLevel)
+                {
+                  CkError("WARNING in Region::handleInitializeChannelElement: reservoir element %d has more than one downstream neighbor.  Arbitrarily "
+                          "releasing to first downstream neighbor %d.\n", elementNumberInit, channelElements[elementNumberInit].reservoirReleaseRecipient);
+                }
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+      
       channelElements[elementNumberInit].channelNeighbors.push_back(
-          ChannelSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          ChannelSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                                   (*it).region, (*it).neighbor, 0, isBoundary((*it).neighbor) ? NOT_USED : STREAM, 0.0, 0.0,
                                                   isBoundary((*it).neighbor) ? 0.0 : 1.0, isBoundary((*it).neighbor) ? 0.0 : 1.0, 0.0,
                                                   isBoundary((*it).neighbor) ? 0.0 : 1.0));
@@ -1797,16 +1847,26 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
         }
       else
         {
+          // If the channel element is a reservoir and the reservoir release goes to this neighbor then send inflowOnly is true.
           thisProxy[(*it).region].sendChannelSurfacewaterChannelNeighborInitMessage(
               (*it).neighbor, elementNumberInit, channelElements[elementNumberInit].channelNeighbors.size() - 1, channelTypeInit, elementZBankInit,
-              elementZBedInit, elementLengthInit, baseWidthInit, sideSlopeInit, manningsNInit);
+              elementZBedInit, elementLengthInit, baseWidthInit, sideSlopeInit, manningsNInit,
+              ((*it).neighbor == channelElements[elementNumberInit].reservoirReleaseRecipient));
         }
     }
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+  if (2 <= ADHydro::verbosityLevel && NULL != channelElements[elementNumberInit].reservoir && -1 == channelElements[elementNumberInit].reservoirReleaseRecipient)
+    {
+      CkError("WARNING in Region::handleInitializeChannelElement: reservoir element %d has no downstream neighbor.  Reservoir release will be ignored and all "
+              "neighbors will be treated as natural flows.\n", elementNumberInit);
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
   for (it = groundwaterMeshNeighbors.begin(); it != groundwaterMeshNeighbors.end(); ++it)
     {
       channelElements[elementNumberInit].undergroundMeshNeighbors.push_back(
-          ChannelGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
+          ChannelGroundwaterMeshNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
                                               (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength));
       
       thisProxy[(*it).region].sendMeshGroundwaterChannelNeighborInitMessage(
@@ -2166,7 +2226,7 @@ void Region::handleChannelSurfacewaterMeshNeighborInitMessage(int element, int n
 
 void Region::handleChannelSurfacewaterChannelNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, ChannelTypeEnum neighborChannelType,
                                                                  double neighborZBank, double neighborZBed, double neighborLength, double neighborBaseWidth,
-                                                                 double neighborSideSlope, double neighborManningsN)
+                                                                 double neighborSideSlope, double neighborManningsN, bool inflowOnly)
 {
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator it; // Loop iterator.
   
@@ -2249,6 +2309,14 @@ void Region::handleChannelSurfacewaterChannelNeighborInitMessage(int element, in
       (*it).neighborBaseWidth       = neighborBaseWidth;
       (*it).neighborSideSlope       = neighborSideSlope;
       (*it).neighborManningsN       = neighborManningsN;
+      (*it).inflowOnly              = inflowOnly;
+
+      if (inflowOnly)
+        {
+          (*it).expirationTime  = INFINITY;
+          (*it).nominalFlowRate = -1.0;
+        }
+      
       (*it).neighborInitialized     = true;
     }
 }
@@ -2470,7 +2538,14 @@ void Region::sendStateToExternalNeighbors()
       for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
            itChannelSurfacewaterChannelNeighbor != (*itChannel).second.channelNeighbors.end(); ++itChannelSurfacewaterChannelNeighbor)
         {
-          if ((*itChannelSurfacewaterChannelNeighbor).region == thisIndex || isBoundary((*itChannelSurfacewaterChannelNeighbor).neighbor))
+          // If I'm the sender or recipient of a reservoir release do nothing at this point.
+          if ((NULL != (*itChannel).second.reservoir && !isBoundary((*itChannelSurfacewaterChannelNeighbor).neighbor) &&
+              (*itChannelSurfacewaterChannelNeighbor).neighbor == (*itChannel).second.reservoirReleaseRecipient) ||
+              (*itChannelSurfacewaterChannelNeighbor).inflowOnly)
+            {
+              // No-op.
+            }
+          else if ((*itChannelSurfacewaterChannelNeighbor).region == thisIndex || isBoundary((*itChannelSurfacewaterChannelNeighbor).neighbor))
             {
               (*itChannelSurfacewaterChannelNeighbor).expirationTime = currentTime;
             }
@@ -2703,6 +2778,13 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
 
               error = (*itChannel).second.calculateNominalFlowRateWithSurfacewaterChannelNeighbor(currentTime, regionalDtLimit,
                   itChannelSurfacewaterChannelNeighbor - (*itChannel).second.channelNeighbors.begin(), 0.0);
+            }
+          else if (NULL != (*itChannel).second.reservoir && (*itChannel).second.reservoirReleaseRecipient == (*itChannelSurfacewaterChannelNeighbor).neighbor &&
+                   (*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)
+            {
+              // Calculate reservoir release.
+              error = (*itChannel).second.calculateNominalFlowRateForReservoirRelease(currentTime,
+                  itChannelSurfacewaterChannelNeighbor - (*itChannel).second.channelNeighbors.begin());
             }
           else if ((*itChannelSurfacewaterChannelNeighbor).region == thisIndex && (*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)
             {
@@ -3363,7 +3445,7 @@ void Region::sendStateToFileManagers()
           state.surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(
               (*itMeshSurfacewaterMeshNeighbor).expirationTime, (*itMeshSurfacewaterMeshNeighbor).nominalFlowRate,
               (*itMeshSurfacewaterMeshNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterMeshNeighbor).flowCumulativeLongTerm, 0,
-              (*itMeshSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itMeshSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
 
       for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
@@ -3372,7 +3454,7 @@ void Region::sendStateToFileManagers()
           state.groundwaterMeshNeighbors.push_back(simpleNeighborInfo(
               (*itMeshGroundwaterMeshNeighbor).expirationTime, (*itMeshGroundwaterMeshNeighbor).nominalFlowRate,
               (*itMeshGroundwaterMeshNeighbor).flowCumulativeShortTerm, (*itMeshGroundwaterMeshNeighbor).flowCumulativeLongTerm, 0,
-              (*itMeshGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itMeshGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
 
       for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
@@ -3381,7 +3463,7 @@ void Region::sendStateToFileManagers()
           state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
               (*itMeshSurfacewaterChannelNeighbor).expirationTime, (*itMeshSurfacewaterChannelNeighbor).nominalFlowRate,
               (*itMeshSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
-              (*itMeshSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itMeshSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
 
       for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
@@ -3390,7 +3472,7 @@ void Region::sendStateToFileManagers()
           state.groundwaterChannelNeighbors.push_back(simpleNeighborInfo(
               (*itMeshGroundwaterChannelNeighbor).expirationTime, (*itMeshGroundwaterChannelNeighbor).nominalFlowRate,
               (*itMeshGroundwaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshGroundwaterChannelNeighbor).flowCumulativeLongTerm, 0,
-              (*itMeshGroundwaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itMeshGroundwaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
       
       meshElementStateMessages[FileManager::home((*itMesh).second.elementNumber, fileManagerLocalBranch->globalNumberOfMeshElements)].push_back(state);
@@ -3410,7 +3492,7 @@ void Region::sendStateToFileManagers()
           state.surfacewaterMeshNeighbors.push_back(simpleNeighborInfo(
               (*itChannelSurfacewaterMeshNeighbor).expirationTime, (*itChannelSurfacewaterMeshNeighbor).nominalFlowRate,
               (*itChannelSurfacewaterMeshNeighbor).flowCumulativeShortTerm, (*itChannelSurfacewaterMeshNeighbor).flowCumulativeLongTerm, 0,
-              (*itChannelSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itChannelSurfacewaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
 
       for (itChannelGroundwaterMeshNeighbor  = (*itChannel).second.undergroundMeshNeighbors.begin();
@@ -3419,7 +3501,7 @@ void Region::sendStateToFileManagers()
           state.groundwaterMeshNeighbors.push_back(simpleNeighborInfo(
               (*itChannelGroundwaterMeshNeighbor).expirationTime, (*itChannelGroundwaterMeshNeighbor).nominalFlowRate,
               (*itChannelGroundwaterMeshNeighbor).flowCumulativeShortTerm, (*itChannelGroundwaterMeshNeighbor).flowCumulativeLongTerm, 0,
-              (*itChannelGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itChannelGroundwaterMeshNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
 
       for (itChannelSurfacewaterChannelNeighbor  = (*itChannel).second.channelNeighbors.begin();
@@ -3428,7 +3510,7 @@ void Region::sendStateToFileManagers()
           state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
               (*itChannelSurfacewaterChannelNeighbor).expirationTime, (*itChannelSurfacewaterChannelNeighbor).nominalFlowRate,
               (*itChannelSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itChannelSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
-              (*itChannelSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0));
+              (*itChannelSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0, false));
         }
       
       channelElementStateMessages[FileManager::home((*itChannel).second.elementNumber, fileManagerLocalBranch->globalNumberOfChannelElements)].push_back(state);

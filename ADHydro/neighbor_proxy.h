@@ -131,7 +131,8 @@ public:
   // description see superclass and member variables.
   //
   // incomingMaterial is initialized to empty.
-  SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit, double flowCumulativeLongTermInit);
+  SimpleNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
+                      double flowCumulativeLongTermInit);
   
   // Charm++ pack/unpack method.
   //
@@ -163,6 +164,11 @@ public:
   double nominalFlowRate;         // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow
                                   // into the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to
                                   // satisfy all outflows.
+  bool   inflowOnly;              // For some neighbor connections water is forced to flow in only one direction, such as a reservoir releasing water, or water
+                                  // being diverted for irrigation.  If inflowOnly is true the element knows that it will only receive water.  The element will
+                                  // not calculate a flow rate.  Only the sender will calculate a flow rate, and the receiver will just wait for
+                                  // MaterialTransfer messages.  Do not use this for inflow boundary conditions.  Only use it when there is an actual neighbor
+                                  // element, but flow will always be in one direction.
   double flowCumulativeShortTerm; // flowCumulativeShortTerm plus flowCumulativeLongTerm together are the cumulative material flow quantity with the neighbor.
   double flowCumulativeLongTerm;  // Positive means flow out of the element into the neighbor.  Negative means flow into the element out of the neighbor.  Two
                                   // variables are used because over a long simulation this value could become quite large, and the amount of material moved

@@ -6,7 +6,7 @@
 #include "garto.h"
 
 MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -24,12 +24,12 @@ MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+MeshSurfacewaterMeshNeighborProxy::MeshSurfacewaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
                                                                      double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                                                      int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                                                      double neighborZSurfaceInit, double neighborAreaInit, double edgeLengthInit,
                                                                      double edgeNormalXInit, double edgeNormalYInit, double neighborManningsNInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -217,7 +217,7 @@ bool MeshSurfacewaterMeshNeighborProxy::checkInvariant()
 }
 
 MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -233,12 +233,12 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                            double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                                                            int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
                                                                            double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
                                                                            double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -390,7 +390,7 @@ bool MeshSurfacewaterChannelNeighborProxy::checkInvariant()
 }
 
 MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -410,13 +410,13 @@ MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, double flowCumulativeShortTermInit,
+MeshGroundwaterMeshNeighborProxy::MeshGroundwaterMeshNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit, double flowCumulativeShortTermInit,
                                                                    double flowCumulativeLongTermInit, int regionInit, int neighborInit,
                                                                    int reciprocalNeighborProxyInit, double neighborXInit, double neighborYInit,
                                                                    double neighborZSurfaceInit, double neighborLayerZBottomInit, double neighborAreaInit,
                                                                    double edgeLengthInit, double edgeNormalXInit, double edgeNormalYInit,
                                                                    double neighborConductivityInit, double neighborPorosityInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -657,7 +657,7 @@ bool MeshGroundwaterMeshNeighborProxy::checkInvariant()
 }
 
 MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy() :
-  SimpleNeighborProxy(0.0, 0.0, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
+  SimpleNeighborProxy(0.0, 0.0, false, 0.0, 0.0), // Dummy values will be overwritten by pup_stl.h code.
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
@@ -675,13 +675,13 @@ MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy() :
   // Initialization handled by initialization list.
 }
 
-MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit,
+MeshGroundwaterChannelNeighborProxy::MeshGroundwaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                          double flowCumulativeShortTermInit, double flowCumulativeLongTermInit, int regionInit,
                                                                          int neighborInit, int reciprocalNeighborProxyInit, double neighborZBankInit,
                                                                          double neighborZBedInit, double neighborZOffsetInit, double edgeLengthInit,
                                                                          double neighborBaseWidthInit, double neighborSideSlopeInit,
                                                                          double neighborBedConductivityInit, double neighborBedThicknessInit) :
-  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
+  SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
@@ -1813,7 +1813,7 @@ bool InfiltrationAndGroundwater::allInflowsArrived(double currentTime, double ti
     {
       for (itMesh = meshNeighbors.begin(); allArrived && itMesh != meshNeighbors.end(); ++itMesh)
         {
-          if (0.0 > (*itMesh).nominalFlowRate)
+          if (0.0 > (*itMesh).nominalFlowRate || (*itMesh).inflowOnly)
             {
               allArrived = (*itMesh).allMaterialHasArrived(currentTime, timestepEndTime);
             }
@@ -1821,7 +1821,7 @@ bool InfiltrationAndGroundwater::allInflowsArrived(double currentTime, double ti
       
       for (itChannel = channelNeighbors.begin(); allArrived && itChannel != channelNeighbors.end(); ++itChannel)
         {
-          if (0.0 > (*itChannel).nominalFlowRate)
+          if (0.0 > (*itChannel).nominalFlowRate || (*itChannel).inflowOnly)
             {
               allArrived = (*itChannel).allMaterialHasArrived(currentTime, timestepEndTime);
             }
@@ -2687,7 +2687,7 @@ bool MeshElement::allInflowsArrived(double currentTime, double timestepEndTime)
     {
       for (itMesh = meshNeighbors.begin(); allArrived && itMesh != meshNeighbors.end(); ++itMesh)
         {
-          if (0.0 > (*itMesh).nominalFlowRate)
+          if (0.0 > (*itMesh).nominalFlowRate || (*itMesh).inflowOnly)
             {
               allArrived = (*itMesh).allMaterialHasArrived(currentTime, timestepEndTime);
             }
@@ -2695,7 +2695,7 @@ bool MeshElement::allInflowsArrived(double currentTime, double timestepEndTime)
       
       for (itChannel = channelNeighbors.begin(); allArrived && itChannel != channelNeighbors.end(); ++itChannel)
         {
-          if (0.0 > (*itChannel).nominalFlowRate)
+          if (0.0 > (*itChannel).nominalFlowRate || (*itChannel).inflowOnly)
             {
               allArrived = (*itChannel).allMaterialHasArrived(currentTime, timestepEndTime);
             }
