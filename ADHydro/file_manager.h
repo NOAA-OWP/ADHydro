@@ -453,23 +453,55 @@ public:
   // set to the instance to write.
   //
   // Returns: true if there is an error, false otherwise.
-  bool NetCDFWriteGeometry();
+  //
+  // Parameters:
+  //
+  // fileID   - If fileOpen is true, the ID of an already open geometry file.
+  // fileOpen - Whether fileID refers to an already open geometry file.
+  //            Regardless of whether an already open file was passed in or a
+  //            file was opened in this method, at the end of this method the
+  //            written file is closed and fileOpen is updated to false.
+  bool NetCDFWriteGeometry(int& fileID, bool& fileOpen);
   
   // Write variables to the parameter file.  parameterInstance must already be
   // set to the instance to write.
   //
   // Returns: true if there is an error, false otherwise.
-  bool NetCDFWriteParameter();
+  //
+  // Parameters:
+  //
+  // fileID   - If fileOpen is true, the ID of an already open parameter file.
+  // fileOpen - Whether fileID refers to an already open parameter file.
+  //            Regardless of whether an already open file was passed in or a
+  //            file was opened in this method, at the end of this method the
+  //            written file is closed and fileOpen is updated to false.
+  bool NetCDFWriteParameter(int& fileID, bool& fileOpen);
   
   // Write variables to the state file.  stateInstance must already be
   // set to the instance to write.
   //
   // Returns: true if there is an error, false otherwise.
-  bool NetCDFWriteState();
+  //
+  // Parameters:
+  //
+  // fileID   - If fileOpen is true, the ID of an already open state file.
+  // fileOpen - Whether fileID refers to an already open state file.
+  //            Regardless of whether an already open file was passed in or a
+  //            file was opened in this method, at the end of this method the
+  //            written file is closed and fileOpen is updated to false.
+  bool NetCDFWriteState(int& fileID, bool& fileOpen);
   
   // Write variables to the display file.  displayInstance must already be
   // set to the instance to write.
-  bool NetCDFWriteDisplay();
+  //
+  // Parameters:
+  //
+  // fileID   - If fileOpen is true, the ID of an already open display file.
+  // fileOpen - Whether fileID refers to an already open display file.
+  //            Regardless of whether an already open file was passed in or a
+  //            file was opened in this method, at the end of this method the
+  //            written file is closed and fileOpen is updated to false.
+  bool NetCDFWriteDisplay(int& fileID, bool& fileOpen);
   
   // Initialize the file manager from NetCDF files.
   void initializeFromNetCDFFiles();
@@ -745,6 +777,9 @@ public:
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayMCN* meshGroundwaterChannelNeighborsFlowCumulativeLongTerm;
   
+  // This variable is used for a temporary array with a size of localNumberOfMeshElements.
+  double* meshTempArray;
+  
   // Nodes are a list of points indexed by node number.  A node may be a vertex
   // for multiple elements.  As such, it is not guaranteed that all of an
   // element's nodes are owned by a single local branch.  Therefore, they are
@@ -827,6 +862,9 @@ public:
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowRate;
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   DoubleArrayCCN*  channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
+  
+  // This variable is used for a temporary array with a size of localNumberOfChannelElements.
+  double* channelTempArray;
   
   // This array stores a lookup table of reach codes for pruned streams.
   // channelPruned[n][0] stores the reach code of a pruned stream.

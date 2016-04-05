@@ -84,11 +84,6 @@ module file_manager
             // Regions use a reduction to do mass balance.
             ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
             
-            // Regions must wait until a previous mass balance finishes before starting a new one to avoid creating overlapping reductions.  This is
-            // accomplished by a barrier before contributing to a mass balance reduction.  We must let the regions past the barrier the first time when there
-            // is no previous mass balance reduction to signal them that it is okay to go.
-            ADHydro::regionProxy.massBalanceDone();
-            
             // File managers use a reduction as a barrier before writing to NetCDF files.
             thisProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, barrier), thisProxy));
             

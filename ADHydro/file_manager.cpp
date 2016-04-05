@@ -122,9 +122,6 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
            "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
-  // Signal all regions when each mass balance finishes so that they don't create overlapping reductions.
-  ADHydro::regionProxy.massBalanceDone();
-  
   // Signal file manager zero when the last mass balance finishes so that it knows it can end the program.
   if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
     {
@@ -279,6 +276,7 @@ FileManager::FileManager() :
   meshGroundwaterChannelNeighborsFlowRate(NULL),
   meshGroundwaterChannelNeighborsFlowCumulativeShortTerm(NULL),
   meshGroundwaterChannelNeighborsFlowCumulativeLongTerm(NULL),
+  meshTempArray(NULL),
   channelNodeX(NULL),
   channelNodeY(NULL),
   channelNodeZBank(NULL),
@@ -332,6 +330,7 @@ FileManager::FileManager() :
   channelSurfacewaterChannelNeighborsFlowRate(NULL),
   channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm(NULL),
   channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm(NULL),
+  channelTempArray(NULL),
   channelPrunedSize(0),
   numberOfChannelPruned(0),
   channelPruned(NULL),
@@ -448,6 +447,7 @@ FileManager::~FileManager()
   delete[] meshGroundwaterMeshNeighborsFlowRate;
   delete[] meshGroundwaterMeshNeighborsFlowCumulativeShortTerm;
   delete[] meshGroundwaterMeshNeighborsFlowCumulativeLongTerm;
+  delete[] meshTempArray;
   delete[] meshChannelNeighbors;
   delete[] meshChannelNeighborsRegion;
   delete[] meshChannelNeighborsEdgeLength;
@@ -514,6 +514,7 @@ FileManager::~FileManager()
   delete[] channelSurfacewaterChannelNeighborsFlowRate;
   delete[] channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm;
   delete[] channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm;
+  delete[] channelTempArray;
   delete[] channelPruned;
   delete[] meshVertexUpdated;
   delete[] channelVertexUpdated;
@@ -3253,11 +3254,13 @@ bool FileManager::NetCDFCreateOrOpenForWriteState(int* fileID)
 
 bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
 {
-  bool error    = false;     // Error flag.
-  int  ncErrorCode;          // Return value of NetCDF functions.
-  bool created;              // Whether the file is being created.
-  bool fileOpen = false;     // Whether the file is open.
-  int  instancesDimensionID; // ID of dimension in NetCDF file.
+  bool error    = false;           // Error flag.
+  int  ncErrorCode;                // Return value of NetCDF functions.
+  bool created;                    // Whether the file is being created.
+  bool fileOpen = false;           // Whether the file is open.
+  int  instancesDimensionID;       // ID of dimension in NetCDF file.
+  int  meshElementsDimensionID;    // ID of dimension in NetCDF file.
+  int  channelElementsDimensionID; // ID of dimension in NetCDF file.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != fileID))
@@ -3286,10 +3289,219 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
           error = NetCDFCreateDimension(*fileID, "instances", NC_UNLIMITED, &instancesDimensionID);
         }
       
-      // FIXME decide what should go into the display file
+      if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "meshElements", NC_UNLIMITED, &meshElementsDimensionID);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "channelElements", NC_UNLIMITED, &channelElementsDimensionID);
+        }
       
       // Create display variables.
-      // FIXME decide what should go into the display file
+      if (!error)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // Assumes size_t is 8 bytes when storing as NC_UINT64.
+          CkAssert(8 == sizeof(size_t));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          error = NetCDFCreateVariable(*fileID, "geometryInstance", NC_UINT64, 1, instancesDimensionID, 0, 0, NULL,
+                                       "The instance in the geometry file to use with each instance in the state file.");
+        }
+      
+      if (!error)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // Assumes size_t is 8 bytes when storing as NC_UINT64.
+          CkAssert(8 == sizeof(size_t));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          error = NetCDFCreateVariable(*fileID, "parameterInstance", NC_UINT64, 1, instancesDimensionID, 0, 0, NULL,
+                                       "The instance in the parameter file to use with each instance in the state file.");
+        }
+      
+      if (!error)
+        {
+          error = NetCDFCreateVariable(*fileID, "referenceDate", NC_DOUBLE, 1, instancesDimensionID, 0, 0, "days",
+                                       "The Julian date to use as time zero for the simulation.");
+        }
+      
+      if (!error)
+        {
+          error = NetCDFCreateVariable(*fileID, "currentTime", NC_DOUBLE, 1, instancesDimensionID, 0, 0, "seconds",
+                                       "Elapsed time since referenceDate.  Can be negative to indicate times before referenceDate.");
+        }
+      
+      if (!error && NULL != meshSurfacewaterDepth)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Surfacewater depth of each mesh element.");
+        }
+      
+      if (!error && NULL != meshSurfacewaterError)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterError", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Surfacewater created or destroyed as the result of error including roundoff error of each mesh element.  Positive "
+                                       "means water was created.  Negative means water was destroyed.");
+        }
+      
+      if (!error && NULL != meshGroundwaterHead)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshGroundwaterHead", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Z coordinate of water table of each mesh element.");
+        }
+      
+      if (!error && NULL != meshGroundwaterRecharge)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshGroundwaterRecharge", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Depth of water in groundwater recharge bucket of each mesh element.");
+        }
+      
+      if (!error && NULL != meshGroundwaterError)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshGroundwaterError", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Groundwater created or destroyed as the result of error including roundoff error of each mesh element.  Positive "
+                                       "means water was created.  Negative means water was destroyed.");
+        }
+      
+      if (!error && NULL != meshPrecipitationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous precipitation rate of each mesh element as a negative number.");
+        }
+      
+      if (!error && NULL != meshPrecipitationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
+                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != meshPrecipitationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
+                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != meshEvaporationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshEvaporationRate", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous evaporation or condensation rate of each mesh element.  Positive means water removed from the element.  "
+                                       "Negative means water added to the element.");
+        }
+      
+      if (!error && NULL != meshEvaporationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshEvaporationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative evaporation or condensation of each mesh element.  Positive means water removed from the "
+                                       "element.  Negative means water added to the element.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative evaporation or condensation add short term and long term.");
+        }
+      
+      if (!error && NULL != meshEvaporationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshEvaporationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative evaporation or condensation of each mesh element.  Positive means water removed from the "
+                                       "element.  Negative means water added to the element.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative evaporation or condensation add short term and long term.");
+        }
+      
+      if (!error && NULL != meshTranspirationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshTranspirationRate", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous transpiration rate of each mesh element as a positive number.");
+        }
+      
+      if (!error && NULL != meshTranspirationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshTranspirationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative transpiration of each mesh element as a positive number.  Two buckets are used to "
+                                       "minimize roundoff error.  To find total cumulative transpiration add short term and long term.");
+        }
+      
+      if (!error && NULL != meshTranspirationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshTranspirationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative transpiration of each mesh element as a positive number.  Two buckets are used to "
+                                       "minimize roundoff error.  To find total cumulative transpiration add short term and long term.");
+        }
+      
+      if (!error && NULL != meshEvapoTranspirationState)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshCanopyWater", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Total water (liquid and solid) intercepted in canopy in meters of liquid water equivalent");
+        }
+      
+      if (!error && NULL != meshEvapoTranspirationState)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSnowWaterEquivalent", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Total water (liquid and solid) in snow pack in meters of liquid water equivalent");
+        }
+      
+      if (!error && NULL != channelSurfacewaterDepth)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
+                                       "Surfacewater depth of each channel element.");
+        }
+      
+      if (!error && NULL != channelSurfacewaterError)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterError", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters^3",
+                                       "Surfacewater created or destroyed as the result of error including roundoff error of each channel element.  Positive "
+                                       "means water was created.  Negative means water was destroyed.");
+        }
+      
+      if (!error && NULL != channelPrecipitationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous precipitation rate of each channel element as a negative number.");
+        }
+      
+      if (!error && NULL != channelPrecipitationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
+                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != channelPrecipitationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
+                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != channelEvaporationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelEvaporationRate", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous evaporation or condensation rate of each channel element.  Positive means water removed from the "
+                                       "element.  Negative means water added to the element.");
+        }
+      
+      if (!error && NULL != channelEvaporationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelEvaporationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative evaporation or condensation of each channel element.  Positive means water removed "
+                                       "from the element.  Negative means water added to the element.  Two buckets are used to minimize roundoff error.  To "
+                                       "find total cumulative evaporation or condensation add short term and long term.");
+        }
+      
+      if (!error && NULL != channelEvaporationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelEvaporationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative evaporation or condensation of each channel element.  Positive means water removed "
+                                       "from the element.  Negative means water added to the element.  Two buckets are used to minimize roundoff error.  To "
+                                       "find total cumulative evaporation or condensation add short term and long term.");
+        }
+      
+      if (!error && NULL != channelEvapoTranspirationState)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSnowWaterEquivalent", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
+                                       "Total water (liquid and solid) in snow pack in meters of liquid water equivalent");
+        }
     }
   // FIXME else if not error the file was not created we could check that the dimensions and variables exist and the dimensions are the right size.
   
@@ -4889,19 +5101,20 @@ bool FileManager::NetCDFWriteVariable(int fileID, const char* variableName, size
   return error;
 }
 
-bool FileManager::NetCDFWriteGeometry()
+bool FileManager::NetCDFWriteGeometry(int& fileID, bool& fileOpen)
 {
-  bool error    = false; // Error flag.
-  int  ncErrorCode;      // Return value of NetCDF functions.
-  int  fileID;           // ID of NetCDF file.
-  bool fileOpen = false; // Whether fileID refers to an open file.
+  bool error = false; // Error flag.
+  int  ncErrorCode;   // Return value of NetCDF functions.
   
-  // Open the geometry file.
-  error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
-
-  if (!error)
+  // Open the geometry file if necessary.
+  if (!fileOpen)
     {
-      fileOpen = true;
+      error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
+
+      if (!error)
+        {
+          fileOpen = true;
+        }
     }
   
   if (!error)
@@ -5220,6 +5433,7 @@ bool FileManager::NetCDFWriteGeometry()
   if (fileOpen)
     {
       ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -5233,19 +5447,20 @@ bool FileManager::NetCDFWriteGeometry()
   return error;
 }
 
-bool FileManager::NetCDFWriteParameter()
+bool FileManager::NetCDFWriteParameter(int& fileID, bool& fileOpen)
 {
-  bool error    = false; // Error flag.
-  int  ncErrorCode;      // Return value of NetCDF functions.
-  int  fileID;           // ID of NetCDF file.
-  bool fileOpen = false; // Whether fileID refers to an open file.
+  bool error = false; // Error flag.
+  int  ncErrorCode;   // Return value of NetCDF functions.
   
   // Open the parameter file.
-  error = NetCDFCreateOrOpenForWriteParameter(&fileID);
-
-  if (!error)
+  if (!fileOpen)
     {
-      fileOpen = true;
+      error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+
+      if (!error)
+        {
+          fileOpen = true;
+        }
     }
   
   if (!error)
@@ -5389,6 +5604,7 @@ bool FileManager::NetCDFWriteParameter()
   if (fileOpen)
     {
       ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -5402,19 +5618,20 @@ bool FileManager::NetCDFWriteParameter()
   return error;
 }
 
-bool FileManager::NetCDFWriteState()
+bool FileManager::NetCDFWriteState(int& fileID, bool& fileOpen)
 {
-  bool error    = false; // Error flag.
-  int  ncErrorCode;      // Return value of NetCDF functions.
-  int  fileID;           // ID of NetCDF file.
-  bool fileOpen = false; // Whether fileID refers to an open file.
+  bool error = false; // Error flag.
+  int  ncErrorCode;   // Return value of NetCDF functions.
   
   // Open the state file.
-  error = NetCDFCreateOrOpenForWriteState(&fileID);
-
-  if (!error)
+  if (!fileOpen)
     {
-      fileOpen = true;
+      error = NetCDFCreateOrOpenForWriteState(&fileID);
+
+      if (!error)
+        {
+          fileOpen = true;
+        }
     }
 
   if (!error)
@@ -5747,6 +5964,7 @@ bool FileManager::NetCDFWriteState()
   if (fileOpen)
     {
       ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -5760,27 +5978,217 @@ bool FileManager::NetCDFWriteState()
   return error;
 }
 
-bool FileManager::NetCDFWriteDisplay()
+bool FileManager::NetCDFWriteDisplay(int& fileID, bool& fileOpen)
 {
-  bool error    = false; // Error flag.
-  int  ncErrorCode;      // Return value of NetCDF functions.
-  int  fileID;           // ID of NetCDF file.
-  bool fileOpen = false; // Whether fileID refers to an open file.
+  bool error = false; // Error flag.
+  int  ncErrorCode;   // Return value of NetCDF functions.
+  int  ii;            // Loop counter.
   
   // Open the display file.
-  error = NetCDFCreateOrOpenForWriteDisplay(&fileID);
+  if (!fileOpen)
+    {
+      error = NetCDFCreateOrOpenForWriteDisplay(&fileID);
 
+      if (!error)
+        {
+          fileOpen = true;
+        }
+    }
+  
   if (!error)
     {
-      fileOpen = true;
+      error = NetCDFWriteVariable(fileID, "geometryInstance", displayInstance, 0, 1, 1, &geometryInstance);
     }
-
-  // FIXME decide what should go into the display file.
   
-  // Close the state file.
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "parameterInstance", displayInstance, 0, 1, 1, &parameterInstance);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "referenceDate", displayInstance, 0, 1, 1, &ADHydro::referenceDate);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFWriteVariable(fileID, "currentTime", displayInstance, 0, 1, 1, &currentTime);
+    }
+  
+  if (!error && NULL != meshSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterDepth", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterDepth);
+    }
+  
+  if (!error && NULL != meshSurfacewaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterError", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterError);
+    }
+  
+  if (!error && NULL != meshGroundwaterHead)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterHead", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterHead);
+    }
+  
+  if (!error && NULL != meshGroundwaterRecharge)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterRecharge", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterRecharge);
+    }
+  
+  if (!error && NULL != meshGroundwaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "meshGroundwaterError", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshGroundwaterError);
+    }
+  
+  if (!error && NULL != meshPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationRate", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeShortTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeLongTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshEvaporationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationRate", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshEvaporationRate);
+    }
+  
+  if (!error && NULL != meshEvaporationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationCumulativeShortTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshEvaporationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshEvaporationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshEvaporationCumulativeLongTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshEvaporationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshTranspirationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationRate", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTranspirationRate);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationCumulativeShortTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshTranspirationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshTranspirationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshTranspirationCumulativeLongTerm", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshTranspirationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != meshEvapoTranspirationState)
+    {
+      if (NULL == meshTempArray)
+        {
+          meshTempArray = new double[localNumberOfMeshElements];
+        }
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+        {
+          meshTempArray[ii] = ((double)meshEvapoTranspirationState[ii].canLiq + meshEvapoTranspirationState[ii].canIce) / 1000.0;
+        }
+      
+      error = NetCDFWriteVariable(fileID, "meshCanopyWater", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTempArray);
+    }
+  
+  if (!error && NULL != meshEvapoTranspirationState)
+    {
+      if (NULL == meshTempArray)
+        {
+          meshTempArray = new double[localNumberOfMeshElements];
+        }
+      
+      for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+        {
+          meshTempArray[ii] = meshEvapoTranspirationState[ii].snEqv / 1000.0;
+        }
+      
+      error = NetCDFWriteVariable(fileID, "meshSnowWaterEquivalent", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshTempArray);
+    }
+  
+  if (!error && NULL != channelSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterDepth", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSurfacewaterDepth);
+    }
+  
+  if (!error && NULL != channelSurfacewaterError)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterError", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSurfacewaterError);
+    }
+  
+  if (!error && NULL != channelPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationRate", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationRate);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeShortTerm", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeLongTerm", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelEvaporationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationRate", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationRate);
+    }
+  
+  if (!error && NULL != channelEvaporationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationCumulativeShortTerm", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelEvaporationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelEvaporationCumulativeLongTerm", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelEvaporationCumulativeLongTerm);
+    }
+  
+  if (!error && NULL != channelEvapoTranspirationState)
+    {
+      if (NULL == channelTempArray)
+        {
+          channelTempArray = new double[localNumberOfChannelElements];
+        }
+      
+      for (ii = 0; ii < localNumberOfChannelElements; ++ii)
+        {
+          channelTempArray[ii] = channelEvapoTranspirationState[ii].snEqv / 1000.0;
+        }
+      
+      error = NetCDFWriteVariable(fileID, "channelSnowWaterEquivalent", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelTempArray);
+    }
+  
+  // Close the display file.
   if (fileOpen)
     {
       ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -5826,18 +6234,24 @@ void FileManager::initializeFromNetCDFFiles()
 
 void FileManager::writeNetCDFFiles()
 {
-  bool   error          = false; // Error flag.
-  int    ncErrorCode;            // Return value of NetCDF functions.
-  int    fileID;                 // ID of NetCDF file.
-  bool   fileOpen       = false; // Whether fileID refers to an open file.
-  bool   writeGeometry  = false; // Whether to write a new geometry instance.
-  bool   writeParameter = false; // Whether to write a new parameter instance.
-  bool   writeState     = false; // Whether to write a new state instance.
-  bool   writeDisplay   = false; // Whether to write a new display instance.
-  size_t geometryInstancesSize;  // Number of instances in geometry file.
-  size_t parameterInstancesSize; // Number of instances in parameter file.
-  size_t stateInstancesSize;     // Number of instances in state file.
-  size_t displayInstancesSize;   // Number of instances in display file.
+  bool   error             = false; // Error flag.
+  int    ncErrorCode;               // Return value of NetCDF functions.
+  bool   writeGeometry     = false; // Whether to write a new geometry instance.
+  int    geometryFileID;            // ID of NetCDF file.
+  bool   geometryFileOpen  = false; // Whether fileID refers to an open file.
+  size_t geometryInstancesSize;     // Number of instances in geometry file.
+  bool   writeParameter    = false; // Whether to write a new parameter instance.
+  int    parameterFileID;           // ID of NetCDF file.
+  bool   parameterFileOpen = false; // Whether fileID refers to an open file.
+  size_t parameterInstancesSize;    // Number of instances in parameter file.
+  bool   writeState        = false; // Whether to write a new state instance.
+  int    stateFileID;               // ID of NetCDF file.
+  bool   stateFileOpen     = false; // Whether fileID refers to an open file.
+  size_t stateInstancesSize;        // Number of instances in state file.
+  bool   writeDisplay      = false; // Whether to write a new display instance.
+  int    displayFileID;             // ID of NetCDF file.
+  bool   displayFileOpen   = false; // Whether fileID refers to an open file.
+  size_t displayInstancesSize;      // Number of instances in display file.
   
   // First, decide whether we need to write each file.
   
@@ -5862,16 +6276,16 @@ void FileManager::writeNetCDFFiles()
   else if (!geometryInstanceChecked)
     {
       // Open the geometry file.
-      error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
+      error = NetCDFCreateOrOpenForWriteGeometry(&geometryFileID);
 
       if (!error)
         {
-          fileOpen = true;
+          geometryFileOpen = true;
         }
       
       if (!error)
         {
-          error = NetCDFReadDimensionSize(fileID, "instances", &geometryInstancesSize);
+          error = NetCDFReadDimensionSize(geometryFileID, "instances", &geometryInstancesSize);
         }
       
       if (!error && !(geometryInstance < geometryInstancesSize))
@@ -5884,19 +6298,19 @@ void FileManager::writeNetCDFFiles()
   if (!error && writeGeometry)
     {
       // Get the number of instances in the geometry file if we haven't already.
-      if (!fileOpen)
+      if (!geometryFileOpen)
         {
           // Open the geometry file.
-          error = NetCDFCreateOrOpenForWriteGeometry(&fileID);
+          error = NetCDFCreateOrOpenForWriteGeometry(&geometryFileID);
 
           if (!error)
             {
-              fileOpen = true;
+              geometryFileOpen = true;
             }
           
           if (!error)
             {
-              error = NetCDFReadDimensionSize(fileID, "instances", &geometryInstancesSize);
+              error = NetCDFReadDimensionSize(geometryFileID, "instances", &geometryInstancesSize);
             }
         }
       
@@ -5906,22 +6320,6 @@ void FileManager::writeNetCDFFiles()
       // Once the geometry is written it is no longer changed and it has been checked that the geometry exists in the output file.
       geometryChanged         = false;
       geometryInstanceChecked = true;
-    }
-  
-  // Close the geometry file.
-  if (fileOpen)
-    {
-      ncErrorCode = nc_close(fileID);
-      fileOpen    = false;
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF geometry file.  NetCDF error message: %s.\n",
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
   // The parameter file has the same three cases as the geometry file plus if the geometry is being written the parameter file must be written so that it links
@@ -5941,16 +6339,16 @@ void FileManager::writeNetCDFFiles()
   else if (!parameterInstanceChecked)
     {
       // Open the parameter file.
-      error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+      error = NetCDFCreateOrOpenForWriteParameter(&parameterFileID);
 
       if (!error)
         {
-          fileOpen = true;
+          parameterFileOpen = true;
         }
       
       if (!error)
         {
-          error = NetCDFReadDimensionSize(fileID, "instances", &parameterInstancesSize);
+          error = NetCDFReadDimensionSize(parameterFileID, "instances", &parameterInstancesSize);
         }
       
       if (!error && !(parameterInstance < parameterInstancesSize))
@@ -5963,19 +6361,19 @@ void FileManager::writeNetCDFFiles()
   if (!error && writeParameter)
     {
       // Get the number of instances in the parameter file if we haven't already.
-      if (!fileOpen)
+      if (!parameterFileOpen)
         {
           // Open the parameter file.
-          error = NetCDFCreateOrOpenForWriteParameter(&fileID);
+          error = NetCDFCreateOrOpenForWriteParameter(&parameterFileID);
 
           if (!error)
             {
-              fileOpen = true;
+              parameterFileOpen = true;
             }
           
           if (!error)
             {
-              error = NetCDFReadDimensionSize(fileID, "instances", &parameterInstancesSize);
+              error = NetCDFReadDimensionSize(parameterFileID, "instances", &parameterInstancesSize);
             }
         }
       
@@ -5987,11 +6385,106 @@ void FileManager::writeNetCDFFiles()
       parameterInstanceChecked = true;
     }
   
-  // Close the parameter file.
-  if (fileOpen)
+  // Write to the state file if it is a checkpoint time, the end of the simulation, or the beginning of the simulation.
+  // ADHydro::currentTime is never updated so it continues to hold the time at the beginning of the simulation.
+  writeState = (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime || simulationEndTime == currentTime || ADHydro::currentTime == currentTime);
+  
+  // If we do need to write the state we will write a new instance one after the last instance currently in the file.
+  // FIXME if an instance already exists with the same currentTime overwrite that instance
+  if (!error && writeState)
     {
-      ncErrorCode = nc_close(fileID);
-      fileOpen    = false;
+      // Get the number of instances in the state file if we haven't already.
+      if (!stateFileOpen)
+        {
+          // Open the state file.
+          error = NetCDFCreateOrOpenForWriteState(&stateFileID);
+
+          if (!error)
+            {
+              stateFileOpen = true;
+            }
+          
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(stateFileID, "instances", &stateInstancesSize);
+            }
+        }
+      
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      stateInstance = stateInstancesSize;
+    }
+  
+  // Write to the display file if it is an output time, the end of the simulation, or the beginning of the simulation.
+  // ADHydro::currentTime is never updated so it continues to hold the time at the beginning of the simulation.
+  writeDisplay = (nextOutputIndex * ADHydro::outputPeriod == currentTime || simulationEndTime == currentTime || ADHydro::currentTime == currentTime);
+  
+  // If we do need to write the display we will write a new instance one after the last instance currently in the file.
+  // FIXME if an instance already exists with the same currentTime overwrite that instance
+  if (!error && writeDisplay)
+    {
+      // Get the number of instances in the display file if we haven't already.
+      if (!displayFileOpen)
+        {
+          // Open the display file.
+          error = NetCDFCreateOrOpenForWriteDisplay(&displayFileID);
+
+          if (!error)
+            {
+              displayFileOpen = true;
+            }
+          
+          if (!error)
+            {
+              error = NetCDFReadDimensionSize(displayFileID, "instances", &displayInstancesSize);
+            }
+        }
+      
+      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
+      displayInstance = displayInstancesSize;
+    }
+  
+  // Write instances as necessary.
+  if (!error && writeGeometry)
+    {
+      error = NetCDFWriteGeometry(geometryFileID, geometryFileOpen);
+    }
+  
+  if (!error && writeParameter)
+    {
+      error = NetCDFWriteParameter(parameterFileID, parameterFileOpen);
+    }
+  
+  if (!error && writeState)
+    {
+      error = NetCDFWriteState(stateFileID, stateFileOpen);
+    }
+  
+  if (!error && writeDisplay)
+    {
+      error = NetCDFWriteDisplay(displayFileID, displayFileOpen);
+    }
+  
+  // Close the geometry file.
+  if (geometryFileOpen)
+    {
+      ncErrorCode      = nc_close(geometryFileID);
+      geometryFileOpen = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::writeNetCDFFiles: unable to close NetCDF geometry file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  // Close the parameter file.
+  if (parameterFileOpen)
+    {
+      ncErrorCode       = nc_close(parameterFileID);
+      parameterFileOpen = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -6003,38 +6496,11 @@ void FileManager::writeNetCDFFiles()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
-  // FIXME Implement write criteria for the state and display files.  For now, always write a new instance.
-  writeState = true;
-  
-  // If we do need to write the state we will write a new instance one after the last instance currently in the file.
-  if (!error && writeState)
-    {
-      // Get the number of instances in the state file if we haven't already.
-      if (!fileOpen)
-        {
-          // Open the state file.
-          error = NetCDFCreateOrOpenForWriteState(&fileID);
-
-          if (!error)
-            {
-              fileOpen = true;
-            }
-          
-          if (!error)
-            {
-              error = NetCDFReadDimensionSize(fileID, "instances", &stateInstancesSize);
-            }
-        }
-      
-      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
-      stateInstance = stateInstancesSize;
-    }
-  
   // Close the state file.
-  if (fileOpen)
+  if (stateFileOpen)
     {
-      ncErrorCode = nc_close(fileID);
-      fileOpen    = false;
+      ncErrorCode   = nc_close(stateFileID);
+      stateFileOpen = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -6046,38 +6512,11 @@ void FileManager::writeNetCDFFiles()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
     }
   
-  // FIXME Implement write criteria for the state and display files.  For now, always write a new instance.
-  writeDisplay = true;
-  
-  // If we do need to write the display we will write a new instance one after the last instance currently in the file.
-  if (!error && writeDisplay)
-    {
-      // Get the number of instances in the display file if we haven't already.
-      if (!fileOpen)
-        {
-          // Open the display file.
-          error = NetCDFCreateOrOpenForWriteDisplay(&fileID);
-
-          if (!error)
-            {
-              fileOpen = true;
-            }
-          
-          if (!error)
-            {
-              error = NetCDFReadDimensionSize(fileID, "instances", &displayInstancesSize);
-            }
-        }
-      
-      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
-      displayInstance = displayInstancesSize;
-    }
-  
   // Close the display file.
-  if (fileOpen)
+  if (displayFileOpen)
     {
-      ncErrorCode = nc_close(fileID);
-      fileOpen    = false;
+      ncErrorCode     = nc_close(displayFileID);
+      displayFileOpen = false;
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -6087,28 +6526,6 @@ void FileManager::writeNetCDFFiles()
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Write instances as necessary.
-  // FIXME if we had to open the files above figure out how to use the already open files instead of reopening them.
-  if (!error && writeGeometry)
-    {
-      error = NetCDFWriteGeometry();
-    }
-  
-  if (!error && writeParameter)
-    {
-      error = NetCDFWriteParameter();
-    }
-  
-  if (!error && writeState)
-    {
-      error = NetCDFWriteState();
-    }
-  
-  if (!error && writeDisplay)
-    {
-      error = NetCDFWriteDisplay();
     }
   
   if (error)
