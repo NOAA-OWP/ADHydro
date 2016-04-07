@@ -315,6 +315,7 @@ module file_manager
         } // End else if (currentTime < simulationEndTime).
       } // End while (!simulationFinished).
       
+      /* FIXME uncomment
       // On PE zero wait for the last mass balance reduction to finish before exiting.
       if (0 == CkMyPe())
       {
@@ -323,6 +324,7 @@ module file_manager
           // No-op.
         }
       }
+      */
       
       // Wait until all file managers finish before exiting.
       serial
@@ -339,6 +341,6 @@ module file_manager
     entry [reductiontarget] void barrier();
     entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
                                         std::vector<ElementStateMessage> channelElementStateMessages);
-    entry void massBalanceDone();
+    // FIXME uncomment entry void massBalanceDone();
   }; // End group FileManager.
 }; // End module file_manager.

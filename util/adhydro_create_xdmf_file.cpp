@@ -86,12 +86,12 @@ void writeTopologyAndGeometry(FILE* outputFile, const char* sourceFileName, cons
   fprintf(outputFile, "        </Geometry>\n");
 }
 
-void writeScalarAttribute(FILE* outputFile, const char* sourceFileName, const char* attributeName, int numberOfElements, unsigned long long instance, size_t numberOfInstances)
+void writeScalarAttribute(FILE* outputFile, const char* sourceFileName, const char* attributeName, const char* dataType, int precision, int numberOfElements, unsigned long long instance, size_t numberOfInstances)
 {
   fprintf(outputFile, "        <Attribute AttributeType=\"Scalar\" Center=\"Cell\" Name=\"%s\">\n", attributeName);
   fprintf(outputFile, "          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\" Type=\"HyperSlab\">\n", numberOfElements);
   fprintf(outputFile, "            <DataItem Dimensions=\"3 2\" Format=\"XML\">%llu 0 1 1 1 %d</DataItem>\n", instance, numberOfElements);
-  fprintf(outputFile, "            <DataItem DataType=\"Float\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"8\">%s:/%s</DataItem>\n", numberOfInstances, numberOfElements, sourceFileName, attributeName);
+  fprintf(outputFile, "            <DataItem DataType=\"%s\" Dimensions=\"%zu %d\" Format=\"HDF\" Precision=\"%d\">%s:/%s</DataItem>\n", dataType, numberOfInstances, numberOfElements, precision, sourceFileName, attributeName);
   fprintf(outputFile, "          </DataItem>\n");
   fprintf(outputFile, "        </Attribute>\n");
 }
@@ -206,14 +206,69 @@ int main(int argc, char** argv)
       writeGridHeader(meshStateOut, currentTime);
       writeTopologyAndGeometry(meshStateOut, "geometry.nc", "Triangle", "meshElementVertices", "meshNodeX", "meshNodeY", "meshNodeZSurface",
                                numberOfMeshNodes, numberOfMeshElements, meshMeshNeighborsSize, geometryInstance, numberOfGeometryInstances);
-      // FIXME write attributes
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementX",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementY",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementZSurface",                  "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementSoilDepth",                 "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementLayerZBottom",              "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementArea",                      "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementSlopeX",                    "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshElementSlopeY",                    "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshLatitude",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "geometry.nc",  "meshLongitude",                        "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshRegion",                           "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshCatchment",                        "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshVegetationType",                   "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshSoilType",                         "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshAlluvium",                         "Int",   1, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshManningsN",                        "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshConductivity",                     "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshPorosity",                         "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "parameter.nc", "meshGroundwaterMethod",                "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshSurfacewaterDepth",                "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshSurfacewaterError",                "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshGroundwaterHead",                  "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshGroundwaterRecharge",              "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshGroundwaterError",                 "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshPrecipitationRate",                "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshPrecipitationCumulativeShortTerm", "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshPrecipitationCumulativeLongTerm",  "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshEvaporationRate",                  "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshEvaporationCumulativeShortTerm",   "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshEvaporationCumulativeLongTerm",    "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshTranspirationRate",                "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshTranspirationCumulativeShortTerm", "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(meshStateOut, "state.nc",     "meshTranspirationCumulativeLongTerm",  "Float", 8, numberOfMeshElements, stateInstance,     numberOfStateInstances);
       writeGridFooter(meshStateOut);
 
       // Write channel metadata.
       writeGridHeader(channelStateOut, currentTime);
       writeTopologyAndGeometry(channelStateOut, "geometry.nc", "Mixed", "channelElementVertices", "channelNodeX", "channelNodeY", "channelNodeZBank",
                                numberOfChannelNodes, numberOfChannelElements, channelVerticesXDMFSize, geometryInstance, numberOfGeometryInstances);
-      // FIXME write attributes
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementX",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementY",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementZBank",                     "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementBankFullDepth",             "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementZBed",                      "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelElementLength",                    "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelLatitude",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "geometry.nc",  "channelLongitude",                        "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelRegion",                           "Int",   4, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelChannelType",                      "Int",   4, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelReachCode",                        "Int",   8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelBaseWidth",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelSideSlope",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelBedConductivity",                  "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelBedThickness",                     "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "parameter.nc", "channelManningsN",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelSurfacewaterDepth",                "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelSurfacewaterError",                "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelPrecipitationRate",                "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelPrecipitationCumulativeShortTerm", "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelPrecipitationCumulativeLongTerm",  "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelEvaporationRate",                  "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelEvaporationCumulativeShortTerm",   "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
+      writeScalarAttribute(channelStateOut, "state.nc",     "channelEvaporationCumulativeLongTerm",    "Float", 8, numberOfChannelElements, stateInstance,     numberOfStateInstances);
       writeGridFooter(channelStateOut);
     } // End write to meshStateOut and channelStateOut for each state file instance.
   
@@ -244,14 +299,72 @@ int main(int argc, char** argv)
       writeGridHeader(meshDisplayOut, currentTime);
       writeTopologyAndGeometry(meshDisplayOut, "geometry.nc", "Triangle", "meshElementVertices", "meshNodeX", "meshNodeY", "meshNodeZSurface",
                                numberOfMeshNodes, numberOfMeshElements, meshMeshNeighborsSize, geometryInstance, numberOfGeometryInstances);
-      // FIXME write attributes
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementX",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementY",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementZSurface",                  "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementSoilDepth",                 "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementLayerZBottom",              "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementArea",                      "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementSlopeX",                    "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshElementSlopeY",                    "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshLatitude",                         "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "geometry.nc",  "meshLongitude",                        "Float", 8, numberOfMeshElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshRegion",                           "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshCatchment",                        "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshVegetationType",                   "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshSoilType",                         "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshAlluvium",                         "Int",   1, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshManningsN",                        "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshConductivity",                     "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshPorosity",                         "Float", 8, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "parameter.nc", "meshGroundwaterMethod",                "Int",   4, numberOfMeshElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshSurfacewaterDepth",                "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshSurfacewaterError",                "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshGroundwaterHead",                  "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshGroundwaterRecharge",              "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshGroundwaterError",                 "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshPrecipitationRate",                "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshPrecipitationCumulativeShortTerm", "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshPrecipitationCumulativeLongTerm",  "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshEvaporationRate",                  "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshEvaporationCumulativeShortTerm",   "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshEvaporationCumulativeLongTerm",    "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshTranspirationRate",                "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshTranspirationCumulativeShortTerm", "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshTranspirationCumulativeLongTerm",  "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshCanopyWater",                      "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(meshDisplayOut, "display.nc",   "meshSnowWaterEquivalent",              "Float", 8, numberOfMeshElements, displayInstance,   numberOfDisplayInstances);
       writeGridFooter(meshDisplayOut);
 
       // Write channel metadata.
       writeGridHeader(channelDisplayOut, currentTime);
       writeTopologyAndGeometry(channelDisplayOut, "geometry.nc", "Mixed", "channelElementVertices", "channelNodeX", "channelNodeY", "channelNodeZBank",
                                numberOfChannelNodes, numberOfChannelElements, channelVerticesXDMFSize, geometryInstance, numberOfGeometryInstances);
-      // FIXME write attributes
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementX",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementY",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementZBank",                     "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementBankFullDepth",             "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementZBed",                      "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelElementLength",                    "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelLatitude",                         "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "geometry.nc",  "channelLongitude",                        "Float", 8, numberOfChannelElements, geometryInstance,  numberOfGeometryInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelRegion",                           "Int",   4, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelChannelType",                      "Int",   4, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelReachCode",                        "Int",   8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelBaseWidth",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelSideSlope",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelBedConductivity",                  "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelBedThickness",                     "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "parameter.nc", "channelManningsN",                        "Float", 8, numberOfChannelElements, parameterInstance, numberOfParameterInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelSurfacewaterDepth",                "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelSurfacewaterError",                "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelPrecipitationRate",                "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelPrecipitationCumulativeShortTerm", "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelPrecipitationCumulativeLongTerm",  "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelEvaporationRate",                  "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelEvaporationCumulativeShortTerm",   "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelEvaporationCumulativeLongTerm",    "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
+      writeScalarAttribute(channelDisplayOut, "display.nc",   "channelSnowWaterEquivalent",              "Float", 8, numberOfChannelElements, displayInstance,   numberOfDisplayInstances);
       writeGridFooter(channelDisplayOut);
     } // End write to meshDisplayOut and channelDisplayOut for each display file instance.
   
