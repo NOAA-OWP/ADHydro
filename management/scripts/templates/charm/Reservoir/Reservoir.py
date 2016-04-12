@@ -18,8 +18,23 @@ _cxx_abstract_class_header_string = \
     Base class for reservoir managment components
 */
 #include "pup.h"
+#include <algorithm>
 class Reservoir : public PUP::able
 {
+    protected:
+        /*
+         * Really don't want the abstract class copied, this will likely lead to slicing.
+         * Putting empty copy constructor and assignment in protected will cause compiler to
+         * error if it is attempted by anything except subclasses or the object itself.
+         * Subclasses should be able to call the copy constructor so that the ReachCode gets
+         * properly initalized in the copy.
+         * Only pointers of abstract class should be copied/assigned so that the appropriate 
+         * sublcass can handle the implementation.  Base instances should not!
+         */
+        Reservoir(const Reservoir& other);
+        Reservoir& operator=(Reservoir other);
+        friend void swap(Reservoir& first, Reservoir& second);
+        
     public:
 	/* ReachCode identifying the NHD waterbody corresponding to this reservoir */
 	long long reachCode;
@@ -77,6 +92,24 @@ Reservoir::Reservoir(long long reachCode_):reachCode(reachCode_)
 	 * This could also be pushed to the subclasses to call and load data.
 	 * Best to load whatever is standard across all reservoirs here, though.
 	 */
+}
+
+Reservoir::Reservoir(const Reservoir& other):reachCode(other.reachCode)
+{
+
+}
+/*
+ * Since reachCode is primitave, just swap reachCodes, should be exception safe
+ */
+Reservoir& Reservoir::operator=(Reservoir other)
+{
+    swap(*this, other); return *this;
+}
+
+void swap(Reservoir& first, Reservoir& second)
+{ 
+    using std::swap; //Enable ADL (Arguement Dependent Lookup)
+    swap(first.reachCode, second.reachCode);
 }
 
 //Reservoir Destructor
@@ -168,6 +201,36 @@ public:
         /*TODO/FIXME WHY DOES THIS HAVE TO BE MANUALLY REGISTERED FOR IT TO WORK????? BUG IN CHARM???*/
         _register${NAME}();
     };
+    /*
+     * Copy Constructor
+     */
+    ${NAME}(const ${NAME}& other):Reservoir(other),${SUBREGION}(other),
+    min_release(other.min_release), max_release(other.max_release), min_volume(other.min_volume), basemonth_volume(other.basemonth_volume)
+    {
+
+    }
+    /*
+     * Swap function for Copy-Swap idiom 
+     */
+    friend void swap(${NAME}& first, ${NAME}& second)
+    {
+        using std::swap; //Enable ADL (Arguement Dependent Lookup)
+        swap( (Reservoir&) first, (Reservoir&) second);
+        swap( (${SUBREGION}&) first, (${SUBREGION}&) second);
+        swap(first.min_release, second.min_release);
+        swap(first.max_release, second.max_release);
+        swap(first.min_volume, second.min_volume);
+        swap(first.max_volume, second.max_volume);
+        swap(first.basemonth_volume, second.basemonth_volume);
+    }
+    /*
+     * Assignment Operator
+     */
+    ${NAME}& operator=(${NAME} other)
+    {
+        swap(*this, other);
+        return *this;
+    }
     ~${NAME}(){};
     
     double release(double curr_inflow, double curr_volume, int curr_date)
@@ -251,6 +314,37 @@ public:
         /*TODO/FIXME WHY DOES THIS HAVE TO BE MANUALLY REGISTERED FOR IT TO WORK????? BUG IN CHARM???*/
         _register${NAME}();
     };
+
+    /*
+     * Copy Constructor
+     */
+    ${NAME}(const ${NAME}& other):Reservoir(other),${SUBREGION}(other),
+    min_release(other.min_release), max_release(other.max_release), min_volume(other.min_volume), basemonth_volume(other.basemonth_volume)
+    {
+
+    }
+    /*
+     * Swap function for Copy-Swap idiom 
+     */
+    friend void swap(${NAME}& first, ${NAME}& second)
+    {
+        using std::swap; //Enable ADL (Arguement Dependent Lookup)
+        swap( (Reservoir&) first, (Reservoir&) second);
+        swap( (${SUBREGION}&) first, (${SUBREGION}&) second);
+        swap(first.min_release, second.min_release);
+        swap(first.max_release, second.max_release);
+        swap(first.min_volume, second.min_volume);
+        swap(first.max_volume, second.max_volume);
+        swap(first.basemonth_volume, second.basemonth_volume);
+    }
+    /*
+     * Assignment Operator
+     */
+    ${NAME}& operator=(${NAME} other)
+    {
+        swap(*this, other);
+        return *this;
+    }
     ~${NAME}(){};
     
     double release(double curr_inflow, double curr_volume, int curr_date)

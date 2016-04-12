@@ -77,6 +77,35 @@ class ${NAME} : WaterManagementRegion
         basemonth_volume_region = ${BASE_VOLUME};
     }
     /*
+     * Copy Constructor
+     */
+    ${NAME}(const ${NAME}& other):WaterManagementRegion(other),
+    min_release_region(other.min_release_region), max_release_region(other.max_release_region),
+    min_volume_region(other.min_volume_region), basemonth_volume_region(other.basemonth_volume_region)
+    {
+
+    }
+    /*
+     * Swap function for Copy-Swap idiom 
+     */
+    friend void swap(${NAME}& first, ${NAME}& second)
+    {
+        using std::swap; //Enable ADL (Arguement Dependent Lookup)
+        swap(first.min_release_region, second.min_release_region);
+        swap(first.max_release_region, second.max_release_region);
+        swap(first.min_volume_region, second.min_volume_region);
+        swap(first.max_volume_region, second.max_volume_region);
+        swap(first.basemonth_volume_region, second.basemonth_volume_region);
+    }
+    /*
+     * Assignment Operator
+     */
+    ${NAME}& operator=(${NAME} other)
+    {
+        swap(*this, other);
+        return *this;
+    }
+    /*
         ${NAME} Destructor
     */
     ~${NAME}(){}
@@ -130,6 +159,36 @@ class ${NAME} : public ${PARENT_REGION}
         min_volume_region = ${MIN_VOLUME};
         max_volume_region = ${MAX_VOLUME};
         basemonth_volume_region = ${BASE_VOLUME};
+    }
+    /*
+     * Copy Constructor
+     */
+    ${NAME}(const ${NAME}& other):${PARENT_REGION}(other),
+    min_release_region(other.min_release_region), max_release_region(other.max_release_region),
+    min_volume_region(other.min_volume_region), basemonth_volume_region(other.basemonth_volume_region)
+    {
+
+    }
+    /*
+     * Swap function for Copy-Swap idiom 
+     */
+    friend void swap(${NAME}& first, ${NAME}& second)
+    {
+        using std::swap; //Enable ADL (Arguement Dependent Lookup)
+        swap((${PARENT_REGION}&) first, (${PARENT_REGION}&) second);
+        swap(first.min_release_region, second.min_release_region);
+        swap(first.max_release_region, second.max_release_region);
+        swap(first.min_volume_region, second.min_volume_region);
+        swap(first.max_volume_region, second.max_volume_region);
+        swap(first.basemonth_volume_region, second.basemonth_volume_region);
+    }
+    /*
+     * Assignment Operator
+     */
+    ${NAME}& operator=(${NAME} other)
+    {
+        swap(*this, other);
+        return *this;
     }
     /*
         ${NAME} Destructor
@@ -186,6 +245,36 @@ class ${NAME} : public ${PARENT_REGION}
         min_volume_region = ${MIN_VOLUME};
         max_volume_region = ${MAX_VOLUME};
         basemonth_volume_region = ${BASE_VOLUME};
+    }
+    /*
+     * Copy Constructor
+     */
+    ${NAME}(const ${NAME}& other):${PARENT_REGION}(other),
+    min_release_region(other.min_release_region), max_release_region(other.max_release_region),
+    min_volume_region(other.min_volume_region), basemonth_volume_region(other.basemonth_volume_region)
+    {
+
+    }
+    /*
+     * Swap function for Copy-Swap idiom 
+     */
+    friend void swap(${NAME}& first, ${NAME}& second)
+    {
+        using std::swap; //Enable ADL (Arguement Dependent Lookup)
+        swap((${PARENT_REGION}&) first, (${PARENT_REGION}&) second);
+        swap(first.min_release_region, second.min_release_region);
+        swap(first.max_release_region, second.max_release_region);
+        swap(first.min_volume_region, second.min_volume_region);
+        swap(first.max_volume_region, second.max_volume_region);
+        swap(first.basemonth_volume_region, second.basemonth_volume_region);
+    }
+    /*
+     * Assignment Operator
+     */
+    ${NAME}& operator=(${NAME} other)
+    {
+        swap(*this, other);
+        return *this;
     }
     /*
         ${NAME} Destructor
