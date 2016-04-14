@@ -23,12 +23,35 @@ _cxx_utilities_header_string = \
 
 #ifndef COMMON_UTILITIES_H_
 #define COMMON_UTILITIES_H_
-
+#include "all.h"
 //calculate the difference between the current date and target date.
-double diff_dates(int );
+double diff_dates(int, int, int);
 
-//calculate daily release rate
-double calc_general_daily_release(double , double , int , double , double ,	double , double , double , double (&)[12]);
+/*
+     Release
+     Parameters:
+            curr_inflow         The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume         The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate       A julian reference data used to define currentTime
+            currentTime         Seconds since referenceDate
+            max_release
+            min_release
+            max_volume
+            min_volume
+            basemonth_volume    
+            curr_target_rate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+*/
+double calc_general_daily_release (double curr_inflow, double curr_volume,
+                                   double referenceDate, long currentTime, 
+                                   double max_release, double min_release,
+                                   double max_volume, double min_volume, 
+                                   double basemonth_volume, double (&curr_target_rate)[12],
+                                   double& release, long& duration);
 
 #endif /* COMMON_UTILITIES_H_ */
 """
@@ -47,78 +70,101 @@ _cxx_utilities_def_string = \
 //10.28.2015 Zen Add:
 #include <ctime>
 #include <iostream>
-
-//11.3.2015 Zen Add:
-#include<fstream>
-#include<string>
-#include<sstream>
-
 #include <stdlib.h>
 
 #include "common_utilities.h"
 
-#define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
 #define NODATA  -999   //2015.11.6 Zen Add: I temporary substituted -999 for missing data
 
 // calculate daily release using a general frame work
-double calc_general_daily_release (double curr_inflow, double curr_volume, int curr_date, double max_release, double min_release,
-		double max_volume, double min_volume, double basemonth_volume, double (&curr_target_rate)[12])
+/*
+     Release
+     Parameters:
+            curr_inflow         The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume         The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate       A julian reference data used to define currentTime
+            currentTime         Seconds since referenceDate
+            max_release
+            min_release
+            max_volume
+            min_volume
+            basemonth_volume    
+            curr_target_rate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+*/
+double calc_general_daily_release (double curr_inflow, double curr_volume,
+                                   double referenceDate, long currentTime, 
+                                   double max_release, double min_release,
+                                   double max_volume, double min_volume, 
+                                   double basemonth_volume, double (&curr_target_rate)[12],
+                                   double& release, long& duration)
 {
-	double volumediff; //difference between the target volume and current volume, unit AF
+	double volumediff; //difference between the target volume and current volume, unit cubic meters
 	double daysleft;	//number of days left in the month
-	double targetrelease; //target cfs rate to release
-
-	int curr_month; //Remember Jan=0, Feb = 1,..., Dec = 11
-
-	//calculate the current month from curr_date.
-	curr_month = (curr_date%10000)/100 - 1;
+	double targetrelease; //target m^3/s rate to release
+    
+    long year, month, day, hour, minute;
+    double second;
+    julianToGregorian(referenceDate, &year, &month, &day, &hour, &minute, &second);
+    
 
 	//summary of input
-	std::cout << "date=" <<curr_date <<"\t inflow=" <<curr_inflow << "\t volume=" << curr_volume
-			<< "\t max_release=" << max_release << "\t target_volume_rate=" << (curr_target_rate)[0] << "\t base_month_volume=" << basemonth_volume  << std::endl;
-
-	volumediff = basemonth_volume*(curr_target_rate)[curr_month] - curr_volume;
+	std::cout << "date=" <<year << month << day <<"\t inflow=" <<curr_inflow << "\t volume=" << curr_volume
+			<< "\t max_release=" << max_release << "\t target_volume_rate=" << (curr_target_rate)[month] << "\t base_month_volume=" << basemonth_volume  << std::endl;
+    //NJF This needs to be curr_volume - target_volume so that we can stop releasing water if we don't have enough.
+	//volumediff = basemonth_volume*(curr_target_rate)[month] - curr_volume;
+    volumediff = curr_volume - basemonth_volume*(curr_target_rate)[month];
 
 	//Zen Add: 10/30/2015
 	//Calculate how many days left in the month
-	daysleft = diff_dates(curr_date);
-
-	//daysleft = 10;
-	//daysleft = 3;
-
-	std::cout << "days left " << daysleft << "\\n";
+	daysleft = diff_dates(year, month, day);
 
 	//Zen Add: 10/30/2015
-	//The way to calculate a daily release (cfs)
-	targetrelease = (volumediff/daysleft + curr_inflow*AFRATE)/AFRATE;
+	//The way to calculate a daily release (cubic meters per second)
+    //NJF Account for needing more water to reach target volume
+    targetrelease = 0; //Don't release any water untill we know we don't need to fill up first    
+    //NOTE: If we know a reasonable duration, then we can figure outhow much of the 
+    //curr_inflow we want to "keep", while still allowing for some release...
+    if(volumediff >= 0)
+    {
+        //we have at least our target volume, maybe more, so we can release water
+        //Figure out how many m^3/s to release if we wanted to reach reach our target volume
+        //in daysleft days, then add in the current flow into the reservoir and release that much
+        targetrelease = (volumediff/daysleft/86400 + curr_inflow);
+    }
+	
 
 	//std::cout << "raw target release " << targetrelease << "\\n";
 
 	//Zen Update: 11/6/2015
-	//check the targetrelease is between min and max flow (cfs)
+	//check the targetrelease is between min and max flow (m^3/s)
 	//if min or max flow does not have, ignore the next if-statement
+    //NJF Not sure if this is a good idea.  What if we simulate several super dry years and there
+    //simply isn't enough water to release?  Similarly, if we simulate heavy rain/flooding, max historical may not
+    //best represent this.  Perhaps this is best left to the decision of the reservoir itself.  For example, perhaps there is a 
+    //physical maximum that the reservoir is capable of releasing.  For minimum, I would say 0.  It could be that there simply isn't
+    //enough water to release, for example volume is 2 and target volume is 50,000.  We may not be able to physically satisfy this minimum
+    //requirement.
+    /*
 	if(targetrelease < min_release && min_release != NODATA){
 		targetrelease = min_release;
 	}else if(targetrelease > max_release && min_release != NODATA){
 		targetrelease = max_release;
-	}
+	}*/
 
-	return targetrelease;
+	release = targetrelease;
+    duration = currentTime + 86400; //TODO/FIXME Change this ?!?!?!  Could also let reservoir set this. Currently sets duration to 24 hours
 }
 
 // Make a tm structure representing this date
-double diff_dates(int date)
+double diff_dates(int year, int month, int day)
 {
-	//initilization
-	int year, month, day;
-
     std::tm tmcur = {0};
     std::tm tmnext = {0};
-
-    year = date/ 10000;
-    date %= 10000;
-    month = date / 100;
-    day = date % 100;
 
 	tmcur.tm_year = year - 1900; // years count from 1900
     tmcur.tm_mon = month - 1;    // months count from January=0

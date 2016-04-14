@@ -64,20 +64,24 @@ class Diversion : public PUP::able
     virtual ~Diversion();
 
     /*
+        divert
+
         This function will implement the managment rules of Diversion instances.
         TODO: All state variables that may be needed from the Model need to be passed as parameters
               to this function.
-        This is a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
+        NOTE:
+        Ideally should be a PURE VIRTUAL FUNCTION, so all sublcasses must implement it.
+        Cannot be pure virtual because charm cannot migrate an abstract object because it cannot be instanciated.
+        "error: cannot allocate an object of abstract type ‘Diversion’"
+        
+        Parameters:
+            amount_diverted     Amount of water available to the Diversion for use
+        
+        Return Parameters:    
+            unused_amount       Amount of water this Diversion did not use.
     */
-    //Cannot be pure virtual because charm cannot migrate an abstract object.
-    //"error: cannot allocate an object of abstract type ‘Reservoir’"
-    /*
-        FIXME Can it be the case that a Diversion cannot use all the water it requested?
-        If so, should we return that amount back to ADHydro?
-    */
-    virtual double irrigate(double amount_diverted){return amount_diverted;}
-    /*Nessicary?  Or just have channel element read Diversion.requestedAmount ? */
-    virtual double getRequestedDiversionAmount(){return 0;};
+    virtual void divert(double amount_diverted, double& unused_amount){ unused_amount = amount_diverted;}
+
 
     /*
         Add PUP support
@@ -262,11 +266,26 @@ class ${NAME} : public Diversion
 	    }
     }
 
-    double irrigate(double amount_diverted)
+    /*
+        divert
+
+        This function will implement the managment rules of Diversion instances.
+        TODO: All state variables that may be needed from the Model need to be passed as parameters
+              to this function.
+        
+        Parameters:
+            amount_diverted     Amount of water available to the Diversion for use
+        
+        Return Parameters:    
+            unused_amount       Amount of water this Diversion did not use.
+    */
+
+    virtual void divert(double amount_diverted, double& unused_amount)
     {
         double not_used = 0.0;
         std::cout<<"Diversion Irrigating with "<<amount_diverted<<"\\n";
 
+        double available = (amount_diverted <= requestedAmount) ? amount_diverted  : requestedAmount;
         for(int i = 0; i < parcels.size(); i++)
         {
             //Irrigate each parcel
@@ -274,25 +293,12 @@ class ${NAME} : public Diversion
         	//not_used += parcels[i]->irrigate(amount_diverted/parcelCount);
 
         	//Zen. water allocation is splitted by the propotion of land sizes
-        	not_used += parcels[i]->irrigate(amount_diverted*(parcels[i]->getArea()/totalLandSize));
-
+        	not_used += parcels[i]->irrigate(available*(parcels[i]->getArea()/totalLandSize));
+            //not_used += parcels[i]->irrigate(parcels[i]->getDecree(elementID));
        	    //std::cout<<"unused"<<i<<"\t"<<not_used<<".\\n";
         }
    	    //std::cout<<"unused_end\t"<<not_used<<".\\n";
-        return not_used; //Return the amount of unused water
-    }
-
-    double getRequestedDiversionAmount()
-    {
-        std::cout<<"In getRequestedAmount ${NAME}\\n";
-        return requestedAmount;
-        /*
-        double total = 0;
-        for(int i = 0; i < parcels.size(); i++)
-        {
-            total += parcels[i].decreedAmount[elementID];
-        }
-        */
+        unused_amount = not_used; //Return the amount of unused water
     }
 
     /*

@@ -38,6 +38,7 @@ class Reservoir : public PUP::able
     public:
 	/* ReachCode identifying the NHD waterbody corresponding to this reservoir */
 	long long reachCode;
+
     /*
         Reservoir constructor
         Most construction will be unique to the individual sublcasses, but global constrcution
@@ -47,22 +48,44 @@ class Reservoir : public PUP::able
     */
     Reservoir(long long reachCode_);
     Reservoir(){};
+
     /*
         Reservoir destrcutor
         Most destrcution will be unique to the individual subclasses, but global destrcution
         can occur here if needed.
     */
     virtual ~Reservoir();
+
     /*
         This function will implement the managment rules of Reservoir instances.
         TODO: All state variables that may be needed from the Model need to be passed as parameters
               to this function
         This is a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
+        NOTE:
+        virtual double release() = 0;
+        Cannot be pure virtual because charm cannot migrate an abstract object.
+        "error: cannot allocate an object of abstract type ‘Reservoir’"
+        This is because a pure abstract object cannot be instanciated in c++.
+
+        Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+            
+                  TODO: Should the abstract return rate be 0?  I think it would be better to release the curr_inflow?
+                  We shouldn't ever really have to worry about it, but since the function cannot be pure virtual,
+                  we cannot guarantee every subclass implements it, so a default return is a good idea.
+                  Similarly, should duration be set to really large value in these cases?
     */
-    //virtual double release() = 0;
-    //Cannot be pure virtual because charm cannot migrate an abstract object.
-    //"error: cannot allocate an object of abstract type ‘Reservoir’"
-    virtual double release(double curr_inflow, double curr_volume, int curr_date){return 0;};
+    virtual double release(double curr_inflow, double curr_volume,
+                           double referenceDate, long currentTime,
+                           double& rate, long& duration){rate=0;duration=86400;};
 
     /*
         Add PUP support
@@ -232,10 +255,28 @@ public:
         return *this;
     }
     ~${NAME}(){};
-    
-    double release(double curr_inflow, double curr_volume, int curr_date)
+
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume, curr_date, max_release, min_release, max_volume, min_volume, basemonth_volume,curr_target_rate);
+        return calc_general_daily_release(curr_inflow, curr_volume, 
+                                          referenceDate, currentTime,
+                                          max_release, min_release, 
+                                          max_volume, min_volume, 
+                                          basemonth_volume,curr_target_rate,
+                                          rate, duration);
     }
     /*
         PUP support
@@ -347,10 +388,23 @@ public:
     }
     ~${NAME}(){};
     
-    double release(double curr_inflow, double curr_volume, int curr_date)
+    
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
     {
-        return ${SUBREGION}::release(curr_inflow, curr_volume, curr_date);
-        
+        return ${SUBREGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, duration);
     }
     /*
         PUP support

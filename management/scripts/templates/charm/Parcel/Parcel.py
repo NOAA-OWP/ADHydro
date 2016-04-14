@@ -75,6 +75,7 @@ class Parcel :  public PUP::able
     */
     virtual double irrigate(double amount){return amount;}
     virtual double getArea(){return 0;}
+    virtual double getDecree(int id){return 0;}
 
     /*
         Add PUP support
@@ -267,6 +268,10 @@ ${REQUESTS}
     double getArea()
     {
         return area;
+    }
+    double getDecree(int id)
+    {
+        return decreedAmount[id];
     }
     /*
         PUP support

@@ -201,10 +201,6 @@ def main():
     #
     # Parcels
     #
-    df = pd.read_csv(parcel_file, sep=',\\s*', engine='python')
-    #treat each row as an entry of data
-    #apply the makeClassFiles function to each
-    df.apply(makeParcelClassFiles, axis=1)
 
     #Create the abstract classes for Parcels
     for k,v in pt.abstract().iteritems():
@@ -212,9 +208,14 @@ def main():
             output.write(v)
     
     #Cheap hack for clearing the parcels.ci file if it exists
-    with open(path.join(div_dir, "Parcels.ci"), 'w') as output:
+    with open(path.join(div_dir, "parcels.ci"), 'w') as output:
         pass
-    
+
+    df = pd.read_csv(parcel_file, sep=',\\s*', engine='python')
+    #treat each row as an entry of data
+    #apply the makeClassFiles function to each
+    df.apply(makeParcelClassFiles, axis=1)
+
     #Create the ParcelFactory
     f = factory.ParcelFactory()
     #Create the abstract classes for a ParcelFactory

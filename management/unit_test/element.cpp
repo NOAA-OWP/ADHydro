@@ -45,17 +45,20 @@ void Element::process()
     if(reservoir != NULL)
     {
         CkPrintf("Processing reservoir %ld on processor %d\n",reservoir->reachCode, CkMyPe());
-        CkPrintf("releasing %f\n",reservoir->release(1,2,3));
+        double rate;
+        long duration;
+        reservoir->release(100,70000000,2457492.00347, 55, rate, duration);
+        CkPrintf("releasing %f for %d\n",rate, duration);
     }
     else CkPrintf("Error, null reservoir on char %d\n",thisIndex);
         
     if(diversion != NULL)
     {
-        double send = 20;
+        double send = 100;
         CkPrintf("Processing diversion %d on processor %d\n",diversion->elementID, CkMyPe());
-        double request = diversion->getRequestedDiversionAmount();
-        CkPrintf("Diversion wants %f, giving %f\n", request, send);
-        double notUsed = diversion->irrigate(request);
+        CkPrintf("Sending %f\n", send);
+        double notUsed = 0;
+        diversion->divert(send, notUsed);
         CkPrintf("Diversion used %f\n", send-notUsed);
     }
     else CkPrintf("Error, null diversion on char %d\n", thisIndex);

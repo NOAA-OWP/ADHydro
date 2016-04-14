@@ -31,7 +31,21 @@ class WaterManagementRegion
     /*
         Virtual functions that subclasses should implement
     */
-    virtual double release(double curr_inflow, double curr_volume, int curr_date) = 0;
+
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double virtual release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration) = 0;
     virtual ~WaterManagementRegion(){}
 };
 
@@ -112,9 +126,27 @@ class ${NAME} : WaterManagementRegion
     /*
         This is ${NAME}'s release function implementation
     */
-    double release(double curr_inflow, double curr_volume, int curr_date)
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume, curr_date, max_release_region, min_release_region, max_volume_region, min_volume_region, basemonth_volume_region,curr_target_rate);
+        return calc_general_daily_release(curr_inflow, curr_volume,
+                                          referenceDate, currentTime,
+                                          max_release_region, min_release_region, 
+                                          max_volume_region, min_volume_region,
+                                          basemonth_volume_region, curr_target_rate,
+                                          rate, duration);
     }
 
 };
@@ -197,9 +229,27 @@ class ${NAME} : public ${PARENT_REGION}
     /*
         This is ${NAME}'s release function implementation
     */
-    double release(double curr_inflow, double curr_volume, int curr_date)
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume, curr_date, max_release_region, min_release_region, max_volume_region, min_volume_region, basemonth_volume_region,curr_target_rate);
+        return calc_general_daily_release(curr_inflow, curr_volume,
+                                          referenceDate, currentTime,
+                                          max_release_region, min_release_region,
+                                          max_volume_region, min_volume_region,
+                                          basemonth_volume_region, curr_target_rate,
+                                          rate, duration);
     }
 
 };
@@ -283,9 +333,22 @@ class ${NAME} : public ${PARENT_REGION}
     /*
         This is ${NAME}'s release function implementation
     */
-    double release(double curr_inflow, double curr_volume, int curr_date)
+    /*
+     Release
+     Parameters:
+            curr_inflow     The current, instantaneous flow into the reservoir in cubic meters per second
+            curr_volume     The current, instantaneous volume of the reservoir in cubic meters
+            referenceDate   A julian reference data used to define currentTime
+            currentTime     Seconds since referenceDate
+
+        Return Parameters:
+            
+            rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
+            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+    */    
+    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
     {
-        return ${PARENT_REGION}::release(curr_inflow, curr_volume, curr_date);
+        return ${PARENT_REGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, duration);
     }
 
 };
