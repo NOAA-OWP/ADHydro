@@ -8,7 +8,7 @@ from subprocess import call
 #
 # input_directory_path/mesh.1.ele
 # input_directory_path/mesh.1.node
-input_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh"
+input_directory_path = "/project/CI-WATER/data/yampa_mesh"
 
 # This script will write its output to this directory
 # the files it will create are:
@@ -16,7 +16,7 @@ input_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh"
 # output_directory_path/elements.wkt
 # output_directory_path/elements.shp
 
-output_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh"
+output_directory_path = "/project/CI-WATER/data/yampa_mesh"
 #Triangle Node and Element files
 ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
 NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
@@ -49,10 +49,10 @@ nodes = pd.read_csv(NODEfilepath, sep=' ', skipinitialspace=True, comment='#', s
 elements['WKT'] = 'POLYGON(('
 #Complete the polygon information
 elements = elements.apply(addWKT, axis=1)
-
+elements.reset_index(inplace=True)
 with open(output_element_wkt_file, 'wb') as outFile:
     outFile.write('Polygon,ID\n')
-    elements['WKT'].to_csv(outFile, index=False)
+    elements[['WKT','ID']].to_csv(outFile, index=False)
 
 #Now we create a virtual layer definition for the CSV file
 out_vrt = os.path.join(output_directory_path, 'elements.vrt')
