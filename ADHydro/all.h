@@ -434,4 +434,39 @@ inline bool getLineIntersection(double segmentOneBeginX, double segmentOneBeginY
   return intersection;
 }
 
+// Get the area of a polygon.
+//
+// This code is taken from:
+//
+// http://www.mathopenref.com/coordpolygonarea2.html
+//
+// The vertices must be ordered in either a clockwise or counterclockwise
+// traversal around the polygon.  The algorithm does not handle
+// self-intersecting polygons correctly.
+//
+// Returns: the area of the polygon in square units of whatever the units are
+//          of xCoordinates and yCoordinates.
+//
+// Parameters:
+//
+// xCoordinates - An array of the X coordinates of the vertices of the polygon.
+// yCoordinates - An array of the Y coordinates of the vertices of the polygon.
+//                Must be in the same order as xCoordinates.
+// size         - The number of vertices.  Also the size of both the
+//                xCoordinates and yCoordinates arrays.
+inline double getAreaOfPolygon(double* xCoordinates, double* yCoordinates, int size)
+{
+  int    ii;                        // Loop counter.
+  int    previousVertex = size - 1; // The last vertex is the 'previous' one to the first
+  double area           = 0.0;      // Accumulator for area.
+  
+  for (ii = 0; ii < size; ++ii)
+    {
+      area          += (xCoordinates[previousVertex] + xCoordinates[ii]) * (yCoordinates[previousVertex] - yCoordinates[ii]);
+      previousVertex = ii; // The current value of ii is previous to the next value of ii.
+    }
+  
+  return fabs(0.5 * area);
+}
+
 #endif // __ALL_H__

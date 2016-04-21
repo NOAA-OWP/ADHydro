@@ -1,0 +1,22 @@
+This is a long-term wish list of things I would change on the next rewrite of ADHydro.
+
+1) Better C++-Fu
+
+Encapsulation and polymorphism could be better on mesh/channel elements and neighbor proxies.  I had the idea that regions would have a single list of polymorphic elements, and each element would have a single list of polymorphic neighbor proxies.  I didn't get that working.  Also, regions and elements directly touch each other's member variables rather than going through method calls.  Everything could be implemented for C++11.
+
+2) Changes to cumulative flows
+
+Any flow that can go either way should have two cumulative flow accumulators, one for each direction.  For example, there should be separate accumulators for evaporation and condensation, and separate accumulators for outgoing flow to a neighbor and incoming flow from the same neighbor.  Flows that can only go one way like precipitation only need one accumulator.  This would solve the epsilon roundoff error problem when a net flow grows large and then shrinks to zero because cumulative flow accumulators would never shrink.  Also, the two separate values could be useful to have in the output.  Each accumulator still needs short-term and long-term variables to minimize roundoff error.  Long term cumulative needs to be implemented.  NetCDF files don't need to store short term and long term cumulative separately.  They can just store one combined value and put it in long term when it is loaded from input files.
+
+3) More generic framework for stateful third-party physics modules
+
+E-T state and GARTO state are pretty ad-hoc and hard-coded.  GARTO state with its struct of dynamically allocated arrays presented a lot of problems for pupping and storing in NetCDF files.  Figure out a good generic design for this.
+
+4) Improve or eliminate incremental scan for puppable elements
+
+Pupping the incremental iterators that retain their state between message receives turned out to be kind of ugly.  So ugly that I didn't do it in some places where I could have, and instead I just re-started the scan from scratch on every message receive.  I don't know if the incremental scan optimization is worth the complexity.  If it is, implement it nicer.
+
+5) Better build system
+
+The current build process is pretty fractured and without any automatic configuration system.
+

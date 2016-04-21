@@ -1,27 +1,28 @@
-CHARMDIR = ~/Desktop/charm/
-CHARMC = $(CHARMDIR)/bin/charmc $(OPTS)
-CHARM_INCL = $(CHARMDIR)/include
+CHARMDIR   := ~/Desktop/charm/
+CHARMC     := $(CHARMDIR)/bin/charmc $(OPTS)
+CHARM_INCL := $(CHARMDIR)/include
 
-RESDIR  = ../generated_code/charm_reservoirs
-FACTDIR = ../generated_code/charm_factory
-DIVDIR = ../generated_code/charm_diversions
-REGDIR  =  $(RESDIR)/Div6
-TESTDIR = ../unit_test
+RESDIR     := ../generated_code/charm_reservoirs
+FACTDIR    := ../generated_code/charm_factory
+DIVDIR     := ../generated_code/charm_diversions
+REGDIR     :=  $(RESDIR)/Div6
+TESTDIR    := ../unit_test
+ADHYDRODIR := ../../ADHydro
 
-CPPFLAGS := -g -I. -I$(FACTDIR) -I$(RESDIR) -I$(REGDIR) -I$(DIVDIR)
-VPATH    := $(FACTDIR) $(RESDIR) $(REGDIR) $(TESTDIR) $(DIVDIR)
+CPPFLAGS := -g -I. -I$(FACTDIR) -I$(RESDIR) -I$(REGDIR) -I$(DIVDIR) -I$(ADHYDRODIR)
+VPATH    := $(FACTDIR) $(RESDIR) $(REGDIR) $(TESTDIR) $(DIVDIR) $(ADHYDRODIR)
 
 OBJS := Creator.o          \
         ReservoirCreator.o \
         ReservoirFactory.o \
-		Reservoir.o        \
+        Reservoir.o        \
         DiversionCreator.o \
         DiversionFactory.o \
         Diversion.o        \
         ParcelCreator.o    \
         ParcelFactory.o    \
         Parcel.o           \
-		common_utilities.o
+        common_utilities.o
 
 all: $(OBJS)
 
