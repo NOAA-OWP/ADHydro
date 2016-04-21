@@ -5,7 +5,8 @@ import numpy as np
 import glob
 from sys import stdout
 from math import acos, cos
-
+#NOTE: To use the HDF5 storage ability, must have PyTables
+#easy_install tables 
 import psutil
 
 #Return mem usage for process, as reported by OS, in MiB
@@ -48,16 +49,18 @@ STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
 
 input_GEOL_prefix = "/project/CI-WATER/data/Geologic_Units/"
 #Directory where extracted data files exist
-input_GEOL_State_prefix = os.path.join(input_GEOL_prefix, "MergingShapeFiles/")
+#input_GEOL_State_prefix = os.path.join(input_GEOL_prefix, "MergingShapeFiles/")
 input_GEOL_file  =  os.path.join(input_GEOL_prefix, "AllMerged.shp") 
 GEOL_layer     = QgsVectorLayer(input_GEOL_file, "GEOLOGIC_UNITS",  "ogr")
 GEOL_provider  = GEOL_layer.dataProvider()
-GEOL_SourceInd = GEOL_provider.fieldNameIndex("SOURCE")
+#GEOL_SourceInd = GEOL_provider.fieldNameIndex("SOURCE")
 
 #This script will read the SSURGO soil mukey files from this directory
 input_SSURGO_County_prefix = os.path.join(input_SSURGO_prefix, "all")
 # This script will read the NLCD data form this directory
-input_NLCD_directory_path = "/project/CI-WATER/data/NLCD/all_projected/"
+input_NLCD_directory_path = "/project/CI-WATER/data/NLCD/merged/"
+input_NLCDfile =  input_NLCD_directory_path + "merged.tif"
+nlcd_layer = QgsRasterLayer(input_NLCDfile)
 
 # This script will read the mesh geometry from this directory
 # the files it will read are:
@@ -97,15 +100,18 @@ STATSGO_horizon_dict = {}
 horizon_table_names = ['hzname', 'desgndisc', 'desgnmaster', 'desgnmasterprime', 'desgnvert', 'hzdept_l', 'hzdept_r', 'hzdept_h', 'hzdepb_l', 'hzdepb_r', 'hzdepb_h', 'hzthk_l', 'hzthk_r', 'hzthk_h', 'fraggt10_l', 'fraggt10_r', 'fraggt10_h', 'frag3to10_l', 'frag3to10_r', 'frag3to10_h', 'sieveno4_l', 'sieveno4_r', 'sieveno4_h', 'sieveno10_l', 'sieveno10_r', 'sieveno10_h', 'sieveno40_l', 'sieveno40_r', 'sieveno40_h', 'sieveno200_l', 'sieveno200_r', 'sieveno200_h', 'sandtotal_l', 'sandtotal_r', 'sandtotal_h', 'sandvc_l', 'sandvc_r', 'sandvc_h', 'sandco_l', 'sandco_r', 'sandco_h', 'sandmed_l', 'sandmed_r', 'sandmed_h', 'sandfine_l', 'sandfine_r', 'sandfine_h', 'sandvf_l', 'sandvf_r', 'sandvf_h', 'silttotal_l', 'silttotal_r', 'silttotal_h', 'siltco_l', 'siltco_r', 'siltco_h', 'siltfine_l', 'siltfine_r', 'siltfine_h', 'claytotal_l', 'claytotal_r', 'claytotal_h', 'claysizedcarb_l', 'claysizedcarb_r', 'claysizedcarb_h', 'om_l', 'om_r', 'om_h', 'dbtenthbar_l', 'dbtenthbar_r', 'dbtenthbar_h', 'dbthirdbar_l', 'dbthirdbar_r', 'dbthirdbar_h', 'dbfifteenbar_l', 'dbfifteenbar_r', 'dbfifteenbar_h', 'dbovendry_l', 'dbovendry_r', 'dbovendry_h', 'partdensity', 'ksat_l', 'ksat_r', 'ksat_h', 'awc_l', 'awc_r', 'awc_h', 'wtenthbar_l', 'wtenthbar_r', 'wtenthbar_h', 'wthirdbar_l', 'wthirdbar_r', 'wthirdbar_h', 'wfifteenbar_l', 'wfifteenbar_r', 'wfifteenbar_h', 'wsatiated_l', 'wsatiated_r', 'wsatiated_h', 'lep_l', 'lep_r', 'lep_h', 'll_l', 'll_r', 'll_h', 'pi_l', 'pi_r', 'pi_h', 'aashind_l', 'aashind_r', 'aashind_h', 'kwfact', 'kffact', 'caco3_l', 'caco3_r', 'caco3_h', 'gypsum_l', 'gypsum_r', 'gypsum_h', 'sar_l', 'sar_r', 'sar_h', 'ec_l', 'ec_r', 'ec_h', 'cec7_l', 'cec7_r', 'cec7_h', 'ecec_l', 'ecec_r', 'ecec_h', 'sumbases_l', 'sumbases_r', 'sumbases_h', 'ph1to1h2o_l', 'ph1to1h2o_r', 'ph1to1h2o_h', 'ph01mcacl2_l', 'ph01mcacl2_r', 'ph01mcacl2_h', 'freeiron_l', 'freeiron_r', 'freeiron_h', 'feoxalate_l', 'feoxalate_r', 'feoxalate_h', 'extracid_l', 'extracid_r', 'extracid_h', 'extral_l', 'extral_r', 'extral_h', 'aloxalate_l', 'aloxalate_r', 'aloxalate_h', 'pbray1_l', 'pbray1_r', 'pbray1_h', 'poxalate_l', 'poxalate_r', 'poxalate_h', 'ph2osoluble_l', 'ph2osoluble_r', 'ph2osoluble_h', 'ptotal_l', 'ptotal_r', 'ptotal_h', 'excavdifcl', 'excavdifms', 'cokey', 'chkey']
 
 #Dictionary to hold QgsVector layers for vegitation data
-veg_parm_dict={}
+#Not needed now since NLCD is merged to single raster
+#veg_parm_dict={}
 
+#TODO/FIXME Since GEOL is already merged to a single shape file, why do this?!?!?!?!?!?!?!?!?!?!
 # Dictionry with the Geologic units shape file for the states: WY, CO, AZ, NM, and UT
 # The files do not have a standard name. For other states, insert the file name in the dictionary.
-GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix + "azgeol_poly_dd.shp", "GEOL_UNITS_AZ",   "ogr"), 
-                                   'CO': QgsVectorLayer(input_GEOL_State_prefix + "cogeol_dd_polygon.shp", "GEOL_UNITS_CO","ogr"), 
-                                   'NM': QgsVectorLayer(input_GEOL_State_prefix + "nmgeol_dd_polygon.shp", "GEOL_UNITS_NM","ogr"),
-                                   'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
-                                   'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
+#GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix + "azgeol_poly_dd.shp", "GEOL_UNITS_AZ",   "ogr"), 
+#                                   'CO': QgsVectorLayer(input_GEOL_State_prefix + "cogeol_dd_polygon.shp", "GEOL_UNITS_CO","ogr"), 
+#                                   'NM': QgsVectorLayer(input_GEOL_State_prefix + "nmgeol_dd_polygon.shp", "GEOL_UNITS_NM","ogr"),
+#                                   'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
+#                                   'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
+
 #Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
 #Since this function uses a per state shapefile, it is more efficient to create
 #the large spatial index once, and search through each time rather than
@@ -124,6 +130,7 @@ GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix 
                 index.insertFeature(feature)
 """
 t0 = time.time()
+"""
 GEOL_spatial_index = {}
 #iterate over the geology vector layers
 for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
@@ -139,6 +146,14 @@ for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
     #Build the spatial index
     for feature in layer.getFeatures(request):
         GEOL_spatial_index[state].insertFeature(feature)
+"""
+GEOL_spatial_index = QgsSpatialIndex()
+request = QgsFeatureRequest()
+GEOL_ROCKTYPE = GEOL_provider.fieldNameIndex("ROCKTYPE1")
+request.setSubsetOfAttributes([GEOL_ROCKTYPE])
+for feature in GEOL_layer.getFeatures(request):
+    GEOL_spatial_index.insertFeature(feature)
+
 #Now we similarly pre-populate the SSURGO spatial index.
 #To find the MUKEYS, we first have to look through all the SSURGO features to find
 #the AreaSYM that a point lie in.  We can create that spatial index once and reference
@@ -333,8 +348,8 @@ def getSoilTypDRV(subset):
    section='.{}-{}'.format(subset[0],subset[-1])
    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
    NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
-   output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl'+section)
-
+   output_element_data_file = os.path.join(output_directory_path, 'element_data.msg'+section)
+   """
    print '\n\n'+who()+'Reading element file.'
    t0 = time.time()
    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
@@ -391,14 +406,6 @@ def getSoilTypDRV(subset):
    elements['AD_X'] = elements['X_center'] + 20000000.0
    elements['AD_Y'] = elements['Y_center'] + 10000000.0
    
-   """ Incorrect projection!!!
-   # Changing from x,y sinusoidal projection to latitude and longitude coordinates
-   elements['long_center'] = elements['Y_center']/R
-   elements['lat_center'] = elements['X_center'] / (R*np.cos(elements['long_center']))
-   elements['lat_center'] = (elements['lat_center'] + origin)*(180/pi)
-   elements['long_center'] = elements['long_center']*180/pi
-   """
-   
    #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
    elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
    
@@ -409,13 +416,12 @@ def getSoilTypDRV(subset):
 
    #Using this information we can now lookup various metadata using the MUKEY and AREASYM keys in the dataframe
    
-   """
-    By getting MUKEY and COKEY piecies here for all elements before any further processing
-    we can potentially make this script nicer becuase we can release resources manually
-    knowing that we are finished with the shape files and comp.txt files needed to get
-    these values.  On really large meshes, this might be required to do.
-   """
    
+   # By getting MUKEY and COKEY piecies here for all elements before any further processing
+   # we can potentially make this script nicer becuase we can release resources manually
+   # knowing that we are finished with the shape files and comp.txt files needed to get
+   # these values.  On really large meshes, this might be required to do.
+      
    #be kind, clean up unused memory
    del nodes
    #Since the mukey and areasym are used to lookup different data, find and store them for each element.
@@ -432,10 +438,12 @@ def getSoilTypDRV(subset):
    print who()+"Finished finding MUKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
    stdout.flush()
    #Write the element data serialized file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
-   elements.to_pickle(output_element_data_file)
-   
+   #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
+   #elements.to_pickle(output_element_data_file)
+   elements.to_msgpack(output_element_data_file)
    #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
    #elements = pd.read_pickle(output_element_data_file)
+   #elements = pd.read_msgpack(output_element_data_file)
    
    print who()+'Finding Geologic Units.'
    
@@ -450,11 +458,15 @@ def getSoilTypDRV(subset):
    stdout.flush()
    
    #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
-   elements.to_pickle(output_element_data_file)
-   
+   #elements.to_pickle(output_element_data_file)
+   elements.to_msgpack(output_element_data_file)
    #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
    #elements = pd.read_pickle(output_element_data_file)
-   
+   """
+   elements = pd.read_msgpack(output_element_data_file)
+   #READING OLD DATA, RESET X Y to STATSGO transform
+   elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
+
    print who()+'Finding COKEY.'
 
    #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
@@ -464,11 +476,12 @@ def getSoilTypDRV(subset):
    t1 = time.time()
    print who()+"Finished finding COKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
    stdout.flush()
-
-   elements.to_pickle(output_element_data_file)
-
+   
+   #elements.to_pickle(output_element_data_file)
+   elements.to_msgpack(output_element_data_file)
+   
+      
    print who()+'Finding soil type.'
-
    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
    #SoilType
    t0 = time.time()
@@ -477,9 +490,11 @@ def getSoilTypDRV(subset):
    print who()+"Finished finding soil type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
    stdout.flush()
   
-   elements.to_pickle(output_element_data_file)
-
+   #elements.to_pickle(output_element_data_file)
+   elements.to_msgpack(output_element_data_file)
+   
    print who()+'Finding vegetation type.'
+   stdout.flush()
    #Now transform coordinates to the NLCD CRS
    elements = elements.apply(coordTransform, args=(NLCD_xform,), axis=1)
    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
@@ -489,9 +504,9 @@ def getSoilTypDRV(subset):
    t1 = time.time()
    print who()+"Finished finding vegetation type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage()) + "\n\n"
    stdout.flush()
-
-   elements.to_pickle(output_element_data_file)
-
+   #TODO/FIXME Instead of transforming coordinates over and over, let each function transform the points they need
+   #elements.to_pickle(output_element_data_file)
+   elements.to_msgpack(output_element_data_file)
    return elements
 
 
@@ -885,16 +900,8 @@ def getVegParm(s):
    #  Find the path for the chorizon file in STATSGO
    x = s['lat_center']
    y = s['long_center']
-   AreaSym = s['AreaSym']
-   if AreaSym not in veg_parm_dict:
-      if s['inSSURGO']:
-         input_NLCDfile =  input_NLCD_directory_path + AreaSym[0].lower() + AreaSym[1].lower() + ".tif"
-      else:
-         input_NLCDfile =  input_NLCD_directory_path + AreaSym.lower() + ".tif"
-      veg_parm_dict[AreaSym] = QgsRasterLayer(input_NLCDfile)
    
-   layer = veg_parm_dict[AreaSym]
-   query = layer.dataProvider().identify(QgsPoint(x, y), QgsRaster.IdentifyFormatValue)
+   query = nlcd_layer.dataProvider().identify(QgsPoint(x, y), QgsRaster.IdentifyFormatValue)
    val = -1
    # Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
       # NLCD    definition                     USGS         definition
@@ -981,7 +988,7 @@ def get_GEOLOGIC_UNITS(s):
       
       1 refers to alluvium, 0 refers to not alluvium.     
             """
-            Source = s['AreaSym']
+            #Source = s['AreaSym']
             x = s['lat_center']
             y = s['long_center']
             point = QgsPoint(x, y)
@@ -990,16 +997,16 @@ def get_GEOLOGIC_UNITS(s):
             # AreaSym string name starts with the state abbreviation.
             #It is used to access the GEOL_spatial_index dictionary and GEOL_Unit_State_VectorLayer_dict
             #i.e. GEOL_spatial_index[ Source[0:2] ]
-            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[ Source[0:2] ]
-            GEOL_perState_provider = GEOL_perState_layer.dataProvider()
-            GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
+            #GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[ Source[0:2] ]
+            #GEOL_perState_provider = GEOL_perState_layer.dataProvider()
+            #GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
             #select the rocktype features to work with
             #provider.select([GEOL_State_ROCKTYPE]) 
-            request = QgsFeatureRequest()
-            request.setSubsetOfAttributes([GEOL_State_ROCKTYPE])
+            #request = QgsFeatureRequest()
+            #request.setSubsetOfAttributes([GEOL_State_ROCKTYPE])
             feature = QgsFeature()               
             found = False
-            ids = GEOL_spatial_index[Source[0:2]].intersects(pointBox)
+            ids = GEOL_spatial_index.intersects(pointBox)
             for i in ids:
                 #GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
                 feature = GEOL_layer.getFeatures(request.setFilterFid(i)).next()
@@ -1007,7 +1014,7 @@ def get_GEOLOGIC_UNITS(s):
                 if geom.contains(point):
                     #attribute = feature.attributeMap()
                     #RockType = str(attribute[GEOL_State_ROCKTYPE].toString())
-                    RockType = str(feature[GEOL_State_ROCKTYPE])
+                    RockType = str(feature[GEOL_ROCKTYPE])
                     found = True
                     break
             #break #Stop looking if we find a contain
@@ -1017,9 +1024,9 @@ def get_GEOLOGIC_UNITS(s):
                RockType = "Other"
         
             if (RockType == "alluvium"):
-                s['ROCKTYPE'] = int(1)
+                s['ROCKTYPE'] = 1
             else:
-                s['ROCKTYPE'] = int(0)
+                s['ROCKTYPE'] = 0
             return s
 
 import multiprocessing as mp
@@ -1056,7 +1063,7 @@ if __name__ == '__main__':
     output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
     output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
     output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
-
+    
 
     #Write the element data serialized file
     elements.to_pickle(output_element_data_file)
