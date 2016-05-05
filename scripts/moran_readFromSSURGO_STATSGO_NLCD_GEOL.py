@@ -1,20 +1,52 @@
 #!/usr/bin/env python
+import gc
 import os
 import pandas as pd
 import numpy as np
 import glob
 from sys import stdout
-from math import acos, cos
 #NOTE: To use the HDF5 storage ability, must have PyTables
 #easy_install tables 
 import psutil
 
-#Return mem usage for process, as reported by OS, in MiB
-def mem_usage():
-    process = psutil.Process(os.getpid())
-    mem = process.memory_info()[0]/float(2**20)
-    return mem
-import time #Can be removed, only for timing various functions of this script
+#INPUT VARIABLES
+#This script will read data form these files/directories
+#SSURGO
+data_path = "/project/CI-WATER/data"
+
+#This script will read the SSURGO soil mukey files from this directory
+SSURGO_path = os.path.join(data_path, "SoilData/SSURGO")
+SSURGO_shp  = os.path.join(SSURGO_path, "soilmu_a_merged.shp")
+#STATSGO directory
+STATSGO_path = os.path.join(data_path, "SoilData/STATSGO")
+STATSGO_shp  = os.path.join(STATSGO_path, "gsmsoilmu_a_merged.shp")
+#GEOLOGIC UNITS
+GEOL_path = os.path.join(data_path, "Geologic_Units")
+GEOL_shp  =  os.path.join(GEOL_path, "geol_poly.shp") 
+#NLCD
+NLCD_path = os.path.join(data_path, os.path.join("NLCD", "nlcd_2011"))
+NLCD_rast = os.path.join(NLCD_path, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
+
+# This script will read the mesh geometry from this directory
+# the files it will read are:
+#
+# input_path/mesh.1.ele
+# input_path/mesh.1.node
+#input_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
+input_path = "/project/CI-WATER/data/upper_colorado_mesh/"
+
+# This script will write its output to this directory
+# the files it will write are:
+#
+# output_path/mesh.1.soilType
+# output_path/mesh.1.LandCover
+# output_path/mesh.1.geolType
+# output_path/element_data.pkl
+#output_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
+output_path = "/project/CI-WATER/data/upper_colorado_mesh/"
+
+AD_HYDRO_PROJ_WKT = 'PROJCS["Sinusoidal", GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]], PROJECTION["Sinusoidal"], PARAMETER["longitude_of_center",-109], PARAMETER["false_easting",20000000], PARAMETER["false_northing",10000000], UNIT["Meter",1]]'
+
 # This script is set up to run from the command line and not from inside the QGIS python console.
 # You need to add your QGIS python directory to the PYTHONPATH environment variable as shown below.
 #
@@ -26,62 +58,51 @@ app = QgsApplication([], True)
 app.setPrefixPath(qgishome, True)
 app.initQgis()
 
+"""
+END USER INPUT SECTION.
+"""
+
+import time #Can be removed, only for timing various functions of this script
+#Return mem usage for process, as reported by OS, in MiB
+def mem_usage(GB=True):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info()[0]/float(2**20)
+    if GB:
+        mem = mem*0.00104858
+    return mem
+#Return pid of calling thread/process
+def who():
+    return "Processes "+str(os.getpid())+" "
+
+
 #GLOBALS
+#Create the nlcd raster layer to look up land cover values
+NLCD_layer = QgsRasterLayer(NLCD_rast)
+#Create SSURGO/STATSGO layers
 #These are reused each time getMUKEY is called, so create them once and save the overhead
 #Can even put into an init function if the need arises
-input_SSURGO_prefix = "/project/CI-WATER/data/SSURGO"
-#Directory where extracted data files exist
-input_SSURGO_unzipped = os.path.join(input_SSURGO_prefix, "unzipped")
-input_SSURGO_file  = os.path.join(input_SSURGO_prefix, "index.shp")
-SSURGO_layer       = QgsVectorLayer(input_SSURGO_file, "SSURGO",  "ogr")
+SSURGO_layer       = QgsVectorLayer(SSURGO_shp, "SSURGO",  "ogr")
 SSURGO_provider    = SSURGO_layer.dataProvider()
 SSURGO_AreaSymInd = SSURGO_provider.fieldNameIndex("AREASYMBOL")
+SSURGO_MUKEYInd = SSURGO_provider.fieldNameIndex("MUKEY")
+SSURGO_MUKEYSymInd = SSURGO_provider.fieldNameIndex("MUSYM")
+SSURGO_request = QgsFeatureRequest()
+SSURGO_request.setSubsetOfAttributes([SSURGO_AreaSymInd, SSURGO_MUKEYInd, SSURGO_MUKEYSymInd])
 
-input_STATSGO_prefix = "/project/CI-WATER/data/STATSGO"
-#Directory where extracted data files exist
-input_STATSGO_unzipped = os.path.join(input_STATSGO_prefix, "unzipped")
-input_STATSGO_file  = os.path.join(input_STATSGO_prefix, "all.shp")
-STATSGO_layer     = QgsVectorLayer(input_STATSGO_file, "STATSGO",  "ogr")
+STATSGO_layer     = QgsVectorLayer(STATSGO_shp, "STATSGO",  "ogr")
 STATSGO_provider  = STATSGO_layer.dataProvider()
 STATSGO_AreaSymInd        = STATSGO_provider.fieldNameIndex("AREASYMBOL")
 STATSGO_MUKEYInd          = STATSGO_provider.fieldNameIndex("MUKEY")
 STATSGO_MUKEYSymInd       = STATSGO_provider.fieldNameIndex("MUSYM")
+STATSGO_request = QgsFeatureRequest()
+STATSGO_request.setSubsetOfAttributes([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
 
-input_GEOL_prefix = "/project/CI-WATER/data/Geologic_Units/"
-#Directory where extracted data files exist
-#input_GEOL_State_prefix = os.path.join(input_GEOL_prefix, "MergingShapeFiles/")
-input_GEOL_file  =  os.path.join(input_GEOL_prefix, "AllMerged.shp") 
-GEOL_layer     = QgsVectorLayer(input_GEOL_file, "GEOLOGIC_UNITS",  "ogr")
+#Create Geologic units layer
+GEOL_layer     = QgsVectorLayer(GEOL_shp, "GEOLOGIC_UNITS",  "ogr")
 GEOL_provider  = GEOL_layer.dataProvider()
-#GEOL_SourceInd = GEOL_provider.fieldNameIndex("SOURCE")
-
-#This script will read the SSURGO soil mukey files from this directory
-input_SSURGO_County_prefix = os.path.join(input_SSURGO_prefix, "all")
-# This script will read the NLCD data form this directory
-input_NLCD_directory_path = "/project/CI-WATER/data/NLCD/merged/"
-input_NLCDfile =  input_NLCD_directory_path + "merged.tif"
-nlcd_layer = QgsRasterLayer(input_NLCDfile)
-
-# This script will read the mesh geometry from this directory
-# the files it will read are:
-#
-# input_directory_path/mesh.1.ele
-# input_directory_path/mesh.1.node
-#input_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
-input_directory_path = "/project/CI-WATER/data/upper_colorado_mesh/"
-
-# This script will write its output to this directory
-# the files it will write are:
-#
-# output_directory_path/mesh.1.soilType
-# output_directory_path/mesh.1.LandCover
-# output_directory_path/mesh.1.geolType
-# output_directory_path/element_data.pkl
-#output_directory_path = "/project/CI-WATER/data/WBNFLSnake_mesh/"
-output_directory_path = "/project/CI-WATER/data/upper_colorado_mesh/"
-
-#Dictionary to hold QgsVector layers          
-SSURGO_county_dict = {}
+GEOL_ROCKTYPE = GEOL_provider.fieldNameIndex("LITH62")
+GEOL_request = QgsFeatureRequest()
+GEOL_request.setSubsetOfAttributes([GEOL_ROCKTYPE])
 
 #Dictionaries to hold comp.txt data in, accessed by AreaSym, i.e. SSURGO_comp_dict[AreaSym]
 #These will hold pandas data frames containing the comp data, NOTE: not all comp_table_names
@@ -99,93 +120,66 @@ STATSGO_horizon_dict = {}
 #Column names taken from SSURGO_Metadata_-Tables_and_Columns.pdf at /share/CI-WATER Third Party Files/SSURGO
 horizon_table_names = ['hzname', 'desgndisc', 'desgnmaster', 'desgnmasterprime', 'desgnvert', 'hzdept_l', 'hzdept_r', 'hzdept_h', 'hzdepb_l', 'hzdepb_r', 'hzdepb_h', 'hzthk_l', 'hzthk_r', 'hzthk_h', 'fraggt10_l', 'fraggt10_r', 'fraggt10_h', 'frag3to10_l', 'frag3to10_r', 'frag3to10_h', 'sieveno4_l', 'sieveno4_r', 'sieveno4_h', 'sieveno10_l', 'sieveno10_r', 'sieveno10_h', 'sieveno40_l', 'sieveno40_r', 'sieveno40_h', 'sieveno200_l', 'sieveno200_r', 'sieveno200_h', 'sandtotal_l', 'sandtotal_r', 'sandtotal_h', 'sandvc_l', 'sandvc_r', 'sandvc_h', 'sandco_l', 'sandco_r', 'sandco_h', 'sandmed_l', 'sandmed_r', 'sandmed_h', 'sandfine_l', 'sandfine_r', 'sandfine_h', 'sandvf_l', 'sandvf_r', 'sandvf_h', 'silttotal_l', 'silttotal_r', 'silttotal_h', 'siltco_l', 'siltco_r', 'siltco_h', 'siltfine_l', 'siltfine_r', 'siltfine_h', 'claytotal_l', 'claytotal_r', 'claytotal_h', 'claysizedcarb_l', 'claysizedcarb_r', 'claysizedcarb_h', 'om_l', 'om_r', 'om_h', 'dbtenthbar_l', 'dbtenthbar_r', 'dbtenthbar_h', 'dbthirdbar_l', 'dbthirdbar_r', 'dbthirdbar_h', 'dbfifteenbar_l', 'dbfifteenbar_r', 'dbfifteenbar_h', 'dbovendry_l', 'dbovendry_r', 'dbovendry_h', 'partdensity', 'ksat_l', 'ksat_r', 'ksat_h', 'awc_l', 'awc_r', 'awc_h', 'wtenthbar_l', 'wtenthbar_r', 'wtenthbar_h', 'wthirdbar_l', 'wthirdbar_r', 'wthirdbar_h', 'wfifteenbar_l', 'wfifteenbar_r', 'wfifteenbar_h', 'wsatiated_l', 'wsatiated_r', 'wsatiated_h', 'lep_l', 'lep_r', 'lep_h', 'll_l', 'll_r', 'll_h', 'pi_l', 'pi_r', 'pi_h', 'aashind_l', 'aashind_r', 'aashind_h', 'kwfact', 'kffact', 'caco3_l', 'caco3_r', 'caco3_h', 'gypsum_l', 'gypsum_r', 'gypsum_h', 'sar_l', 'sar_r', 'sar_h', 'ec_l', 'ec_r', 'ec_h', 'cec7_l', 'cec7_r', 'cec7_h', 'ecec_l', 'ecec_r', 'ecec_h', 'sumbases_l', 'sumbases_r', 'sumbases_h', 'ph1to1h2o_l', 'ph1to1h2o_r', 'ph1to1h2o_h', 'ph01mcacl2_l', 'ph01mcacl2_r', 'ph01mcacl2_h', 'freeiron_l', 'freeiron_r', 'freeiron_h', 'feoxalate_l', 'feoxalate_r', 'feoxalate_h', 'extracid_l', 'extracid_r', 'extracid_h', 'extral_l', 'extral_r', 'extral_h', 'aloxalate_l', 'aloxalate_r', 'aloxalate_h', 'pbray1_l', 'pbray1_r', 'pbray1_h', 'poxalate_l', 'poxalate_r', 'poxalate_h', 'ph2osoluble_l', 'ph2osoluble_r', 'ph2osoluble_h', 'ptotal_l', 'ptotal_r', 'ptotal_h', 'excavdifcl', 'excavdifms', 'cokey', 'chkey']
 
-#Dictionary to hold QgsVector layers for vegitation data
-#Not needed now since NLCD is merged to single raster
-#veg_parm_dict={}
+#FEATURE CACHING.  For large meshes, a lot of disk IO required, we cache to memory and use large memory machines.
+#IF RUNNING OUT OF MEMORY: Comment these out here.
+#Then for each spatial index loop, comment out the *_feats[] line,
+#And finally in getMUKEY and getGeologicUnits, comment out the *_feats[i] lines
+#for the dict lookup and unncomment the feature request line above it.
 
-#TODO/FIXME Since GEOL is already merged to a single shape file, why do this?!?!?!?!?!?!?!?!?!?!
-# Dictionry with the Geologic units shape file for the states: WY, CO, AZ, NM, and UT
-# The files do not have a standard name. For other states, insert the file name in the dictionary.
-#GEOL_Unit_State_VectorLayer_dict ={'AZ': QgsVectorLayer(input_GEOL_State_prefix + "azgeol_poly_dd.shp", "GEOL_UNITS_AZ",   "ogr"), 
-#                                   'CO': QgsVectorLayer(input_GEOL_State_prefix + "cogeol_dd_polygon.shp", "GEOL_UNITS_CO","ogr"), 
-#                                   'NM': QgsVectorLayer(input_GEOL_State_prefix + "nmgeol_dd_polygon.shp", "GEOL_UNITS_NM","ogr"),
-#                                   'UT': QgsVectorLayer(input_GEOL_State_prefix + "utgeol_poly_dd.shp", "GEOL_UNITS_UT",   "ogr"),
-#                                   'WY': QgsVectorLayer(input_GEOL_State_prefix + "wygeol_dd_polygon.shp", "GEOL_UNITS_WY","ogr")}
+GEOL_feats = {}
+SSURGO_feats = {} 
+STATSGO_feats = {}
 
-#Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
-#Since this function uses a per state shapefile, it is more efficient to create
-#the large spatial index once, and search through each time rather than
-#re-create the spatial index for each call to get_GEOLOGIC_UNITS
-"""
-            GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[  str (Source[0] + Source[1]) ]
-            GEOL_perState_provider = GEOL_perState_layer.dataProvider()                
-            GEOL_State_ROCKTYPE  = GEOL_perState_provider.fieldNameIndex("ROCKTYPE1")
-            
-            feature  = QgsFeature()
-            GEOL_perState_provider.select([GEOL_State_ROCKTYPE])
-            
-            found = False
-            index = QgsSpatialIndex()
-            while GEOL_perState_provider.nextFeature(feature):
-                index.insertFeature(feature)
-"""
 t0 = time.time()
-"""
-GEOL_spatial_index = {}
-#iterate over the geology vector layers
-for state,layer in GEOL_Unit_State_VectorLayer_dict.items():
-    #get the layer's data provider and index of its rocktype field
-    provider = layer.dataProvider()
-    #ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
-    #select the rocktype features to work with, QGIS 2 style
-    request = QgsFeatureRequest()
-    request.setSubsetOfAttributes(['ROCKTYPE1'], provider.fields())
-    #provider.select([ROCKTYPE])
-    #Initialize the spatial index
-    GEOL_spatial_index[state] = QgsSpatialIndex()
-    #Build the spatial index
-    for feature in layer.getFeatures(request):
-        GEOL_spatial_index[state].insertFeature(feature)
-"""
+#Here we create the spatial index used by the get_GEOLOGIC_UNITS function.
 GEOL_spatial_index = QgsSpatialIndex()
-request = QgsFeatureRequest()
-GEOL_ROCKTYPE = GEOL_provider.fieldNameIndex("ROCKTYPE1")
-request.setSubsetOfAttributes([GEOL_ROCKTYPE])
-for feature in GEOL_layer.getFeatures(request):
+for feature in GEOL_layer.getFeatures(GEOL_request):
     GEOL_spatial_index.insertFeature(feature)
+    GEOL_feats[feature.id()] = feature
 
 #Now we similarly pre-populate the SSURGO spatial index.
 #To find the MUKEYS, we first have to look through all the SSURGO features to find
 #the AreaSYM that a point lie in.  We can create that spatial index once and reference
 #it instead of creating it once for each element.
 SSURGO_spatial_index = QgsSpatialIndex()
-#feature  = QgsFeature()
-#SSURGO_provider.select([SSURGO_AreaSymInd])
-request = QgsFeatureRequest()
-request.setSubsetOfAttributes([SSURGO_AreaSymInd])
-#Populate the spatial index with each feature in the SSURGO provided
-#while SSURGO_provider.nextFeature(feature):
-for feature in SSURGO_layer.getFeatures(request):
+#Populate the spatial index with each feature in the SSURGO layer
+for feature in SSURGO_layer.getFeatures(SSURGO_request):
     SSURGO_spatial_index.insertFeature(feature)    
-
-#We also look up county information inside SSURGO, using yet another spatial index
-#Store these in a dict the first time and avoid re-creating them every call.  These
-#will get populated in the getMUKEY function
-SSURGO_county_index = {}
+    SSURGO_feats[feature.id()] = feature
 
 #If using STATSGO, we also use a spatial index, but only one on one layer
 #We can initilize this spatial index and save a lot of overhead
-#feature  = QgsFeature()
-#STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
-request = QgsFeatureRequest()
-request.setSubsetOfAttributes([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
 STATSGO_index = QgsSpatialIndex()  
-#while STATSGO_provider.nextFeature(feature):
-for feature in STATSGO_layer.getFeatures(request):
+for feature in STATSGO_layer.getFeatures(STATSGO_request):
     STATSGO_index.insertFeature(feature)
+    STATSGO_feats[feature.id()] = feature
 
 t1 = time.time()
 print "Time to initialize spatial indicies: "+str(t1 - t0)
+
+#Create the references for the different coordinate systems
+#Create a transform object to transform between the coordinate systems
+#Transfrom from param 1 to param 2
+ADHydro_crs = QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT)
+STATSGO_xform = QgsCoordinateTransform(ADHydro_crs, STATSGO_layer.crs())
+
+GEOL_xform = QgsCoordinateTransform(ADHydro_crs, GEOL_layer.crs())
+
+NLCD_xform = QgsCoordinateTransform(ADHydro_crs, NLCD_layer.crs())
+
+def coordTransform(s, xform):
+    """
+        Helper function to apply a coordinate transformation between the sinusoidal and spheroid projections
+        Required Arguements:
+             s -- pandas series containing element coordinate information, specficially 'X_center' and 'Y_center'
+        Returns:
+            Series s with transformed coordinates 'lat_center' and 'long_center' added
+    """
+    #Transform the ADHydro coordinates since they have the false northing and false easting already
+    point = xform.transform(QgsPoint(s['AD_X'], s['AD_Y']))
+    s['lat_center'] = point.x()
+    s['long_center'] = point.y()
+    return s
 
 def writeSoilFile(s, f, bugFix):
     """
@@ -262,266 +256,253 @@ def writeGeolFile(s, f, bugFix):
   """
   f.write('  '+str(s.name)+'  '+str(s['ROCKTYPE'])+'\n')
 
-
-#Need to make sure latitude and longitude coordinates are projected correctly to match
-#the coordinate system used by SSURGO/STATSGO and NLCD (found by using gdalsrsinfo on the .prj file in statsgo dir
-STATSGO_PROJ_WKT = 'GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563, AUTHORITY["EPSG","7030"]], AUTHORITY["EPSG","6326"]], PRIMEM["Greenwich",0, AUTHORITY["EPSG","8901"]], UNIT["degree",0.01745329251994328, AUTHORITY["EPSG","9122"]], AUTHORITY["EPSG","4326"]]'
-
-SSURGO_PROJ_WKT = 'GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]]'
-"""
-
-Only difference in the SSURGO and STATSGO projections is that STATSGO provides athority info...I think we can use just one and get proper transformations
-
-"""
-#GEOL has a different projection, will have to have a transform for this
-GEOL_PROJ_WKT = """GEOGCS["GCS_North_American_1927", 
-                    DATUM["North_American_Datum_1927", 
-                        SPHEROID["Clarke_1866",6378206.4,294.9786982]], 
-                        PRIMEM["Greenwich",0], 
-                    UNIT["Degree",0.017453292519943295]]"""
-
-#NLCD has yet another different projection
-NLCD_PROJ_WKT = """PROJCS["unnamed",
-                    GEOGCS["GRS 1980(IUGG, 1980)",
-                        DATUM["unknown",
-                            SPHEROID["GRS80",6378137,298.257222101],
-                            TOWGS84[0,0,0,0,0,0,0]],
-                        PRIMEM["Greenwich",0],
-                        UNIT["degree",0.0174532925199433]],
-                    PROJECTION["Sinusoidal"],
-                    PARAMETER["longitude_of_center",-109],
-                    PARAMETER["false_easting",20000000],
-                    PARAMETER["false_northing",10000000],
-                    UNIT["metre",1,
-                    AUTHORITY["EPSG","9001"]]]"""
-
-AD_HYDRO_PROJ_WKT = 'PROJCS["Sinusoidal", GEOGCS["GCS_WGS_1984", DATUM["WGS_1984", SPHEROID["WGS_84",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.017453292519943295]], PROJECTION["Sinusoidal"], PARAMETER["longitude_of_center",-109], PARAMETER["false_easting",20000000], PARAMETER["false_northing",10000000], UNIT["Meter",1]]'
-
-#Create the references for the two different coordinate systems
-#Create a transform object to transform between the coordinate systems
-#Transfrom from param 1 to param 2
-STATSGO_xform = QgsCoordinateTransform(\
-                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
-                        QgsCoordinateReferenceSystem(STATSGO_PROJ_WKT))
-
-GEOL_xform = QgsCoordinateTransform(\
-                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
-                        QgsCoordinateReferenceSystem(GEOL_PROJ_WKT))
-
-NLCD_xform = QgsCoordinateTransform(\
-                        QgsCoordinateReferenceSystem(AD_HYDRO_PROJ_WKT),\
-                        QgsCoordinateReferenceSystem(NLCD_PROJ_WKT))
-
-
-
-def coordTransform(s, xform):
+def getElementCoords(subset):
     """
-        Helper function to apply a coordinate transformation between the sinusoidal and spheroid projections
-        Required Arguements:
-             s -- pandas series containing element coordinate information, specficially 'X_center' and 'Y_center'
-        Returns:
-            Series s with transformed coordinates 'lat_center' and 'long_center' added
+      input:
+        subset      The subset of all elements to processes.
+        
+      Given a subset of elements, create a dataframe with these elements geometry, including
+        X_Center
+        Y_Center
+        AD_X
+        AD_Y
+
+        Write this dataframe to a serialized msg file, with sub section appended to the file name
     """
-    #Transform the ADHydro coordinates since they have the false northing and false easting already
-    point = xform.transform(QgsPoint(s['AD_X'], s['AD_Y']))
-    s['lat_center'] = point.x()
-    s['long_center'] = point.y()
-    return s
 
-def who():
-    return "Processes "+str(os.getpid())+" "
+    section='.{}-{}'.format(subset[0],subset[-1])
+    ELEfilepath           = os.path.join(input_path, 'mesh.1.ele')
+    NODEfilepath          = os.path.join(input_path, 'mesh.1.node')
+    output_element_data_file = os.path.join(output_path, 'element_coord_data.msg'+section)
 
-def getSoilTypDRV(subset):
-   """
-     This is the user entry point to process the mesh, lookup the soil and vegitation information, and write the output files.
-     This process includes reading the element and node files of the mesh and calculating each elements center, ADhydro, and lat/long coordinates.
-     
-     getSoilTypDRV utilizes pandas data frames to hold this information, and then applies several functions to the data frame to lookup the nessicary information.
-     Once all this information is found and added to the dataframe, this function creates the output files specified by these variables:
-       output_SoilTyp_file      -- structured output file storing the layers of the soil horizon for each element
-       output_VegTyp_file       -- structured output file storing each element's vegitation type
-       output_GeolTyp_file      -- structured output file storing each element's Geologic Unit type
-       output_element_data_file -- a Pandas dataFrame serialized to file containing all of the computed and looked up information for each element
-      
-   """
-   
-   section='.{}-{}'.format(subset[0],subset[-1])
-   ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
-   NODEfilepath          = os.path.join(input_directory_path, 'mesh.1.node')
-   output_element_data_file = os.path.join(output_directory_path, 'element_data.msg'+section)
-   """
-   print '\n\n'+who()+'Reading element file.'
-   t0 = time.time()
-   elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
-   
-   elements['V1'] = elements['V1'].astype(int)
+    print '\n\n'+who()+'Reading element file.'
+    t0 = time.time()
+    #Read the element geometry of the mesh
+    elements = pd.read_csv(ELEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'V1', 'V2', 'V3', 'CatchmentNumber'], index_col=0, engine='c').dropna()
+    #Tread v1 as int type
+    elements['V1'] = elements['V1'].astype(int)
 
-   #Only work on our subset of elements
-   elements = elements.loc[subset].reset_index()
+    #Only work on our subset of elements
+    elements = elements.loc[subset].reset_index()
 
-   print who()+'Reading node file.'
+    print who()+'Reading node file.'
+    stdout.flush()
+    #Read mesh node geometry of the mesh
+    nodes = pd.read_csv(NODEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'X', 'Y', 'Z'], index_col=0, engine='c').dropna()
 
-   nodes = pd.read_csv(NODEfilepath, sep=' ', skipinitialspace=True, comment='#', skiprows=1, names=['ID', 'X', 'Y', 'Z'], index_col=0, engine='c').dropna()
+    num_elems = len(elements.index)
+    num_nodes = len(nodes.index)
 
-   num_elems = len(elements.index)
-   num_nodes = len(nodes.index)
-   
-   print who()+"Processing {} elements from {} nodes".format(num_elems, num_nodes)
-   
-   print who()+'Calculating element centers. Memory at start: '+str(mem_usage())
-   
-   ele=1
-   num_verticies=3
-   R = 6378137.0;		# Sphere model radius in meters from SNYDER - 1987
-   pi = acos(-1);
-   origin = -109.0*pi/180      # Origin of xy coordinates in degrees
+    num_verticies=3
 
-   #Calculate the center of each element in the elements dataframe and store it in columns lat_center and long_center
-   #This is FAST as it uses vectorization for element wise computation especially as size of input increases
-   #To get everything to line up correctly we have to coerce the index of the pulled data,
-   #Since initially nodes are indexed based on thier ID, when they get aligned with the proper element here
-   #Their index is off, so when we try to add these values into elements, they must have a corresponding index (1-num_elements)
-   v = nodes.loc[elements['V1']].reset_index()
-   v.index = range(0, num_elems)
-   #Note v index and elements index must be the same!!!
-   elements['X_center'] = v.X - 20000000.0
-   elements['Y_center'] = v.Y - 10000000.0
-   
-   
-   v = nodes.loc[elements['V2']].reset_index()
-   v.index = range(0, num_elems)
-   elements['X_center'] = elements['X_center'] + v.X - 20000000.0
-   elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
-   
-   v = nodes.loc[elements['V3']].reset_index()
-   v.index = range(0, num_elems)
-   elements['X_center'] = elements['X_center'] + v.X - 20000000.0
-   elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
-   
-   #Center based on number of verticies
-   elements['X_center'] = elements['X_center']/num_verticies
-   elements['Y_center'] = elements['Y_center']/num_verticies
-   
-   #ADHydro coordinates for looking up vegitation data
-   elements['AD_X'] = elements['X_center'] + 20000000.0
-   elements['AD_Y'] = elements['Y_center'] + 10000000.0
-   
-   #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
-   elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
-   
-   #elements now contains coordinates for the center of each element in three different coordinates:
-   #  X, Y sinusoidal projection X_center, Y_center
-   #  AdHydro Coordinates AD_X, AD_Y
-   #  Lat, Long x,y coordinates lat_center, long_center
+    #Calculate the center of each element in the elements dataframe and store it in columns lat_center and long_center
+    #This is FAST as it uses vectorization for element wise computation especially as size of input increases
+    #To get everything to line up correctly we have to coerce the index of the pulled data,
+    #Since initially nodes are indexed based on thier ID, when they get aligned with the proper element here
+    #Their index is off, so when we try to add these values into elements, they must have a corresponding index (1-num_elements)
+    v = nodes.loc[elements['V1']].reset_index()
+    v.index = range(0, num_elems)
+    #Note v index and elements index must be the same!!!
+    elements['X_center'] = v.X - 20000000.0
+    elements['Y_center'] = v.Y - 10000000.0
 
-   #Using this information we can now lookup various metadata using the MUKEY and AREASYM keys in the dataframe
-   
-   
-   # By getting MUKEY and COKEY piecies here for all elements before any further processing
-   # we can potentially make this script nicer becuase we can release resources manually
-   # knowing that we are finished with the shape files and comp.txt files needed to get
-   # these values.  On really large meshes, this might be required to do.
-      
-   #be kind, clean up unused memory
-   del nodes
-   #Since the mukey and areasym are used to lookup different data, find and store them for each element.
-   t1 = time.time()
-   print who()+"Finished center calculations. Time: "+ str(t1 - t0) + "\tMem usage: "+ str(mem_usage())
-   print who()+'Finding MUKEY.'
+    v = nodes.loc[elements['V2']].reset_index()
+    v.index = range(0, num_elems)
+    elements['X_center'] = elements['X_center'] + v.X - 20000000.0
+    elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
 
-   
-   #find the MUKEY for each element, this adds the following columns to elements:
-   #MUKEY, AreaSym, inSSURGO
-   t0 = time.time()
-   elements = elements.apply(getMUKEY, axis=1)
-   t1 = time.time()
-   print who()+"Finished finding MUKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
-   stdout.flush()
-   #Write the element data serialized file with the MUKEYS since getMUKEY takes a while.  In case of error, this data can be reloaded
-   #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
-   #elements.to_pickle(output_element_data_file)
-   elements.to_msgpack(output_element_data_file)
-   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
-   #elements = pd.read_pickle(output_element_data_file)
-   #elements = pd.read_msgpack(output_element_data_file)
-   
-   print who()+'Finding Geologic Units.'
-   
-   #Now transform coordinates to the Geologic Units CRS
-   elements = elements.apply(coordTransform, args=(GEOL_xform,), axis=1)
-   #find the geologic unit for each element, this adds the following columns to elements:
-   #ROCKTYPE
-   t0 = time.time()
-   elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
-   t1 = time.time()
-   print who()+"Finished finding Geologic Units. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
-   stdout.flush()
-   
-   #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
-   #elements.to_pickle(output_element_data_file)
-   elements.to_msgpack(output_element_data_file)
-   #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
-   #elements = pd.read_pickle(output_element_data_file)
-   """
-   elements = pd.read_msgpack(output_element_data_file)
-   #READING OLD DATA, RESET X Y to STATSGO transform
-   elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
+    v = nodes.loc[elements['V3']].reset_index()
+    v.index = range(0, num_elems)
+    elements['X_center'] = elements['X_center'] + v.X - 20000000.0
+    elements['Y_center'] = elements['Y_center'] + v.Y - 10000000.0
 
-   print who()+'Finding COKEY.'
+    #Center based on number of verticies
+    elements['X_center'] = elements['X_center']/num_verticies
+    elements['Y_center'] = elements['Y_center']/num_verticies
 
-   #Find the COKEY for each element, must have MUKEY column before calling getCOKEY, this adds the following columns to elements:
-   #COKEY, compname
-   t0 = time.time()
-   elements = elements.apply(getCOKEY, axis=1)
-   t1 = time.time()
-   print who()+"Finished finding COKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
-   stdout.flush()
+    #ADHydro coordinates for looking up vegitation data
+    elements['AD_X'] = elements['X_center'] + 20000000.0
+    elements['AD_Y'] = elements['Y_center'] + 10000000.0
+    #elements now contains coordinates for the center of each element in three different coordinates:
+    #  X, Y sinusoidal projection X_center, Y_center
+    #  AdHydro Coordinates AD_X, AD_Y
+    #Write the element data serialized file with the calculated coordinates 
+    #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
+    #elements.to_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
    
-   #elements.to_pickle(output_element_data_file)
-   elements.to_msgpack(output_element_data_file)
-   
-      
-   print who()+'Finding soil type.'
-   #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
-   #SoilType
-   t0 = time.time()
-   elements = elements.apply(getSoilContent, axis=1)
-   t1 = time.time()
-   print who()+"Finished finding soil type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
-   stdout.flush()
-  
-   #elements.to_pickle(output_element_data_file)
-   elements.to_msgpack(output_element_data_file)
-   
-   print who()+'Finding vegetation type.'
-   stdout.flush()
-   #Now transform coordinates to the NLCD CRS
-   elements = elements.apply(coordTransform, args=(NLCD_xform,), axis=1)
-   #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
-   #VegParm
-   t0 = time.time()
-   elements = elements.apply(getVegParm, axis=1)
-   t1 = time.time()
-   print who()+"Finished finding vegetation type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage()) + "\n\n"
-   stdout.flush()
-   #TODO/FIXME Instead of transforming coordinates over and over, let each function transform the points they need
-   #elements.to_pickle(output_element_data_file)
-   elements.to_msgpack(output_element_data_file)
-   return elements
+def findMUKEYS(subset):
+    """
+        Helper function for processing a subset of elements and using getMUKEY to get appropriate mukeys.
+        
+        input:
+            subset      The subset of all elements to processes.
+    """
+    # By getting MUKEY and COKEY piecies here for all elements before any further processing
+    # we can potentially make this script nicer becuase we can release resources manually
+    # knowing that we are finished with the shape files and comp.txt files needed to get
+    # these values.  On really large meshes, this might be required to do.
+    section='.{}-{}'.format(subset[0],subset[-1])
+    #get the element data with coordinates
+    element_data_file = (os.path.join(output_path, 'element_coord_data.msg'+section))
+    output_element_data_file = os.path.join(output_path, 'element_mukey_data.msg'+section)
+    elements = pd.read_msgpack(element_data_file) 
+    #Apply the coordinate transformations to get Lat/Long in the same CRS as SSURGO/STATSGO
+    elements = elements.apply(coordTransform, args=(STATSGO_xform,), axis=1) #Slower since it is not vectorizable, but more accurate!
+    #  Lat, Long x,y coordinates lat_center, long_center (using the SSURGO/STATSGO projection)
+    #Using this information we can now lookup various metadata using the MUKEY and AREASYM keys in the dataframe
+    #find the MUKEY for each element, this adds the following columns to elements:
+    #MUKEY, AreaSym, inSSURGO
+    t0 = time.time()
+    elements = elements.apply(getMUKEY, axis=1)
+    t1 = time.time()
+    """
+    del SSURGO_feats 
+    del STATSGO_feats
+    del SSURGO_layer
+    del SSURGO_provider
+    del SSURGO_AreaSymInd
+    del SSURGO_MUKEYInd
+    del SSURGO_MUKEYSymInd
+    del SSURGO_request
 
+    del STATSGO_layer
+    del STATSGO_provider
+    del STATSGO_AreaSymInd
+    del STATSGO_MUKEYInd
+    del STATSGO_MUKEYSymInd
+    del STATSGO_request
+    gc.collect()
+    """
+    print who()+"Finished finding MUKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+    stdout.flush()
+    #Write the element data serialized file with the MUKEYS 
+    #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
+    #elements.to_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
+
+def findCOKEYS(subset):
+    """
+        Helper function for processing a subset of elements and using getCOKEYS to get appropriate cokeys.
+        
+        input:
+            subset      The subset of all elements to processes.
+    """
+    section='.{}-{}'.format(subset[0],subset[-1])
+    #get the element data with mukeys
+    element_data_file = (os.path.join(output_path, 'element_mukey_data.msg'+section))
+    output_element_data_file = os.path.join(output_path, 'element_cokey_data.msg'+section)
+    elements = pd.read_msgpack(element_data_file) 
+    #Get COKEY for each element, MUST have MUKEY and AREASYM before calling getCOKEY.  This addes the following columns to elements:
+    #   COKEY, compname 
+    t0 = time.time()
+    elements = elements.apply(getCOKEY, axis=1)
+    t1 = time.time()
+    """
+    del SSURGO_comp_dict
+    del STATSGO_comp_dict
+    gc.collect()
+    """
+    print who()+"Finished finding COKEY. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+    stdout.flush()
+    #Write the element data serialized file with the COKEYS, compname
+    #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
+    #elements.to_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
+
+def findSOILS(subset):
+    """
+        Helper function for processing a subset of elements and using getSoilType to get appropriate soil types.
+        
+        input:
+            subset      The subset of all elements to processes.
+    """
+    section='.{}-{}'.format(subset[0],subset[-1])
+    #get the element data with cokeys
+    element_data_file = (os.path.join(output_path, 'element_cokey_data.msg'+section))
+    output_element_data_file = os.path.join(output_path, 'element_soil_data.msg'+section)
+    elements = pd.read_msgpack(element_data_file) 
+    #get soil content per element, MUST have COKEY and compname columns before calling getSoilContent, this adds the following columns to elements:
+    #   SoilType
+    
+    t0 = time.time()
+    elements = elements.apply(getSoilContent, axis=1)
+    t1 = time.time()
+    """
+    del SSURGO_horizon_dict
+    del STATSGO_horizon_dict
+    gc.collect()
+    """
+    print who()+"Finished finding SOIL contents. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+    stdout.flush()
+    #Write the element data serialized file with the SoilType
+    #NOTE pickle can fail on large objects!!! http://bugs.python.org/issue11564
+    #elements.to_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
+
+def findGEOLOGY(subset):
+    """
+        Helper function for processing a subset of elements and using getGeoloic_Units to get appropriate geology types.
+        
+        input:
+            subset      The subset of all elements to processes.
+    """
+    section='.{}-{}'.format(subset[0],subset[-1])
+    #get the element data with soil (NOTE not dependent, but we are building up to a full dataset...)
+    element_data_file = (os.path.join(output_path, 'element_soil_data.msg'+section))
+    output_element_data_file = os.path.join(output_path, 'element_geology_data.msg'+section)
+    elements = pd.read_msgpack(element_data_file) 
+    #Now transform coordinates to the Geologic Units CRS
+    elements = elements.apply(coordTransform, args=(GEOL_xform,), axis=1)
+    #find the geologic unit for each element, this adds the following columns to elements:
+    #ROCKTYPE
+    t0 = time.time()
+    elements = elements.apply(get_GEOLOGIC_UNITS, axis=1)
+    t1 = time.time()
+    """
+    del GEOL_feats
+    gc.collect()
+    """
+    print who()+"Finished finding Geologic Units. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage())
+    stdout.flush()
+
+    #Write the element data serialized file with the geologic units since get_GEOLOGIC_UNITS takes a while.  In case of error, this data can be reloaded
+    #elements.to_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
+    return None
+
+def findVEG(subset):
+    """
+        Helper function for processing a subset of elements and using getGeoloic_Units to get appropriate geology types.
+        
+        input:
+            subset      The subset of all elements to processes.
+    """
+    section='.{}-{}'.format(subset[0],subset[-1])
+    #get the element data with geology (NOTE not dependent, but we are building up to a full dataset...)
+    element_data_file = (os.path.join(output_path, 'element_geology_data.msg'+section))
+    output_element_data_file = os.path.join(output_path, 'element_vegitation_data.msg'+section)
+    elements = pd.read_msgpack(element_data_file) 
+    #Now transform coordinates to the NLCD CRS
+    elements = elements.apply(coordTransform, args=(NLCD_xform,), axis=1)
+    #get vegitation parameters, must have AreaSym column before calling getVegParm, this adds the following columns to elements:
+    #VegParm
+    t0 = time.time()
+    elements = elements.apply(getVegParm, axis=1)
+    t1 = time.time()
+    print who()+"Finished finding vegetation type. Time: "+ str(t1 - t0)  + "\tMem usage: "+ str(mem_usage()) + "\n\n"
+    stdout.flush()
+    elements.to_msgpack(output_element_data_file)
+    return elements
 
 #TODO If really need to specify which dataset to search( SSURGO or STATSGO ) then make two functions, one for each
-#Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results    
+#Otherwise just search SSURGO first, then STATSGO if SSURGO fails to provide results
 def getMUKEY(s):
     """
       This function searches SSURGO and STATSGO data files for an element's MUKEY using pyQGIS functions.
 
       This function will attempt to find the MUKEY in SSURGO first, and if it cannot find one it will then repeat
       the processing using STATSGO.
-
-      Since many of these data files get read repeatedly in different calls to getMUKEY, the data is only read
-      from the files once and is stored in dictionaries so it can be quickly looked up again in another call needing
-      to read the same information.
 
       It is designed to work with the pandas data frame's apply function, which, when used along axis=1,
       will apply this function to each row of a dataframe, passing the row's information in the series argument.
@@ -542,10 +523,8 @@ def getMUKEY(s):
         s -- pandas series object containing the forementioned variables
       
       Additional Notes:
-        1 - The variables input_SSURGO_file, input_SSURGOperCounty_file, and input_STATSGO_file
+        1 - The variables SSURGO_shp, input_SSURGOperCounty_file, and STATSGO_shp
         must be CHANGED according to users directory paths for the shape files
-        2- For this program, index.shp is the delineation file, containing the border's shape from 
-        SSURGO of the region we have data.
     """
     #Get the elements center coordinates
     x = s['lat_center']
@@ -555,90 +534,51 @@ def getMUKEY(s):
     inSSURGO = False
     found = False
     #Select features and build bounding box
-    #SSURGO_provider.select([SSURGO_AreaSymInd])
-    request = QgsFeatureRequest()
-    request.setSubsetOfAttributes([SSURGO_AreaSymInd])
     point = QgsPoint(x, y)
     pointBox = QgsRectangle(point, point)
-    #Use the SSURGO spatial index to find features that intersect with the point box build from the elements coordiantes
+    pointGeom = QgsGeometry.fromPoint(point)
+    #Use the SSURGO spatial index to find features that intersect with the point box built from the elements coordiantes
     ids = SSURGO_spatial_index.intersects(pointBox)
     feature = QgsFeature()
     #Intersects returns a list of features intesecting the point
     #So we still have to search using .contains(), but we search
     #a lot less then using .contains() on all features
     for i in ids:
-        #SSURGO_provider.featureAtId(i, feature, True, [SSURGO_AreaSymInd])
-        feature = SSURGO_layer.getFeatures(request.setFilterFid(i)).next()
+        #feature = SSURGO_layer.getFeatures(SSURGO_request.setFilterFid(i)).next()
+        feature = SSURGO_feats[i]
         geom = feature.geometry()
-        if geom.contains(point):
+        #if geom.contains(point):
+        if pointGeom.within(geom):
             #Found an intersecting shape, get the AreaSym
-            #attribute = feature.attributeMap()
-            #AreaSym = attribute[SSURGO_AreaSymInd].toString()
             AreaSym = feature[SSURGO_AreaSymInd]
-            #See if we have this layer loaded, if not load the layer and create a corresponding spatial index
-            if AreaSym not in SSURGO_county_dict:
-                input_SSURGOperCounty_file = os.path.join(input_SSURGO_County_prefix, "soilmu_a_") + AreaSym.lower() + ".shp"
-                SSURGO_perCounty_layer  = QgsVectorLayer(input_SSURGOperCounty_file, "SSURGOperCounty",  "ogr")
-                SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
-                SSURGO_county_dict[AreaSym] = SSURGO_perCounty_layer
-                #To avoid re-creating the per county spatial index, create it the first time we need it and
-                #put it into a dict to access later.  The trade-off here is increased memory usage versus time
-                #However, the number of these indicies should be relatively small compared to the number of 
-                #mesh elements that must be processed, and this should remain some what proportional even as the
-                #mesh size increases
-                SSURGO_county_index[AreaSym] = QgsSpatialIndex()
-                for feature in SSURGO_perCounty_layer.getFeatures(QgsFeatureRequest()):
-                    SSURGO_county_index[AreaSym].insertFeature(feature)
-            else:
-                SSURGO_perCounty_layer = SSURGO_county_dict[AreaSym]
-                SSURGO_perCounty_provider = SSURGO_perCounty_layer.dataProvider()
-                
-            SSURGO_county_AreaSymInd  = SSURGO_perCounty_provider.fieldNameIndex("AREASYMBOL")
-            SSURGO_county_MUKEYInd    = SSURGO_perCounty_provider.fieldNameIndex("MUKEY")
-            SSURGO_county_MUKEYSymInd = SSURGO_perCounty_provider.fieldNameIndex("MUSYM")
-
-            #SSURGO_perCounty_provider.select([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
-            request = QgsFeatureRequest()
-            request.setSubsetOfAttributes([SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
-            #Find the intersecting geometries         
-            ids = SSURGO_county_index[AreaSym].intersects(pointBox)
-            for i in ids:
-                #SSURGO_perCounty_provider.featureAtId(i, feature, True, [SSURGO_county_AreaSymInd,SSURGO_county_MUKEYInd, SSURGO_county_MUKEYSymInd])
-                feature = SSURGO_perCounty_layer.getFeatures(request.setFilterFid(i)).next()
-                geom = feature.geometry()
-                if geom.contains(point):
-                    inSSURGO = True
-                    AreaSym = feature[SSURGO_county_AreaSymInd]
-                    MUKEY = feature[SSURGO_county_MUKEYInd]
-                    MUSYM   = feature[SSURGO_county_MUKEYSymInd]
-                    found = True
-                    break
+            MUKEY = feature[SSURGO_MUKEYInd]
+            MUSYM   = feature[SSURGO_MUKEYSymInd]
+            found = True
+            inSSURGO = True
             break #Stop looking if we find a contain
-
+    
     #If data not found in SSURGO, check STATSGO
     if (inSSURGO == False) or ( MUSYM == 'NOTCOM'):
-        inSSURGO = False # In the case MUSYM == NOTCOM, inSSURGO was = True
         found = False
         STATSGOfeature = QgsFeature()
-        #STATSGO_provider.select([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
-        request = QgsFeatureRequest()
-        request.setSubsetOfAttributes([STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
         ids = STATSGO_index.intersects(pointBox)
         for i in ids:
-            #STATSGO_provider.featureAtId(i, STATSGOfeature, True, [STATSGO_AreaSymInd, STATSGO_MUKEYInd, STATSGO_MUKEYSymInd ])
-            STATSGOfeature = STATSGO_layer.getFeatures(request.setFilterFid(i)).next()
+            #STATSGOfeature = STATSGO_layer.getFeatures(STATSGO_request.setFilterFid(i)).next()
+            STATSGOfeature = STATSGO_feats[i]
             geom = STATSGOfeature.geometry()
-            if geom.contains(point):
-                #attribute = STATSGOfeature.attributeMap()
-                AreaSym = STATSGOfeature[STATSGO_AreaSymInd]
+            #if geom.contains(point):
+            if pointGeom.within(geom):
+                if not inSSURGO: #Should never happen, but if it does, then COKEY will throw an exception 
+                    AreaSym = STATSGOfeature[STATSGO_AreaSymInd]
                 MUKEY   = STATSGOfeature[STATSGO_MUKEYInd]
                 MUSYM = STATSGOfeature[STATSGO_MUKEYSymInd]
                 found = True
+                inSSURGO = False
                 break
 
     if not found:
         #TODO/FIXME If not found, must handle this differently because the 
-        #int cast won't handle nan!!!
+        #int cast won't handle nan!!! However, between SSURGO/STATSGO, should be national coverage in the US
         MUKEY = np.nan
         AreaSym = np.nan
         inSSURGO = np.nan
@@ -693,25 +633,24 @@ def getCOKEY(s):
    if (inSSURGO == True):
    #  Find the path for the comp file in SSURGO
       if AreaSym not in SSURGO_comp_dict:
-         Compfile = os.path.join(input_SSURGO_unzipped, "wss_SSA_") + str(AreaSym) + "*"
-         Compfile_path =  glob.glob(Compfile)                                                        
-         # gol.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
-         Compfile = Compfile_path[0] +'/tabular/comp.txt'
-         SSURGO_comp_dict[AreaSym] = pd.read_csv(Compfile, sep='|', names=comp_table_names, usecols=['comppct_r', 'compname', 'mukey', 'cokey']) 
+         area_path  = os.path.join(SSURGO_path, str(AreaSym))
+         tabular_path = os.path.join(area_path, 'tabular')
+         comp_file = os.path.join(tabular_path, 'comp.txt')
+         SSURGO_comp_dict[AreaSym] = pd.read_csv(comp_file, sep='|', names=comp_table_names, usecols=['comppct_r', 'compname', 'mukey', 'cokey']) 
       comp_metadata = SSURGO_comp_dict[AreaSym]
          
    else:
-      if AreaSym not in STATSGO_comp_dict:
+      if AreaSym[0:2] not in STATSGO_comp_dict:
          #Find the path for the comp file in STATSGO
-         Compfile = os.path.join(input_STATSGO_unzipped, "wss_gsmsoil_") + str(AreaSym) + "*" 
-         Compfile_path =  glob.glob(Compfile)                                                        
-         #gol.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
-         Compfile = Compfile_path[0] +'/tabular/comp.txt'
-         STATSGO_comp_dict[AreaSym] = pd.read_csv(Compfile, sep='|', names=comp_table_names, usecols=['comppct_r', 'compname', 'mukey', 'cokey'])
-      comp_metadata = STATSGO_comp_dict[AreaSym]
+         state_path = os.path.join(STATSGO_path,'wss_gsmsoil_'+AreaSym[0:2]+'*') 
+         g =  glob.glob(state_path)                                                        
+         #glob.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
+         tabular_path  = os.path.join(g[0], 'tabular')
+         comp_file = os.path.join(tabular_path, 'comp.txt')
+         STATSGO_comp_dict[AreaSym[0:2]] = pd.read_csv(comp_file, sep='|', names=comp_table_names, usecols=['comppct_r', 'compname', 'mukey', 'cokey'])
+      comp_metadata = STATSGO_comp_dict[AreaSym[0:2]]
 
    mu_key_rows = comp_metadata[comp_metadata['mukey'] == MUKEY]
-
    if not mu_key_rows.empty:
       #Found a valid cokey based on mukey, get largest percent entry if konwn
       index = mu_key_rows['comppct_r'].idxmax()
@@ -791,19 +730,21 @@ def getSoilContent(s):
    if (inSSURGO == True):
       if AreaSym not in SSURGO_horizon_dict:
          #Find the path for the chorizon file in SSURGO
-         Horizonfile = os.path.join(input_SSURGO_unzipped, "wss_SSA_") + AreaSym + "*"
-         Horizonfile_path =  glob.glob(Horizonfile)
-         Horizonfile = Horizonfile_path[0] +'/tabular/chorizon.txt'
-         SSURGO_horizon_dict[AreaSym] = pd.read_csv(Horizonfile, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
-      Hrz_metadata = SSURGO_horizon_dict[str(AreaSym)]
+         area_path = os.path.join(SSURGO_path, AreaSym)
+         tabular_path = os.path.join(area_path, 'tabular')
+         horizon_file = os.path.join(tabular_path, 'chorizon.txt')
+         SSURGO_horizon_dict[AreaSym] = pd.read_csv(horizon_file, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
+      Hrz_metadata = SSURGO_horizon_dict[AreaSym]
    else:
-      if AreaSym not in STATSGO_horizon_dict:
-         #Find the path for the chorizon file in STATSGO
-         Horizonfile = os.path.join(input_STATSGO_unzipped, "wss_gsmsoil_") + AreaSym + "*" 
-         Horizonfile_path =  glob.glob(Horizonfile)
-         Horizonfile = Horizonfile_path[0] +'/tabular/chorizon.txt'
-         STATSGO_horizon_dict[AreaSym] = pd.read_csv(Horizonfile, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
-      Hrz_metadata = STATSGO_horizon_dict[AreaSym]
+      if AreaSym[0:2] not in STATSGO_horizon_dict:
+         #Find the path for the comp file in STATSGO
+         state_path = os.path.join(STATSGO_path,'wss_gsmsoil_'+AreaSym[0:2]+'*') 
+         g =  glob.glob(state_path)                                                        
+         #glob.glob(path) -> returns a possibly empty list the auto completing options for the * terminated path given
+         tabular_path  = os.path.join(g[0], 'tabular')
+         horizon_file = os.path.join(tabular_path, 'chorizon.txt')
+         STATSGO_horizon_dict[AreaSym[0:2]] = pd.read_csv(horizon_file, sep='|', names=horizon_table_names, usecols=['cokey', 'chkey', 'hzdept_r', 'hzdepb_r', 'sandtotal_r', 'silttotal_r', 'claytotal_r'])
+      Hrz_metadata = STATSGO_horizon_dict[AreaSym[0:2]]
    
    #Get all rows with matching COKEY
    co_key_rows = Hrz_metadata[Hrz_metadata['cokey'] == COKEY]
@@ -881,6 +822,30 @@ def getSoilTyp(s):
       return 12 # 'Clay'
    return -1 # In case all the above statements fail
 
+# Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
+# NLCD    definition                     USGS         definition
+#	11	open water	                      16           Water Bodies   
+#	12	ice/snow	                      24           Snow or Ice
+#	21	developed open space	          1            Urban and Built-Up Land
+#	22	developed low intensity	          1            Urban and Built-Up Land
+#	23	developed medium intensity        1            Urban and Built-Up Land
+#	24	developed high intensity          1            Urban and Built-Up Land
+#	31	barren land	                      19           Barren or Sparsely Vegetated
+#	41	deciduous forest	              11 and 12    'Deciduous Broadleaf Forest' and "Deciduous Needleleaf Forest"
+#	42	evergreen forest	              13 and 14    'Evergreen Broadleaf Forest' and 'Evergreen Needleleaf Forest'
+#	43	mixed forest	                  15           'Mixed Forest' 
+#	51	dwarf scrub-Alaska only	          none/use 22  'Mixed Tundra' 22
+#	52	shrub	                          8            'Shrubland' 
+#	71	grassland	                      7            'Grassland' 
+#	72	sedge/herbaceous-Alaska only      none/use 22
+#   73	Lichens-Alaska only	              none/use 22
+#	74	Moss-Alaska only	              none/use 22
+#   81	Pasture	                          2?            'Dryland Cropland and Pasture' 
+#   82	cultivated crops	              3?            'Irrigated Cropland and Pasture' 
+#   90	woody wetland	                  18            'Wooded Wetland' 
+#   95	herbaceous wetland	              17            'Herbaceous Wetland' 
+
+nlcd_to_USGS = {11:16, 12:24, 21:1, 22:1, 23:1, 24:1, 31:19, 41:11, 42:13, 43:15, 51:22, 52:8, 71:7, 72:22, 73:22, 74:22, 81:2, 82:3, 90:18, 95:17} 
 def getVegParm(s):
    """
        This function reads the National Land Cover Database (NLCD) to assign a vegitation
@@ -897,80 +862,17 @@ def getVegParm(s):
                AreaSym
       note that lat and long should be in the NLCD projection!
    """
-   #  Find the path for the chorizon file in STATSGO
+   #Get X Y coordinates of center of element
    x = s['lat_center']
    y = s['long_center']
-   
-   query = nlcd_layer.dataProvider().identify(QgsPoint(x, y), QgsRaster.IdentifyFormatValue)
-   val = -1
-   # Map the NLCD2011 20-category classificaiton into USGS 27-category in the VEGPARM.TBL form Noah-MP.
-      # NLCD    definition                     USGS         definition
-      #	11	open water	               16           Water Bodies   
-      #	12	ice/snow	               24           Snow or Ice
-      #	21	developed open space	       1            Urban and Built-Up Land
-      #	22	developed low intensity	       1            Urban and Built-Up Land
-      #	23	developed medium intensity     1            Urban and Built-Up Land
-      #	24	developed high intensity       1            Urban and Built-Up Land
-      #	31	barren land	               19           Barren or Sparsely Vegetated
-      #	41	deciduous forest	       11 and 12    'Deciduous Broadleaf Forest' and "Deciduous Needleleaf Forest"
-      #	42	evergreen forest	       13 and 14    'Evergreen Broadleaf Forest' and 'Evergreen Needleleaf Forest'
-      #	43	mixed forest	               15           'Mixed Forest' 
-      #	51	dwarf scrub-Alaska only	       none/use 22  'Mixed Tundra' 22
-      #	52	shrub	                       8            'Shrubland' 
-      #	71	grassland	               7            'Grassland' 
-      #	72	sedge/herbaceous-Alaska only   none/use 22
-      # 73	Lichens-Alaska only	       none/use 22
-      #	74	Moss-Alaska only	       none/use 22
-      # 81	Pasture	                       2?            'Dryland Cropland and Pasture' 
-      # 82	cultivated crops	       3?            'Irrigated Cropland and Pasture' 
-      # 90	woody wetland	               18            'Wooded Wetland' 
-      # 95	herbaceous wetland	       17            'Herbaceous Wetland' 
+   #Get NLCD value for this point
+   query = NLCD_layer.dataProvider().identify(QgsPoint(x, y), QgsRaster.IdentifyFormatValue)
+   #If query worked, set value if the query returned a known type, otherwise, set to unknown (-1)
    if query.isValid():
-      data = str(int(query.results()[1]))
-      #TODO/FIXME This is a static mapping!!! Treat it as such and use a dict!
-      if (data == '11'):
-         val = 16
-      elif (data == '12'):
-         val = 24
-      elif (data == '21'):
-         val = 1
-      elif (data == '22'):
-         val = 1
-      elif (data == '23'):
-         val = 1
-      elif (data == '24'):
-         val = 1
-      elif (data == '31'):
-         val = 19
-      elif (data == '41'):
-         val = 11
-      elif (data == '42'):
-         val = 13   
-      elif (data == '43'):
-         val = 15   
-      elif (data == '51'):
-         val = 22
-      elif (data == '52'):
-         val = 8
-      elif (data == '71'):
-         val = 7   
-      elif (data == '72'):
-         val = 22
-      elif (data == '73'):
-         val = 22            
-      elif (data == '74'):
-         val = 22
-      elif (data == '81'):
-         val = 2
-      elif (data == '82'):
-         val = 3   
-      elif (data == '90'):
-         val = 18   
-      elif (data == '95'):
-         val = 17      
-      else:
-         assert (data == '128')
-   #set veg type to the value val, or np.nan if not success, then return the series
+        try:
+            val = nlcd_to_USGS[ int(query.results()[1]) ]
+        except KeyError:
+            val = -1
    s['VegParm'] = val
    return s  
 
@@ -993,37 +895,23 @@ def get_GEOLOGIC_UNITS(s):
             y = s['long_center']
             point = QgsPoint(x, y)
             pointBox = QgsRectangle(point, point)
-            
-            # AreaSym string name starts with the state abbreviation.
-            #It is used to access the GEOL_spatial_index dictionary and GEOL_Unit_State_VectorLayer_dict
-            #i.e. GEOL_spatial_index[ Source[0:2] ]
-            #GEOL_perState_layer    = GEOL_Unit_State_VectorLayer_dict[ Source[0:2] ]
-            #GEOL_perState_provider = GEOL_perState_layer.dataProvider()
-            #GEOL_State_ROCKTYPE = provider.fieldNameIndex("ROCKTYPE1")
-            #select the rocktype features to work with
-            #provider.select([GEOL_State_ROCKTYPE]) 
-            #request = QgsFeatureRequest()
-            #request.setSubsetOfAttributes([GEOL_State_ROCKTYPE])
+            pointGeom = QgsGeometry.fromPoint(point)
             feature = QgsFeature()               
-            found = False
             ids = GEOL_spatial_index.intersects(pointBox)
+            #RockType is Other till proven otherwise
+            RockType = "Other"
             for i in ids:
-                #GEOL_perState_provider.featureAtId(i, feature, True, [GEOL_State_ROCKTYPE])
-                feature = GEOL_layer.getFeatures(request.setFilterFid(i)).next()
+                #feature = GEOL_layer.getFeatures(GEOL_request.setFilterFid(i)).next()
+                feature = GEOL_feats[i]
                 geom = feature.geometry()
-                if geom.contains(point):
+                #if geom.contains(point):
+                if pointGeom.within(geom):
                     #attribute = feature.attributeMap()
                     #RockType = str(attribute[GEOL_State_ROCKTYPE].toString())
                     RockType = str(feature[GEOL_ROCKTYPE])
-                    found = True
-                    break
-            #break #Stop looking if we find a contain
+                    break  #Stop looking if we find a contain
     
-            if not found:
-               #print("Geologic type not found. Assuming not Alluvium")
-               RockType = "Other"
-        
-            if (RockType == "alluvium"):
+            if (RockType == "Alluvium"):
                 s['ROCKTYPE'] = 1
             else:
                 s['ROCKTYPE'] = 0
@@ -1032,16 +920,18 @@ def get_GEOLOGIC_UNITS(s):
 import multiprocessing as mp
 from math import ceil
 if __name__ == '__main__':
-    print "Initial memory: "+str(mem_usage())
-    #Run the getSoilTypDRV function
-    ELEfilepath           = os.path.join(input_directory_path, 'mesh.1.ele')
-    
+    start_time = time.time()
+
+    ELEfilepath           = os.path.join(input_path, 'mesh.1.ele')
+    #INIT process pool 
     pool = mp.Pool()
     num_elems = 0
+    #read number of elements from mesh element file.
     with open(ELEfilepath, 'r') as f:
         num_elems = int(f.readline().split()[0])
     cores = mp.cpu_count() 
-    print "Processing "+str(num_elems)+" on "+str(cores)+" cores."
+    print "Processing "+str(num_elems)+" elements on "+str(cores)+" cores."
+    #Figure out how many elements to give to each processes.
     chunk_size = int( ceil(num_elems/float(cores)) )
     chunks = []
     for i in range(0, cores):
@@ -1050,26 +940,94 @@ if __name__ == '__main__':
         chunks.append(range(chunk_size*i,upper))
     #print chunks
     #Pass chunks to cores to spread the workload
+    
+    #Start by calculating needed ADHydro coordinates
+    print "Initial Memory: "+str(mem_usage())
+    stdout.flush()
     t0 = time.time()
-    results = pool.map(getSoilTypDRV, chunks)
+    results = pool.map(getElementCoords, chunks)
+    t1 = time.time()
+    print "Calculated coordinates in "+str(t1-t0)+" seconds."
+    #Now coordinates are writen to serialized data frame, can proceed to MUKEY
+    stdout.flush()
+    #Go ahead and reuse the pool here since coordinates don't take up a lot of memory...
+    print "Memory: "+str(mem_usage())
+    t0 = time.time()
+    results = pool.map(findMUKEYS, chunks)
+    pool.close()
+    pool.join()
+    t1 = time.time()
+    print "Found all MUKEYS in "+str(t1-t0)+" seconds."
+    #Now clean up some memory required by MUKEY functions
+    del SSURGO_feats 
+    del STATSGO_feats
+    gc.collect()
+
+    print "Memory: "+str(mem_usage())
+    t0 = time.time()
+    pool = mp.Pool()    
+    results = pool.map(findCOKEYS, chunks)
+    pool.close()
+    pool.join()
+    t1 = time.time()
+    print "Found all COKEYS in "+str(t1-t0)+" seconds."
+    #Clean up memory used for finding cokeys
+    del SSURGO_comp_dict
+    del STATSGO_comp_dict 
+    gc.collect()
+
+    print "Memory: "+str(mem_usage())
+    t0 = time.time()
+    pool = mp.Pool()
+    results = pool.map(findSOILS, chunks)
+    pool.close()
+    pool.join()
+    t1 = time.time()
+    print "Found all SOIL types in "+str(t1-t0)+" seconds."
+    #Clean up memory used for finding cokeys
+    del SSURGO_horizon_dict
+    del STATSGO_horizon_dict
+    gc.collect()
+    
+    print "Memory: "+str(mem_usage())
+    t0 = time.time()
+    pool = mp.Pool()
+    results = pool.map(findGEOLOGY, chunks)
+    pool.close()
+    pool.join()
+    t1 = time.time()
+    print "Found all GEOLOGY types in "+str(t1-t0)+" seconds."
+    #Clean up memory used for finding geology 
+    del GEOL_feats
+    gc.collect()
+
+    print "Memory: "+str(mem_usage())
+    t0 = time.time()
+    pool = mp.Pool()
+    results = pool.map(findVEG, chunks)
+    pool.close()
+    pool.join()
     t1 = time.time()    
-    print "DONE in "+str(t1-t0)+" seconds."
+    print "Found all vegitation in "+str(t1-t0)+" seconds."
+    
+    print "Memory: "+str(mem_usage())
+    #THIS is the last step, so findVEG gets a list of dataframes, complete with all needed data
+    #COMBINE these and write the mesh input files
     elements = pd.concat(results, ignore_index=True)
     #print elements
     print 'Writing element data file.'
 
     #File paths for final outputs
-    output_SoilTyp_file   = os.path.join(output_directory_path, 'mesh.1.soilType')
-    output_VegTyp_file    = os.path.join(output_directory_path, 'mesh.1.landCover')
-    output_GeolTyp_file   = os.path.join(output_directory_path, 'mesh.1.geolType')
-    output_element_data_file = os.path.join(output_directory_path, 'element_data.pkl')
+    output_SoilTyp_file   = os.path.join(output_path, 'mesh.1.soilType')
+    output_VegTyp_file    = os.path.join(output_path, 'mesh.1.landCover')
+    output_GeolTyp_file   = os.path.join(output_path, 'mesh.1.geolType')
+    output_element_data_file = os.path.join(output_path, 'element_data.msg')
     
 
     #Write the element data serialized file
-    elements.to_pickle(output_element_data_file)
-   
-     #If you want to reload the data instead of recomputing it comment out the lines since Finding MUKEY and uncomment this line
-    #elements = pd.read_pickle(output_element_data_file)
+    elements.to_msgpack(output_element_data_file)
+    #To use alreadly processsed elements, commone out pool.map line, uncomment read_msgpack line
+    #elements = pd.read_msgpack(output_element_data_file)
    
     print 'Writing soil file.'
    
@@ -1107,7 +1065,8 @@ if __name__ == '__main__':
     #really should exitQgis...but segfaults for no good reason!!! ignore for now 
     #app.exitQgis()
     #QgsApplication.exit()
+    end_time = time.time()
+    print "Total processing time (seconds): "+str(end_time - start_time)
     print "Final memory: "+str(mem_usage())
-    import sys
-    sys.stdout.flush()
+    stdout.flush()
 
