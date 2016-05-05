@@ -1422,9 +1422,9 @@ void FileManager::initializeFromASCIIFiles()
           error = true;
         }
       
-      if (!(0 < reachCode1))
+      if (!(0 <= reachCode1))
         {
-          CkError("ERROR in FileManager::initializeFromASCIIFiles: channel %d: reach code must be greater than zero in chan.ele file.\n", index);
+          CkError("ERROR in FileManager::initializeFromASCIIFiles: channel %d: reach code must be greater than or equal to zero in chan.ele file.\n", index);
           error = true;
         }
       
@@ -7176,7 +7176,7 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   
-  // Find the lowest channel element that has the proper reach code.
+  // Find the lowest elevation channel element that has the proper reach code.
   for (ii = 0; ii < globalNumberOfChannelElements; ii++)
     {
       if (reachCode == channelReachCode[ii] && (NOFLOW == neighbor || neighborZBank > channelElementZBank[ii]))

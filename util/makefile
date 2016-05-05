@@ -1,5 +1,8 @@
 # Use these values for Mt Moran.
 
+#EXTRACPPFLAGS := -I/apps/NETCDF/intel/serial/4.3.0/include -I/usr/include/libshp
+#EXTRALDFLAGS  := -L/apps/NETCDF/intel/serial/4.3.0/lib -lnetcdf -lshp
+
 # Use these values for EN3038 lab.
 
 EXTRACPPFLAGS := -I/usr/include/libshp -fdiagnostics-show-option

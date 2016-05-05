@@ -20,3 +20,7 @@ Pupping the incremental iterators that retain their state between message receiv
 
 The current build process is pretty fractured and without any automatic configuration system.
 
+6) Harmonize input file names
+
+Some files got named .soilType, .landCover, and .geolType.  To match the form of other files they should really be .soil, .veg, and .geol.  Also, the .geolType file just has a 0/1 bit flag for whether it's alluvial.  That's all we are using right now, but if we put the full geology type in the file it will be easier to use other information if we decide we want to in the future.
+
