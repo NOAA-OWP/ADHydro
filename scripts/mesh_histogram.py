@@ -82,6 +82,8 @@ def dissolve_mesh():
     g = df.geometry
     g = gpd.GeoSeries([g.unary_union])
     g.to_file(os.path.join(output_directory_path, 'outline.shp'))
+    from shutil import copy
+    copy(os.path.join(input_directory_path, 'mesh_catchments.prj'), os.path.join(output_directory_path, 'outline.prj'))
     return 
     
 def calculate_elem_geom():
@@ -318,7 +320,7 @@ if __name__ == "__main__":
     parser.error("--image <path> is required to use --dem or --both.")
 
   if not args.readGeometry or args.geometry:
-    print "Calculation element geometry"
+    print "Calculating element geometry"
     elements = calculate_elem_geom()
   else:
     print "Reading element_geometry.msg"
