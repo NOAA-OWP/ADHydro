@@ -4336,6 +4336,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   bool               done;                            // Termination condition for complex loop.
   FILE*              outputFile              = NULL;  // Output file for channel nodes and elements.
   size_t             numPrinted;                      // Used to check that snprintf printed the correct number of characters.
+  double             waterbodyArea;                   // For computing area of waterbody.
   double             xMin;                            // For computing bounding box of waterbody.
   double             xMax;                            // For computing bounding box of waterbody.
   double             yMin;                            // For computing bounding box of waterbody.
@@ -5213,6 +5214,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                   // Find the bounding box of all of the shapes of the waterbody.
                   SHPComputeExtents(shape);
                   
+                  waterbodyArea = getAreaOfPolygon(shape->padfX, shape->padfY, shape->nVertices);
+                  
                   xMin = shape->dfXMin;
                   xMax = shape->dfXMax;
                   yMin = shape->dfYMin;
@@ -5224,6 +5227,8 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                       
                       SHPComputeExtents(shape);
 
+                      waterbodyArea += getAreaOfPolygon(shape->padfX, shape->padfY, shape->nVertices);
+                      
                       if (xMin > shape->dfXMin)
                         {
                           xMin = shape->dfXMin;
@@ -5245,20 +5250,19 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                         }
                     }
                   
-                  // Set the length of the waterbody as the long dimension of the bounding box and the top width as the short dimension of the bounding box.
-                  // Use += for length because we might have added length to a waterbody in fixShortLinks.
+                  // Set the length of the waterbody as the long dimension of the bounding box.  Use += because we might have added length to the waterbody in
+                  // fixShortLinks.
                   if (xMax - xMin > yMax - yMin)
                     {
                       channels[ii].length += xMax - xMin;
-                      topWidth             = yMax - yMin;
                     }
                   else
                     {
                       channels[ii].length += yMax - yMin;
-                      topWidth             = xMax - xMin;
                     }
                   
-                  // Set the bank full depth as ten percent of the top width.
+                  // Set the top width to preserve the area of the waterbody, and the bank full depth as ten percent of the top width.
+                  topWidth      = waterbodyArea / channels[ii].length;
                   bankFullDepth = topWidth * 0.1;
                 }
             } // End for waterbodies calculate length, top width, and bank full depth.

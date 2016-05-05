@@ -8204,6 +8204,16 @@ void FileManager::calculateDerivedValues()
             }
 
           meshElementArea[ii] = value * 0.5;
+          
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+          // FIXLATER Sanity test the new polygon area function before replacing the above code permanently.
+          double testPolyArea = getAreaOfPolygon(meshVertexX[ii], meshVertexY[ii], MESH_ELEMENT_MESH_NEIGHBORS_SIZE);
+          
+          if (!epsilonEqual(meshElementArea[ii], testPolyArea))
+            {
+              CkError("WARNING in FileManager::calculateDerivedValues: new and old codes for calculating area disagree.\n");
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
         }
     }
 
@@ -8878,12 +8888,12 @@ void FileManager::calculateDerivedValues()
                 break;
               }
 
-#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
               if (meshVadoseZone[ii].checkInvariant())
                 {
                   CkExit();
                 }
-#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
             }
         }
     }
