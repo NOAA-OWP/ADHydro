@@ -37,7 +37,7 @@ except OSError as e:
         raise
 
 #input_dir = '../database/reservoir_monthly_parameters/div6'
-input_dir = '../database/workshop/'
+input_dir = '../database/workshop/output'
 res_file = path.join(input_dir, 'res_data.csv')
 #res_file = path.join(input_dir, 'test_5_large_res_data.csv')
 reg_file = path.join(input_dir, 'region_data.csv')
