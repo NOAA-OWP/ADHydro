@@ -5728,6 +5728,33 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                         }
                     } // End if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
                   
+                  // It's possible for a channel element to connect with a mesh neighbor over a very small edge length.  Remove those neighbor connections.
+                  if (!error)
+                    {
+                      ll = 0;
+                      
+                      while (ll < numberOfNeighbors)
+                        {
+                          if (1.0 > meshNeighborsEdgeLength[ll]) // FIXME How small is too small? 
+                            {
+                              numberOfNeighbors--;
+                              
+                              for (mm = ll; mm < numberOfNeighbors; mm++)
+                                {
+                                  meshNeighbors[mm]           = meshNeighbors[mm + 1];
+                                  meshNeighborsEdgeLength[mm] = meshNeighborsEdgeLength[mm + 1];
+                                }
+                              
+                              meshNeighbors[numberOfNeighbors]           = NOFLOW;
+                              meshNeighborsEdgeLength[numberOfNeighbors] = 0.0;
+                            }
+                          else
+                            {
+                              ll++;
+                            }
+                        }
+                    }
+                  
                   // Print mesh neighbors to file
                   for (ll = 0; !error && ll < numberOfNeighbors; ll++)
                     {
