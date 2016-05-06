@@ -195,11 +195,11 @@ _cxx_general_class_string = \
 class ${NAME} : public Reservoir, ${SUBREGION}
 {
 private:
-		double min_release;	//minimum release rate (cfs)
-		double max_release;	//maximum release rate (cfs)
-		double min_volume;	//maximum capacity of the reservoir (af)
-		double max_volume;	//minimum capacity of the reservoir (af)
-		double basemonth_volume;	//The average volume in the base month (af)
+		double min_release;	//minimum release rate (m^3/s)
+		double max_release;	//maximum release rate (m^3/s)
+		double min_volume;	//maximum capacity of the reservoir (m^3)
+		double max_volume;	//minimum capacity of the reservoir (m^3)
+		double basemonth_volume;	//The average volume in the base month (m^3)
 		//Old c++ standards don't like this initilization        
         //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
         static double curr_target_rate[12];
@@ -273,8 +273,6 @@ public:
     {
         return calc_general_daily_release(curr_inflow, curr_volume, 
                                           referenceDate, currentTime,
-                                          max_release, min_release, 
-                                          max_volume, min_volume, 
                                           basemonth_volume,curr_target_rate,
                                           rate, duration);
     }
@@ -326,11 +324,11 @@ _cxx_region_class_string = \
 class ${NAME} : public Reservoir, ${SUBREGION}
 {
 private:
-		double min_release;	//minimum release rate (cfs)
-		double max_release;	//maximum release rate (cfs)
-		double min_volume;	//maximum capacity of the reservoir (af)
-		double max_volume;	//minimum capacity of the reservoir (af)
-		double basemonth_volume;	//The average volume in the base month (af)
+		double min_release;	//minimum release rate (m^3/s)
+		double max_release;	//maximum release rate (m^3/s)
+		double min_volume;	//maximum capacity of the reservoir (m^3)
+		double max_volume;	//minimum capacity of the reservoir (m^3)
+		double basemonth_volume;	//The average volume in the base month (m^3)
 		//Old c++ standards don't like this initilization        
         //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
         static double curr_target_rate[12];

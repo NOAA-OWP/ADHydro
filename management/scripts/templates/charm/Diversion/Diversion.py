@@ -74,13 +74,17 @@ class Diversion : public PUP::able
         Cannot be pure virtual because charm cannot migrate an abstract object because it cannot be instanciated.
         "error: cannot allocate an object of abstract type ‘Diversion’"
         
-        Parameters:
-            amount_diverted     Amount of water available to the Diversion for use
+        Input Parameters:
+            available           Amount of water available to the Diversion for use
+            referenceDate       Reference date to define the currentTime
+            currentTime         The current simulation time
+            endTime             The end of the current time step
         
-        Return Parameters:    
-            unused_amount       Amount of water this Diversion did not use.
+        Output Parameters:    
+            available           Amount of water left at this diversion which is available to the calling element
+                                after all diversion rules have been applied.
     */
-    virtual void divert(double amount_diverted, double& unused_amount){ unused_amount = amount_diverted;}
+    virtual void divert(double* available, const double& referenceDate, const double& currentTime, const double& endTime){}
 
 
     /*
@@ -174,24 +178,36 @@ class ${NAME} : public Diversion
 {
     private:
         int parcelCount;
-        double decreedAmount; /*The decreed amount of water this diversion is allowed to divert.*/
-        double requestedAmount; /*The total amount of water a diversion is requesting from ADHydro. (May be > decreedAmount)*/
-        std::vector<Parcel*> parcels; /* Map of parcel identifiers to Parcel objects*/
+        double decreedAmount; /*The decreed amount of water this diversion is allowed to divert.
+                                This should be the sum of decrees for all objects this diversion 
+                                can send water to. These amounts are flows in m^3/s.
+                              */
+        double requestedAmount; /*The total amount of water a diversion would like to have
+                                  in order to satisfy the demands of all objects it provides water to.
+                                  This should be the sum of the requestedAmounts of all these objects,
+                                  and may change over time. These amounts are flows in m^3/s.
+                                */
+        std::vector<Parcel*> parcels; /*The parcels that this diversion supplies water to for irrigation*/
         //Appropriation date of the Diversion, year=yyyy, month=mm, day=dd
         double appropriationYear;
         double appropriationMonth;
         double appropriationDay;
         double totalLandSize;   /*Total land area this diversion serves. */
+        std::vector<int> upstreamDiversions; /*The elementID's of upstream diversions with newer appropriation dates.  These should be ordered by date, youngest to oldest.*/
+        int diversionID; /*This is a unique identifier for this diversion that doesn't nessicarliy
+                           correspond with the elementID that the model associates with the diverion.
+                           This is used to link parcels and diversions using identities not assoiciated with the calling model.*/
 
     public:
     static const int elementID = ${ELEMENT_ID};
     
     ${NAME}():Diversion(this->elementID)
     {
+        diversionID = ${DIVERSION_ID};
         //total decreed amount per diversion (cfs)
-        decreedAmount = ${DECREED_AMOUNT};
+        decreedAmount = 0.0;
         //total requested amount per diversion (cfs)
-        requestedAmount = ${REQUESTED_AMOUNT};
+        requestedAmount = 0.0;
         //appropriation date: format=yyyymmdd
         appropriationYear = ${APPROPRIATION_YEAR};
         appropriationMonth = ${APPROPRIATION_MONTH};
@@ -200,16 +216,23 @@ class ${NAME} : public Diversion
         parcelCount = ${PARCEL_COUNT};
         int parcel_ids[${PARCEL_COUNT}] = {${PARCEL_IDS}};
         
-
+        #Create all parcels, and accumulate the initial requestedAmount and decreedAmount
         ParcelFactory* pf = new ParcelFactory();
-        for(int i =0; i < parcelCount; i++)
+        for(int i=0; i < parcelCount; i++)
         {
             parcels.push_back(pf->create(parcel_ids[i]));
+            requestedAmount += parcels[i]->getRequestedAmount(diversionID);
+            decreedAmount += parcels[i]->getDecree(diversionID);
         }
         delete pf;
 
         totalLandSize = 0; //acres
         for(int i = 0; i < parcels.size(); i++) totalLandSize += parcels[i]->getArea();
+        int upstream[${UPSTREAM_COUNT}] = {${UPSTREAM_IDS}};
+        for(int i=0; i < ${UPSTREAM_COUNT}; i++)
+        {
+            upstreamDiversions.push_back(upstream[i]);
+        }
         /*TODO/FIXME WHY DOES THIS HAVE TO BE MANUALLY REGISTERED FOR IT TO WORK????? BUG IN CHARM???*/
         _register${NAME}();
     }
@@ -220,7 +243,8 @@ class ${NAME} : public Diversion
     ${NAME}(const ${NAME}& other):Diversion(other),
     decreedAmount(other.decreedAmount), requestedAmount(other.requestedAmount),
     appropriationYear(other.appropriationYear), appropriationMonth(other.appropriationMonth),
-    appropriationDay(other.appropriationDay), parcelCount(other.parcelCount), totalLandSize(totalLandSize)
+    appropriationDay(other.appropriationDay), parcelCount(other.parcelCount), totalLandSize(totalLandSize),
+    upstreamDiversions(other.upstreamDiversions), diversionID(other.diversionID)
     {
         /*Cheat and re create new parcel pointers from factory...*/
         //TODO IF we ever have dynamically changing parcels, probably don't want to treat ID's this way...        
@@ -247,6 +271,8 @@ class ${NAME} : public Diversion
         swap(first.appropriationMonth, second.appropriationMonth);
         swap(first.appropriationDay, second.appropriationDay);
         swap(first.totalLandSize, second.totalLandSize);
+        swap(first.upstreamDiversions, second.upstreamDiversions);
+        swap(first.diversionID, second.diversionID);
     }
     /*
      * Assignment Operator
@@ -270,35 +296,40 @@ class ${NAME} : public Diversion
         divert
 
         This function will implement the managment rules of Diversion instances.
+        It is called at every time step, and is responsible for calling proper functions
+        on each object that recieves water from this diversion point.
         TODO: All state variables that may be needed from the Model need to be passed as parameters
               to this function.
         
-        Parameters:
-            amount_diverted     Amount of water available to the Diversion for use
+        Input Parameters:
+            available           Amount of water available to the Diversion for use (m^3/s), valid for endTime-currentTime
+            referenceDate       Reference date to define the currentTime
+            currentTime         The current simulation time
+            endTime             The end of the current time step
         
-        Return Parameters:    
-            unused_amount       Amount of water this Diversion did not use.
+        Output Parameters:    
+            available           Amount of water left at this diversion which is available to the calling element
+                                after all diversion rules have been applied.
+
     */
 
-    virtual void divert(double amount_diverted, double& unused_amount)
+    virtual void divert(double* available, const double& referenceDate, const double& currentTime, const double& endTime)
     {
-        double not_used = 0.0;
-        std::cout<<"Diversion Irrigating with "<<amount_diverted<<"\\n";
-
-        double available = (amount_diverted <= requestedAmount) ? amount_diverted  : requestedAmount;
+        /*Handle irrigation of land Parcels
+          For each parcel, figure out the percentage of the total request it accounts for,
+          Then send it that percentage of the total available water.  The parcel can then use up to
+          that much, but can use less and return the unused amount.  Gauranteed not to use more than available.
+          This way, when water is plentiful, each parcel will get at least what it wanted.  When it is not,
+          then each parcel gets an amount of water proportional to its requested amount.  If the requested
+          amount changes, this proportion changes, allowing a dynamic way of using more or less water on parcels
+          by decreasing use on one to allow more on another.
+        */
         for(int i = 0; i < parcels.size(); i++)
         {
             //Irrigate each parcel
-        	//TODO/FIXME 3.14.2016 Zen. Currently, water allocation is equally splitted. But, parcels can get different diversions.
-        	//not_used += parcels[i]->irrigate(amount_diverted/parcelCount);
-
-        	//Zen. water allocation is splitted by the propotion of land sizes
-        	not_used += parcels[i]->irrigate(available*(parcels[i]->getArea()/totalLandSize));
-            //not_used += parcels[i]->irrigate(parcels[i]->getDecree(elementID));
-       	    //std::cout<<"unused"<<i<<"\t"<<not_used<<".\\n";
+        	*available -= parcels[i]->irrigate(available*(parcels[i]->getRequestedAmount(diversionID)/requestedAmount), diversionID, referenceDate, currentTime, endTime);
+            
         }
-   	    //std::cout<<"unused_end\t"<<not_used<<".\\n";
-        unused_amount = not_used; //Return the amount of unused water
     }
 
     /*
@@ -320,6 +351,7 @@ class ${NAME} : public Diversion
         p|appropriationMonth;
         p|appropriationDay;
         p|totalLandSize;
+        p|upstreamDiversions;
         if(p.isUnpacking())
         {
             CkPrintf("Unpacked ${NAME}\\n");
@@ -387,6 +419,15 @@ class Diversion():
         self.template = Template(self.template.safe_substitute(PARCEL_IDS=idString))
         self.template = Template(self.template.safe_substitute(PARCEL_COUNT=count))
 
+    def upstreamIds(self, diversions):
+        #Make some assumption about how parcel ids are passed
+        #Assume a list
+        count = len(diversions)
+        if count < 0:
+            raise(Exception("upstreamIds exception: must have 0 or more elementIDs"))
+        idString = ','.join(diversions)
+        self.template = Template(self.template.safe_substitute(UPSTREAM_IDS=idString))
+        self.template = Template(self.template.safe_substitute(UPSTREAM_COUNT=count))    
 
 def abstract():
     return {"Diversion.h":_cxx_abstract_class_header_string, "Diversion.cpp":_cxx_abstract_class_def_string, "Diversion.ci":_charm_abstract_ci_string}

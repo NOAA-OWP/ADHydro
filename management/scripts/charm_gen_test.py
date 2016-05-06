@@ -36,9 +36,10 @@ except OSError as e:
     if not path.isdir(div_dir):  
         raise
 
-input_dir = '../database/reservoir_monthly_parameters/div6'
-
-res_file = path.join(input_dir, 'test_5_large_res_data.csv')
+#input_dir = '../database/reservoir_monthly_parameters/div6'
+input_dir = '../database/workshop/'
+res_file = path.join(input_dir, 'res_data.csv')
+#res_file = path.join(input_dir, 'test_5_large_res_data.csv')
 reg_file = path.join(input_dir, 'region_data.csv')
 div_file = path.join('../database/irrigation/', 'diversion_data.csv')
 parcel_file = path.join('../database/irrigation/', 'parcel_data.csv')
@@ -121,8 +122,8 @@ def makeRegionClassFiles(s):
     region_dir = path.join(res_dir, str(s.Region))
     with open(path.join(region_dir, str(s.Name)+".h"), 'w') as output:
         output.write(str(reg))
- 
-def main():
+
+def generateReservoirs():
     #
     #Reservoirs
     #
@@ -164,11 +165,13 @@ def main():
             makedirs(path.join(res_dir,region))
     regions.apply(makeRegionClassFiles, axis=1)
 
+def generateCommon():
     #Generate the common utilities, simply put them in the res_dir
     for k,v in ut.classes().iteritems():
         with open(path.join(res_dir, k), 'w') as output:
             output.write(v)
-    
+
+def generateDiversions():
     #
     # Diversions
     #
@@ -198,6 +201,7 @@ def main():
     with open(path.join(fact_dir,'DiversionFactory.cpp'), 'w') as output:
         output.write(str(f))
 
+def generateParcels():
     #
     # Parcels
     #
@@ -227,6 +231,13 @@ def main():
 
     with open(path.join(fact_dir,'ParcelFactory.cpp'), 'w') as output:
         output.write(str(f))
+
+def main():
     
+    generateReservoirs()
+    generateCommon()    
+    #generateDiversions()
+    #generateParcels()
+  
 if __name__ == "__main__":
     main()

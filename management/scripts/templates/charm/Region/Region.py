@@ -59,8 +59,6 @@ _cxx_region_class_string = \
 #ifndef _${NAME}_
 #define _${NAME}_
 #include "WaterManagementRegion.h"
-#define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
-
 #include <iostream>
 #include <ctime>
 
@@ -72,11 +70,11 @@ _cxx_region_class_string = \
 class ${NAME} : WaterManagementRegion
 {
     private:
-        double min_release_region;	//minimum release rate (cfs)
-        double max_release_region;	//maximum release rate (cfs)
-        double min_volume_region;	//maximum capacity of the reservoir (af)
-        double max_volume_region;	//minimum capacity of the reservoir (af)
-        double basemonth_volume_region;	//The average volume in the base month (af)
+        double min_release_region;	//minimum release rate (m^3/s)
+        double max_release_region;	//maximum release rate (m^3/s)
+        double min_volume_region;	//maximum capacity of the reservoir (m^3)
+        double max_volume_region;	//minimum capacity of the reservoir (m^3)
+        double basemonth_volume_region;	//The average volume in the base month (m^3)
         //Old c++ standards don't like this initilization        
         //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
         static double curr_target_rate[12];
@@ -143,8 +141,6 @@ class ${NAME} : WaterManagementRegion
     {
         return calc_general_daily_release(curr_inflow, curr_volume,
                                           referenceDate, currentTime,
-                                          max_release_region, min_release_region, 
-                                          max_volume_region, min_volume_region,
                                           basemonth_volume_region, curr_target_rate,
                                           rate, duration);
     }
@@ -160,8 +156,6 @@ _cxx_subregion_class_string = \
 */
 #ifndef _${NAME}_
 #define _${NAME}_
-#define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
-
 #include "${PARENT_REGION}.h"
 #include <iostream>
 #include <ctime>
@@ -174,11 +168,11 @@ _cxx_subregion_class_string = \
 class ${NAME} : public ${PARENT_REGION}
 {
     private:
-        double min_release_region;	//minimum release rate (cfs)
-        double max_release_region;	//maximum release rate (cfs)
-        double min_volume_region;	//maximum capacity of the reservoir (af)
-        double max_volume_region;	//minimum capacity of the reservoir (af)
-        double basemonth_volume_region;	//The average volume in the base month (af)
+        double min_release_region;	//minimum release rate (m^3/s)
+        double max_release_region;	//maximum release rate (m^3/s)
+        double min_volume_region;	//maximum capacity of the reservoir (m^3)
+        double max_volume_region;	//minimum capacity of the reservoir (m^3)
+        double basemonth_volume_region;	//The average volume in the base month (m^3)
         //Old c++ standards don't like this initilization        
         //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
         static double curr_target_rate[12];
@@ -246,8 +240,6 @@ class ${NAME} : public ${PARENT_REGION}
     {
         return calc_general_daily_release(curr_inflow, curr_volume,
                                           referenceDate, currentTime,
-                                          max_release_region, min_release_region,
-                                          max_volume_region, min_volume_region,
                                           basemonth_volume_region, curr_target_rate,
                                           rate, duration);
     }
@@ -263,8 +255,6 @@ _cxx_subregion_parent_class_string = \
 */
 #ifndef _${NAME}_
 #define _${NAME}_
-#define AFRATE  1.9835 //AFrate converts the flow rate (cfs) to volue (AF)
-
 #include "${PARENT_REGION}.h"
 #include <iostream>
 #include <ctime>
@@ -277,11 +267,11 @@ _cxx_subregion_parent_class_string = \
 class ${NAME} : public ${PARENT_REGION}
 {
     private:
-        double min_release_region;	//minimum release rate (cfs)
-        double max_release_region;	//maximum release rate (cfs)
-        double min_volume_region;	//maximum capacity of the reservoir (af)
-        double max_volume_region;	//minimum capacity of the reservoir (af)
-        double basemonth_volume_region;	//The average volume in the base month (af)
+        double min_release_region;	//minimum release rate (m^3/s)
+        double max_release_region;	//maximum release rate (m^3/s)
+        double min_volume_region;	//maximum capacity of the reservoir (m^3)
+        double max_volume_region;	//minimum capacity of the reservoir (m^3)
+        double basemonth_volume_region;	//The average volume in the base month (m^3)
         //Old c++ standards don't like this initilization        
         //double curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN},${JUL},${AUG},${SEP},${OCT},${NOV},${DEC}};	//monthly target value (rate)
         static double curr_target_rate[12];
