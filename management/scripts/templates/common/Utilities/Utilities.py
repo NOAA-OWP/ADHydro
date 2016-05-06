@@ -48,8 +48,6 @@ double diff_dates(int, int, int);
 */
 double calc_general_daily_release (double curr_inflow, double curr_volume,
                                    double referenceDate, long currentTime, 
-                                   double max_release, double min_release,
-                                   double max_volume, double min_volume, 
                                    double basemonth_volume, double (&curr_target_rate)[12],
                                    double& release, long& duration);
 
