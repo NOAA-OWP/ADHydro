@@ -62,20 +62,60 @@ class Parcel :  public PUP::able
     virtual ~Parcel();
     
     /*
-        This function will implement the managment rules of Parcel instances.
+        This function will implement the irrigation rules of Parcel instances.
         TODO: All state variables that may be needed from the Model need to be passed
               to the Diversion object managing the Parcel, and forwared onto the parcel.
         This is a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
+        //Cannot be pure virtual because charm cannot migrate an abstract object.
+        //"error: cannot allocate an object of abstract type ‘Reservoir’"
+
     */
-    //Cannot be pure virtual because charm cannot migrate an abstract object.
-    //"error: cannot allocate an object of abstract type ‘Reservoir’"
     /*
-        FIXME Can it be the case that a Parcel cannot use all the water it requested?
-        If so, should we return that amount back to ADHydro (Via the Diversion)?
+        irrigate
+
+        Parameters: 
+            amount              Amount of water this parcel is provided to use (provided as m^3/s)
+                                for the duration endTime-currentTime
+            diversionID         The ID of the diversion providing water for irrigation
+            referenceDate       Reference date (Julian date) to define the currentTime
+            currentTime         The current simulation time, seconds since referenceDate
+            endTime             The end of the current time step
+
+        Return:
+            used                Amount of water distributed to the parcels elements.
     */
-    virtual double irrigate(double amount){return amount;}
+    virtual double irrigate(double amount, const int& diversionID,
+                            const double& referenceDate, const double& currentTime,
+                            const double& endTime){return 0;}
+    /*
+        getArea
+        
+        Returns the area of the parcel.
+    */
     virtual double getArea(){return 0;}
+
+    /*
+        getDecree
+        Each parcel can have a decree from one or more diversions.
+        This function returns the decreed amount for a given diversion.
+        These amounts are flows in m^3/s.
+        
+        Parameters:
+            id      The diversionID for the requested decree.
+    */
     virtual double getDecree(int id){return 0;}
+    
+    /*
+        getRequestedAmount
+        Each parcel can request more (or less) than its decree from one or more diversions.
+        This function returns the requested amount for a given diversion.
+        These amounts are flows in m^3/s.
+        
+        Parameters:
+            id      The diversionID for the desired requestedAmount.
+    */
+
+    virtual double getRequestedAmount(int id){return 0;}
 
     /*
         Add PUP support
@@ -168,29 +208,40 @@ _cxx_general_class_string = \
 class ${NAME} : public Parcel
 {
     private:
-        double area; /* This is the area in square kilometers that this parcel covers*/
-        std::map<int, double> decreedAmount; /* The legal decreed amount of water 
-                                                that this parcel can use for irrigation.
-                                                Since parcels can obtain water from one or
-                                                more diversion, the map indexes by Diversion ID
-                                                and returns the amount of water this diversion
-                                                is expected to supply. */
+        double elapsedTime;                     /*Accumulator for time since last update. (in seconds)*/
+        double updateInterval;                  /*Interval at which irrigation decisions should be updated. (in seconds)*/
+        double area;                            /*This is the area in square kilometers that this parcel covers*/
+        std::map<int, double> percentToElement; /* This is a map of elementID's to the percent of available water each should be sent at any given time.*/
+        std::map<int, double> decreedAmount;    /* The legal decreed amount of water 
+                                                    that this parcel can use for irrigation.
+                                                    Since parcels can obtain water from one or
+                                                    more diversion, the map indexes by Diversion ID
+                                                    and returns the amount of water this diversion
+                                                    is expected to supply. These amounts are flows in m^3/s.
+                                                  */
 
-        std::map<int, double> requestedAmount; /* It may be that a parcel can get more than the "decreed" amount.
-                                                  Either from simulation or from historic data, we can request up to this amount.
-                                                  If the diversion can supply this much water without restricting other parcels,
-                                                  then it should.  Otherwise it supplies the decreedAmount if possible.
-                                                */
-        static int elementCount;     /* Keep track of the number of ADHydro elements representing the Parcel. */
+        std::map<int, double> requestedAmount;    /* It may be that a parcel can get more than the "decreed" amount.
+                                                      Either from simulation or from historic data, we can request up to this amount.
+                                                      If the diversion can supply this much water without restricting other parcels,
+                                                      then it should.  Otherwise it supplies the decreedAmount if possible.
+                                                      These amounts are flows in m^3/s.
+                                                    */
+        static int elementCount;                    /* Keep track of the number of ADHydro elements representing the Parcel. */
         
-        static int elements[${ELEMENT_COUNT}]; /* Every parcel is responsible for managing a list of ADHydro elements. */
+        static int elements[${ELEMENT_COUNT}];      /* Every parcel is responsible for managing a list of ADHydro elements. */
     public:
     
-    static const int parcelID = ${PARCEL_ID};/* Unique Parcel Identifier */
+    static const int parcelID = ${PARCEL_ID};       /* Unique Parcel Identifier */
     
     ${NAME}():Parcel(this->parcelID)
     {
-        std::cout<<"Testing Parcel Creation ${NAME}\\n";
+        elapsedTime = 86400;    //Initilize same as updateInterval so initial irrigate call calculate new rates.
+        updateInterval = 86400; //Set update interval to 24 horus
+        //Initially, set all elements to take 0 water.        
+        for(int i = 0; i < elementCount; i++)
+        {
+            percentToElement[elements[i]] = 0.0;
+        }
         area = ${AREA};
 ${DECREES}
 ${REQUESTS}
@@ -203,7 +254,9 @@ ${REQUESTS}
      * Copy Constructor
      */
     ${NAME}(const ${NAME}& other):Parcel(other),
-    area(other.area), decreedAmount(other.decreedAmount), requestedAmount(other.requestedAmount)
+    elapsedTime(other.elapsedTime), updateInterval(other.updateInteraval),
+    area(other.area), percentToElement(other.percentToElement),
+    decreedAmount(other.decreedAmount), requestedAmount(other.requestedAmount)
     {
         
     }
@@ -214,7 +267,10 @@ ${REQUESTS}
     {
         using std::swap; //Enable ADL (Arguement Dependent Lookup)
         swap( (Parcel&) first, (Parcel&) second);
+        swap(first.elapsedTime, second.elapsedTime);
+        swap(first.updateInterval, second.updateInterval);
         swap(first.area, second.area);
+        swap(first.percentToElement, second.percentToElement);
         swap(first.decreedAmount, second.decreedAmount);
         swap(first.requestedAmount, second.requestedAmount);
     }
@@ -232,8 +288,51 @@ ${REQUESTS}
         
     }
 
-    double irrigate(double amount)
+    void
+
+    irrigate
+
+        Parameters: 
+            amount              Amount (maximum) of water this parcel is provided to use (provided as m^3/s)
+                                for the duration endTime-currentTime.
+            diversionID         The ID of the diversion providing water for irrigation
+            referenceDate       Reference date (Julian date) to define the currentTime
+            currentTime         The current simulation time, seconds since referenceDate
+            endTime             The end of the current time step
+
+        Return:
+            used                Amount of water distributed to the parcels elements.
+    */
+    virtual double irrigate(double amount, const int& diversionID,
+                            const double& referenceDate, const double& currentTime,
+                            const double& endTime)
     {
+        if(elapsedTime >= updateInterval)
+        {
+            //Update parameters (i.e. flow to each element for the next updateInterval time
+            update();
+        }
+     
+        //TODO/FIXME Talk to Bob...does every parcel element need to send a message?  I.E. if it gets 0 water, do we need to send 0?
+        //double using = 0.0;
+        //for(int i = 0; i < elementCount; i++)
+        //{
+        //    using += elements[
+        //    sendMessage(elements[i], amount*percentToElement[elements[i]]);
+        //}
+
+
+
+
+
+
+
+
+
+
+
+
+
         double use = 0.5;
         //Zen.3.16.2016 Keep the information on the available water. This variable is used when water is in short.
         double available = amount;
@@ -272,6 +371,10 @@ ${REQUESTS}
     double getDecree(int id)
     {
         return decreedAmount[id];
+    }
+    double getRequestedAmount(int id)
+    {
+        return requestedAmount[id];
     }
     /*
         PUP support

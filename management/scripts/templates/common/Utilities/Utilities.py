@@ -48,8 +48,6 @@ double diff_dates(int, int, int);
 */
 double calc_general_daily_release (double curr_inflow, double curr_volume,
                                    double referenceDate, long currentTime, 
-                                   double max_release, double min_release,
-                                   double max_volume, double min_volume, 
                                    double basemonth_volume, double (&curr_target_rate)[12],
                                    double& release, long& duration);
 
@@ -97,9 +95,7 @@ _cxx_utilities_def_string = \
             duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
 */
 double calc_general_daily_release (double curr_inflow, double curr_volume,
-                                   double referenceDate, long currentTime, 
-                                   double max_release, double min_release,
-                                   double max_volume, double min_volume, 
+                                   double referenceDate, long currentTime,
                                    double basemonth_volume, double (&curr_target_rate)[12],
                                    double& release, long& duration)
 {
@@ -111,10 +107,6 @@ double calc_general_daily_release (double curr_inflow, double curr_volume,
     double second;
     julianToGregorian(referenceDate, &year, &month, &day, &hour, &minute, &second);
     
-
-	//summary of input
-	std::cout << "date=" <<year << month << day <<"\t inflow=" <<curr_inflow << "\t volume=" << curr_volume
-			<< "\t max_release=" << max_release << "\t target_volume_rate=" << (curr_target_rate)[month] << "\t base_month_volume=" << basemonth_volume  << std::endl;
     //NJF This needs to be curr_volume - target_volume so that we can stop releasing water if we don't have enough.
 	//volumediff = basemonth_volume*(curr_target_rate)[month] - curr_volume;
     volumediff = curr_volume - basemonth_volume*(curr_target_rate)[month];
@@ -136,9 +128,6 @@ double calc_general_daily_release (double curr_inflow, double curr_volume,
         //in daysleft days, then add in the current flow into the reservoir and release that much
         targetrelease = (volumediff/daysleft/86400 + curr_inflow);
     }
-	
-
-	//std::cout << "raw target release " << targetrelease << "\\n";
 
 	//Zen Update: 11/6/2015
 	//check the targetrelease is between min and max flow (m^3/s)
@@ -148,7 +137,7 @@ double calc_general_daily_release (double curr_inflow, double curr_volume,
     //best represent this.  Perhaps this is best left to the decision of the reservoir itself.  For example, perhaps there is a 
     //physical maximum that the reservoir is capable of releasing.  For minimum, I would say 0.  It could be that there simply isn't
     //enough water to release, for example volume is 2 and target volume is 50,000.  We may not be able to physically satisfy this minimum
-    //requirement.
+    //requirement.  Better suited for an individual reservoir to check this and modify, but in general...not a good idea.
     /*
 	if(targetrelease < min_release && min_release != NODATA){
 		targetrelease = min_release;
