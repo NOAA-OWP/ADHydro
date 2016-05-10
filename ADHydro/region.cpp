@@ -2783,7 +2783,7 @@ void Region::handleCalculateNominalFlowRatesForInternalNeighbors()
                    (*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)
             {
               // Calculate reservoir release.
-              error = (*itChannel).second.calculateNominalFlowRateForReservoirRelease(currentTime,
+              error = (*itChannel).second.calculateNominalFlowRateForReservoirRelease(referenceDate, currentTime,
                   itChannelSurfacewaterChannelNeighbor - (*itChannel).second.channelNeighbors.begin());
             }
           else if ((*itChannelSurfacewaterChannelNeighbor).region == thisIndex && (*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)

@@ -285,11 +285,15 @@ public:
   //
   // Parameters:
   //
+  // referenceDate      - Julian date when currentTime is zero.  The current
+  //                      date and time of the simulation is the Julian date
+  //                      equal to referenceDate + currentTime / (24.0 * 60.0 *
+  //                      60.0).  Time zone is UTC.
   // currentTime        - Current simulation time in seconds since
   //                      Element::referenceDate.
   // neighborProxyIndex - Which index of channelNeighbors is the proxy for the
   //                      neighbor.
-  bool calculateNominalFlowRateForReservoirRelease(double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex);
+  bool calculateNominalFlowRateForReservoirRelease(double referenceDate, double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex);
   
   // Update state for point processes that require no communication with other
   // elements.  Then send outflow water to neighbors.
@@ -302,7 +306,8 @@ public:
   //                   and time of the simulation is the Julian date equal to
   //                   referenceDate + currentTime / (24.0 * 60.0 * 60.0).
   //                   Time zone is UTC.
-  // currentTime     - Current simulation time in seconds since referenceDate.
+  // currentTime     - Current simulation time in seconds since
+  //                   Element::referenceDate.
   // timestepEndTime - Simulation time at the end of the current timestep in
   //                   seconds since referenceDate.
   // region          - This element's region for sending water messages.
