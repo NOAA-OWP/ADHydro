@@ -623,7 +623,7 @@ class ParcelFactory():
 
     def creators(self, names):
         include_list = ['#include "{0}.cpp"'.format(n) for n in names]
-        pup_list = ['register{0}();' for n in names]
+        pup_list = ['register{0}();'.format(n) for n in names]
         include_string = linesep.join(include_list)
         creator_list = ['\tcreators.push_back(new ParcelCreator<{0}>({0}::parcelID, this));'.format(n) for n in names]
         creator_string = linesep.join(creator_list)
