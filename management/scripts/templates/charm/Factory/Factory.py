@@ -285,6 +285,7 @@ ReservoirFactory::ReservoirFactory()
 	//Until Factory is destroyed.
 	//THIS IS WHERE NEW COMPONENTS NEED TO BE ADDED TO THE FACTORY
 ${CREATOR_LIST}
+${PUP_LIST}
 }
 
 ReservoirFactory::~ReservoirFactory()
@@ -622,10 +623,11 @@ class ParcelFactory():
 
     def creators(self, names):
         include_list = ['#include "{0}.cpp"'.format(n) for n in names]
+        pup_list = ['register{0}();' for n in names]
         include_string = linesep.join(include_list)
         creator_list = ['\tcreators.push_back(new ParcelCreator<{0}>({0}::parcelID, this));'.format(n) for n in names]
         creator_string = linesep.join(creator_list)
-        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string))
+        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string, PUP_LIST=pup_list))
 
     def abstract(self):
         return {'Creator.h':_cxx_creator_abstract_header_string, 
