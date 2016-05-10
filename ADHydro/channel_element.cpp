@@ -1091,11 +1091,20 @@ bool ChannelElement::calculateNominalFlowRateWithGroundwaterMeshNeighbor(double 
   return error;
 }
 
-bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex)
+bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenceDate, double currentTime, std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type neighborProxyIndex)
 {
-  bool error = false; // Error flag.
+  bool   error         = false;                                       // Error flag.
+  std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type ii; // Loop iterator.
+  double currentInflow = 0.0;                                         // Current flow rate into the reservoir from upstream in cubic meters per second.
+  long   expirationTime; // FIXME this is a workaround to the fact that the parameter to the release function was mistakenly made a long instead of a double.  Eventually eliminate.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(1721425.5 <= referenceDate))
+    {
+      CkError("ERROR in ChannelElement::calculateNominalFlowRateForReservoirRelease: referenceDate must not be before 1 CE.\n");
+      error = true;
+    }
+  
   if (!(0 <= neighborProxyIndex && neighborProxyIndex < channelNeighbors.size()))
     {
       CkError("ERROR in ChannelElement::calculateNominalFlowRateForReservoirRelease: neighborProxyIndex must be greater than or equal to zero and "
@@ -1113,11 +1122,19 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double currentT
   // Calculate nominal flow rate.
   if (!error)
     {
-      channelNeighbors[neighborProxyIndex].nominalFlowRate = 2.0; // FIXME calculate = reservoir->release();
+      // Calculate current inflow from neighbor proxies.
+      for (ii = 0; ii < channelNeighbors.size(); ++ii)
+        {
+          if (ii != neighborProxyIndex)
+            {
+              currentInflow -= channelNeighbors[ii].nominalFlowRate; // Inflows are negative, but the release function takes the total inflow as a positive number.
+            }
+        }
       
-      // Make it expire in one day.
-      // FIXME maybe we want to have water management decisions made at a particular time of day.  I think the release function should calculate this.
-      channelNeighbors[neighborProxyIndex].expirationTime  = floor((currentTime / 86400.0) + 1) * 86400.0;
+      reservoir->release(currentInflow, surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength, referenceDate, currentTime,
+                         channelNeighbors[neighborProxyIndex].nominalFlowRate, expirationTime);
+      
+      channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, expirationTime - currentTime);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0 <= channelNeighbors[neighborProxyIndex].nominalFlowRate);
