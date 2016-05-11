@@ -34,7 +34,7 @@ class Diversion;
 class Div_Creator
 {
     public:
-    virtual Diversion* create(int elementID) = 0;
+    virtual Diversion* create(int elementID, double referenceDate) = 0;
 
     virtual ~Div_Creator(){}
 };
@@ -44,7 +44,7 @@ class Parcel;
 class Parcel_Creator
 {
     public:
-    virtual Parcel* create(int ParcelID) = 0;
+    virtual Parcel* create(int ParcelID, double referenceDate) = 0;
 
     virtual ~Parcel_Creator(){}
 };
@@ -140,9 +140,9 @@ class DiversionCreator : public Div_Creator
      * This function creates an appropriate Diversion object based
      * on the template parameter
      */
-    Diversion* create(int elementID)
+    Diversion* create(int elementID, double referenceDate)
     {
-        return new T;
+        return new T(referenceDate);
     }
     /*
      * ReservoirCreator Destructor
@@ -191,9 +191,9 @@ class ParcelCreator : public Parcel_Creator
      * This function creates an appropriate Parcel object based
      * on the template parameter
      */
-    Parcel* create(int parcelID)
+    Parcel* create(int parcelID, double referenceDate)
     {
-        return new T;
+        return new T(referenceDate);
     }
     /*
      * ParcelCreator Destructor
@@ -362,8 +362,10 @@ class DiversionFactory
      *	Once components and their creators are in the map,
      *	create can look up the appropriate component based on the elementID
      *	and can create an appropriate Diversion object
+     *  To properly construct a diversion, need to pass it the referenceDate of 
+     *  of the simulation as well.
      */
-    Diversion* create(int elementID);
+    Diversion* create(int elementID, double referenceDate);
     /*
      *	Diversion Creator Registration
      *	resgisterDiversion adds an entry to the table map for each elementID,
@@ -396,7 +398,8 @@ DiversionFactory::DiversionFactory()
 	//For each component, we need to hold a reference to the component's Creator
 	//Until Factory is destroyed.
 	//THIS IS WHERE NEW COMPONENTS NEED TO BE ADDED TO THE FACTORY
-	${CREATOR_LIST}
+${CREATOR_LIST}
+${PUP_LIST}
 }
 
 DiversionFactory::~DiversionFactory()
@@ -415,7 +418,7 @@ void DiversionFactory::registerDiversion(int elementID, Div_Creator* creator)
     table[elementID] = creator;
 }
 
-Diversion* DiversionFactory::create(int elementID)
+Diversion* DiversionFactory::create(int elementID, double referenceDate)
 {
 	//When we "create" a new Diversion instance, we need to
 	//search through the factory table to find the creator
@@ -426,7 +429,7 @@ Diversion* DiversionFactory::create(int elementID)
 
     if(i != table.end())
     {
-        return i->second->create(elementID);
+        return i->second->create(elementID, referenceDate);
     }    
     else
         return (Diversion*) NULL;
@@ -474,9 +477,11 @@ class ParcelFactory
      *	Once components and their creators are in the map,
      *	create can look up the appropriate component based on the parcelID
      *	and can create an appropriate Parcel object
+     *  In order to properly simulate irrigation, need to know the date
+     *  when the simulation starts, so creation requires a reference date.
      */
 
-    Parcel* create(int parcelID);
+    Parcel* create(int parcelID, double referenceDate);
     
     /*
      *	Parcel Creator Registration
@@ -530,7 +535,7 @@ void ParcelFactory::registerParcel(int parcelID, Parcel_Creator* creator)
     table[parcelID] = creator;
 }
 
-Parcel* ParcelFactory::create(int parcelID)
+Parcel* ParcelFactory::create(int parcelID, double referenceDate)
 {
 	//When we "create" a new Parcel instance, we need to
 	//search through the factory table to find the creator
@@ -541,7 +546,7 @@ Parcel* ParcelFactory::create(int parcelID)
 
     if(i != table.end())
     {
-        return i->second->create(parcelID);
+        return i->second->create(parcelID, referenceDate);
     }    
     else
         return (Parcel*) NULL;
@@ -599,7 +604,9 @@ class DiversionFactory():
         include_string = linesep.join(include_list)
         creator_list = ['\tcreators.push_back(new DiversionCreator<{0}>({0}::elementID, this));'.format(n) for n in names]
         creator_string = linesep.join(creator_list)
-        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string))
+        pup_list = ['_register{0}();'.format(n) for n in names]
+        pup_string = linesep.join(pup_list)
+        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string, PUP_LIST=pup_string))
 
     def abstract(self):
         return {'Creator.h':_cxx_creator_abstract_header_string, 
@@ -628,7 +635,9 @@ class ParcelFactory():
         include_string = linesep.join(include_list)
         creator_list = ['\tcreators.push_back(new ParcelCreator<{0}>({0}::parcelID, this));'.format(n) for n in names]
         creator_string = linesep.join(creator_list)
-        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string))
+        pup_list = ['_register{0}();'.format(n) for n in names]
+        pup_string = linesep.join(pup_list)
+        self.template = Template(self.template.safe_substitute(INCLUDE_LIST=include_string, CREATOR_LIST=creator_string, PUP_LIST=pup_string))
 
     def abstract(self):
         return {'Creator.h':_cxx_creator_abstract_header_string, 
