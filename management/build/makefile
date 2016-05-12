@@ -1,30 +1,56 @@
-CHARMDIR   := ~/Desktop/charm/
-CHARMC     := $(CHARMDIR)/bin/charmc $(OPTS)
-CHARM_INCL := $(CHARMDIR)/include
+######
+#   Set CHARMDIR to be the install directory of charm
+######
 
-RESDIR     := ../generated_code/charm_reservoirs
-FACTDIR    := ../generated_code/charm_factory
-DIVDIR     := ../generated_code/charm_diversions
-REGDIR     :=  $(RESDIR)/Div6
-TESTDIR    := ../unit_test
-ADHYDRODIR := ../../ADHydro
+######
+#EN LAB
+######
+#CHARMDIR    := /opt/build/charm
+
+######
+#MOUNT MORAN
+######
+#CHARMDIR   := /project/CI-WATER/tools/build/charm
+
+######
+#OTHER
+######
+CHARMDIR   := ~/Desktop/charm/
+
+
+
+CHARMC      := $(CHARMDIR)/bin/charmc $(OPTS)
+CHARM_INCL  := $(CHARMDIR)/include
+
+RESDIR      := ../generated_code/charm_reservoirs
+FACTDIR     := ../generated_code/charm_factory
+DIVDIR      := ../generated_code/charm_diversions
+REGDIR      :=  $(RESDIR)/Div6
+TESTDIR     := ../unit_test
+ADHYDRODIR  := ../../ADHydro
 
 CPPFLAGS := -g -I. -I$(FACTDIR) -I$(RESDIR) -I$(REGDIR) -I$(DIVDIR) -I$(ADHYDRODIR)
 VPATH    := $(FACTDIR) $(RESDIR) $(REGDIR) $(TESTDIR) $(DIVDIR) $(ADHYDRODIR)
 
-OBJS := Creator.o          \
-        ReservoirCreator.o \
-        ReservoirFactory.o \
-        Reservoir.o        \
-        DiversionCreator.o \
-        DiversionFactory.o \
-        Diversion.o        \
-        ParcelCreator.o    \
-        ParcelFactory.o    \
-        Parcel.o           \
-        common_utilities.o
+all: reservoirs diversions parcels
 
-all: $(OBJS)
+reservoirs: Creator.o          \
+            ReservoirCreator.o \
+            ReservoirFactory.o \
+		    Reservoir.o        \
+            common_utilities.o
+
+diversions: Creator.o          \
+            DiversionCreator.o \
+            DiversionFactory.o \
+            Diversion.o        \
+		    common_utilities.o
+
+parcels:    Creator.o          \
+            ParcelCreator.o    \
+            ParcelFactory.o    \
+            Parcel.o           \
+		    common_utilities.o
 
 .PHONY: all
 
@@ -84,18 +110,18 @@ common_utilities.o: common_utilities.cpp
 
 #Pattern rule for charm generated headers.
 res%.decl.h \
-res%.def.h: reservoirs.ci Reservoir.ci diversions.ci Diversion.ci parcels.ci Parcel.ci
+res%.def.h: reservoirs.ci Reservoir.ci 
 	$(CHARMC) $<
 
 div%.decl.h \
-div%.def.h: diversions.ci Diversion.ci parcels.ci Parcel.ci
+div%.def.h: diversions.ci Diversion.ci
 	$(CHARMC) $<
 
 par%.decl.h \
 par%.def.h: parcels.ci Parcel.ci
 	$(CHARMC) $<
 
-test: $(OBJS)
+test: all
 	$(CHARMC) $(TESTDIR)/element.ci $(TESTDIR)/main.ci 
 	$(CHARMC) $(CPPFLAGS) -o element.o $(TESTDIR)/element.cpp
 	$(CHARMC) $(CPPFLAGS) -o main.o $(TESTDIR)/main.C

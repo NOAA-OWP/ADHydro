@@ -44,12 +44,12 @@ double diff_dates(int, int, int);
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
 */
-double calc_general_daily_release (double curr_inflow, double curr_volume,
-                                   double referenceDate, long currentTime, 
-                                   double basemonth_volume, double (&curr_target_rate)[12],
-                                   double& release, long& duration);
+void calc_general_daily_release (const double& curr_inflow, const double& curr_volume,
+                                 const double& referenceDate, const double& currentTime,
+                                 const double& basemonth_volume, const double (&curr_target_rate)[12],
+                                 double& release, double& expirationTime);
 
 #endif /* COMMON_UTILITIES_H_ */
 """
@@ -94,10 +94,10 @@ _cxx_utilities_def_string = \
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
             duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
 */
-double calc_general_daily_release (double curr_inflow, double curr_volume,
-                                   double referenceDate, long currentTime,
-                                   double basemonth_volume, double (&curr_target_rate)[12],
-                                   double& release, long& duration)
+void calc_general_daily_release (const double& curr_inflow, const double& curr_volume,
+                                 const double& referenceDate, const double& currentTime,
+                                 const double& basemonth_volume, const double (&curr_target_rate)[12],
+                                 double& release, double& expirationTime)
 {
 	double volumediff; //difference between the target volume and current volume, unit cubic meters
 	double daysleft;	//number of days left in the month
@@ -105,7 +105,7 @@ double calc_general_daily_release (double curr_inflow, double curr_volume,
     
     long year, month, day, hour, minute;
     double second;
-    julianToGregorian(referenceDate, &year, &month, &day, &hour, &minute, &second);
+    julianToGregorian(referenceDate+currentTime, &year, &month, &day, &hour, &minute, &second);
     
     //NJF This needs to be curr_volume - target_volume so that we can stop releasing water if we don't have enough.
 	//volumediff = basemonth_volume*(curr_target_rate)[month] - curr_volume;
@@ -146,7 +146,7 @@ double calc_general_daily_release (double curr_inflow, double curr_volume,
 	}*/
 
 	release = targetrelease;
-    duration = currentTime + 86400; //TODO/FIXME Change this ?!?!?!  Could also let reservoir set this. Currently sets duration to 24 hours
+    expirationTime = currentTime + 86400; //TODO/FIXME Change this ?!?!?!  Could also let reservoir set this. Currently sets expiration to 24 hours after currentTime
 }
 
 // Make a tm structure representing this date

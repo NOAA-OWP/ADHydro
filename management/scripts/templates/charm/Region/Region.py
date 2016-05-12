@@ -43,9 +43,11 @@ class WaterManagementRegion
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double virtual release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration) = 0;
+    virtual void release(const double& curr_inflow, const double& curr_volume, 
+                         const double& referenceDate, const double& currentTime, 
+                         double& rate, double& expirationTime) = 0;
     virtual ~WaterManagementRegion(){}
 };
 
@@ -135,14 +137,16 @@ class ${NAME} : WaterManagementRegion
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
+    void release(const double& curr_inflow, const double& curr_volume,
+            const double& referenceDate, const double& currentTime,
+            double& rate, double& expirationTime)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume,
-                                          referenceDate, currentTime,
-                                          basemonth_volume_region, curr_target_rate,
-                                          rate, duration);
+        calc_general_daily_release(curr_inflow, curr_volume,
+                                   referenceDate, currentTime,
+                                   basemonth_volume_region, curr_target_rate,
+                                   rate, expirationTime);
     }
 
 };
@@ -234,14 +238,16 @@ class ${NAME} : public ${PARENT_REGION}
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
+    void release(const double& curr_inflow, const double& curr_volume,
+                 const double& referenceDate, const double& currentTime, 
+                 double& rate, double& expirationTime)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume,
-                                          referenceDate, currentTime,
-                                          basemonth_volume_region, curr_target_rate,
-                                          rate, duration);
+        calc_general_daily_release(curr_inflow, curr_volume,
+                                   referenceDate, currentTime,
+                                   basemonth_volume_region, curr_target_rate,
+                                   rate, expirationTime);
     }
 
 };
@@ -334,11 +340,13 @@ class ${NAME} : public ${PARENT_REGION}
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
+    void release(const double& curr_inflow, const double& curr_volume, 
+                   const double& referenceDate, const double& currentTime, 
+                   double& rate, double& expirationTime)
     {
-        return ${PARENT_REGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, duration);
+        ${PARENT_REGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, expirationTime);
     }
 
 };

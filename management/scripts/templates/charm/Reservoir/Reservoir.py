@@ -57,12 +57,13 @@ class Reservoir : public PUP::able
     virtual ~Reservoir();
 
     /*
+        release
+
         This function will implement the managment rules of Reservoir instances.
         TODO: All state variables that may be needed from the Model need to be passed as parameters
               to this function
-        This is a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
-        NOTE:
-        virtual double release() = 0;
+        This should be a PURE VIRTUAL FUNCTION, so all sublcasses must implement it
+            virtual double release() = 0;
         Cannot be pure virtual because charm cannot migrate an abstract object.
         "error: cannot allocate an object of abstract type ‘Reservoir’"
         This is because a pure abstract object cannot be instanciated in c++.
@@ -76,16 +77,16 @@ class Reservoir : public PUP::able
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration  Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
             
                   TODO: Should the abstract return rate be 0?  I think it would be better to release the curr_inflow?
                   We shouldn't ever really have to worry about it, but since the function cannot be pure virtual,
                   we cannot guarantee every subclass implements it, so a default return is a good idea.
                   Similarly, should duration be set to really large value in these cases?
     */
-    virtual double release(double curr_inflow, double curr_volume,
-                           double referenceDate, long currentTime,
-                           double& rate, long& duration){rate=0;duration=86400;};
+    virtual void release(const double& curr_inflow, const double& curr_volume,
+                         const double& referenceDate, const double& currentTime,
+                         double& rate, double& expirationTime){rate=0;expirationTime=currentTime+86400;};
 
     /*
         Add PUP support
@@ -146,11 +147,8 @@ Reservoir::Reservoir(CkMigrateMessage* m) : PUP::able(m){}
 
 void Reservoir::pup(PUP::er &p)
 {
-    if(p.isUnpacking()) CkPrintf("Unpacking reservoir\\n");
-    else CkPrintf("Packing reservoir\\n");
     PUP::able::pup(p);
     p|reachCode;
-    if(p.isUnpacking()) CkPrintf("Unpacked %ld\\n",reachCode);
 }
 
 #include "Reservoir.def.h"
@@ -267,14 +265,16 @@ public:
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
+    void release(const double& curr_inflow, const double& curr_volume, 
+                 const double& referenceDate, const double& currentTime,
+                 double& rate, double& expirationTime)
     {
-        return calc_general_daily_release(curr_inflow, curr_volume, 
-                                          referenceDate, currentTime,
-                                          basemonth_volume,curr_target_rate,
-                                          rate, duration);
+        calc_general_daily_release(curr_inflow, curr_volume, 
+                                   referenceDate, currentTime,
+                                   basemonth_volume,curr_target_rate,
+                                   rate, expirationTime);
     }
     /*
         PUP support
@@ -284,19 +284,12 @@ public:
     virtual void pup(PUP::er &p)
     {
         Reservoir::pup(p);
-        if(p.isUnpacking()) CkPrintf("Unpacking ${NAME}1\\n");
-        else CkPrintf("Packing ${NAME}\\n");
         p|min_release;
         p|max_release;
         p|min_volume;
         p|max_volume;
         p|basemonth_volume;
         p(curr_target_rate, 12);
-        if(p.isUnpacking())
-        {
-            CkPrintf("Unpacked stuff %f, %f, %f\\n", min_release, max_volume, basemonth_volume);
-            CkPrintf("Array value: %f\\n", curr_target_rate[11]);
-        }
     }
     
 };
@@ -398,11 +391,13 @@ public:
         Return Parameters:
             
             rate            The rate at which water should be "released" from the reservoir, in cubic meters per second.
-            duration        Seconds since referenceDate; The amount of time the returned rate is valid for.
+            expirationTime  Seconds since referenceDate; The time at which the returned rate needs to be updated (by calling release again).
     */    
-    double release(double curr_inflow, double curr_volume, double referenceDate, long currentTime, double& rate, long& duration)
+    void release(const double& curr_inflow, const double& curr_volume, 
+                 const double& referenceDate, const double& currentTime,
+                 double& rate, double& expirationTime)
     {
-        return ${SUBREGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, duration);
+        ${SUBREGION}::release(curr_inflow, curr_volume, referenceDate, currentTime, rate, expirationTime);
     }
     /*
         PUP support
@@ -412,19 +407,12 @@ public:
     virtual void pup(PUP::er &p)
     {
         Reservoir::pup(p);
-        if(p.isUnpacking()) CkPrintf("Unpacking ${NAME}\\n");
-        else CkPrintf("Packing ${NAME}\\n");
         p|min_release;
         p|max_release;
         p|min_volume;
         p|max_volume;
         p|basemonth_volume;
         p(curr_target_rate, 12);
-        if(p.isUnpacking())
-        {
-            CkPrintf("Unpacked stuff %f, %f, %f\\n", min_release, max_volume, basemonth_volume);
-            CkPrintf("Array value: %f\\n", curr_target_rate[11]);
-        }
     }
 
 };

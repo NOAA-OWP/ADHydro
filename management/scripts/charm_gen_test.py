@@ -36,22 +36,30 @@ except OSError as e:
     if not path.isdir(div_dir):  
         raise
 
-#input_dir = '../database/reservoir_monthly_parameters/div6'
 input_dir = '../database/workshop/output'
 res_file = path.join(input_dir, 'res_data.csv')
-#res_file = path.join(input_dir, 'test_5_large_res_data.csv')
 reg_file = path.join(input_dir, 'region_data.csv')
 div_file = path.join('../database/irrigation/', 'diversion_data.csv')
 parcel_file = path.join('../database/irrigation/', 'parcel_data.csv')
 
+#CDSS crop types [1=GRASS_PASTURE, 2=ALFALFA, 3=BLUEGRASS, 4=SMALL_GRAINS, 99=missing data]
+#ASSUMING unknown is likely grass, and bluegrass is similar to grass hay.  GRAIN not likely,
+#but here for completeness.
+cropMap = {1:'GRASS', 2:'ALFALFA', 3:'GRASS', 4:'GRAIN', 99:'GRASS'}
+#CDSS Irrigation types [1= FLOOD, 2= FURROW, 3= SPRINKLER, 4= DRIP, 99=missing data]
+#ASSUMING furrow is similar enough to flood, and drip is similar enough to PIVOT
+irrigMap = {1:'FLOOD', 2:'FLOOD', 3:'PIVOT', 4:'PIVOT'}
+
 def makeParcelClassFiles(s):
-    #names Name, ElementID, DecreedAmount, RequestedAmount, ApproriationDate, ParcelIds
+    #names Name, CalYear, Region, SubRegion, CropType, IrrigType, LandSize, DecreedRate, ParcelRatioToDiv, ElementIDs
     s = s.replace(pd.np.nan, -1)
     p = pt.Parcel()
     p.name(s.Name)
     p.parcelID(str(s.Name)[3:])
-    p.area(s.Area)
-    decrees = [d.strip() for d in s.Decrees.split(';')]
+    p.cropType(cropMap[s.CropType])
+    p.irrigType(irrigMap[s.IrrigType])
+    p.area(s.LandSize)
+    decrees = [d.strip() for d in s.DecreedRate.split(';')]
     decreeMap = {}
     for decree in decrees:
         key, value = decree.split('=')
@@ -60,7 +68,7 @@ def makeParcelClassFiles(s):
     #TODO/FIXME For now, setting requests to be decrees
     p.requestAmount(decreeMap)
     
-    elements = [e.strip() for e in s.Elements.split(';')]
+    elements = [e.strip() for e in s.ElementIDs.split(';')]
     p.elementIds(elements)
 
     with open(path.join(div_dir, str(s.Name)+".cpp"), 'w') as output:
@@ -74,6 +82,7 @@ def makeDivClassFiles(s):
     s = s.replace(pd.np.nan, -1)
     div = dt.Diversion()
     div.name(s.Name)
+    div.diversionID(str(s.Name)[3:])
     div.elementID(s.ElementID)
     div.decreedAmount(s.DecreedAmount)
     div.requestedAmount(s.RequestedAmount)
@@ -82,6 +91,7 @@ def makeDivClassFiles(s):
     div.appropriationDate(d[0:4], d[4:6], d[6:8])
     p = [i.strip() for i in s.ParcelIds.split(';')]
     div.parcelIds(p)
+    div.upstreamIDs([])
 
     with open(path.join(div_dir, str(s.Name)+".cpp"), 'w') as output:
         output.write(str(div))
@@ -236,8 +246,8 @@ def main():
     
     generateReservoirs()
     generateCommon()    
-    #generateDiversions()
-    #generateParcels()
+    generateDiversions()
+    generateParcels()
   
 if __name__ == "__main__":
     main()

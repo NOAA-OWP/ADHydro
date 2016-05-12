@@ -24,7 +24,7 @@ Element::Element()
 
     //Create a Diversion to test
     DiversionFactory* divFactory = new DiversionFactory();
-    diversion = divFactory->create(123);
+    diversion = divFactory->create(123, 2457388.500000);
     delete divFactory;
     
 }
@@ -46,20 +46,26 @@ void Element::process()
     {
         CkPrintf("Processing reservoir %ld on processor %d\n",reservoir->reachCode, CkMyPe());
         double rate;
-        long duration;
-        reservoir->release(100,70000000,2457492.00347, 55, rate, duration);
-        CkPrintf("releasing %f for %d\n",rate, duration);
+        double expires;
+        reservoir->release(100,70000000,2457492.00347, 55, rate, expires);
+        CkPrintf("releasing %f until %f\n",rate, expires);
     }
     else CkPrintf("Error, null reservoir on char %d\n",thisIndex);
         
     if(diversion != NULL)
     {
-        double send = 100;
+        double referenceDate = 2457388.500000;
+        double currentTime = 86400;
+        double available = 100;
+        std::vector<std::pair<int,double> > toSend;
         CkPrintf("Processing diversion %d on processor %d\n",diversion->elementID, CkMyPe());
-        CkPrintf("Sending %f\n", send);
-        double notUsed = 0;
-        diversion->divert(send, notUsed);
-        CkPrintf("Diversion used %f\n", send-notUsed);
+        CkPrintf("Sending %f\n", available);
+        diversion->divert(&available, referenceDate, currentTime, currentTime+60, toSend);
+        CkPrintf("Diversion used %f\n", 100-available);
+        for(int i = 0; i < toSend.size(); i++)
+        {
+            CkPrintf("Sending %f to %d\n", toSend[i].second, toSend[i].first);
+        }
     }
     else CkPrintf("Error, null diversion on char %d\n", thisIndex);
 
@@ -70,8 +76,6 @@ void Element::process()
 
 void Element::pup(PUP::er &p)
 {
-    if(p.isUnpacking()) CkPrintf("Unpacking ELEMENT %d\n", thisIndex);
-    else CkPrintf("Packing ELEMENT %d\n",thisIndex);
     p|reservoir;
     p|diversion;  
 }
