@@ -83,7 +83,8 @@ public:
   MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                        double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                        int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
-                                       double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
+                                       ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
+                                       double neighborZBedInit, double neighborZOffsetInit,
                                        double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit);
   
   // Charm++ pack/unpack method.
@@ -101,9 +102,10 @@ public:
   bool checkInvariant();
   
   // Identification parameters.
-  int region;                  // Region number where the neighbor is.
-  int neighbor;                // Channel element ID number of the neighbor.
-  int reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
+  int             region;                  // Region number where the neighbor is.
+  int             neighbor;                // Channel element ID number of the neighbor.
+  int             reciprocalNeighborProxy; // The index into neighbor's meshNeighbors vector of the proxy for me.
+  ChannelTypeEnum neighborChannelType;     // What type of channel is this.
   
   // Geometric coordinates.
   double neighborZBank;   // Elevation in meters.

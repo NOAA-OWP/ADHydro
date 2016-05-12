@@ -359,11 +359,8 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
   double channelSurfacewaterHead = channelSurfacewaterDepth + channelZBed; // The elevation in meters of the channel surfacewater.
   double weirElevation           = (meshZSurface > channelZBank) ?         // The elevation in meters of the thing that water has to flow over.
                                    meshZSurface : channelZBank;
-  /* FIXME This variable is only used to calculate a new timestep when there is out of bank flow.  Since that is commented out I am commenting this out to
-   *  prevent an unused variable warning.
   double channelTopWidth         = channelBaseWidth +                      // Width of channel at water surface in meters.
                                    2.0 * channelSideSlope * channelSurfacewaterDepth;
-  */
   double dtTemp;                                                           // Temporary variable for suggesting new timestep.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -473,18 +470,11 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
           
           if (0.0 < channelSurfacewaterDepth)
             {
-              // FIXME Out of bank flow from channel to mesh makes the timestep really small.  For now we are forbidding that flow and setting the new timestep
-              // to five seconds.  We need to figure out what to really do here.
-              // flowRate has already been assigned to zero above.
-              dtTemp = 5.0;
-              
-              /* FIXME uncomment
               // Assume critical velocity flow over a broad crested weir.  Flow from channel to mesh is negative.
               *flowRate = -sqrt(GRAVITY * channelSurfacewaterDepth) * channelSurfacewaterDepth * edgeLength;
               
               // Suggest new timestep.
               dtTemp = COURANT_DIFFUSIVE * channelTopWidth / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
-              */
               
               if (*dtNew > dtTemp)
                 {

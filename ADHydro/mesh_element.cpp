@@ -221,6 +221,7 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy() :
   region(0),
   neighbor(0),
   reciprocalNeighborProxy(0),
+  neighborChannelType(NOT_USED),
   neighborZBank(0.0),
   neighborZBed(0.0),
   neighborZOffset(0.0),
@@ -236,12 +237,14 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy() :
 MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(double expirationTimeInit, double nominalFlowRateInit, bool inflowOnlyInit,
                                                                            double flowCumulativeShortTermInit, double flowCumulativeLongTermInit,
                                                                            int regionInit, int neighborInit, int reciprocalNeighborProxyInit,
-                                                                           double neighborZBankInit, double neighborZBedInit, double neighborZOffsetInit,
+                                                                           ChannelTypeEnum neighborChannelTypeInit, double neighborZBankInit,
+                                                                           double neighborZBedInit, double neighborZOffsetInit,
                                                                            double edgeLengthInit, double neighborBaseWidthInit, double neighborSideSlopeInit) :
   SimpleNeighborProxy(expirationTimeInit, nominalFlowRateInit, inflowOnlyInit, flowCumulativeShortTermInit, flowCumulativeLongTermInit),
   region(regionInit),
   neighbor(neighborInit),
   reciprocalNeighborProxy(reciprocalNeighborProxyInit),
+  neighborChannelType(neighborChannelTypeInit),
   neighborZBank(neighborZBankInit),
   neighborZBed(neighborZBedInit),
   neighborZOffset(neighborZOffsetInit),
@@ -270,6 +273,13 @@ MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy(doubl
     {
       CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: reciprocalNeighborProxyInit must be greater than or equal "
               "to zero.\n");
+      CkExit();
+    }
+  
+  if (!(STREAM == neighborChannelTypeInit || WATERBODY == neighborChannelTypeInit || ICEMASS == neighborChannelTypeInit))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::MeshSurfacewaterChannelNeighborProxy: neighborChannelTypeInit must be STREAM or WATERBODY or "
+              "ICEMASS.\n");
       CkExit();
     }
   
@@ -316,6 +326,7 @@ void MeshSurfacewaterChannelNeighborProxy::pup(PUP::er &p)
   p | region;
   p | neighbor;
   p | reciprocalNeighborProxy;
+  p | neighborChannelType;
   p | neighborZBank;
   p | neighborZBed;
   p | neighborZOffset;
@@ -348,6 +359,12 @@ bool MeshSurfacewaterChannelNeighborProxy::checkInvariant()
     {
       CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: reciprocalNeighborProxy must be greater than or equal to zero.\n");
       error = true;
+    }
+  
+  if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
+    {
+      CkError("ERROR in MeshSurfacewaterChannelNeighborProxy::checkInvariant: neighborChannelType must be STREAM or WATERBODY or ICEMASS.\n");
+      CkExit();
     }
   
   if (!(neighborZBank >= neighborZBed))
@@ -2379,6 +2396,14 @@ bool MeshElement::calculateNominalFlowRateWithSurfacewaterChannelNeighbor(double
   // Calculate expiration time.
   if (!error)
     {
+      // FIXLATER decide if we want to do this
+      // Prevent out of bank flow out of streams because that results in really small timesteps.  Still allow out of bank flow out of waterbodies and icemasses.
+      if (STREAM == channelNeighbors[neighborProxyIndex].neighborChannelType && 0.0 > channelNeighbors[neighborProxyIndex].nominalFlowRate)
+        {
+          channelNeighbors[neighborProxyIndex].nominalFlowRate = 0.0;
+          regionalDtLimit                                      = 5.0;
+        }
+      
       channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, regionalDtLimit);
     }
   

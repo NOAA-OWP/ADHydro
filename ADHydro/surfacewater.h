@@ -145,9 +145,9 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 //
 // flowRate                 - Scalar passed by reference will be filled in with
 //                            the flow rate in cubic meters per second.
-// dtNew                     - Scalar passed by reference containing the
-//                             suggested value for the next timestep duration
-//                             in seconds.  May be updated to be shorter.
+// dtNew                    - Scalar passed by reference containing the
+//                            suggested value for the next timestep duration
+//                            in seconds.  May be updated to be shorter.
 // edgeLength               - Length of common edge in meters.
 // meshZSurface             - Surface Z coordinate of mesh element in meters.
 // meshArea                 - Area of mesh element in square meters.

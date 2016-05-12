@@ -1273,6 +1273,12 @@ void Region::handleChannelSurfacewaterMeshNeighborCheckInvariant(double messageT
           CkExit();
         }
 
+      if (!(channelElements[neighborsProxy.neighbor].channelType == neighborsProxy.neighborChannelType))
+        {
+          CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborChannelType does not match.\n");
+          CkExit();
+        }
+
       if (!(channelElements[neighborsProxy.neighbor].elementZBank == neighborsProxy.neighborZBank))
         {
           CkError("ERROR in Region::handleChannelSurfacewaterMeshNeighborCheckInvariant: neighbor neighborZBank does not match.\n");
@@ -1707,7 +1713,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
     {
       meshElements[elementNumberInit].channelNeighbors.push_back(
           MeshSurfacewaterChannelNeighborProxy((*it).expirationTime, (*it).nominalFlowRate, false, (*it).flowCumulativeShortTerm, (*it).flowCumulativeLongTerm,
-                                               (*it).region, (*it).neighbor, 0, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0));
+                                               (*it).region, (*it).neighbor, 0, STREAM, 0.0, 0.0, 0.0, (*it).edgeLength, 1.0, 0.0));
       
       thisProxy[(*it).region].sendChannelSurfacewaterMeshNeighborInitMessage(
           (*it).neighbor, elementNumberInit, meshElements[elementNumberInit].channelNeighbors.size() - 1, vertexXInit, vertexYInit, elementXInit, elementYInit,
@@ -1997,6 +2003,7 @@ void Region::handleMeshSurfacewaterChannelNeighborInitMessage(int element, int n
   else
     {
       (*it).reciprocalNeighborProxy = reciprocalNeighborProxy;
+      (*it).neighborChannelType     = neighborChannelType;
       (*it).neighborZBank           = neighborZBank;
       (*it).neighborZBed            = neighborZBed;
       (*it).neighborZOffset         = calculateZOffset(element, meshElements[element].vertexX, meshElements[element].vertexY, meshElements[element].elementX,
