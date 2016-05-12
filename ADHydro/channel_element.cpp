@@ -1104,7 +1104,6 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenc
   bool   error         = false;                                       // Error flag.
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::size_type ii; // Loop iterator.
   double currentInflow = 0.0;                                         // Current flow rate into the reservoir from upstream in cubic meters per second.
-  long   expirationTime; // FIXME this is a workaround to the fact that the parameter to the release function was mistakenly made a long instead of a double.  Eventually eliminate.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(1721425.5 <= referenceDate))
@@ -1139,10 +1138,14 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenc
             }
         }
       
+      // FIXME pass in drainDownTime?  Who does the time zone conversion?
       reservoir->release(currentInflow, surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength, referenceDate, currentTime,
-                         channelNeighbors[neighborProxyIndex].nominalFlowRate, expirationTime);
+                         channelNeighbors[neighborProxyIndex].nominalFlowRate, channelNeighbors[neighborProxyIndex].expirationTime);
       
-      channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, expirationTime - currentTime);
+      // FIXME do we want to do this, or leave complete control over expiration time to water management code?
+      // FIXME really forcing expiration times to be on standard boundaries is just a performance improvement.
+      // FIXME One-way flows don't even need both neighbors to agree on the expiration time.
+      //channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, channelNeighbors[neighborProxyIndex].expirationTime - currentTime);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0 <= channelNeighbors[neighborProxyIndex].nominalFlowRate);
