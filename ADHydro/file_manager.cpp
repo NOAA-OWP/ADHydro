@@ -9948,6 +9948,21 @@ bool FileManager::readForcingData()
       if (!error)
         {
           error = NetCDFReadVariable(fileID, "QCLOUD", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &qCloud);
+
+          // FIXME there is a bug somewhere allowing values of QCLOUD in the forcing data that are negative, but epsilon equal to zero.  Set these to zero.
+          // FIXME remove this when the bug gets fixed.
+          for (ii = 0; ii < localNumberOfMeshElements; ++ii)
+            {
+              if (0.0f > qCloud[ii])
+                {
+                  if (!epsilonEqual(0.0f, qCloud[ii]))
+                    {
+                      CkPrintf("WARNING: forcing value of QCLOUD is negative by more than epsilon.\n");
+                    }
+
+                  qCloud[ii] = 0.0f;
+                }
+            }
         }
       
       if (!error)
@@ -9970,7 +9985,7 @@ bool FileManager::readForcingData()
           // We are applying this kludge until we figure out the right way to handle this.
           for (ii = 0; ii < localNumberOfMeshElements; ++ii)
             {
-              tPrec[ii] *= 4.0f;
+              tPrec[ii] *= 128.0f;
             }
         }
       
@@ -10015,6 +10030,21 @@ bool FileManager::readForcingData()
       if (!error)
         {
           error = NetCDFReadVariable(fileID, "QCLOUD_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qCloud_c);
+
+          // FIXME there is a bug somewhere allowing values of QCLOUD in the forcing data that are negative, but epsilon equal to zero.  Set these to zero.
+          // FIXME remove this when the bug gets fixed.
+          for (ii = 0; ii < localNumberOfChannelElements; ++ii)
+            {
+              if (0.0f > qCloud_c[ii])
+                {
+                  if (!epsilonEqual(0.0f, qCloud_c[ii]))
+                    {
+                      CkPrintf("WARNING: forcing value of QCLOUD_C is negative by more than epsilon.\n");
+                    }
+
+                  qCloud_c[ii] = 0.0f;
+                }
+            }
         }
 
       if (!error)
@@ -10037,7 +10067,7 @@ bool FileManager::readForcingData()
           // We are applying this kludge until we figure out the right way to handle this.
           for (ii = 0; ii < localNumberOfChannelElements; ++ii)
             {
-              tPrec_c[ii] *= 4.0f;
+              tPrec_c[ii] *= 128.0f;
             }
         }
 

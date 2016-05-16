@@ -1138,14 +1138,27 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenc
             }
         }
       
-      // FIXME pass in drainDownTime?  Who does the time zone conversion?
-      reservoir->release(currentInflow, surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength, referenceDate, currentTime,
+      // FIXME Who does the time zone conversion?
+      reservoir->release(currentInflow, surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth) * elementLength, referenceDate,
+                         (ADHydro::drainDownMode ? ADHydro::drainDownTime : currentTime),
                          channelNeighbors[neighborProxyIndex].nominalFlowRate, channelNeighbors[neighborProxyIndex].expirationTime);
       
       // FIXME do we want to do this, or leave complete control over expiration time to water management code?
       // FIXME really forcing expiration times to be on standard boundaries is just a performance improvement.
       // FIXME One-way flows don't even need both neighbors to agree on the expiration time.
       //channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, channelNeighbors[neighborProxyIndex].expirationTime - currentTime);
+      
+      // FIXME issues with doing this.  How to best set expiration time in drain down mode?
+      if (ADHydro::drainDownMode)
+        {
+          channelNeighbors[neighborProxyIndex].expirationTime = channelNeighbors[neighborProxyIndex].expirationTime - ADHydro::drainDownTime + currentTime;
+        }
+      
+      // FIXME There is a bug in release that allows negative flow rates.  To make progress on runs I am kludgeing this here.  Remove eventually.
+      if (0.0 > channelNeighbors[neighborProxyIndex].nominalFlowRate)
+        {
+          channelNeighbors[neighborProxyIndex].nominalFlowRate = 0.0;
+        }
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0 <= channelNeighbors[neighborProxyIndex].nominalFlowRate);
