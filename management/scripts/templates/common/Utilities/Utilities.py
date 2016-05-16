@@ -105,7 +105,7 @@ void calc_general_daily_release (const double& curr_inflow, const double& curr_v
     
     long year, month, day, hour, minute;
     double second;
-    julianToGregorian(referenceDate+currentTime, &year, &month, &day, &hour, &minute, &second);
+    julianToGregorian(referenceDate+currentTime/86400, &year, &month, &day, &hour, &minute, &second);
     
     //NJF This needs to be curr_volume - target_volume so that we can stop releasing water if we don't have enough.
 	//volumediff = basemonth_volume*(curr_target_rate)[month] - curr_volume;
@@ -114,7 +114,12 @@ void calc_general_daily_release (const double& curr_inflow, const double& curr_v
 	//Zen Add: 10/30/2015
 	//Calculate how many days left in the month
 	daysleft = diff_dates(year, month, day);
-
+  //FIXME
+  //Think of a better way to handle possibly large fluctuations in release between two months
+  if( daysleft < 7.0 )
+  {
+    daysleft = 7.0;
+  }
 	//Zen Add: 10/30/2015
 	//The way to calculate a daily release (cubic meters per second)
     //NJF Account for needing more water to reach target volume
