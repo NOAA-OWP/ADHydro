@@ -9978,15 +9978,6 @@ bool FileManager::readForcingData()
       if (!error && !ADHydro::drainDownMode)
         {
           error = NetCDFReadVariable(fileID, "TPREC", jultimeNextInstance, localMeshElementStart, localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tPrec);
-          
-          // FIXME There is a problem with WRF precipitation output being too low.  It hardly ever rises above the conductivity of the soil, which means you
-          // hardly ever get infiltration excess runoff.  This is not realistic for the mountain west.  We think the issue might be that thunderstorms are
-          // often smaller than a single 4km WRF grid square so their precipitation gets smeared out over a larger area and thus a lower intensity.
-          // We are applying this kludge until we figure out the right way to handle this.
-          for (ii = 0; ii < localNumberOfMeshElements; ++ii)
-            {
-              tPrec[ii] *= 128.0f;
-            }
         }
       
       if (!error)
@@ -10060,15 +10051,6 @@ bool FileManager::readForcingData()
       if (!error && !ADHydro::drainDownMode)
         {
           error = NetCDFReadVariable(fileID, "TPREC_C", jultimeNextInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec_c);
-          
-          // FIXME There is a problem with WRF precipitation output being too low.  It hardly ever rises above the conductivity of the soil, which means you
-          // hardly ever get infiltration excess runoff.  This is not realistic for the mountain west.  We think the issue might be that thunderstorms are
-          // often smaller than a single 4km WRF grid square so their precipitation gets smeared out over a larger area and thus a lower intensity.
-          // We are applying this kludge until we figure out the right way to handle this.
-          for (ii = 0; ii < localNumberOfChannelElements; ++ii)
-            {
-              tPrec_c[ii] *= 128.0f;
-            }
         }
 
       if (!error)
@@ -10872,7 +10854,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.qc     = qCloud[ii];
           evapoTranspirationForcingInit.solDn  = swDown[ii];
           evapoTranspirationForcingInit.lwDn   = gLw[ii];
-          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec[ii];
+          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec[ii] * 1000.0f); // * 1000.0f to convert from meters to millimeters.
           evapoTranspirationForcingInit.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
           evapoTranspirationForcingInit.pblh   = pblh[ii];
         }
@@ -11004,7 +10986,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.qc     = qCloud_c[ii];
           evapoTranspirationForcingInit.solDn  = swDown_c[ii];
           evapoTranspirationForcingInit.lwDn   = gLw_c[ii];
-          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec_c[ii];
+          evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec_c[ii] * 1000.0f); // * 1000.0f to convert from meters to millimeters.
           evapoTranspirationForcingInit.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
           evapoTranspirationForcingInit.pblh   = pblh_c[ii];
         }

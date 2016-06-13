@@ -817,11 +817,13 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           
           snowmeltOnGround = snEqvOriginal + snowfallBelowCanopy - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else if (0 == evapoTranspirationState->iSnow)
+      else if (0 == iSnowOriginal)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
+          // FIXME this happens when the multi-layer snow simulation is turned off at the beginning of the timestep.
+          // FIXME the water is reported in the variable ponding.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(0.0f == snowmeltOnGround);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1472,11 +1474,13 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           
           snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else if (0 == evapoTranspirationState->iSnow)
+      else if (0 == iSnowOriginal)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
+          // FIXME this happens when the multi-layer snow simulation is turned off at the beginning of the timestep.
+          // FIXME the water is reported in the variable ponding.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(0.0f == snowmeltOnGround);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1968,11 +1972,13 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           
           snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
         }
-      else if (0 == evapoTranspirationState->iSnow)
+      else if (0 == iSnowOriginal)
         {
           // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
           // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
           // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
+          // FIXME this happens when the multi-layer snow simulation is turned off at the beginning of the timestep.
+          // FIXME the water is reported in the variable ponding.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(0.0f == snowmeltOnGround);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
