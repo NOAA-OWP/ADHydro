@@ -223,7 +223,7 @@ module file_manager
                         newForcingData.qc     = qCloud[ii];
                         newForcingData.solDn  = swDown[ii];
                         newForcingData.lwDn   = gLw[ii];
-                        newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec[ii];
+                        newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec[ii] * 1000.0f);  // * 1000.0f to convert from meters to millimeters.
                         newForcingData.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh[ii];
                         
@@ -242,7 +242,7 @@ module file_manager
                         newForcingData.qc     = qCloud_c[ii];
                         newForcingData.solDn  = swDown_c[ii];
                         newForcingData.lwDn   = gLw_c[ii];
-                        newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : tPrec_c[ii];
+                        newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec_c[ii] * 1000.0f);  // * 1000.0f to convert from meters to millimeters.
                         newForcingData.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh_c[ii];
                         
