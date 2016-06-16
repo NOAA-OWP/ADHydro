@@ -809,6 +809,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // becomes snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during
       // the timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value
       // of snEqv to back out the value of snowmeltOnGround.
+      // FIXME the water is reported in the variable ponding2
       if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1383,7 +1384,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       if (evapoTranspirationState->tg > NOAHMP_TFRZ)
         {
           // There is something weird in the Noah-MP code.  If ist is 2 indicating a waterbody, and the ground temperature is above freezing, then any snow
-          // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.
+          // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.  This occurs in
+          // module_sf_noahmplsm.F line 6754 at the end of subroutine canwater.
           thrownAwaySnow = evapoTranspirationForcing->prcp * dt * fpIce;
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1472,7 +1474,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           CkAssert(0.0f == snowmeltOnGround);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
+          snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - (evapoTranspirationState->snEqv + thrownAwaySnow);
         }
       else if (0 == iSnowOriginal)
         {
