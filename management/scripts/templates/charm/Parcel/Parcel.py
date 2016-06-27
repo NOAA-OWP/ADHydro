@@ -121,6 +121,17 @@ class Parcel :  public PUP::able
     virtual double getRequestedAmount(int id){return 0;}
 
     /*
+        getMeshElements
+        This function appends the supplied vector with all mesh element ID's that make up the parcel.  
+        That is, any mesh element that this parcel may send water to will be added to the vector.
+
+        Parameters:
+            ids     A std::vector<int> reference to append mesh element ID's to. 
+    */
+
+    virtual void getMeshElements(std::vector<int>& ids){}
+
+    /*
         Add PUP support
     */
     
@@ -696,6 +707,24 @@ ${REQUESTS}
     {
         return requestedAmount[id];
     }
+
+    /*
+        getMeshElements
+        This function appends the supplied vector with all mesh element ID's that make up the parcel.  
+        That is, any mesh element that this parcel may send water to will be added to the vector.
+
+        Parameters:
+            ids     A std::vector<int> reference to append mesh element ID's to. 
+    */
+
+    void getMeshElements(std::vector<int>& ids)
+    {
+        for(int i = 0; i < elementCount; i++)
+        {
+            ids.push_back(elements[i]);
+        }
+    }
+
     /*
         PUP support
     */
