@@ -110,16 +110,22 @@ void calc_general_daily_release (const double& curr_inflow, const double& curr_v
     //NJF This needs to be curr_volume - target_volume so that we can stop releasing water if we don't have enough.
 	//volumediff = basemonth_volume*(curr_target_rate)[month] - curr_volume;
     volumediff = curr_volume - basemonth_volume*(curr_target_rate)[month];
-
+/*
 	//Zen Add: 10/30/2015
 	//Calculate how many days left in the month
 	daysleft = diff_dates(year, month, day);
+
   //FIXME
-  //Think of a better way to handle possibly large fluctuations in release between two months
+  //Think of a better way to avoid large fluctions of release between end
+  //of month and beginning of next month
   if( daysleft < 7.0 )
   {
     daysleft = 7.0;
   }
+*/
+    //NJF 2016-06-22
+    //Use a constant days left to avoid asymtotic behavior
+    daysleft = 30.0;
 	//Zen Add: 10/30/2015
 	//The way to calculate a daily release (cubic meters per second)
     //NJF Account for needing more water to reach target volume
@@ -149,8 +155,8 @@ void calc_general_daily_release (const double& curr_inflow, const double& curr_v
 	}else if(targetrelease > max_release && min_release != NODATA){
 		targetrelease = max_release;
 	}*/
-
-	release = targetrelease;
+    //Cannot release a negative amount of water!
+	release = targetrelease < 0.0 ? 0.0 : targetrelease;
     expirationTime = currentTime + 86400; //TODO/FIXME Change this ?!?!?!  Could also let reservoir set this. Currently sets expiration to 24 hours after currentTime
 }
 
