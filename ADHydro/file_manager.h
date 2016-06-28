@@ -281,6 +281,14 @@ public:
   //          in to other NetCDF calls to use this file.
   bool NetCDFCreateOrOpenForWriteDisplay(int* fileID);
   
+  // Create all of the instances in the state and display files that will be
+  // needed for this run.  This should be called only once after the state and
+  // display files have been initially created and only by the file manager for
+  // PE zero.  It does serial NetCDF calls, which are faster for dimension
+  // changes because it doesn't require synchronization.
+  // FIXME keep this or do it another way?
+  void NetCDFCreateInstances();
+  
   // Create a dimension in a NetCDF file.
   //
   // Returns: true if there is an error, false otherwise.

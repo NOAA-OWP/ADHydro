@@ -148,6 +148,12 @@ module file_manager
               
               writeNetCDFFiles();
               
+              // If this is the beginning of the simulation resize the unlimited dimensions to hold all of the instances that will eventually be created.
+              if (0 == CkMyPe() && ADHydro::currentTime == currentTime)
+                {
+                  NetCDFCreateInstances();
+                }
+              
               if (0 == CkMyPe() && 1 <= ADHydro::verbosityLevel)
                 {
                   CkPrintf("Finished writing output files.\n");
