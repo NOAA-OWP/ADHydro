@@ -263,10 +263,18 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float npp      = NAN; // Unused.
   float fVeg     = NAN; // Unused.
   float albedo   = NAN; // Unused.
+  
+  // There is some complexity with qSnBot and the ponding variables.  If the multi-layer snow simulation is turned on then the snowmelt rate is put into qSnBot
+  // and the ponding variables are set to zero.  If the multi-layer snow simulation is turned off then the snowmelt quantity is put into the ponding variables
+  // and qSnBot is set to zero.  The three ponding variables contain water from different situations.  The regular timestep-by-timestep melt is put in ponding.
+  // When the multi-layer snow simulation turns off and snLiq flows out the bottom of the snowpack that water is put in ponding2.  I don't know what situation
+  // puts water in ponding1.  It has always been zero, but I thought it was prudent to include it.  In short, the quantity of water that flowed out the bottom
+  // of the snowpack is always equal to qSnBot * dt + ponding + ponding1 + ponding2.
   float qSnBot   = NAN; // Snowmelt rate from the bottom of the snow pack in millimeters of water per second.
-  float ponding  = NAN; // Unused.
-  float ponding1 = NAN; // Unused.
-  float ponding2 = NAN; // Unused.
+  float ponding  = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding1 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding2 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  
   float rsSun    = NAN; // Unused.
   float rsSha    = NAN; // Unused.
   float bGap     = NAN; // Unused.
@@ -718,7 +726,13 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       
       // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall rate below the canopy is not negative, and the
       // snowmelt out the bottom of the snowpack is not negative.
-      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
+      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
+      
+      // FIXLATER ponding1 has always been zero.  I don't know what situation puts water in it.  Maybe it is dead code.  I am warning here so I can find out.
+      if (!(0.0f == ponding1))
+        {
+          CkError("WARNING in evapoTranspirationSoil: ponding1 is not zero.\n");
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Store fIce from the beginning of the timestep in fIceOld.
@@ -769,7 +783,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       snowfallAboveCanopy         = evapoTranspirationForcing->prcp * dt * fpIce;
       snowfallBelowCanopy         = qSnow * dt;
       snowfallInterceptedByCanopy = snowfallAboveCanopy - snowfallBelowCanopy;
-      snowmeltOnGround            = qSnBot * dt;
+      snowmeltOnGround            = qSnBot * dt + ponding + ponding1 + ponding2;
       rainfallAboveCanopy         = evapoTranspirationForcing->prcp * dt - snowfallAboveCanopy;
       rainfallInterceptedByCanopy = changeInCanopyIce + changeInCanopyLiquid + *evaporationFromCanopy - snowfallInterceptedByCanopy;
       rainfallBelowCanopy         = rainfallAboveCanopy - rainfallInterceptedByCanopy;
@@ -805,33 +819,20 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           rainfallOnGround          = rainfallBelowCanopy;
         }
       
-      // When the total snow height gets less than 2.5 cm the multi-layer snow simulation turns off.  When this happens all of the liquid water in snLiq
-      // becomes snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during
-      // the timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value
-      // of snEqv to back out the value of snowmeltOnGround.
-      if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (0.0f == ponding)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // FIXME remove
+          if (0.0f < ponding2 && !(snEqvOriginal == evapoTranspirationState->snEqvO))
+            {
+              CkError("WARNING in evapoTranspirationSoil: ponding2 is %f and the difference between snEqvOriginal and snEqvO is %f.\n", ponding2, snEqvOriginal - evapoTranspirationState->snEqvO);
+            }
           
-          snowmeltOnGround = snEqvOriginal + snowfallBelowCanopy - *evaporationFromSnow - evapoTranspirationState->snEqv;
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
         }
-      else if (0 == evapoTranspirationState->iSnow)
-        {
-          // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
-          // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
-          // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
-          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
-        }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
-          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+          CkAssert(epsilonEqual(snEqvOriginal, evapoTranspirationState->snEqvO + ponding));
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
@@ -997,7 +998,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float sh2o[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS]; // Liquid water content of each soil layer, unitless.  Values are set below from NOAHMP_POROSITY.
   float smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS];  // Total water content, liquid and solid, of each soil layer, unitless.  Values are set below from
                                                          // NOAHMP_POROSITY.
-  float qsfc  = evapoTranspirationForcing->q2;                                      // Water vapor mixing ratio at middle of lowest atmosphere layer in forcing data, unitless.  Redundant
+  float qsfc  = evapoTranspirationForcing->q2;           // Water vapor mixing ratio at middle of lowest atmosphere layer in forcing data, unitless.  Redundant
                                                          // with q2.
   float qSnow = NAN;                                     // This is actually an output only variable.  Snowfall rate below the canopy in millimeters of water
                                                          // equivalent per second.
@@ -1039,10 +1040,18 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float npp      = NAN; // Unused.
   float fVeg     = NAN; // Unused.
   float albedo   = NAN; // Unused.
+  
+  // There is some complexity with qSnBot and the ponding variables.  If the multi-layer snow simulation is turned on then the snowmelt rate is put into qSnBot
+  // and the ponding variables are set to zero.  If the multi-layer snow simulation is turned off then the snowmelt quantity is put into the ponding variables
+  // and qSnBot is set to zero.  The three ponding variables contain water from different situations.  The regular timestep-by-timestep melt is put in ponding.
+  // When the multi-layer snow simulation turns off and snLiq flows out the bottom of the snowpack that water is put in ponding2.  I don't know what situation
+  // puts water in ponding1.  It has always been zero, but I thought it was prudent to include it.  In short, the quantity of water that flowed out the bottom
+  // of the snowpack is always equal to qSnBot * dt + ponding + ponding1 + ponding2.
   float qSnBot   = NAN; // Snowmelt rate from the bottom of the snow pack in millimeters of water per second.
-  float ponding  = NAN; // Unused.
-  float ponding1 = NAN; // Unused.
-  float ponding2 = NAN; // Unused.
+  float ponding  = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding1 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding2 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  
   float rsSun    = NAN; // Unused.
   float rsSha    = NAN; // Unused.
   float bGap     = NAN; // Unused.
@@ -1371,7 +1380,13 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       
       // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall rate below the canopy is not negative, and the
       // snowmelt out the bottom of the snowpack is not negative.
-      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
+      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
+      
+      // FIXLATER ponding1 has always been zero.  I don't know what situation puts water in it.  Maybe it is dead code.  I am warning here so I can find out.
+      if (!(0.0f == ponding1))
+        {
+          CkError("WARNING in evapoTranspirationSoil: ponding1 is not zero.\n");
+        }
       
       // Verify that there is no water, no evaporation, and no transpiration, in the non-existant canopy.
       CkAssert(0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce && 0.0f == eCan && 0.0f == eTran);
@@ -1381,7 +1396,10 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       if (evapoTranspirationState->tg > NOAHMP_TFRZ)
         {
           // There is something weird in the Noah-MP code.  If ist is 2 indicating a waterbody, and the ground temperature is above freezing, then any snow
-          // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.
+          // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.  This occurs in
+          // module_sf_noahmplsm.F line 6754 at the end of subroutine canwater.  After this point, thrownAwaySnow should be added to snEqv, but we don't add it
+          // here because snEqv could have been set to 0.0 or 2000.0 for different reasons.  We need to preserve the value of snEqv and only add back in
+          // thrownAwaySnow after checking for those cases.
           thrownAwaySnow = evapoTranspirationForcing->prcp * dt * fpIce;
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1445,7 +1463,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
         }
       
       snowfall         = evapoTranspirationForcing->prcp * dt * fpIce;
-      snowmeltOnGround = qSnBot * dt;
+      snowmeltOnGround = qSnBot * dt + ponding + ponding1 + ponding2;
       rainfall         = evapoTranspirationForcing->prcp * dt - snowfall;
       
       // If there is a snow layer at the end of the timestep it intercepts all of the rainfall.
@@ -1460,33 +1478,20 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           rainfallOnGround          = rainfall;
         }
       
-      // When the total snow height gets less than 2.5 cm the multi-layer snow simulation turns off.  When this happens all of the liquid water in snLiq
-      // becomes snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during
-      // the timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value
-      // of snEqv to back out the value of snowmeltOnGround.
-      if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (0.0f == ponding)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // FIXME remove
+          if (0.0f < ponding2 && !(snEqvOriginal == evapoTranspirationState->snEqvO))
+            {
+              CkError("WARNING in evapoTranspirationSoil: ponding2 is %f and the difference between snEqvOriginal and snEqvO is %f.\n", ponding2, snEqvOriginal - evapoTranspirationState->snEqvO);
+            }
           
-          snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
         }
-      else if (0 == evapoTranspirationState->iSnow)
-        {
-          // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
-          // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
-          // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
-          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
-        }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
-          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+          CkAssert(epsilonEqual(snEqvOriginal, evapoTranspirationState->snEqvO + ponding));
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
@@ -1652,10 +1657,18 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
   float runSub   = NAN; // Saturation excess runoff in millimeters of water per second.
   float sag      = NAN; // Unused.
   float albedo   = NAN; // Unused.
+  
+  // There is some complexity with qSnBot and the ponding variables.  If the multi-layer snow simulation is turned on then the snowmelt rate is put into qSnBot
+  // and the ponding variables are set to zero.  If the multi-layer snow simulation is turned off then the snowmelt quantity is put into the ponding variables
+  // and qSnBot is set to zero.  The three ponding variables contain water from different situations.  The regular timestep-by-timestep melt is put in ponding.
+  // When the multi-layer snow simulation turns off and snLiq flows out the bottom of the snowpack that water is put in ponding2.  I don't know what situation
+  // puts water in ponding1.  It has always been zero, but I thought it was prudent to include it.  In short, the quantity of water that flowed out the bottom
+  // of the snowpack is always equal to qSnBot * dt + ponding + ponding1 + ponding2.
   float qSnBot   = NAN; // Snowmelt rate from the bottom of the snow pack in millimeters of water per second.
-  float ponding  = NAN; // Unused.
-  float ponding1 = NAN; // Unused.
-  float ponding2 = NAN; // Unused.
+  float ponding  = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding1 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  float ponding2 = NAN; // Snowmelt from the bottom of the snow pack in millimeters of water.
+  
   float t2m      = NAN; // Unused.
   float q2e      = NAN; // Unused.
   float emissi   = NAN; // Unused.
@@ -1889,7 +1902,13 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
       
       // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall rate below the canopy is not negative, and the
       // snowmelt out the bottom of the snowpack is not negative.
-      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot);
+      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
+      
+      // FIXLATER ponding1 has always been zero.  I don't know what situation puts water in it.  Maybe it is dead code.  I am warning here so I can find out.
+      if (!(0.0f == ponding1))
+        {
+          CkError("WARNING in evapoTranspirationSoil: ponding1 is not zero.\n");
+        }
       
       // Verify that there is no snowfall interception in the non-existant canopy.
       CkAssert(evapoTranspirationForcing->prcp * fpIce == qSnow);
@@ -1910,7 +1929,7 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
          
       // Calculate derived output variables.
       snowfall         = evapoTranspirationForcing->prcp * dt * fpIce;
-      snowmeltOnGround = qSnBot * dt;
+      snowmeltOnGround = qSnBot * dt + ponding + ponding1 + ponding2;
       rainfall         = evapoTranspirationForcing->prcp * dt - snowfall;
       
       // If there is a snow layer at the end of the timestep it intercepts all of the rainfall.
@@ -1942,9 +1961,9 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
               *evaporationFromGround = evaporationFromSurface;
             }
         }
-      // In NOAHMP_GLACIER, unlike NOAHMP_SFLX, evaporationFromGround is taken after precipitation is added to the snow layer.  So if it is snowing the maximum
-      // amount of evaporation from snow is different.  I am unsure whether snowmeltOnGround is taken before or after evaporation, or how the two situations
-      // below which modify snowmeltOnGround would affect this.  I am doing it like this for now, and we'll see if any assertion is violated.
+      // In NOAHMP_GLACIER, unlike NOAHMP_SFLX, evaporationFromGround is taken after precipitation is added to the snow layer.  So if it is snowing, the
+      // maximum amount of water available for evaporation from snow is different.  I am unsure whether snowmeltOnGround is taken before or after evaporation.
+      // I am doing it like this for now, and we'll see if any assertion is violated.
       else if (evaporationFromSurface <= evapoTranspirationState->snEqvO + snowfall + rainfallInterceptedBySnow - snowmeltOnGround)
         {
           *evaporationFromSnow   = evaporationFromSurface;
@@ -1956,33 +1975,20 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           *evaporationFromGround = evaporationFromSurface - *evaporationFromSnow;
         }
       
-      // When the total snow height gets less than 2.5 cm the multi-layer snow simulation turns off.  When this happens all of the liquid water in snLiq
-      // becomes snowmelt on the ground and snEqv gets set to just the portion in snIce.  However, melting/freezing between snIce and snLiq also happens during
-      // the timestep so we can't use the beginning timestep value of snLiq to determine how much to add to snowmeltOnGround.  We have to use the final value
-      // of snEqv to back out the value of snowmeltOnGround.
-      if (0 > iSnowOriginal && 0 == evapoTranspirationState->iSnow)
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (0.0f == ponding)
         {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          // FIXME remove
+          if (0.0f < ponding2 && !(snEqvOriginal == evapoTranspirationState->snEqvO))
+            {
+              CkError("WARNING in evapoTranspirationSoil: ponding2 is %f and the difference between snEqvOriginal and snEqvO is %f.\n", ponding2, snEqvOriginal - evapoTranspirationState->snEqvO);
+            }
           
-          snowmeltOnGround = snEqvOriginal + snowfall - *evaporationFromSnow - evapoTranspirationState->snEqv;
+          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
         }
-      else if (0 == evapoTranspirationState->iSnow)
-        {
-          // There is a case where snEqvO does not equal snEqv at the beginning of the timestep.  This appears to happen when the multi-layer snow simulation
-          // is turned off, and the snow is melting.  In this case, qSnBot is zero, but some water has disappeared from snEqvO and snEqv and the water shows up
-          // in the soil moisture.  The solution to this is to add the difference between snEqvOriginal and snEqvO to snowmeltOnGround.
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(0.0f == snowmeltOnGround);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          
-          snowmeltOnGround = snEqvOriginal - evapoTranspirationState->snEqvO;
-        }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       else
         {
-          CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
+          CkAssert(epsilonEqual(snEqvOriginal, evapoTranspirationState->snEqvO + ponding));
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       

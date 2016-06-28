@@ -88,7 +88,17 @@ class Diversion : public PUP::able
     */
     virtual void divert(double* available, const double& referenceDate, const double& currentTime, const double& endTime, std::vector<std::pair<int, double> >& results){}
 
+    /*
+        getMeshNeighbors
 
+        This function returns a vector of all mesh elements "connected" to this diversion.  
+        That is, any mesh element that this diversion may send water to will be in the returned vector.
+        NOTE:
+        Ideally should be a PURE VIRTUAL FUNCTION, so all sublcasses must implement it.
+        Cannot be pure virtual because charm cannot migrate an abstract object because it cannot be instanciated.
+        "error: cannot allocate an object of abstract type ‘Diversion’"
+    */
+    virtual std::vector<int> getMeshNeighbors(){};
     /*
         Add PUP support
     */
@@ -330,6 +340,24 @@ class ${NAME} : public Diversion
             //Irrigate each parcel, FIXME should getRequestedAmount(diversionID)/totalRequestedAmount be converted to quantity? Don't think so...ratio should be the same...
         	*available -= parcels[i]->irrigate(*available*(parcels[i]->getRequestedAmount(diversionID)/totalRequestedAmount), diversionID, referenceDate, currentTime, endTime, results);
         }
+    }
+
+     /*
+        getMeshNeighbors
+
+        This function returns a vector of all mesh elements "connected" to this diversion.  
+        That is, any mesh element that this diversion may send water to will be in the returned vector.
+    */
+    
+    std::vector<int> getMeshNeighbors()
+    {
+        std::vector<int> ids;
+        //For each object type, pass ids to the object to append its mesh elements to.
+        for(size_t i = 0; i < parcels.size(); i++)
+        {
+        	parcels[i]->getMeshElements(ids);
+        }
+        return ids;
     }
 
     /*

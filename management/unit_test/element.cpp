@@ -24,7 +24,12 @@ Element::Element()
 
     //Create a Diversion to test
     DiversionFactory* divFactory = new DiversionFactory();
-    diversion = divFactory->create(123, 2457388.500000);
+    diversion = divFactory->create(123, 2457388.500000, 0.0);
+    std::vector<int> ids = diversion->getMeshNeighbors();
+    CkPrintf("Element constructor collecting all mesh ID's:\n");
+    for(size_t i = 0; i < ids.size(); i++)
+        CkPrintf("%d\t", ids[i]);
+    CkPrintf("\n");
     delete divFactory;
     
 }

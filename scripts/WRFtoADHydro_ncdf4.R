@@ -11,7 +11,8 @@
 # User must provide values in the INPUT MODULE and line 470 to account for the output variables in the nc.ex list vector.
 ################# LOAD LIBRARIES ##################################################################################################################################################
 
-rm(list=ls())  # remove all objects before starting
+# WTFIXME?!?!?!?! Hernan wrote this script to delete all files in the directory where it is run?!?!?  That is very dangerous if it is run by someone else who does not know that it does that.  I'm commenting this out.
+#rm(list=ls())  # remove all objects before starting
 library(ncdf4)
 library(abind)
 library(timeDate)

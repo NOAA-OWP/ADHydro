@@ -362,10 +362,11 @@ class DiversionFactory
      *	Once components and their creators are in the map,
      *	create can look up the appropriate component based on the elementID
      *	and can create an appropriate Diversion object
-     *  To properly construct a diversion, need to pass it the referenceDate of 
-     *  of the simulation as well.
+     *  To properly construct a diversion, need to pass it the current time of 
+     *  of the simulation as well, so a referenceDate and currentTime are passed to create
+     *  and the current time is sent to the diversion constructor.
      */
-    Diversion* create(int elementID, double referenceDate);
+    Diversion* create(int elementID, double referenceDate, double currentTime);
     /*
      *	Diversion Creator Registration
      *	resgisterDiversion adds an entry to the table map for each elementID,
@@ -418,7 +419,7 @@ void DiversionFactory::registerDiversion(int elementID, Div_Creator* creator)
     table[elementID] = creator;
 }
 
-Diversion* DiversionFactory::create(int elementID, double referenceDate)
+Diversion* DiversionFactory::create(int elementID, double referenceDate, double currentTime)
 {
 	//When we "create" a new Diversion instance, we need to
 	//search through the factory table to find the creator
@@ -429,7 +430,7 @@ Diversion* DiversionFactory::create(int elementID, double referenceDate)
 
     if(i != table.end())
     {
-        return i->second->create(elementID, referenceDate);
+        return i->second->create(elementID, referenceDate+currentTime);
     }    
     else
         return (Diversion*) NULL;
