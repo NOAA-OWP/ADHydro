@@ -1664,36 +1664,55 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
   // Open the geometry and attribute files.
   shpFile = SHPOpen(fileBasename, "rb");
   dbfFile = DBFOpen(fileBasename, "rb");
-
+  
+  // It's okay for the shapefile not to exist at all.  If that is the case treat it as if there are zero shapes in the file.
+  if (NULL == shpFile && NULL == dbfFile)
+    {
+      numberOfShapes = 0;
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      fprintf(stderr, "WARNING in readWaterbodies: Waterbody shapefile %s does not exist.  Treating it as zero waterbodies.\n", fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    }
+  else
+    {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NULL != shpFile))
-    {
-      fprintf(stderr, "ERROR in readWaterbodies: Could not open shp file %s.\n", fileBasename);
-      error = true;
-    }
+      if (!(NULL != shpFile))
+        {
+          fprintf(stderr, "ERROR in readWaterbodies: Could not open shp file %s.\n", fileBasename);
+          error = true;
+        }
 
-  if (!(NULL != dbfFile))
-    {
-      fprintf(stderr, "ERROR in readWaterbodies: Could not open dbf file %s.\n", fileBasename);
-      error = true;
-    }
+      if (!(NULL != dbfFile))
+        {
+          fprintf(stderr, "ERROR in readWaterbodies: Could not open dbf file %s.\n", fileBasename);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
-  // Get the number of shapes and attribute indices
-  if (!error)
+      // Get the number of shapes.
+      if (!error)
+        {
+          numberOfShapes = DBFGetRecordCount(dbfFile);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(0 < numberOfShapes))
+            {
+              // Only warn because you could have zero waterbodies.
+              fprintf(stderr, "WARNING in readWaterbodies: Zero waterbodies in dbf file %s.\n", fileBasename);
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+    }
+  
+  if (!error && 0 < numberOfShapes)
     {
-      numberOfShapes = DBFGetRecordCount(dbfFile);
+      // Get the attribute indices.
       reachCodeIndex = DBFGetFieldIndex(dbfFile, "ReachCode");
       permanentIndex = DBFGetFieldIndex(dbfFile, "Permanent_");
       ftypeIndex     = DBFGetFieldIndex(dbfFile, "FTYPE");
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(0 < numberOfShapes))
-        {
-          // Only warn because you could have zero waterbodies.
-          fprintf(stderr, "WARNING in readWaterbodies: Zero shapes in dbf file %s.\n", fileBasename);
-        }
-      
       if (!(-1 != reachCodeIndex))
         {
           fprintf(stderr, "ERROR in readWaterbodies: Could not find field ReachCode in dbf file %s.\n", fileBasename);
@@ -2978,35 +2997,54 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
   shpFile = SHPOpen(fileBasename, "rb");
   dbfFile = DBFOpen(fileBasename, "rb");
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NULL != shpFile))
+  // It's okay for the shapefile not to exist at all.  If that is the case treat it as if there are zero shapes in the file.
+  if (NULL == shpFile && NULL == dbfFile)
     {
-      fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open shp file %s.\n", fileBasename);
-      error = true;
-    }
+      numberOfShapes = 0;
 
-  if (!(NULL != dbfFile))
-    {
-      fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open dbf file %s.\n", fileBasename);
-      error = true;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      fprintf(stderr, "WARNING in readWaterbodyStreamIntersections: Intersection shapefile %s does not exist.  Treating it as zero intersections.\n", fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
+  else
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != shpFile))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open shp file %s.\n", fileBasename);
+          error = true;
+        }
+
+      if (!(NULL != dbfFile))
+        {
+          fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not open dbf file %s.\n", fileBasename);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
-  // Get the number of shapes and attribute indices
-  if (!error)
+      // Get the number of shapes.
+      if (!error)
+        {
+          numberOfShapes = DBFGetRecordCount(dbfFile);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(0 < numberOfShapes))
+            {
+              // Only warn because you could have zero intersections.
+              fprintf(stderr, "WARNING in readWaterbodyStreamIntersections: Zero intersections in dbf file %s.\n", fileBasename);
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+    }
+
+  // Get the attribute indices.
+  if (!error && 0 < numberOfShapes)
     {
-      numberOfShapes = DBFGetRecordCount(dbfFile);
       linknoIndex    = DBFGetFieldIndex(dbfFile, "LINKNO");
       reachCodeIndex = DBFGetFieldIndex(dbfFile, "ReachCode");
       permanentIndex = DBFGetFieldIndex(dbfFile, "Permanent_");
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(0 < numberOfShapes))
-        {
-          // Only warn because you could have zero intersections.
-          fprintf(stderr, "WARNING in readWaterbodyStreamIntersections: Zero shapes in dbf file %s.\n", fileBasename);
-        }
-      
       if (!(-1 != linknoIndex))
         {
           fprintf(stderr, "ERROR in readWaterbodyStreamIntersections: Could not find field LINKNO in dbf file %s.\n", fileBasename);
@@ -3775,36 +3813,55 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
   shpFile = SHPOpen(fileBasename, "rb");
   dbfFile = DBFOpen(fileBasename, "rb");
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-  if (!(NULL != shpFile))
+  // It's okay for the shapefile not to exist at all.  If that is the case treat it as if there are zero shapes in the file.
+  if (NULL == shpFile && NULL == dbfFile)
     {
-      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open shp file %s.\n", fileBasename);
-      error = true;
-    }
+      numberOfShapes = 0;
 
-  if (NULL == dbfFile)
-    {
-      fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open dbf file %s.\n", fileBasename);
-      error = true;
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      fprintf(stderr, "WARNING in readAndLinkWaterbodyWaterbodyIntersections: Intersection shapefile %s does not exist.  Treating it as zero intersections.\n", fileBasename);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
+  else
+    {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NULL != shpFile))
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open shp file %s.\n", fileBasename);
+          error = true;
+        }
+
+      if (NULL == dbfFile)
+        {
+          fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not open dbf file %s.\n", fileBasename);
+          error = true;
+        }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
-  // Get the number of shapes and attribute indices
-  if (!error)
+      // Get the number of shapes.
+      if (!error)
+        {
+          numberOfShapes = DBFGetRecordCount(dbfFile);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(0 < numberOfShapes))
+            {
+              // Only warn because you could have zero intersections.
+              fprintf(stderr, "WARNING in readAndLinkWaterbodyWaterbodyIntersections: Zero intersections in dbf file %s.\n", fileBasename);
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        }
+    }
+
+  // Get the attribute indices.
+  if (!error && 0 < numberOfShapes)
     {
-      numberOfShapes  = DBFGetRecordCount(dbfFile);
       reachCode1Index = DBFGetFieldIndex(dbfFile, "ReachCode_");
       permanent1Index = DBFGetFieldIndex(dbfFile, "Permanent1");
       reachCode2Index = DBFGetFieldIndex(dbfFile, "ReachCode");
       permanent2Index = DBFGetFieldIndex(dbfFile, "Permanent_");
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(0 < numberOfShapes))
-        {
-          // Only warn because you could have zero intersections.
-          fprintf(stderr, "WARNING in readAndLinkWaterbodyWaterbodyIntersections: Zero shapes in dbf file %s.\n", fileBasename);
-        }
-      
       if (!(-1 != reachCode1Index))
         {
           fprintf(stderr, "ERROR in readAndLinkWaterbodyWaterbodyIntersections: Could not find field ReachCode_ in dbf file %s.\n", fileBasename);

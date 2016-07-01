@@ -3524,6 +3524,413 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
   return error;
 }
 
+void FileManager::NetCDFCreateInstances()
+{
+  bool    error                  = false;                // Error flag.
+  size_t  ii;                                            // Loop counter.
+  int     ncErrorCode;                                   // Return value of NetCDF functions.
+  int     fileID;                                        // ID of NetCDF file.
+  bool    fileOpen               = false;                // Whether fileID refers to an open file.
+  int     referenceDateVariableID;                       // ID of variable in NetCDF file.
+  int     currentTimeVariableID;                         // ID of variable in NetCDF file.
+  size_t  existingInstances;                             // Number of already existing instances in the NetCDF file.
+  double* existingReferenceDates = NULL;                 // Reference dates of already existing instances in the NetCDF file.
+  double* existingCurrentTimes   = NULL;                 // Current Times of already existing instances in the NetCDF file.
+  size_t  newCurrentTimesSize;                           // Maximum number of new instances can be precalculated.
+  double* newCurrentTimes        = NULL;                 // Array of current times that will be saved as new instances in the NetCDF file.
+  double  nextTime               = ADHydro::currentTime; // The next value of currentTime to save.
+  size_t  instanceIndex          = 0;                    // The next location in the newCurrentTimes array to save nextTime.
+  int     checkpointIndex        = nextCheckpointIndex;  // For looping over all checkpoint/output times.
+  bool    needEndTime            = true;                 // True if we have not yet saved the simulation end time.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  CkAssert(0 == CkMyPe() && ADHydro::currentTime == currentTime);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+  // Open the state file and read in existing instances.
+  ncErrorCode = nc_open(ADHydro::adhydroOutputStateFilePath.c_str(), NC_NETCDF4 | NC_WRITE, &fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(NC_NOERR == ncErrorCode))
+    {
+      CkError("ERROR in FileManager::NetCDFCreateInstances: could not open for write NetCDF file %s.  NetCDF error message: %s.\n",
+              ADHydro::adhydroOutputStateFilePath.c_str(), nc_strerror(ncErrorCode));
+      error = true;
+    }
+  else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    {
+      fileOpen = true;
+    }
+
+  if (!error)
+    {
+      error = NetCDFReadDimensionSize(fileID, "instances", &existingInstances);
+    }
+  
+  if (!error && 0 < existingInstances)
+    {
+      existingReferenceDates = new double[existingInstances];
+      existingCurrentTimes   = new double[existingInstances];
+
+      // Get the variable ID of referenceDate.
+      ncErrorCode = nc_inq_varid(fileID, "referenceDate", &referenceDateVariableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to get variable referenceDate in NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+      if (!error)
+        {
+          // Read the values of referenceDate.
+          ncErrorCode = nc_get_var_double(fileID, referenceDateVariableID, existingReferenceDates);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to read variable referenceDate in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          // Get the variable ID of currentTime.
+          ncErrorCode = nc_inq_varid(fileID, "currentTime", &currentTimeVariableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to get variable currentTime in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          // Read the values of currentTime.
+          ncErrorCode = nc_get_var_double(fileID, currentTimeVariableID, existingCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to read variable currentTime in NetCDF state file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  if (!error)
+    {
+      // Allocate newCurrentTimes.
+      // FIXME document maximum size calculation.
+      newCurrentTimesSize = std::max(ceil((simulationEndTime - ADHydro::currentTime) / ADHydro::checkpointPeriod) + 2,
+                                     ceil((simulationEndTime - ADHydro::currentTime) / ADHydro::outputPeriod) + 2);
+      newCurrentTimes     = new double[newCurrentTimesSize];
+
+      // Determine new instances to create in the state file.
+      while (needEndTime)
+        {
+          // At the beginning of this loop, nextTime is the next value of currentTime to maybe save if it doesn't already have an instance in the state file.
+          // The first time through the loop this is the simulation begin time.  In subsequent loop iterations it is a checkpoint time or the simulation end time.
+          // If nextTime isn't already assigned to a current instance in the state file add it to newCurrentTimes.
+          ii = 0;
+          
+          while (ii < existingInstances && !(existingReferenceDates[ii] == ADHydro::referenceDate && existingCurrentTimes[ii] == nextTime))
+            {
+              ++ii;
+            }
+          
+          if (!(ii < existingInstances)) // If nextTime is not already in the state file.
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              CkAssert(instanceIndex < newCurrentTimesSize);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+              newCurrentTimes[instanceIndex] = nextTime;
+              ++instanceIndex;
+            }
+
+          if (nextTime == simulationEndTime)
+            {
+              // We just saved simulationEndTime.  We are done.
+              needEndTime = false;
+            }
+          else
+            {
+              // Go on to the next checkpoint time.  If that is after the simulation end time just save the simulation end time.
+              nextTime = checkpointIndex * ADHydro::checkpointPeriod;
+              ++checkpointIndex;
+
+              if (nextTime > simulationEndTime)
+                {
+                  nextTime = simulationEndTime;
+                }
+            }
+        }
+    }
+  
+  // Add instances to the state file.
+  if (!error)
+    {
+      // Write the values of currentTime.
+      ncErrorCode = nc_put_vara_double(fileID, currentTimeVariableID, &existingInstances, &instanceIndex, newCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to write variable currentTime in NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      for (ii = 0; ii < instanceIndex; ++ii)
+        {
+          newCurrentTimes[ii] = ADHydro::referenceDate;
+        }
+      
+      // Write the values of referenceDate.
+      ncErrorCode = nc_put_vara_double(fileID, referenceDateVariableID, &existingInstances, &instanceIndex, newCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to write variable referenceDate in NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  delete[] existingReferenceDates;
+  delete[] existingCurrentTimes;
+  existingReferenceDates = NULL;
+  existingCurrentTimes   = NULL;
+  
+  // Close the state file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to close NetCDF state file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      nextTime        = ADHydro::currentTime;
+      instanceIndex   = 0;
+      checkpointIndex = nextOutputIndex;
+      needEndTime     = true;
+
+      // Open the display file and read in existing instances.
+      ncErrorCode = nc_open(ADHydro::adhydroOutputDisplayFilePath.c_str(), NC_NETCDF4 | NC_WRITE, &fileID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: could not open for write NetCDF file %s.  NetCDF error message: %s.\n",
+                  ADHydro::adhydroOutputDisplayFilePath.c_str(), nc_strerror(ncErrorCode));
+          error = true;
+        }
+      else
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+          fileOpen = true;
+        }
+    }
+
+  if (!error)
+    {
+      error = NetCDFReadDimensionSize(fileID, "instances", &existingInstances);
+    }
+  
+  if (!error && 0 < existingInstances)
+    {
+      existingReferenceDates = new double[existingInstances];
+      existingCurrentTimes   = new double[existingInstances];
+
+      // Get the variable ID of referenceDate.
+      ncErrorCode = nc_inq_varid(fileID, "referenceDate", &referenceDateVariableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to get variable referenceDate in NetCDF display file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+
+      if (!error)
+        {
+          // Read the values of referenceDate.
+          ncErrorCode = nc_get_var_double(fileID, referenceDateVariableID, existingReferenceDates);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to read variable referenceDate in NetCDF display file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          // Get the variable ID of currentTime.
+          ncErrorCode = nc_inq_varid(fileID, "currentTime", &currentTimeVariableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to get variable currentTime in NetCDF display file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+
+      if (!error)
+        {
+          // Read the values of currentTime.
+          ncErrorCode = nc_get_var_double(fileID, currentTimeVariableID, existingCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+          if (!(NC_NOERR == ncErrorCode))
+            {
+              CkError("ERROR in FileManager::NetCDFCreateInstances: unable to read variable currentTime in NetCDF display file.  NetCDF error message: %s.\n",
+                      nc_strerror(ncErrorCode));
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        }
+    }
+  
+  if (!error)
+    {
+      // Determine new instances to create in the display file.
+      while (needEndTime)
+        {
+          // At the beginning of this loop, nextTime is the next value of currentTime to maybe save if it doesn't already have an instance in the display file.
+          // The first time through the loop this is the simulation begin time.  In subsequent loop iterations it is an output time or the simulation end time.
+          // If nextTime isn't already assigned to a current instance in the display file add it to newCurrentTimes.
+          ii = 0;
+          
+          while (ii < existingInstances && !(existingReferenceDates[ii] == ADHydro::referenceDate && existingCurrentTimes[ii] == nextTime))
+            {
+              ++ii;
+            }
+          
+          if (!(ii < existingInstances)) // If nextTime is not already in the display file.
+            {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              CkAssert(instanceIndex < newCurrentTimesSize);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  
+              newCurrentTimes[instanceIndex] = nextTime;
+              ++instanceIndex;
+            }
+
+          if (nextTime == simulationEndTime)
+            {
+              // We just saved simulationEndTime.  We are done.
+              needEndTime = false;
+            }
+          else
+            {
+              // Go on to the next output time.  If that is after the simulation end time just save the simulation end time.
+              nextTime = checkpointIndex * ADHydro::outputPeriod;
+              ++checkpointIndex;
+
+              if (nextTime > simulationEndTime)
+                {
+                  nextTime = simulationEndTime;
+                }
+            }
+        }
+    }
+  
+  // FIXME Add instances to the display file.
+  if (!error)
+    {
+      // Write the values of currentTime.
+      ncErrorCode = nc_put_vara_double(fileID, currentTimeVariableID, &existingInstances, &instanceIndex, newCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to write variable currentTime in NetCDF display file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      for (ii = 0; ii < instanceIndex; ++ii)
+        {
+          newCurrentTimes[ii] = ADHydro::referenceDate;
+        }
+      
+      // Write the values of referenceDate.
+      ncErrorCode = nc_put_vara_double(fileID, referenceDateVariableID, &existingInstances, &instanceIndex, newCurrentTimes);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to write variable referenceDate in NetCDF display file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  delete[] existingReferenceDates;
+  delete[] existingCurrentTimes;
+  delete[] newCurrentTimes;
+  
+  // Close the display file.
+  if (fileOpen)
+    {
+      ncErrorCode = nc_close(fileID);
+      fileOpen    = false;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFCreateInstances: unable to close NetCDF display file.  NetCDF error message: %s.\n",
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+}
+
 bool FileManager::NetCDFCreateDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID)
 {
   bool error = false; // Error flag.
@@ -6236,24 +6643,29 @@ void FileManager::initializeFromNetCDFFiles()
 
 void FileManager::writeNetCDFFiles()
 {
-  bool   error             = false; // Error flag.
-  int    ncErrorCode;               // Return value of NetCDF functions.
-  bool   writeGeometry     = false; // Whether to write a new geometry instance.
-  int    geometryFileID;            // ID of NetCDF file.
-  bool   geometryFileOpen  = false; // Whether fileID refers to an open file.
-  size_t geometryInstancesSize;     // Number of instances in geometry file.
-  bool   writeParameter    = false; // Whether to write a new parameter instance.
-  int    parameterFileID;           // ID of NetCDF file.
-  bool   parameterFileOpen = false; // Whether fileID refers to an open file.
-  size_t parameterInstancesSize;    // Number of instances in parameter file.
-  bool   writeState        = false; // Whether to write a new state instance.
-  int    stateFileID;               // ID of NetCDF file.
-  bool   stateFileOpen     = false; // Whether fileID refers to an open file.
-  size_t stateInstancesSize;        // Number of instances in state file.
-  bool   writeDisplay      = false; // Whether to write a new display instance.
-  int    displayFileID;             // ID of NetCDF file.
-  bool   displayFileOpen   = false; // Whether fileID refers to an open file.
-  size_t displayInstancesSize;      // Number of instances in display file.
+  bool    error                  = false; // Error flag.
+  int     ncErrorCode;                    // Return value of NetCDF functions.
+  bool    writeGeometry          = false; // Whether to write a new geometry instance.
+  int     geometryFileID;                 // ID of geometry file.
+  bool    geometryFileOpen       = false; // Whether geometryFileID refers to an open file.
+  size_t  geometryInstancesSize  = 0;     // Number of instances in geometry file.
+  bool    writeParameter         = false; // Whether to write a new parameter instance.
+  int     parameterFileID;                // ID of parameter file.
+  bool    parameterFileOpen      = false; // Whether parameterFileID refers to an open file.
+  size_t  parameterInstancesSize = 0;     // Number of instances in parameter file.
+  bool    writeState             = false; // Whether to write a new state instance.
+  int     stateFileID;                    // ID of state file.
+  bool    stateFileOpen          = false; // Whether stateFileID refers to an open file.
+  size_t  stateInstancesSize     = 0;     // Number of instances in state file.
+  bool    writeDisplay           = false; // Whether to write a new display instance.
+  int     displayFileID;                  // ID of display file.
+  bool    displayFileOpen        = false; // Whether displayFileID refers to an open file.
+  size_t  displayInstancesSize   = 0;     // Number of instances in display file.
+  double* referenceDateArray     = NULL;  // Array of reference dates in the state or display file.
+  size_t  referenceDateArraySize = 0;     // Allocated size of referenceDateArray.
+  double* currentTimeArray       = NULL;  // Array of current times in the state or display file.
+  size_t  currentTimeArraySize   = 0;     // Allocated size ofcurrentTimeArray.
+  int     variableID;                     // ID of variable in NetCDF file.
   
   // First, decide whether we need to write each file.
   
@@ -6309,11 +6721,11 @@ void FileManager::writeNetCDFFiles()
             {
               geometryFileOpen = true;
             }
+        }
           
-          if (!error)
-            {
-              error = NetCDFReadDimensionSize(geometryFileID, "instances", &geometryInstancesSize);
-            }
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(geometryFileID, "instances", &geometryInstancesSize);
         }
       
       // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
@@ -6372,11 +6784,11 @@ void FileManager::writeNetCDFFiles()
             {
               parameterFileOpen = true;
             }
+        }
           
-          if (!error)
-            {
-              error = NetCDFReadDimensionSize(parameterFileID, "instances", &parameterInstancesSize);
-            }
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(parameterFileID, "instances", &parameterInstancesSize);
         }
       
       // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
@@ -6391,8 +6803,8 @@ void FileManager::writeNetCDFFiles()
   // ADHydro::currentTime is never updated so it continues to hold the time at the beginning of the simulation.
   writeState = (nextCheckpointIndex * ADHydro::checkpointPeriod == currentTime || simulationEndTime == currentTime || ADHydro::currentTime == currentTime);
   
-  // If we do need to write the state we will write a new instance one after the last instance currently in the file.
-  // FIXME if an instance already exists with the same currentTime overwrite that instance
+  // If we do need to write the state, if an instance already exists with the same referenceDate and currentTime overwrite that instance.  Otherwise write a
+  // new instance one after the last instance currently in the file.
   if (!error && writeState)
     {
       // Get the number of instances in the state file if we haven't already.
@@ -6405,23 +6817,100 @@ void FileManager::writeNetCDFFiles()
             {
               stateFileOpen = true;
             }
+        }
           
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(stateFileID, "instances", &stateInstancesSize);
+        }
+      
+      if (0 < stateInstancesSize)
+        {
           if (!error)
             {
-              error = NetCDFReadDimensionSize(stateFileID, "instances", &stateInstancesSize);
+              referenceDateArray     = new double[stateInstancesSize];
+              referenceDateArraySize = stateInstancesSize;
+              currentTimeArray       = new double[stateInstancesSize];
+              currentTimeArraySize   = stateInstancesSize;
+
+              // Get the variable ID of referenceDate.
+              ncErrorCode = nc_inq_varid(stateFileID, "referenceDate", &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable referenceDate in NetCDF state file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Read the values of referenceDate.
+              ncErrorCode = nc_get_var_double(stateFileID, variableID, referenceDateArray);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable referenceDate in NetCDF state file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Get the variable ID of currentTime.
+              ncErrorCode = nc_inq_varid(stateFileID, "currentTime", &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable currentTime in NetCDF state file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Read the values of currentTime.
+              ncErrorCode = nc_get_var_double(stateFileID, variableID, currentTimeArray);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable currentTime in NetCDF state file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
         }
       
-      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
-      stateInstance = stateInstancesSize;
+      if (!error)
+        {
+          // Find if any of the existing instances have the same reference date and current time.  If so, overwrite that instance.  If not, write a new
+          // instance after the last instance currently in the file.
+          stateInstance = 0;
+          
+          while (stateInstance < stateInstancesSize && !(ADHydro::referenceDate == referenceDateArray[stateInstance] && currentTime == currentTimeArray[stateInstance]))
+            {
+              ++stateInstance;
+            }
+        }
     }
   
   // Write to the display file if it is an output time, the end of the simulation, or the beginning of the simulation.
   // ADHydro::currentTime is never updated so it continues to hold the time at the beginning of the simulation.
   writeDisplay = (nextOutputIndex * ADHydro::outputPeriod == currentTime || simulationEndTime == currentTime || ADHydro::currentTime == currentTime);
   
-  // If we do need to write the display we will write a new instance one after the last instance currently in the file.
-  // FIXME if an instance already exists with the same currentTime overwrite that instance
+  // If we do need to write the display, if an instance already exists with the same referenceDate and currentTime overwrite that instance.  Otherwise write a
+  // new instance one after the last instance currently in the file.
   if (!error && writeDisplay)
     {
       // Get the number of instances in the display file if we haven't already.
@@ -6434,16 +6923,106 @@ void FileManager::writeNetCDFFiles()
             {
               displayFileOpen = true;
             }
+        }
           
+      if (!error)
+        {
+          error = NetCDFReadDimensionSize(displayFileID, "instances", &displayInstancesSize);
+        }
+      
+      if (0 < displayInstancesSize)
+        {
           if (!error)
             {
-              error = NetCDFReadDimensionSize(displayFileID, "instances", &displayInstancesSize);
+              if (displayInstancesSize > referenceDateArraySize)
+                {
+                  delete[] referenceDateArray;
+                  referenceDateArray     = new double[displayInstancesSize];
+                  referenceDateArraySize = displayInstancesSize;
+                }
+              
+              if (displayInstancesSize > currentTimeArraySize)
+                {
+                  delete[] currentTimeArray;
+                  currentTimeArray       = new double[displayInstancesSize];
+                  currentTimeArraySize   = displayInstancesSize;
+                }
+
+              // Get the variable ID of referenceDate.
+              ncErrorCode = nc_inq_varid(displayFileID, "referenceDate", &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable referenceDate in NetCDF display file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Read the values of referenceDate.
+              ncErrorCode = nc_get_var_double(displayFileID, variableID, referenceDateArray);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable referenceDate in NetCDF display file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Get the variable ID of currentTime.
+              ncErrorCode = nc_inq_varid(displayFileID, "currentTime", &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to get variable currentTime in NetCDF display file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            }
+
+          if (!error)
+            {
+              // Read the values of currentTime.
+              ncErrorCode = nc_get_var_double(displayFileID, variableID, currentTimeArray);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+              if (!(NC_NOERR == ncErrorCode))
+                {
+                  CkError("ERROR in FileManager::writeNetCDFFiles: unable to read variable currentTime in NetCDF display file.  NetCDF error message: %s.\n",
+                          nc_strerror(ncErrorCode));
+                  error = true;
+                }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
             }
         }
       
-      // Use the instance one after the last instance currently in the file, which is equal to the number of instances in the file.
-      displayInstance = displayInstancesSize;
+      if (!error)
+        {
+          // Find if any of the existing instances have the same reference date and current time.  If so, overwrite that instance.  If not, write a new
+          // instance after the last instance currently in the file.
+          displayInstance = 0;
+          
+          while (displayInstance < displayInstancesSize && !(ADHydro::referenceDate == referenceDateArray[displayInstance] && currentTime == currentTimeArray[displayInstance]))
+            {
+              ++displayInstance;
+            }
+        }
     }
+  
+  // Clean up in case they were allocated.
+  delete[] referenceDateArray;
+  delete[] currentTimeArray;
   
   // Write instances as necessary.
   if (!error && writeGeometry)
