@@ -85,9 +85,9 @@ if __name__ == "__main__":
          printExtent('outline')
     else:
         print "Outline doesn't exist, determining extents from catchments"
-        printExtent('catchments_validated')
+        printExtent('catchments')
 
   elif args.boundary:
-    dissolve_mesh('catchments_validated')
+    dissolve_mesh('catchments')
   else:
     dissolve_mesh('mesh_catchments')
