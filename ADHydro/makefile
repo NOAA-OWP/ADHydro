@@ -23,10 +23,10 @@ CHARMC         := $(CHARMDIR)/bin/charmc
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
 NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_diversions -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++
 
-VPATH  := ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../management/build ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
+VPATH  := ../management/generated_code/charm_diversions ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../management/build ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
 EXES := adhydro
 
@@ -44,6 +44,10 @@ ADHYDRO_OBJS := adhydro.o             \
 
 MANAGEMENT_OBJS := ReservoirFactory.o \
                    Reservoir.o        \
+                   DiversionFactory.o \
+                   Diversion.o        \
+                   ParcelFactory.o    \
+                   Parcel.o           \
                    common_utilities.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
@@ -82,7 +86,11 @@ adhydro.o: adhydro.cpp           \
            neighbor_proxy.h      \
            evapo_transpiration.h \
            all_charm.h           \
-           all.h
+           all.h                 \
+           ReservoirFactory.h    \
+           Reservoir.h           \
+           DiversionFactory.h    \
+           Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 adhydro.decl.h \
@@ -106,7 +114,11 @@ file_manager.o: file_manager.cpp      \
                 evapo_transpiration.h \
                 garto.h               \
                 all_charm.h           \
-                all.h
+                all.h                 \
+                ReservoirFactory.h    \
+                Reservoir.h           \
+                DiversionFactory.h    \
+                Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 file_manager.decl.h \
@@ -128,7 +140,11 @@ region.o: region.cpp            \
           evapo_transpiration.h \
           garto.h               \
           all_charm.h           \
-          all.h
+          all.h                 \
+          ReservoirFactory.h    \
+          Reservoir.h           \
+          DiversionFactory.h    \
+          Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 region.decl.h \
@@ -151,7 +167,11 @@ mesh_element.o : mesh_element.cpp      \
                  evapo_transpiration.h \
                  garto.h               \
                  all_charm.h           \
-                 all.h
+                 all.h                 \
+                 ReservoirFactory.h    \
+                 Reservoir.h           \
+                 DiversionFactory.h    \
+                 Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 channel_element.o : channel_element.cpp   \
@@ -169,7 +189,11 @@ channel_element.o : channel_element.cpp   \
                     groundwater.h         \
                     evapo_transpiration.h \
                     all_charm.h           \
-                    all.h
+                    all.h                 \
+                    ReservoirFactory.h    \
+                    Reservoir.h           \
+                    DiversionFactory.h    \
+                    Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 element.o: element.cpp      \
@@ -198,7 +222,11 @@ surfacewater.o: surfacewater.cpp      \
                 neighbor_proxy.h      \
                 evapo_transpiration.h \
                 all_charm.h           \
-                all.h
+                all.h                 \
+                ReservoirFactory.h    \
+                Reservoir.h           \
+                DiversionFactory.h    \
+                Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 groundwater.o: groundwater.cpp       \
@@ -215,14 +243,18 @@ groundwater.o: groundwater.cpp       \
                neighbor_proxy.h      \
                evapo_transpiration.h \
                all_charm.h           \
-               all.h
+               all.h                 \
+               ReservoirFactory.h    \
+               Reservoir.h           \
+               DiversionFactory.h    \
+               Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        adhydro.h               \
                        adhydro.decl.h          \
-                       file_manager.h        \
+                       file_manager.h          \
                        file_manager.decl.h     \
                        region.h                \
                        region.decl.h           \
@@ -231,7 +263,11 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        element.h               \
                        neighbor_proxy.h        \
                        all_charm.h             \
-                       all.h
+                       all.h                   \
+                       ReservoirFactory.h    \
+                       Reservoir.h             \
+                       DiversionFactory.h    \
+                       Diversion.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 garto.o: garto.cpp   \

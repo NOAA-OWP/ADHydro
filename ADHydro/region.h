@@ -520,9 +520,20 @@ public:
                                                        double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
                                                        double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);
   
+  // FIXME comment
+  void handleDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                  double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                  double neighborSideSlope);
+  
+  // FIXME comment
+  void handleDiversionReleaseRecipientInitializedMessage(int element, int neighbor, int neighborRegion, int reciprocalNeighborProxy);
+  
   // Returns: true if all neighbor proxies have been initialized, false
   //          otherwise.
   bool allNeighborsInitialized();
+  
+  // FIXME comment
+  void checkIfMyDiversionsInitialized();
   
   // For external nominal flow rates that have expired send the element's state
   // to the neighbor.
@@ -682,6 +693,10 @@ public:
   int    nextOutputIndex;      // This multiplied by ADHydro::outputPeriod is the next time that an output will be done.
   bool   simulationFinished;   // Flag to indicate the simulation is finished.
   double nextForcingDataTime;  // Simulation time to receive the next forcing data in seconds since ADHydro::referenceDate.
+  
+  // These flags are used for initialization of diversions.
+  bool sentMyDiversionsInitialized; // FIXME comment
+  bool allDiversionsInitialized;    // FIXME comment
 };
 
 #endif // __REGION_H__

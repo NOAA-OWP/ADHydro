@@ -70,6 +70,14 @@ module region
       // Receive until all neighbor proxies are initialized.
       while (!allNeighborsInitialized())
       {
+        if (!sentMyDiversionsInitialized)
+        {
+          serial
+          {
+            checkIfMyDiversionsInitialized();
+          }
+        }
+        
         case
         {
           when sendMeshSurfacewaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborX, double neighborY,
@@ -147,6 +155,33 @@ module region
             {
               handleChannelGroundwaterMeshNeighborInitMessage(element, neighbor, reciprocalNeighborProxy, neighborVertexX, neighborVertexY, neighborX,
                                                               neighborY, neighborZSurface, neighborLayerZBottom, neighborSlopeX, neighborSlopeY);
+            }
+          }
+          
+          when sendDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                        double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                        double neighborSideSlope)
+          {
+            serial
+            {
+              handleDiversionReleaseRecipientInitMessage(element, neighbor, neighborRegion, neighborChannelType, neighborX, neighborY, neighborZBank,
+                                                         neighborZBed, neighborBaseWidth, neighborSideSlope);
+            }
+          }
+          
+          when sendDiversionReleaseRecipientInitializedMessage(int element, int neighbor, int neighborRegion, int reciprocalNeighborProxy)
+          {
+            serial
+            {
+              handleDiversionReleaseRecipientInitializedMessage(element, neighbor, neighborRegion, reciprocalNeighborProxy);
+            }
+          }
+          
+          when sendAllDiversionsInitializedMessage()
+          {
+            serial
+            {
+              allDiversionsInitialized = true;
             }
           }
         } // End case inside of while (!allNeighborsInitialized()).
@@ -493,6 +528,11 @@ module region
     entry void sendChannelGroundwaterMeshNeighborInitMessage(int element, int neighbor, int reciprocalNeighborProxy, double neighborVertexX[3],
                                                              double neighborVertexY[3], double neighborX, double neighborY, double neighborZSurface,
                                                              double neighborLayerZBottom, double neighborSlopeX, double neighborSlopeY);
+    entry void sendDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                        double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                        double neighborSideSlope);
+    entry void sendDiversionReleaseRecipientInitializedMessage(int element, int neighbor, int neighborRegion, int reciprocalNeighborProxy);
+    entry [reductiontarget] void sendAllDiversionsInitializedMessage();
     entry void calculateNominalFlowRatesForInternalNeighbors();
     entry void sendStateMessages(double senderCurrentTime, double senderRegionalDtLimit, std::vector<RegionMessage> stateMessages);
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);

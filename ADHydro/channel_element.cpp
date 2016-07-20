@@ -602,7 +602,12 @@ ChannelElement::ChannelElement() :
   channelNeighbors(),
   undergroundMeshNeighbors(),
   reservoir(NULL),
-  reservoirReleaseRecipient(-1)
+  reservoirReleaseRecipient(-1),
+  diversion(NULL),
+  diversionReleaseRecipients(),
+  diversionReleaseRecipientsRegions(),
+  diversionReleaseRecipientsReciprocalNeighborProxies(),
+  diversionReleaseRecipientsInitialized()
 {
   // Initialization handled by initialization list.
 }
@@ -644,7 +649,12 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   channelNeighbors(),
   undergroundMeshNeighbors(),
   reservoir(NULL),
-  reservoirReleaseRecipient(-1)
+  reservoirReleaseRecipient(-1),
+  diversion(NULL),
+  diversionReleaseRecipients(),
+  diversionReleaseRecipientsRegions(),
+  diversionReleaseRecipientsReciprocalNeighborProxies(),
+  diversionReleaseRecipientsInitialized()
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfChannelElements))
@@ -762,9 +772,21 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
     {
       reservoir = ADHydro::fileManagerProxy.ckLocalBranch()->reservoirFactory.create(reachCode);
     }
+  
+  diversion = ADHydro::fileManagerProxy.ckLocalBranch()->diversionFactory.create(elementNumber, ADHydro::referenceDate, ADHydro::currentTime);
+  
+  if (NULL != diversion)
+    {
+      diversionReleaseRecipients = diversion->getMeshNeighbors();
+      diversionReleaseRecipientsRegions.insert(diversionReleaseRecipientsRegions.begin(), diversionReleaseRecipients.size(), -1);
+      diversionReleaseRecipientsReciprocalNeighborProxies.insert(diversionReleaseRecipientsReciprocalNeighborProxies.begin(), diversionReleaseRecipients.size(), -1);
+      diversionReleaseRecipientsInitialized.insert(diversionReleaseRecipientsInitialized.begin(), diversionReleaseRecipients.size(), false);
+      
+      // FIXME add to invariant that if diversion is NULL then diversionReleaseRecipients et. al. must be empty.
+    }
 }
 
-// FIXME destructor to delete reservoir
+// FIXME destructor to delete reservoir & diversion.
 
 void ChannelElement::pup(PUP::er &p)
 {
@@ -799,6 +821,11 @@ void ChannelElement::pup(PUP::er &p)
   p | undergroundMeshNeighbors;
   p | reservoir;
   p | reservoirReleaseRecipient;
+  p | diversion;
+  p | diversionReleaseRecipients;
+  p | diversionReleaseRecipientsRegions;
+  p | diversionReleaseRecipientsReciprocalNeighborProxies;
+  p | diversionReleaseRecipientsInitialized;
 }
 
 bool ChannelElement::checkInvariant()
@@ -1171,6 +1198,7 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenc
 bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime, Region& region)
 {
   bool   error                   = false;                                           // Error flag.
+  size_t ii;                                                                        // Loop counter.
   std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator    itMesh;            // Loop iterator.
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh; // Loop iterator.
@@ -1198,6 +1226,9 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
   double originalEvapoTranspirationTotalWaterInDomain;                              // For mass balance check.
   double evaporation;                                                               // Cubic meters.
   double unsatisfiedEvaporation;                                                    // Cubic meters.
+  double waterAvailable;                                                            // Cubic meters of water available for a diversion to take.
+  std::vector<std::pair<int, double> >           waterToDivert;                     // Vector of (mesh elementID, cubic meters of water to divert to that mesh element).
+  std::vector<std::pair<int, double> >::iterator itDiversion;                       // loop iterator.
   double totalOutwardFlowRate    = 0.0;                                             // Sum of all outward flow rates in cubic meters per second.
   double outwardFlowRateFraction = 1.0;                                             // Fraction of all outward flow rates that can be satisfied, unitless.
   double crossSectionArea        = surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth);
@@ -1336,6 +1367,58 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
       // If the roundoff error of adding one timestep's water to CumulativeShortTerm is greater than the roundoff error of adding CumulativeShortTerm to
       // CumulativeLongTerm then move CumulativeShortTerm to CumulativeLongTerm.
       // FIXME implement
+    }
+  
+  if (!error && NULL != diversion)
+    {
+      // Send water for diversions.
+      waterAvailable = crossSectionArea * elementLength;
+      
+      diversion->divert(&waterAvailable, referenceDate, currentTime, timestepEndTime, waterToDivert);
+      
+      for (itDiversion = waterToDivert.begin(); !error && itDiversion != waterToDivert.end(); ++itDiversion)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          CkAssert(0.0 <= (*itDiversion).second);
+
+          // FIXME invariant check to make sure waterToDivert contains all elements of diversionReleaseRecipients.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          ii = 0;
+          
+          while (ii < diversionReleaseRecipients.size() && diversionReleaseRecipients[ii] != (*itDiversion).first)
+            {
+              ++ii;
+            }
+          
+          if (ii < diversionReleaseRecipients.size())
+            {
+              waterSent         = (*itDiversion).second;
+              crossSectionArea -= waterSent / elementLength;
+              // FIXME how to record cumulative flows?
+
+              error = region.sendWater(diversionReleaseRecipientsRegions[ii],
+                                       RegionMessage(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itDiversion).first,
+                                                     diversionReleaseRecipientsReciprocalNeighborProxies[ii], 0.0, 0.0,
+                                                     SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime, waterSent)));
+            }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          else
+            {
+              CkError("ERROR in ChannelElement::doPointProcessesAndSendOutflows, element %d: diversion release to mesh element %d, which is not in its "
+                      "recipients list.\n", elementNumber, (*itDiversion).first);
+              error = true;
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+        }
+      
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      if (!error)
+        {
+          // Double check that waterAvailable was reduced by the same amount of water as crossSectionArea.
+          CkAssert(epsilonEqual(waterAvailable, crossSectionArea * elementLength));
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     }
   
   if (!error)

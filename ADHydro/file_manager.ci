@@ -347,6 +347,9 @@ module file_manager
     entry [reductiontarget] void barrier();
     entry void sendElementStateMessages(double messageTime, std::vector<ElementStateMessage> meshElementStateMessages,
                                         std::vector<ElementStateMessage> channelElementStateMessages);
+    entry void sendDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                        double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                        double neighborSideSlope);
     // FIXME uncomment entry void massBalanceDone();
   }; // End group FileManager.
 }; // End module file_manager.

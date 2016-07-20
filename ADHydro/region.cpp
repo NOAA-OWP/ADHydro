@@ -300,7 +300,9 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
   nextCheckpointIndex(1 + (int)floor(currentTimeInit / ADHydro::checkpointPeriod)),
   nextOutputIndex(1 + (int)floor(currentTimeInit / ADHydro::outputPeriod)),
   simulationFinished(false),
-  nextForcingDataTime(NAN)
+  nextForcingDataTime(NAN),
+  sentMyDiversionsInitialized(false),
+  allDiversionsInitialized(false)
 {
   FileManager* fileManagerLocalBranch = ADHydro::fileManagerProxy.ckLocalBranch();            // Used for access to local public member variables.
   int          fileManagerLocalIndex  = thisIndex - fileManagerLocalBranch->localRegionStart; // Index of this element in local file manager arrays.
@@ -344,7 +346,9 @@ Region::Region(CkMigrateMessage* msg) :
   nextCheckpointIndex(0),
   nextOutputIndex(0),
   simulationFinished(false),
-  nextForcingDataTime(NAN)
+  nextForcingDataTime(NAN),
+  sentMyDiversionsInitialized(false),
+  allDiversionsInitialized(false)
 {
   // Initialization handled by initialization list.
 }
@@ -617,6 +621,8 @@ void Region::pup(PUP::er &p)
   p | nextOutputIndex;
   p | simulationFinished;
   p | nextForcingDataTime;
+  p | sentMyDiversionsInitialized;
+  p | allDiversionsInitialized;
 }
 
 bool Region::checkInvariant()
@@ -655,10 +661,19 @@ bool Region::checkInvariant()
           for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
                itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
             {
-              (*itMeshSurfacewaterChannelNeighbor).neighborInvariantChecked = false;
+              if ((*itMeshSurfacewaterChannelNeighbor).inflowOnly)
+                {
+                  // FIXME diversion release recipient proxies have no matching proxy on the channel element.  Some invariants could be checked on this proxy,
+                  // but don't send a neighbor check invariant message.
+                  (*itMeshSurfacewaterChannelNeighbor).neighborInvariantChecked = true;
+                }
+              else
+                {
+                  (*itMeshSurfacewaterChannelNeighbor).neighborInvariantChecked = false;
 
-              thisProxy[(*itMeshSurfacewaterChannelNeighbor).region]
-                        .sendChannelSurfacewaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshSurfacewaterChannelNeighbor);
+                  thisProxy[(*itMeshSurfacewaterChannelNeighbor).region]
+                            .sendChannelSurfacewaterMeshNeighborCheckInvariant(currentTime, (*itMesh).second.elementNumber, *itMeshSurfacewaterChannelNeighbor);
+                }
             }
 
           for (itMeshGroundwaterMeshNeighbor  = (*itMesh).second.underground.meshNeighbors.begin();
@@ -1764,7 +1779,9 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
                                             std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                             std::vector<simpleNeighborInfo> groundwaterMeshNeighbors)
 {
-  std::vector<simpleNeighborInfo>::iterator it; // Loop iterator.
+  std::vector<simpleNeighborInfo>::iterator it;           // Loop iterator.
+  std::vector<int>::iterator                itDiversion;  // Loop iterator.
+  std::vector<int>::iterator                itDiversion2; // Loop iterator.
   
   // Most parameters are error checked in the ChannelElement constructor.
   
@@ -1878,6 +1895,51 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
       thisProxy[(*it).region].sendMeshGroundwaterChannelNeighborInitMessage(
           (*it).neighbor, elementNumberInit, channelElements[elementNumberInit].undergroundMeshNeighbors.size() - 1, channelTypeInit, elementXInit, elementYInit,
           elementZBankInit, elementZBedInit, baseWidthInit, sideSlopeInit, bedConductivityInit, bedThicknessInit);
+    }
+  
+  if (NULL != channelElements[elementNumberInit].diversion)
+    {
+      for (itDiversion  = channelElements[elementNumberInit].diversionReleaseRecipients.begin();
+           itDiversion != channelElements[elementNumberInit].diversionReleaseRecipients.end(); ++itDiversion)
+        {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+          if (!(0 <= *itDiversion && *itDiversion < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
+            {
+              CkError("ERROR in Region::handleInitializeChannelElement: Channel element %d has a diversion release recipient %d that is not a valid mesh "
+                      "element.\n", elementNumberInit, *itDiversion);
+              CkExit();
+            }
+          
+          itDiversion2 = itDiversion;
+          ++itDiversion2;
+          
+          while (itDiversion2 != channelElements[elementNumberInit].diversionReleaseRecipients.end())
+            {
+              if (*itDiversion == *itDiversion2)
+                {
+                  CkError("ERROR in Region::handleInitializeChannelElement: Channel element %d has mesh element %d duplicated in its diversion release "
+                          "recipient list.\n", elementNumberInit, *itDiversion);
+                  CkExit();
+                }
+              
+              ++itDiversion2;
+            }
+          
+          for (it = surfacewaterMeshNeighbors.begin(); it != surfacewaterMeshNeighbors.end(); ++it)
+            {
+              if (*itDiversion == (*it).neighbor)
+                {
+                  CkError("ERROR in Region::handleInitializeChannelElement: Channel element %d has a diversion release recipient %d that is a duplicate of a "
+                          "natural flow neighbor.  This situation is not yet handled by the ADHydro code.\n", elementNumberInit, *itDiversion);
+                  CkExit();
+                }
+            }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+      
+          ADHydro::fileManagerProxy[FileManager::home(*itDiversion, ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements)]
+                                    .sendDiversionReleaseRecipientInitMessage(*itDiversion, elementNumberInit, thisIndex, channelTypeInit, elementXInit,
+                                                                              elementYInit, elementZBankInit, elementZBedInit, baseWidthInit, sideSlopeInit);
+        }
     }
 }
 
@@ -2379,9 +2441,56 @@ void Region::handleChannelGroundwaterMeshNeighborInitMessage(int element, int ne
     }
 }
 
+void Region::handleDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                        double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                        double neighborSideSlope)
+{
+  // FIXME we are putting diversion neighbor proxies in the list of channel neighbors.  Maybe we should have a separate list.
+  // FIXME error check, especially for duplicate neighbors.
+  // FIXME save flow cumulative?
+  meshElements[element].channelNeighbors.push_back(
+      MeshSurfacewaterChannelNeighborProxy(INFINITY, -1.0, true, 0.0, 0.0, neighborRegion, neighbor, 0, neighborChannelType, neighborZBank, neighborZBed,
+                                           calculateZOffset(element, meshElements[element].vertexX, meshElements[element].vertexY, meshElements[element].elementX,
+                                                            meshElements[element].elementY, meshElements[element].elementZSurface,
+                                                            meshElements[element].underground.slopeX, meshElements[element].underground.slopeY, neighbor, neighborX,
+                                                            neighborY, neighborZBank, neighborChannelType),
+                                           1.0, neighborBaseWidth, neighborSideSlope));
+  
+  meshElements[element].channelNeighbors.back().neighborInitialized = true;
+  
+  thisProxy[neighborRegion].sendDiversionReleaseRecipientInitializedMessage(neighbor, element, thisIndex, meshElements[element].channelNeighbors.size() - 1);
+}
+
+void Region::handleDiversionReleaseRecipientInitializedMessage(int element, int neighbor, int neighborRegion, int reciprocalNeighborProxy)
+{
+  size_t ii; // Loop counter.
+  
+  ii = 0;
+  
+  while (ii < channelElements[element].diversionReleaseRecipients.size() && channelElements[element].diversionReleaseRecipients[ii] != neighbor)
+    {
+      ++ii;
+    }
+  
+  if (ii < channelElements[element].diversionReleaseRecipients.size())
+    {
+      channelElements[element].diversionReleaseRecipientsRegions[ii]                   = neighborRegion;
+      channelElements[element].diversionReleaseRecipientsReciprocalNeighborProxies[ii] = reciprocalNeighborProxy;
+      channelElements[element].diversionReleaseRecipientsInitialized[ii]               = true;
+    }
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  else
+    {
+      CkError("ERROR in Region::handleDiversionReleaseRecipientInitializedMessage: Channel element %d received DiversionReleaseRecipientInitializedMessage from "
+              "mesh element %d, which is not in its recipients list.\n", element, neighbor);
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+}
+
 bool Region::allNeighborsInitialized()
 {
-  bool allInitialized = true; // Stays true until we find one that is not initialized.
+  bool allInitialized = allDiversionsInitialized; // Stays true until we find one that is not initialized.
   
   // FIXLATER I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  It's only done once at initialization, not once per timestep
   // so the performance benefit would be less.
@@ -2441,6 +2550,38 @@ bool Region::allNeighborsInitialized()
   return allInitialized;
 }
 
+void Region::checkIfMyDiversionsInitialized()
+{
+  bool                        allInitialized = true; // Stays true until we find one that is not initialized.
+  std::vector<bool>::iterator it;                    // Loop iterator.
+
+  // FIXLATER I could modify this to make it an incremental scan like allNominalFlowRatesCalculated.  It's only done once at initialization, not once per timestep
+  // so the performance benefit would be less.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+  // Iterators must not be in use at this time.
+  CkAssert(!pupItMeshAndItChannel && !pupItNeighbor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+  for (itChannel = channelElements.begin(); allInitialized && itChannel != channelElements.end(); ++itChannel)
+    {
+      if (NULL != (*itChannel).second.diversion)
+        {
+          for (it = (*itChannel).second.diversionReleaseRecipientsInitialized.begin(); allInitialized && it != (*itChannel).second.diversionReleaseRecipientsInitialized.end(); ++it)
+            {
+              allInitialized = *it;
+            }
+        }
+    }
+  
+  if (allInitialized)
+    {
+      // Contribute to a reduction that will tell all regions when all regions are done.
+      contribute(CkCallback(CkReductionTarget(Region, sendAllDiversionsInitializedMessage), thisProxy));
+      
+      sentMyDiversionsInitialized = true;
+    }
+}
+
 void Region::sendStateToExternalNeighbors()
 {
   std::map<int, std::vector<RegionMessage> >::iterator it; // Loop iterator.
@@ -2476,7 +2617,12 @@ void Region::sendStateToExternalNeighbors()
       for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
            itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
         {
-          if ((*itMeshSurfacewaterChannelNeighbor).region == thisIndex)
+          // If I'm the recipient of a diversion release do nothing at this point.
+          if ((*itMeshSurfacewaterChannelNeighbor).inflowOnly)
+            {
+              // No-op.
+            }
+          else if ((*itMeshSurfacewaterChannelNeighbor).region == thisIndex)
             {
               (*itMeshSurfacewaterChannelNeighbor).expirationTime = currentTime;
             }
@@ -3467,10 +3613,14 @@ void Region::sendStateToFileManagers()
       for (itMeshSurfacewaterChannelNeighbor  = (*itMesh).second.channelNeighbors.begin();
            itMeshSurfacewaterChannelNeighbor != (*itMesh).second.channelNeighbors.end(); ++itMeshSurfacewaterChannelNeighbor)
         {
-          state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
-              (*itMeshSurfacewaterChannelNeighbor).expirationTime, (*itMeshSurfacewaterChannelNeighbor).nominalFlowRate,
-              (*itMeshSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
-              (*itMeshSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0, false));
+          // FIXME Don't send diversion neighbor proxies because file managers don't know about them.  Fix this in the future.
+          if (!(*itMeshSurfacewaterChannelNeighbor).inflowOnly)
+            {
+              state.surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(
+                  (*itMeshSurfacewaterChannelNeighbor).expirationTime, (*itMeshSurfacewaterChannelNeighbor).nominalFlowRate,
+                  (*itMeshSurfacewaterChannelNeighbor).flowCumulativeShortTerm, (*itMeshSurfacewaterChannelNeighbor).flowCumulativeLongTerm, 0,
+                  (*itMeshSurfacewaterChannelNeighbor).neighbor, 1.0, 1.0, 0.0, false));
+            }
         }
 
       for (itMeshGroundwaterChannelNeighbor  = (*itMesh).second.underground.channelNeighbors.begin();
@@ -3598,5 +3748,7 @@ bool Region::massBalance(double& waterInDomain, double& externalFlows, double& w
 
 // Suppress warnings in the The Charm++ autogenerated code.
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 #include "region.def.h"
+#pragma GCC diagnostic warning "-Wunused-variable"
 #pragma GCC diagnostic warning "-Wsign-compare"

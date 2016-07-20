@@ -4,6 +4,7 @@
 #include "neighbor_proxy.h"
 #include "evapo_transpiration.h"
 #include "Reservoir.h"
+#include "Diversion.h"
 
 // channel_element.h needs to know about the Region class, but region.h includes channel_element.h so we just do a forward declaration of the Region class to
 // break the circularity.
@@ -422,9 +423,14 @@ public:
   std::vector<ChannelSurfacewaterChannelNeighborProxy> channelNeighbors;
   std::vector<ChannelGroundwaterMeshNeighborProxy>     undergroundMeshNeighbors;
   
-  Reservoir* reservoir;                 // If the element is a reservoir this will point to the Reservoir object.  Otherwise it will be NULL.
-  int        reservoirReleaseRecipient; // If the element is a reservoir this will contain the elementNumber of the channel element where the release goes to.
-                                        // Otherwise it will be -1.
+  Reservoir*        reservoir;                                           // If the element is a reservoir this will point to the Reservoir object.  Otherwise it will be NULL.
+  int               reservoirReleaseRecipient;                           // If the element is a reservoir this will contain the elementNumber of the channel element where the release
+                                                                         // goes to.  Otherwise it will be -1.
+  Diversion*        diversion;                                           // FIXME comment
+  std::vector<int>  diversionReleaseRecipients;                          // FIXME comment
+  std::vector<int>  diversionReleaseRecipientsRegions;                   // FIXME comment
+  std::vector<int>  diversionReleaseRecipientsReciprocalNeighborProxies; // FIXME comment
+  std::vector<bool> diversionReleaseRecipientsInitialized;               // FIXME comment
   
 private:
   

@@ -3,6 +3,7 @@
 
 #include "region.h"
 #include "ReservoirFactory.h"
+#include "DiversionFactory.h"
 
 // An ElementStateMessage is used for regions to send updated element state to
 // file managers for writing out to file.
@@ -669,6 +670,12 @@ public:
   // message - The updated state.
   void handleChannelElementStateMessage(ElementStateMessage& message);
   
+  // Forward this message to the appropriate region.
+  // FIXME comment
+  void sendDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
+                                                double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
+                                                double neighborSideSlope);
+  
   int globalNumberOfRegions;         // Number of regions across all file managers.
   int localRegionStart;              // Index of first region owned by this local branch.
   int localNumberOfRegions;          // Number of regions owned by this local branch.
@@ -939,6 +946,7 @@ public:
   
   // These are used for water management.
   ReservoirFactory reservoirFactory; // A singleton factory for creating Reservoir objects.
+  DiversionFactory diversionFactory; // A singleton factory for creating Diversion objects.
 };
 
 #endif // __FILE_MANAGER_H__
