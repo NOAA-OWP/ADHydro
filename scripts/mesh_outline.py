@@ -86,8 +86,10 @@ if __name__ == "__main__":
     else:
         print "Outline doesn't exist, determining extents from catchments"
         printExtent('catchments')
-
+  
   elif args.boundary:
-    dissolve_mesh('catchments')
+    parent = os.path.join(input_directory_path, 'TauDEM')
+    dissolve_mesh(os.path.join(parent,'catchments'))
   else:
-    dissolve_mesh('mesh_catchments')
+    parent = os.path.join(input_directory_path, 'ArcGIS')
+    dissolve_mesh(os.path.join(parent,'mesh_catchments'))
