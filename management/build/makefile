@@ -5,12 +5,12 @@
 ######
 #EN LAB
 ######
-#CHARMDIR    := /opt/build/charm
+#CHARMDIR    := /opt/build/charm/
 
 ######
 #MOUNT MORAN
 ######
-#CHARMDIR   := /project/CI-WATER/tools/build/charm
+#CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm/
 
 ######
 #OTHER

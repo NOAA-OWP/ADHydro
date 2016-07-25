@@ -1,9 +1,9 @@
 # Use these values for Mt Moran.
 
-#CHARMDIR         := /project/CI-WATER/tools/build/charm
+#CHARMDIR         := /project/CI-WATER/tools/CI-WATER-tools/charm
 #HDF5DIR          := /apps/HDF5-mpi/intel/15.0.0/1.8.13
 #NETCDFDIR        := /apps/NetCDF-mpi/intel/15.0.0/4.3.2
-#METISDIR         := /project/CI-WATER/tools
+#METISDIR         := /project/CI-WATER/tools/CI-WATER-tools
 #LIBDIRNAME       := lib
 #EXTRAFLAGS       := -DINTEL_COMPILER
 #EXTRANETCDFFLAGS :=
