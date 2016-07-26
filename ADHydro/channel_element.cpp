@@ -1181,12 +1181,6 @@ bool ChannelElement::calculateNominalFlowRateForReservoirRelease(double referenc
           channelNeighbors[neighborProxyIndex].expirationTime = channelNeighbors[neighborProxyIndex].expirationTime - ADHydro::drainDownTime + currentTime;
         }
       
-      // FIXME There is a bug in release that allows negative flow rates.  To make progress on runs I am kludgeing this here.  Remove eventually.
-      if (0.0 > channelNeighbors[neighborProxyIndex].nominalFlowRate)
-        {
-          channelNeighbors[neighborProxyIndex].nominalFlowRate = 0.0;
-        }
-      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       CkAssert(0.0 <= channelNeighbors[neighborProxyIndex].nominalFlowRate);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
