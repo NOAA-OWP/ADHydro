@@ -5,17 +5,17 @@
 ######
 #EN LAB
 ######
-#CHARMDIR    := /opt/build/charm/
+#CHARMDIR    := /opt/build/charm
 
 ######
 #MOUNT MORAN
 ######
-#CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm/
+CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm
 
 ######
 #OTHER
 ######
-CHARMDIR   := ~/Desktop/charm/
+#CHARMDIR   := ~/Desktop/charm/
 
 
 
@@ -52,74 +52,74 @@ parcels:    Creator.o          \
             Parcel.o           \
 		    common_utilities.o
 
-.PHONY: all
+.PHONY: all clean
 
 Creator.o: Creator.cpp # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
 #Build reservoirs
 ReservoirCreator.o: ReservoirCreator.cpp # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-ReservoirFactory.o: ReservoirFactory.cpp \
+ReservoirFactory.o: ReservoirFactory.cpp |\
                     res%.decl.h # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-Reservoir.o: Reservoir.cpp \
+Reservoir.o: Reservoir.cpp |\
              Reservoir.decl.h
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
 Reservoir.decl.h \
 Reservoir.def.h: Reservoir.ci
-	$(CHARMC) $<
+	$(CHARMC) $?
 
 #Build Diversions
 DiversionCreator.o: DiversionCreator.cpp # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-DiversionFactory.o: DiversionFactory.cpp \
+DiversionFactory.o: DiversionFactory.cpp |\
                     div%.decl.h # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-Diversion.o: Diversion.cpp \
+Diversion.o: Diversion.cpp |\
              Diversion.decl.h
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
 Diversion.decl.h \
 Diversion.def.h: Diversion.ci
-	$(CHARMC) $<
+	$(CHARMC) $?
 
 #Build Parcels
 ParcelCreator.o: ParcelCreator.cpp # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-ParcelFactory.o: ParcelFactory.cpp \
+ParcelFactory.o: ParcelFactory.cpp |\
                     par%.decl.h # FIXME add .h file dependencies
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
-Parcel.o: Parcel.cpp \
+Parcel.o: Parcel.cpp |\
           Parcel.decl.h
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
 Parcel.decl.h \
 Parcel.def.h: Parcel.ci
-	$(CHARMC) $<
+	$(CHARMC) $?
 
 common_utilities.o: common_utilities.cpp
-	$(CHARMC) $(CPPFLAGS) $< -o $@
+	$(CHARMC) $(CPPFLAGS) $? -o $@
 
 #Pattern rule for charm generated headers.
 res%.decl.h \
-res%.def.h: reservoirs.ci Reservoir.ci 
-	$(CHARMC) $<
+res%.def.h: $(RESDIR)/reservoirs*.ci 
+	$(CHARMC) $?
 
 div%.decl.h \
-div%.def.h: diversions.ci Diversion.ci
-	$(CHARMC) $<
+div%.def.h: $(DIVDIR)/diversions*.ci
+	$(CHARMC) $?
 
 par%.decl.h \
-par%.def.h: parcels.ci Parcel.ci
-	$(CHARMC) $<
+par%.def.h: $(DIVDIR)/parcels*.ci
+	$(CHARMC) $?
 
 test: all
 	$(CHARMC) $(TESTDIR)/element.ci $(TESTDIR)/main.ci 

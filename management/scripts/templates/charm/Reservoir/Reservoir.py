@@ -18,6 +18,8 @@ _cxx_abstract_class_header_string = \
     Base class for reservoir managment components
 */
 #include "pup.h"
+#include "pup_stl.h"
+#include "charm++.h"
 #include <algorithm>
 class Reservoir : public PUP::able
 {
@@ -86,7 +88,7 @@ class Reservoir : public PUP::able
     */
     virtual void release(const double& curr_inflow, const double& curr_volume,
                          const double& referenceDate, const double& currentTime,
-                         double& rate, double& expirationTime){rate=0;expirationTime=currentTime+86400;};
+                         double& rate, double& expirationTime){CkAssert(false);rate=0;expirationTime=currentTime+86400;};
 
     /*
         Add PUP support
@@ -425,7 +427,7 @@ double ${NAME}::curr_target_rate[12] = {${JAN},${FEB},${MAR},${APR},${MAY},${JUN
 from string import Template
 
 _charm_ci_string=\
-"""
+"""\
 module ${NAME}
 {
     PUPable ${NAME};

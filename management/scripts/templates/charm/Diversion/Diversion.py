@@ -21,6 +21,7 @@ provided to the Diversion.
 */
 #include "pup.h"
 #include "pup_stl.h"
+#include "charm++.h"
 
 class Diversion : public PUP::able
 {
@@ -86,7 +87,7 @@ class Diversion : public PUP::able
             results             A vector of pairs, where each pair is (elementID, amount).  The amount is the amount of water
                                 to apply to elementID, valid from currentTime to endTime.
     */
-    virtual void divert(double* available, const double& referenceDate, const double& currentTime, const double& endTime, std::vector<std::pair<int, double> >& results){}
+    virtual void divert(double* available, const double& referenceDate, const double& currentTime, const double& endTime, std::vector<std::pair<int, double> >& results){CkAssert(false);}
 
     /*
         getMeshNeighbors
@@ -98,7 +99,7 @@ class Diversion : public PUP::able
         Cannot be pure virtual because charm cannot migrate an abstract object because it cannot be instanciated.
         "error: cannot allocate an object of abstract type ‘Diversion’"
     */
-    virtual std::vector<int> getMeshNeighbors(){};
+    virtual std::vector<int> getMeshNeighbors(){CkAssert(false); return std::vector<int>();};
     /*
         Add PUP support
     */
@@ -391,7 +392,7 @@ class ${NAME} : public Diversion
 from string import Template
 
 _charm_ci_string=\
-"""
+"""\
 module ${NAME}
 {
     PUPable ${NAME};
@@ -440,6 +441,10 @@ class Diversion():
         if count < 1:
             raise(Exception("parcelIds exception: must have 1 or more parcelIDs"))
         idString = ','.join(parcels)
+        #TODO/FIXME What to do when a diversion isn't mapped to any parcels???
+        if parcels[0] == '-1':
+            count = 0
+            idString=''
         self.template = Template(self.template.safe_substitute(PARCEL_IDS=idString))
         self.template = Template(self.template.safe_substitute(PARCEL_COUNT=count))
 
