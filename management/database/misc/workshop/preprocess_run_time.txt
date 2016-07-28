@@ -1,0 +1,18 @@
+Reservoir 
+soap_collect_structure_data.py
+0:01:10.050000
+soap_collect_reservoirs_ResMeas_data.py
+0:02:25.050000
+generate_monthly_res_region_params.py
+0:00:08.379000
+
+Irrigation
+(soap_collect_structure_data.py
+0:01:10.050000)
+soap_collect_structure_data.py
+0:00:24.330000
+collect_parcel_ID_WDID_from_GIS_Data.py
+0:00:16.127000
+
+Total time for reservoir and irrigation:
+0:04:25.000000

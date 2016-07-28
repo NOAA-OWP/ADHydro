@@ -21,6 +21,7 @@ _cxx_abstract_class_header_string = \
 */
 #include "pup.h"
 #include "pup_stl.h"
+#include "charm++.h"
 
 class Parcel :  public PUP::able
 {
@@ -89,13 +90,13 @@ class Parcel :  public PUP::able
     */
     virtual double irrigate(double amount, const int& diversionID,
                             const double& referenceDate, const double& currentTime,
-                            const double& endTime, std::vector<std::pair<int, double> >& results){return 0;}
+                            const double& endTime, std::vector<std::pair<int, double> >& results){CkAssert(false); return 0;}
     /*
         getArea
         
         Returns the area of the parcel.
     */
-    virtual double getArea(){return 0;}
+    virtual double getArea(){CkAssert(false); return 0;}
 
     /*
         getDecree
@@ -106,7 +107,7 @@ class Parcel :  public PUP::able
         Parameters:
             id      The diversionID for the requested decree.
     */
-    virtual double getDecree(int id){return 0;}
+    virtual double getDecree(int id){CkAssert(false); return 0;}
     
     /*
         getRequestedAmount
@@ -118,7 +119,7 @@ class Parcel :  public PUP::able
             id      The diversionID for the desired requestedAmount.
     */
 
-    virtual double getRequestedAmount(int id){return 0;}
+    virtual double getRequestedAmount(int id){CkAssert(false); return 0;}
 
     /*
         getMeshElements
@@ -129,7 +130,7 @@ class Parcel :  public PUP::able
             ids     A std::vector<int> reference to append mesh element ID's to. 
     */
 
-    virtual void getMeshElements(std::vector<int>& ids){}
+    virtual void getMeshElements(std::vector<int>& ids){CkAssert(false);}
 
     /*
         Add PUP support
@@ -768,7 +769,7 @@ int ${NAME}::elements[${ELEMENT_COUNT}] = {${ELEMENT_IDS}};
 from string import Template
 
 _charm_ci_string=\
-"""
+"""\
 module ${NAME}
 {
     PUPable ${NAME};
@@ -826,6 +827,10 @@ class Parcel():
         if count < 1:
             raise(Exception("elementIds exception: must have 1 or more elementIDs"))
         idString = ','.join(elements)
+        #TODO/FIXME With parcels and diversions, what to do when no mapping exists???
+        if elements[0] == '-1':
+            idString=''
+            count=0
         self.template = Template(self.template.safe_substitute(ELEMENT_IDS=idString))
         self.template = Template(self.template.safe_substitute(ELEMENT_COUNT=count))
 
