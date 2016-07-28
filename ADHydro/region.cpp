@@ -2449,11 +2449,7 @@ void Region::handleDiversionReleaseRecipientInitMessage(int element, int neighbo
   // FIXME error check, especially for duplicate neighbors.
   // FIXME save flow cumulative?
   meshElements[element].channelNeighbors.push_back(
-      MeshSurfacewaterChannelNeighborProxy(INFINITY, -1.0, true, 0.0, 0.0, neighborRegion, neighbor, 0, neighborChannelType, neighborZBank, neighborZBed,
-                                           calculateZOffset(element, meshElements[element].vertexX, meshElements[element].vertexY, meshElements[element].elementX,
-                                                            meshElements[element].elementY, meshElements[element].elementZSurface,
-                                                            meshElements[element].underground.slopeX, meshElements[element].underground.slopeY, neighbor, neighborX,
-                                                            neighborY, neighborZBank, neighborChannelType),
+      MeshSurfacewaterChannelNeighborProxy(INFINITY, -1.0, true, 0.0, 0.0, neighborRegion, neighbor, 0, neighborChannelType, neighborZBank, neighborZBed, 0.0,
                                            1.0, neighborBaseWidth, neighborSideSlope));
   
   meshElements[element].channelNeighbors.back().neighborInitialized = true;
