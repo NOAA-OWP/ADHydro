@@ -390,6 +390,7 @@ _cxx_diversion_factory_string = \
     This is auto-generated code from TODO/FIXME!!!
 */
 #include "DiversionCreator.h"
+#include "ParcelFactory.h" //Needed to make pup register call for all parcels
 //NEED TO INCLUDE EACH COMPONENT DEFINITION AS WELL AS ADD TO CONSTRUCTOR
 ${INCLUDE_LIST}
 
@@ -401,6 +402,7 @@ DiversionFactory::DiversionFactory()
 	//THIS IS WHERE NEW COMPONENTS NEED TO BE ADDED TO THE FACTORY
 ${CREATOR_LIST}
 ${PUP_LIST}
+    ParcelFactory::pupRegisterParcels();
 }
 
 DiversionFactory::~DiversionFactory()
@@ -496,7 +498,7 @@ class ParcelFactory
      */
 
     void registerParcel(int parcelID, Parcel_Creator* creator);
-
+    static void pupRegisterParcels();
 };
 
 #endif
@@ -520,6 +522,10 @@ ParcelFactory::ParcelFactory()
 	${CREATOR_LIST}
 }
 
+void ParcelFactory::pupRegisterParcels()
+{
+    ${PUP_LIST} 
+}
 ParcelFactory::~ParcelFactory()
 {
 	//Clean up all of the allocated creators when the factory is destroyed
