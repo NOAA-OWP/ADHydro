@@ -339,7 +339,10 @@ class ${NAME} : public Diversion
         for(size_t i = 0; i < parcels.size(); i++)
         {
             //Irrigate each parcel, FIXME should getRequestedAmount(diversionID)/totalRequestedAmount be converted to quantity? Don't think so...ratio should be the same...
-        	*available -= parcels[i]->irrigate(*available*(parcels[i]->getRequestedAmount(diversionID)/totalRequestedAmount), diversionID, referenceDate, currentTime, endTime, results);
+            double percentWaterToParcel = 0.0;
+            if( totalRequestedAmount > 0.0 )
+                percentWaterToParcel = parcels[i]->getRequestedAmount(diversionID)/totalRequestedAmount;
+        	*available -= parcels[i]->irrigate(*available*percentWaterToParcel, diversionID, referenceDate, currentTime, endTime, results);
         }
     }
 
