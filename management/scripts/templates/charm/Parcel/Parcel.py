@@ -737,6 +737,7 @@ ${REQUESTS}
     virtual void pup(PUP::er &p)
     {
         Parcel::pup(p);
+        p|pivotMod;
         p|setCounter;
         p|setSize;
         p|beginningTime;
@@ -752,6 +753,7 @@ ${REQUESTS}
         p|elapsedTime;
         p|updateInterval;
         p|area;
+        p|percentToElement;
         p|decreedAmount;
         p|requestedAmount;
         p|elementCount;
