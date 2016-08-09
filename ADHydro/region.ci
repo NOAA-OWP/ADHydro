@@ -280,6 +280,12 @@ module region
             } // End while(!allForcingUpdated()).
           } // End if (nextForcingDataTime == currentTime).
           
+          // Regions need to have a barrier to prevent them from starting a new mass balance reduction before the previous one is finished.
+          when barrier()
+          {
+            // no-op.
+          }
+          
           serial
           {
             // Advance nextCheckpointIndex, nextOutputIndex, and nextSyncTime.
@@ -538,5 +544,6 @@ module region
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);
     entry void sendMeshForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
     entry void sendChannelForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
+    entry void barrier();
   }; // End array [1D] Region.
 }; // End module region.

@@ -29,7 +29,7 @@ REGDIR      :=  $(RESDIR)/Div6
 TESTDIR     := ../unit_test
 ADHYDRODIR  := ../../ADHydro
 
-CPPFLAGS := -g -I. -I$(FACTDIR) -I$(RESDIR) -I$(REGDIR) -I$(DIVDIR) -I$(ADHYDRODIR)
+CPPFLAGS := -g -I. -I$(FACTDIR) -I$(RESDIR) -I$(REGDIR) -I$(DIVDIR) -I$(ADHYDRODIR) -O3
 VPATH    := $(FACTDIR) $(RESDIR) $(REGDIR) $(TESTDIR) $(DIVDIR) $(ADHYDRODIR)
 
 all: reservoirs diversions parcels

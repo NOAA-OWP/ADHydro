@@ -122,13 +122,13 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
            "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
-  /* FIXME uncomment
+  ADHydro::regionProxy.barrier();
+  
   // Signal file manager zero when the last mass balance finishes so that it knows it can end the program.
   if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
     {
       ADHydro::fileManagerProxy[0].massBalanceDone();
     }
-    */
 }
 
 int FileManager::home(int item, int globalNumberOfItems)

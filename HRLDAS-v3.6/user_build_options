@@ -45,9 +45,9 @@
 
  COMPILERF90	=	mpif90
  FREESOURCE	=	-ffree-form  -ffree-line-length-none
- F90FLAGS	=       -g -fconvert=big-endian -fbounds-check -fno-range-check
+ F90FLAGS	=       -g -fconvert=big-endian -fbounds-check -fno-range-check -O3
  MODFLAG	=	-I
- LDFLAGS	=	
+ LDFLAGS	=	-O3
  CPP		=	cpp
  CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
  LIBS		=	
