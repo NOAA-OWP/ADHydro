@@ -604,9 +604,12 @@ ${REQUESTS}
                         {
                             percentToElement[elements[i]] = 0;
                         }
-                        for(int i = setCounter%elementCount; i < (setCounter+setSize)%elementCount; i++)
+                        if(elementCount > 0)
                         {
-                            percentToElement[elements[i]] = 1.0/setSize;
+                          for(int i = setCounter%elementCount; i < (setCounter+setSize)%elementCount; i++)
+                          {
+                              percentToElement[elements[i]] = 1.0/setSize;
+                          }
                         }
                         break;
                     case PIVOT:
@@ -734,6 +737,7 @@ ${REQUESTS}
     virtual void pup(PUP::er &p)
     {
         Parcel::pup(p);
+        p|pivotMod;
         p|setCounter;
         p|setSize;
         p|beginningTime;
@@ -749,6 +753,7 @@ ${REQUESTS}
         p|elapsedTime;
         p|updateInterval;
         p|area;
+        p|percentToElement;
         p|decreedAmount;
         p|requestedAmount;
         p|elementCount;
