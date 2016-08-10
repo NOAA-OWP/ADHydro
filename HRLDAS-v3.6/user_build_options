@@ -4,9 +4,9 @@
 
 # COMPILERF90	=	mpif90
 # FREESOURCE	=	-free
-# F90FLAGS	=       -convert big_endian -g -O0 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
+# F90FLAGS	=       -convert big_endian -g -O3 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
 # MODFLAG	=	-I
-# LDFLAGS	=	
+# LDFLAGS	=	-O3
 # CPP		=	cpp
 # CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
 # LIBS		=	
@@ -23,9 +23,9 @@
 
 # COMPILERF90	=	ifort
 # FREESOURCE	=	-free
-# F90FLAGS	=       -convert big_endian -g -O0 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
+# F90FLAGS	=       -convert big_endian -g -O3 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
 # MODFLAG	=	-I
-# LDFLAGS	=	
+# LDFLAGS	=	-O3
 # CPP		=	cpp
 # CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
 # LIBS		=	
