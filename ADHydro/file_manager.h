@@ -4,6 +4,7 @@
 #include "region.h"
 #include "ReservoirFactory.h"
 #include "DiversionFactory.h"
+#include <netcdf_par.h>
 
 // An ElementStateMessage is used for regions to send updated element state to
 // file managers for writing out to file.
@@ -947,6 +948,9 @@ public:
   // These are used for water management.
   ReservoirFactory reservoirFactory; // A singleton factory for creating Reservoir objects.
   DiversionFactory diversionFactory; // A singleton factory for creating Diversion objects.
+  
+  // NetCDF I/O variables
+  MPI_Comm NetCDFMPIComm; // A duplicate of MPI_COMM_WORLD used instead because of collisions with Charm++ also using MPI.
 };
 
 #endif // __FILE_MANAGER_H__

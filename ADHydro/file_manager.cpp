@@ -3,7 +3,6 @@
 #include "garto.h"
 #include <sys/stat.h>
 #include <libgen.h>
-#include <netcdf_par.h>
 
 ElementStateMessage::ElementStateMessage() :
   elementNumber(0), // Dummy values will be overwritten by pup_stl.h code.
@@ -382,8 +381,22 @@ FileManager::FileManager() :
   simulationFinished(false),
   sdagCondition(false),
   reservoirFactory(),
-  diversionFactory()
+  diversionFactory(),
+  NetCDFMPIComm()
 {
+  int mpiErrorCode; // Return value of MPI functions.
+  
+  // Duplicate MPI_COMM_WORLD and use the duplicate for NetCDF operations so it doesn't conflice with Charm++ using MPI_COMM_WORLD.
+  mpiErrorCode = MPI_Comm_dup(MPI_COMM_WORLD, &NetCDFMPIComm);
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  if (!(MPI_SUCCESS != mpiErrorCode))
+    {
+      CkError("ERROR in FileManager::FileManager: MPI error while duplicating MPI_COMM_WORLD.\n");
+      CkExit();
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();
 }
@@ -1789,7 +1802,7 @@ bool FileManager::NetCDFOpenForRead(const char* path, int* fileID)
 
   if (!error)
     {
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, fileID);
+      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO, NetCDFMPIComm, MPI_INFO_NULL, fileID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -1883,11 +1896,11 @@ bool FileManager::NetCDFCreateOrOpenForWrite(const char* path, int* fileID, bool
   if (!error)
     {
       // At this point the directory exists.  Try to open the file for write, and if that fails try to create the file.
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD, MPI_INFO_NULL, fileID);
+      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO | NC_WRITE, NetCDFMPIComm, MPI_INFO_NULL, fileID);
       
       if (!(NC_NOERR == ncErrorCode))
         {
-          ncErrorCode = nc_create_par(path, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD, MPI_INFO_NULL, fileID);
+          ncErrorCode = nc_create_par(path, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, NetCDFMPIComm, MPI_INFO_NULL, fileID);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
@@ -3532,6 +3545,85 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
   return error;
 }
 
+// FIXME this is a kludge because the file manager is going to be rewritten soon.
+// This function is used only by NetCDFCreateInstances.  It pokes a value into an array variable to force the NetCDF library to resize that variable in the file.
+bool NetCDFPokeValue(int fileID, const char* variableName, size_t instances, size_t nodeElements, size_t neighbors, void* variable)
+{
+  bool   error = false;             // Error flag.
+  int    ncErrorCode;               // Return value of NetCDF functions.
+  int    variableID;                // ID of variable in NetCDF file.
+  size_t location[NC_MAX_VAR_DIMS]; // For specifying location to write to in NetCDF file.
+  
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  if (!(NULL != variableName))
+    {
+      CkError("ERROR in FileManager::NetCDFPokeValue: variableName must not be null.\n");
+      error = true;
+    }
+  
+  if (!(1 <= instances))
+    {
+      CkError("ERROR in FileManager::NetCDFPokeValue: instances must be greater than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(1 <= nodeElements))
+    {
+      CkError("ERROR in FileManager::NetCDFPokeValue: nodeElements must be greater than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(1 <= neighbors))
+    {
+      CkError("ERROR in FileManager::NetCDFPokeValue: neighbors must be greater than or equal to one.\n");
+      error = true;
+    }
+  
+  if (!(NULL != variable))
+    {
+      CkError("ERROR in FileManager::NetCDFPokeValue: variable must not be null.\n");
+      error = true;
+    }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+  
+  // Get the variable ID.
+  if (!error)
+    {
+      ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFPokeValue: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      // Fill in the outer corner location to write to to force allocating the complete array.
+      location[0] = instances - 1;
+      location[1] = nodeElements - 1;
+      location[2] = neighbors - 1;
+      
+      // Write the variable.
+      ncErrorCode = nc_put_var1(fileID, variableID, location, variable);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+      if (!(NC_NOERR == ncErrorCode))
+        {
+          CkError("ERROR in FileManager::NetCDFPokeValue: unable to write variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
+                  nc_strerror(ncErrorCode));
+          error = true;
+        }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  return error;
+}
+
 void FileManager::NetCDFCreateInstances()
 {
   bool    error                  = false;                // Error flag.
@@ -3550,6 +3642,8 @@ void FileManager::NetCDFCreateInstances()
   size_t  instanceIndex          = 0;                    // The next location in the newCurrentTimes array to save nextTime.
   int     checkpointIndex        = nextCheckpointIndex;  // For looping over all checkpoint/output times.
   bool    needEndTime            = true;                 // True if we have not yet saved the simulation end time.
+  size_t  size_tDummy            = 0;                    // For writing a dummy value to force NetCDF to resize files.
+  double  doubleDummy            = NAN;                  // For writing a dummy value to force NetCDF to resize files.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   CkAssert(0 == CkMyPe() && ADHydro::currentTime == currentTime);
@@ -3692,6 +3786,16 @@ void FileManager::NetCDFCreateInstances()
   // Add instances to the state file.
   if (!error)
     {
+      error = NetCDFPokeValue(fileID, "geometryInstance", existingInstances + instanceIndex, 1, 1, &size_tDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "parameterInstance", existingInstances + instanceIndex, 1, 1, &size_tDummy);
+    }
+  
+  if (!error)
+    {
       // Write the values of currentTime.
       ncErrorCode = nc_put_vara_double(fileID, currentTimeVariableID, &existingInstances, &instanceIndex, newCurrentTimes);
 
@@ -3723,6 +3827,260 @@ void FileManager::NetCDFCreateInstances()
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterDepth", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterError", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterHead", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterRecharge", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterError", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  // FIXME fill in evapotranspiration state
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterMeshNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterMeshNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterMeshNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterMeshNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterMeshNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterMeshNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterChannelNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterChannelNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterChannelNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterChannelNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterChannelNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterDepth", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterError", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationRate", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationRate", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  // FIXME fill in evapotranspiration state
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterMeshNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterMeshNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelGroundwaterMeshNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelGroundwaterMeshNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelGroundwaterMeshNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterChannelNeighborsExpirationTime", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterChannelNeighborsFlowRate", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterChannelNeighborsFlowCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &doubleDummy);
     }
   
   delete[] existingReferenceDates;
@@ -3882,7 +4240,17 @@ void FileManager::NetCDFCreateInstances()
         }
     }
   
-  // FIXME Add instances to the display file.
+  // Add instances to the display file.
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "geometryInstance", existingInstances + instanceIndex, 1, 1, &size_tDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "parameterInstance", existingInstances + instanceIndex, 1, 1, &size_tDummy);
+    }
+  
   if (!error)
     {
       // Write the values of currentTime.
@@ -3916,6 +4284,131 @@ void FileManager::NetCDFCreateInstances()
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterDepth", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSurfacewaterError", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterHead", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterRecharge", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshGroundwaterError", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshPrecipitationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvaporationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationRate", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshTranspirationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshCanopyWater", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshSnowWaterEquivalent", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterDepth", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSurfacewaterError", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationRate", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelPrecipitationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationRate", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationCumulativeShortTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvaporationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
+    }
+  
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelSnowWaterEquivalent", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
     }
   
   delete[] existingReferenceDates;
