@@ -384,6 +384,7 @@ FileManager::FileManager() :
   diversionFactory(),
   NetCDFMPIComm()
 {
+  /* FIXME this isn't working
   int mpiErrorCode; // Return value of MPI functions.
   
   // Duplicate MPI_COMM_WORLD and use the duplicate for NetCDF operations so it doesn't conflice with Charm++ using MPI_COMM_WORLD.
@@ -396,6 +397,7 @@ FileManager::FileManager() :
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+  */
   
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[CkMyPe()].runUntilSimulationEnd();
@@ -1802,7 +1804,7 @@ bool FileManager::NetCDFOpenForRead(const char* path, int* fileID)
 
   if (!error)
     {
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO, NetCDFMPIComm, MPI_INFO_NULL, fileID);
+      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(NC_NOERR == ncErrorCode))
@@ -1896,11 +1898,11 @@ bool FileManager::NetCDFCreateOrOpenForWrite(const char* path, int* fileID, bool
   if (!error)
     {
       // At this point the directory exists.  Try to open the file for write, and if that fails try to create the file.
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO | NC_WRITE, NetCDFMPIComm, MPI_INFO_NULL, fileID);
+      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
       
       if (!(NC_NOERR == ncErrorCode))
         {
-          ncErrorCode = nc_create_par(path, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, NetCDFMPIComm, MPI_INFO_NULL, fileID);
+          ncErrorCode = nc_create_par(path, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
           if (!(NC_NOERR == ncErrorCode))
