@@ -280,11 +280,12 @@ module region
             } // End while(!allForcingUpdated()).
           } // End if (nextForcingDataTime == currentTime).
           
+          // FIXME mass balance reduction still locks up so this can't be blocking
           // Regions need to have a barrier to prevent them from starting a new mass balance reduction before the previous one is finished.
-          when barrier()
-          {
-            // no-op.
-          }
+          //when barrier()
+          //{
+          //  // no-op.
+          //}
           
           serial
           {
@@ -544,6 +545,7 @@ module region
     entry void sendWaterMessages(std::vector<RegionMessage> waterMessages);
     entry void sendMeshForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
     entry void sendChannelForcingMessage(double messageTime, double nextTime, int element, EvapoTranspirationForcingStruct newForcingData);
-    entry void barrier();
+    // FIXME mass balance reduction still locks up so this can't be blocking
+    //entry void barrier();
   }; // End array [1D] Region.
 }; // End module region.

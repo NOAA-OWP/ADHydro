@@ -121,13 +121,14 @@ void FileManager::printOutMassBalance(double messageTime, double waterInDomain, 
            "massBalance = %lg [m^3], massBalanceError = %lg [m^3].\n", messageTime, wallclockTime - wallclockTimeAtStart, waterInDomain, externalFlows,
            waterError, massBalance, massBalance - massBalanceShouldBe);
   
-  ADHydro::regionProxy.barrier();
-  
+  // FIXME mass balance reduction still locks up so this can't be blocking
+  //ADHydro::regionProxy.barrier();
+  //
   // Signal file manager zero when the last mass balance finishes so that it knows it can end the program.
-  if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
-    {
-      ADHydro::fileManagerProxy[0].massBalanceDone();
-    }
+  //if (messageTime == ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime)
+  //  {
+  //    ADHydro::fileManagerProxy[0].massBalanceDone();
+  //  }
 }
 
 int FileManager::home(int item, int globalNumberOfItems)

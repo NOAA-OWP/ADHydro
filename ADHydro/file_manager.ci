@@ -84,9 +84,10 @@ module file_manager
             // Regions use a reduction to do mass balance.
             ADHydro::regionProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, printOutMassBalance), thisProxy[0]));
             
+            // FIXME mass balance reduction still locks up so this can't be blocking
             // Regions need to have a barrier to prevent them from starting a new mass balance reduction before the previous one is finished.  This will get
             // the regions past the barrier once before the first reduction.  After that, each barrier will be released by the previous reduction callback.
-            ADHydro::regionProxy.barrier();
+            //ADHydro::regionProxy.barrier();
             
             // File managers use a reduction as a barrier before writing to NetCDF files.
             thisProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(FileManager, barrier), thisProxy));
@@ -325,14 +326,15 @@ module file_manager
         } // End else if (currentTime < simulationEndTime).
       } // End while (!simulationFinished).
       
+      // FIXME mass balance reduction still locks up so this can't be blocking
       // On PE zero wait for the last mass balance reduction to finish before exiting.
-      if (0 == CkMyPe())
-      {
-        when massBalanceDone()
-        {
-          // No-op.
-        }
-      }
+      //if (0 == CkMyPe())
+      //{
+      //  when massBalanceDone()
+      //  {
+      //    // No-op.
+      //  }
+      //}
       
       // Wait until all file managers finish before exiting.
       serial
@@ -352,6 +354,7 @@ module file_manager
     entry void sendDiversionReleaseRecipientInitMessage(int element, int neighbor, int neighborRegion, ChannelTypeEnum neighborChannelType, double neighborX,
                                                         double neighborY, double neighborZBank, double neighborZBed, double neighborBaseWidth,
                                                         double neighborSideSlope);
-    entry void massBalanceDone();
+    // FIXME mass balance reduction still locks up so this can't be blocking
+    //entry void massBalanceDone();
   }; // End group FileManager.
 }; // End module file_manager.
