@@ -383,7 +383,15 @@ FileManager::FileManager() :
   sdagCondition(false),
   reservoirFactory(),
   diversionFactory(),
-  NetCDFMPIComm()
+  NetCDFMPIComm(),
+  geometryFileID(),
+  geometryFileOpen(false),
+  parameterFileID(),
+  parameterFileOpen(false),
+  stateFileID(),
+  stateFileOpen(false),
+  displayFileID(),
+  displayFileOpen(false)
 {
   /* FIXME this isn't working
   int mpiErrorCode; // Return value of MPI functions.
@@ -7157,20 +7165,12 @@ void FileManager::writeNetCDFFiles()
   bool    error                  = false; // Error flag.
   int     ncErrorCode;                    // Return value of NetCDF functions.
   bool    writeGeometry          = false; // Whether to write a new geometry instance.
-  int     geometryFileID;                 // ID of geometry file.
-  bool    geometryFileOpen       = false; // Whether geometryFileID refers to an open file.
   size_t  geometryInstancesSize  = 0;     // Number of instances in geometry file.
   bool    writeParameter         = false; // Whether to write a new parameter instance.
-  int     parameterFileID;                // ID of parameter file.
-  bool    parameterFileOpen      = false; // Whether parameterFileID refers to an open file.
   size_t  parameterInstancesSize = 0;     // Number of instances in parameter file.
   bool    writeState             = false; // Whether to write a new state instance.
-  int     stateFileID;                    // ID of state file.
-  bool    stateFileOpen          = false; // Whether stateFileID refers to an open file.
   size_t  stateInstancesSize     = 0;     // Number of instances in state file.
   bool    writeDisplay           = false; // Whether to write a new display instance.
-  int     displayFileID;                  // ID of display file.
-  bool    displayFileOpen        = false; // Whether displayFileID refers to an open file.
   size_t  displayInstancesSize   = 0;     // Number of instances in display file.
   double* referenceDateArray     = NULL;  // Array of reference dates in the state or display file.
   size_t  referenceDateArraySize = 0;     // Allocated size of referenceDateArray.
@@ -7200,12 +7200,15 @@ void FileManager::writeNetCDFFiles()
     }
   else if (!geometryInstanceChecked)
     {
-      // Open the geometry file.
-      error = NetCDFCreateOrOpenForWriteGeometry(&geometryFileID);
-
-      if (!error)
+      if (!geometryFileOpen)
         {
-          geometryFileOpen = true;
+          // Open the geometry file.
+          error = NetCDFCreateOrOpenForWriteGeometry(&geometryFileID);
+
+          if (!error)
+            {
+              geometryFileOpen = true;
+            }
         }
       
       if (!error)
@@ -7263,12 +7266,15 @@ void FileManager::writeNetCDFFiles()
     }
   else if (!parameterInstanceChecked)
     {
-      // Open the parameter file.
-      error = NetCDFCreateOrOpenForWriteParameter(&parameterFileID);
-
-      if (!error)
+      if (!parameterFileOpen)
         {
-          parameterFileOpen = true;
+          // Open the parameter file.
+          error = NetCDFCreateOrOpenForWriteParameter(&parameterFileID);
+
+          if (!error)
+            {
+              parameterFileOpen = true;
+            }
         }
       
       if (!error)
@@ -7557,7 +7563,7 @@ void FileManager::writeNetCDFFiles()
     }
   
   // Close the geometry file.
-  if (geometryFileOpen)
+  if ((simulationEndTime == currentTime || ADHydro::currentTime == currentTime) && geometryFileOpen)
     {
       ncErrorCode      = nc_close(geometryFileID);
       geometryFileOpen = false;
@@ -7573,7 +7579,7 @@ void FileManager::writeNetCDFFiles()
     }
   
   // Close the parameter file.
-  if (parameterFileOpen)
+  if ((simulationEndTime == currentTime || ADHydro::currentTime == currentTime) && parameterFileOpen)
     {
       ncErrorCode       = nc_close(parameterFileID);
       parameterFileOpen = false;
@@ -7589,7 +7595,7 @@ void FileManager::writeNetCDFFiles()
     }
   
   // Close the state file.
-  if (stateFileOpen)
+  if ((simulationEndTime == currentTime || ADHydro::currentTime == currentTime) && stateFileOpen)
     {
       ncErrorCode   = nc_close(stateFileID);
       stateFileOpen = false;
@@ -7605,7 +7611,7 @@ void FileManager::writeNetCDFFiles()
     }
   
   // Close the display file.
-  if (displayFileOpen)
+  if ((simulationEndTime == currentTime || ADHydro::currentTime == currentTime) && displayFileOpen)
     {
       ncErrorCode     = nc_close(displayFileID);
       displayFileOpen = false;

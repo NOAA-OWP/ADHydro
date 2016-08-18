@@ -950,7 +950,15 @@ public:
   DiversionFactory diversionFactory; // A singleton factory for creating Diversion objects.
   
   // NetCDF I/O variables
-  MPI_Comm NetCDFMPIComm; // A duplicate of MPI_COMM_WORLD used instead because of collisions with Charm++ also using MPI.
+  MPI_Comm NetCDFMPIComm;     // A duplicate of MPI_COMM_WORLD used instead because of collisions with Charm++ also using MPI.
+  int      geometryFileID;    // ID of geometry file.
+  bool     geometryFileOpen;  // Whether geometryFileID refers to an open file.
+  int      parameterFileID;   // ID of parameter file.
+  bool     parameterFileOpen; // Whether parameterFileID refers to an open file.
+  int      stateFileID;       // ID of state file.
+  bool     stateFileOpen;     // Whether stateFileID refers to an open file.
+  int      displayFileID;     // ID of display file.
+  bool     displayFileOpen;   // Whether displayFileID refers to an open file.
 };
 
 #endif // __FILE_MANAGER_H__
