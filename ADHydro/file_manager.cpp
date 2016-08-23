@@ -3655,6 +3655,7 @@ void FileManager::NetCDFCreateInstances()
   bool    needEndTime            = true;                 // True if we have not yet saved the simulation end time.
   size_t  size_tDummy            = 0;                    // For writing a dummy value to force NetCDF to resize files.
   double  doubleDummy            = NAN;                  // For writing a dummy value to force NetCDF to resize files.
+  EvapoTranspirationStateStruct etStateDummy;            // For writing a dummy value to force NetCDF to resize files.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   CkAssert(0 == CkMyPe() && ADHydro::currentTime == currentTime);
@@ -3910,7 +3911,10 @@ void FileManager::NetCDFCreateInstances()
       error = NetCDFPokeValue(fileID, "meshTranspirationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &doubleDummy);
     }
   
-  // FIXME fill in evapotranspiration state
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "meshEvapoTranspirationState", existingInstances + instanceIndex, globalNumberOfMeshElements, 1, &etStateDummy);
+    }
   
   if (!error)
     {
@@ -4032,7 +4036,10 @@ void FileManager::NetCDFCreateInstances()
       error = NetCDFPokeValue(fileID, "channelEvaporationCumulativeLongTerm", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &doubleDummy);
     }
   
-  // FIXME fill in evapotranspiration state
+  if (!error)
+    {
+      error = NetCDFPokeValue(fileID, "channelEvapoTranspirationState", existingInstances + instanceIndex, globalNumberOfChannelElements, 1, &etStateDummy);
+    }
   
   if (!error)
     {
