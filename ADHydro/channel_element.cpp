@@ -1370,6 +1370,10 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
       
       diversion->divert(&waterAvailable, referenceDate, currentTime, timestepEndTime, waterToDivert);
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(0.0 <= waterAvailable && waterAvailable <= crossSectionArea * elementLength);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
       for (itDiversion = waterToDivert.begin(); !error && itDiversion != waterToDivert.end(); ++itDiversion)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1387,9 +1391,13 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           
           if (ii < diversionReleaseRecipients.size())
             {
-              waterSent         = (*itDiversion).second;
-              crossSectionArea -= waterSent / elementLength;
+              waterSent = (*itDiversion).second;
               // FIXME how to record cumulative flows?
+              
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              // FIXME only need to do this to check that all of the waterSent adds up to the reduction in waterAvailable.
+              crossSectionArea -= waterSent / elementLength;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
 
               error = region.sendWater(diversionReleaseRecipientsRegions[ii],
                                        RegionMessage(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itDiversion).first,
@@ -1413,6 +1421,13 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
           CkAssert(epsilonEqual(waterAvailable, crossSectionArea * elementLength));
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      if (!error)
+        {
+          // Use the output of divert as the "official" amount of water left.  This prevents crossSectionArea from going negative due to roundoff error and it
+          // means we only need to subtract waterSent from crossSectionArea if we are checking the assertion.
+          crossSectionArea = waterAvailable / elementLength;
+        }
     }
   
   if (!error)
