@@ -2,6 +2,7 @@
 #include "INIReader.h"
 
 // Global readonly variables.
+std::string               ADHydro::adhydroOutputDirectoryPath;
 double                    ADHydro::referenceDate;
 double                    ADHydro::simulationStartTime;
 double                    ADHydro::simulationDuration;
@@ -44,6 +45,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
   if (!error)
     {
       // Get readonly variables from the superfile.
+      adhydroOutputDirectoryPath = superfile.Get("", "adhydroOutputDirectoryPath", ".");
+
       referenceDate = superfile.GetReal("", "referenceDateJulian", NAN);
 
       // If there is no referenceDateJulian read a Gregorian date and convert to Julian date.

@@ -52,6 +52,36 @@ void OutputManager::createFiles()
           ADHYDRO_ERROR("ERROR in OutputManager::createFiles: outputPeriod must be greater than zero.\n");
           error = true;
         }
+
+      if (!(0 < globalNumberOfMeshElements()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: globalNumberOfMeshElements must be greater than zero.\n");
+          error = true;
+        }
+
+      if (!(0 < numberOfMeshSoilLayers()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: numberOfMeshSoilLayers must be greater than zero.\n");
+          error = true;
+        }
+
+      if (!(0 < numberOfMeshNeighbors()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: numberOfMeshNeighbors must be greater than zero.\n");
+          error = true;
+        }
+
+      if (!(0 < globalNumberOfChannelElements()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: globalNumberOfChannelElements must be greater than zero.\n");
+          error = true;
+        }
+
+      if (!(0 < numberOfChannelNeighbors()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: numberOfChannelNeighbors must be greater than zero.\n");
+          error = true;
+        }
     }
 
   if (!error)
@@ -87,7 +117,7 @@ void OutputManager::createFiles()
           outputTime = simulationStartTime() + simulationDuration();
         }
 
-      error = fileManager->createFile(referenceDate(), outputTime);
+      error = fileManager->createFile(outputTime);
     }
 
   if (error)

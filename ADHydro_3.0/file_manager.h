@@ -18,7 +18,7 @@ public:
   //
   // We do it this way because for NetCDF files we use the serial library to create files and the parallel library to write data into existing files.
   // Parallel file creation requires collective operations so that all OutputManagers agree on the meta-data.
-  // Collective operations require all OutputManagers to synchronize with a barrier, which we have found to be inefficient.
+  // Collective operations require all OutputManagers to synchronize at a barrier, which we have found to be inefficient.
   // However, parallel data writes into existing files can be done with independent operations that do not require a barrier.
   // Therefore, the optimal configuration that we have found is multiple simultaneous serial file creation followed by parallel data writes into existing files.
   //
@@ -26,9 +26,8 @@ public:
   //
   // Parameters:
   //
-  // referenceDate - Julian date to create a file for.  This value can be used for the file name and/or stored inside the file.
-  // outputTime    - Time point  to create a file for.  This value can be used for the file name and/or stored inside the file.
-  virtual bool createFile(double referenceDate, double outputTime) = 0;
+  // outputTime - Time point to create a file for.  This value can be used for the file name and/or stored inside the file.
+  virtual bool createFile(double outputTime) = 0;
 };
 
 #endif // __FILE_MANAGER_H__

@@ -5,6 +5,7 @@ mainmodule adhydro
   mainchare ADHydro
   {
     // Global readonly variables.
+    readonly std::string               adhydroOutputDirectoryPath;
     readonly double                    referenceDate;
     readonly double                    simulationStartTime;
     readonly double                    simulationDuration;

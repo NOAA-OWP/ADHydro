@@ -2,6 +2,7 @@
 #define __OUTPUT_MANAGER_H__
 
 #include "file_manager.h"
+#include <string>
 
 // OutputManager contains the generic code for creating ADHydro output files.
 // It outputs a separate file for each time point.
@@ -33,8 +34,6 @@ public:
   // You must call createFiles on all OutputManagers and wait until they all return before proceeding with any other OutputManager operations.
   void createFiles();
 
-private:
-
   // Pure virtual interface to the communication system.
 
   // Wrappers for communication topology.  Return values must not change over the course of a single run.
@@ -43,10 +42,20 @@ private:
   virtual int myOutputManagerIndex()   = 0; // Must be greater than or equal to zero and less than numberOfOutputManagers.
 
   // Wrappers for readonly variables.  Return values must not change over the course of a single run.
-  virtual double referenceDate()       = 0; // Julian date.  Must be on or after 1 CE (1721425.5).
-  virtual double simulationStartTime() = 0; // Seconds after referenceDate.  Can be positive, negative, or zero, but the calendar date must be on or after 1 CE.
-  virtual double simulationDuration()  = 0; // Seconds.  Must be greater than or equal to zero.
-  virtual double outputPeriod()        = 0; // Seconds.  Must be greater than zero.
+  virtual std::string directory()           = 0; // The directory in which to create the output files.  The filenames will be generated from the date and time.
+  virtual double      referenceDate()       = 0; // Julian date.  Must be on or after 1 CE (1721425.5).
+  virtual double      simulationStartTime() = 0; // Seconds after referenceDate.  Can be positive, negative, or zero, but the calendar date must be on or after 1 CE.
+  virtual double      simulationDuration()  = 0; // Seconds.  Must be greater than or equal to zero.
+  virtual double      outputPeriod()        = 0; // Seconds.  Must be greater than zero.
+
+  // Wrappers for simulation map attributes.  Return values must not change over the course of a single run.
+  virtual int globalNumberOfMeshElements()    = 0; // Must be greater than zero.
+  virtual int numberOfMeshSoilLayers()        = 0; // Must be greater than zero.
+  virtual int numberOfMeshNeighbors()         = 0; // Must be greater than zero.
+  virtual int globalNumberOfChannelElements() = 0; // Must be greater than zero.
+  virtual int numberOfChannelNeighbors()      = 0; // Must be greater than zero.
+
+private:
 
   FileManager* fileManager; // Wrapper for what type of files are created.
 };

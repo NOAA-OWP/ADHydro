@@ -4,17 +4,22 @@
 
 # Use these values for EN3038 lab.
 
-METISDIR   := /opt
-LIBDIRNAME := lib64
-EXTRAFLAGS := -fdiagnostics-show-option
+HDF5DIR          := /opt
+NETCDFDIR        := /opt
+EXTRANETCDFFLAGS := -lcurl
+METISDIR         := /opt
+LIBDIRNAME       := lib64
+EXTRAFLAGS       := -fdiagnostics-show-option
 
 # Use these values for all.
 
 CHARMC            := $(CHARMDIR)/bin/charmc -language charm++
+NETCDFCPPFLAGS    := -I$(NETCDFDIR)/include
+NETCDFLDFLAGS     := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 METISLDFLAGS      := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
 #OPTIMIZATIONFLAGS := -O3 -optimize -production
-CPPFLAGS          := $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
-LDFLAGS           := $(METISLDFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -g -Wall
+CPPFLAGS          := $(NETCDFCPPFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
+LDFLAGS           := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -g -Wall
 
 VPATH := ../inih ../inih/cpp
 
@@ -72,6 +77,7 @@ output_manager.o: output_manager.cpp \
 
 file_manager_NetCDF.o: file_manager_NetCDF.cpp \
                        file_manager_NetCDF.h   \
+                       output_manager.h        \
                        file_manager.h          \
                        all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@

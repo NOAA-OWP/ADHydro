@@ -3,7 +3,6 @@
 
 #include "all.h"
 #include "output_manager_charm.decl.h"
-#include "output_manager.h"
 #include "file_manager_NetCDF.h"
 
 // Implementation of OutputManager for Charm++.
@@ -22,15 +21,21 @@ public:
   //                   The actual object that gets passed to OutputManager is one of the private member variables below.
   OutputManagerCharm(FileManagerEnum fileManagerInit);
 
-private:
-
   // OutputManager communication system interface.
-  int    numberOfOutputManagers();
-  int    myOutputManagerIndex();
-  double referenceDate();
-  double simulationStartTime();
-  double simulationDuration();
-  double outputPeriod();
+  int         numberOfOutputManagers();
+  int         myOutputManagerIndex();
+  std::string directory();
+  double      referenceDate();
+  double      simulationStartTime();
+  double      simulationDuration();
+  double      outputPeriod();
+  int         globalNumberOfMeshElements();
+  int         numberOfMeshSoilLayers();
+  int         numberOfMeshNeighbors();
+  int         globalNumberOfChannelElements();
+  int         numberOfChannelNeighbors();
+
+private:
 
   // FileManager objects to pass to OutputManager.
   FileManagerNetCDF fileManagerNetCDFInit;
