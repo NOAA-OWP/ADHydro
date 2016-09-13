@@ -1,0 +1,9 @@
+module output_manager_charm
+{
+  group OutputManagerCharm
+  {
+    entry OutputManagerCharm(FileManagerEnum fileManagerInit);
+    
+    entry void createFiles();
+  }; // End group OutputManagerCharm.
+}; // End module output_manager_charm.

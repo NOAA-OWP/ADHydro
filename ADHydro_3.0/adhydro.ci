@@ -1,0 +1,17 @@
+mainmodule adhydro
+{
+  extern module output_manager_charm;
+  
+  mainchare ADHydro
+  {
+    // Global readonly variables.
+    readonly double                    referenceDate;
+    readonly double                    simulationStartTime;
+    readonly double                    simulationDuration;
+    readonly double                    outputPeriod;
+    readonly int                       verbosityLevel;
+    readonly CProxy_OutputManagerCharm outputManagerProxy;
+    
+    entry ADHydro(CkArgMsg* msg);
+  }; // End mainchare ADHydro.
+}; // End mainmodule adhydro.
