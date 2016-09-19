@@ -693,7 +693,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-      
+    }
+
+  if (!error)
+    {
       // Run Noah-MP.
       NOAHMP_SFLX(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &evapoTranspirationForcing->dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
                   &isUrban, &ice, &ist, &isc, evapoTranspirationSoilMoisture->smcEq, &iz0tlnd, &evapoTranspirationForcing->sfcTmp,
