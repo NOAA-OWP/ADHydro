@@ -541,7 +541,7 @@ contains
                    BGAP    , WGAP    , CHV     , CHB     , EMISSI  ,           & ! OUT :
 		   SHG     , SHC     , SHB     , EVG     , EVB     , GHV     , & ! OUT :
 		   GHB     , IRG     , IRC     , IRB     , TR      , EVC     , & ! OUT :
-		   CHLEAF  , CHUC    , CHV2    , CHB2    , FPICE               &
+		   CHLEAF  , CHUC    , CHV2    , CHB2    , FPICE   , QRAIN     &
 #ifdef WRF_HYDRO
                    ,SFCHEADRT                                                  & ! IN/OUT :
 #endif
@@ -727,6 +727,7 @@ contains
   REAL,INTENT(OUT)                                              :: EVC    !canopy evap. heat [w/m2]  [+ to atm]
   REAL,INTENT(OUT)                                              :: TR     !transpiration heat [w/m2] [+ to atm]
   REAL, INTENT(OUT)   :: FPICE   !snow fraction in precipitation
+  REAL,                            INTENT(OUT)   :: QRAIN   !rain at ground srf (mm/s) [+] ! RCS made this into an output variable so we could calculate mass balance on canopy outside Noah-MP.
 
 !jref:start 
   REAL                                           :: FSRV
@@ -896,7 +897,7 @@ contains
                  SMCWTD ,DEEPRECH,RECH                          , & !inout
                  CMC    ,ECAN   ,ETRAN  ,FWET   ,RUNSRF ,RUNSUB , & !out
                  QIN    ,QDIS   ,QSNOW  ,PONDING1       ,PONDING2,&
-                 ISURBAN,QSNBOT,FPICE                             &
+                 ISURBAN,QSNBOT ,FPICE  ,QRAIN                    &
 #ifdef WRF_HYDRO
                         ,sfcheadrt                     &
 #endif
@@ -6267,7 +6268,7 @@ contains
                     SMCWTD ,DEEPRECH,RECH                          , & !inout
                     CMC    ,ECAN   ,ETRAN  ,FWET   ,RUNSRF ,RUNSUB , & !out
                     QIN    ,QDIS   ,QSNOW  ,PONDING1       ,PONDING2,&
-                    ISURBAN,QSNBOT,FPICE                             &
+                    ISURBAN,QSNBOT ,FPICE  ,QRAIN                    &
 #ifdef WRF_HYDRO
                         ,sfcheadrt                     &
 #endif
@@ -6355,7 +6356,7 @@ contains
 ! local
   INTEGER                                        :: IZ
   REAL                                           :: QINSUR  !water input on soil surface [m/s]
-  REAL                                           :: QRAIN   !rain at ground srf (mm) [+]
+  REAL,                            INTENT(OUT)   :: QRAIN   !rain at ground srf (mm/s) [+] ! RCS made this into an output variable so we could calculate mass balance on canopy outside Noah-MP.
   REAL                                           :: QSEVA   !soil surface evap rate [mm/s]
   REAL                                           :: QSDEW   !soil surface dew rate [mm/s]
   REAL                                           :: QSNFRO  !snow surface frost rate[mm/s]

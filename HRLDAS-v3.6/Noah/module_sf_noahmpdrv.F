@@ -362,6 +362,8 @@ CONTAINS
     REAL, PARAMETER                     :: CO2 = 395.e-06
     REAL, PARAMETER                     :: O2 = 0.209
     REAL, PARAMETER                     :: undefined_value = -1.E36
+    
+    REAL                                :: QRAIN   !rain at ground srf (mm/s) [+] ! RCS made this into an output variable of SFLX so we need a local here to pass in.  Unused at this level.
 
 
 ! ----------------------------------------------------------------------
@@ -693,7 +695,7 @@ end if
             BGAP    , WGAP    , CHV     , CHB     , EMISSI  ,           & ! OUT : 
             SHG     , SHC     , SHB     , EVG     , EVB     , GHV     , & ! OUT :
 	    GHB     , IRG     , IRC     , IRB     , TR      , EVC     , & ! OUT :
-	    CHLEAF  , CHUC    , CHV2    , CHB2    , FPICE               &
+	    CHLEAF  , CHUC    , CHV2    , CHB2    , FPICE   , QRAIN     &
 #ifdef WRF_HYDRO
             , sfcheadrt(i,j)                               &
 #endif

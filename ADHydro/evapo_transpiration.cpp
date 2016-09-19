@@ -11,7 +11,7 @@
 #define NOAHMP_SFLX            noahmp_routines_mp_noahmp_sflx_
 #define NOAHMP_GLACIER         noahmp_glacier_routines_mp_noahmp_glacier_
 #define NOAHMP_POROSITY        noahmp_globals_mp_smcmax_
-#else // INTEL_COMPILER
+#else // !INTEL_COMPILER
 #define READ_MP_VEG_PARAMETERS __noahmp_veg_parameters_MOD_read_mp_veg_parameters
 #define SOIL_VEG_GEN_PARM      __module_sf_noahmpdrv_MOD_soil_veg_gen_parm
 #define NOAHMP_OPTIONS         __noahmp_routines_MOD_noahmp_options
@@ -46,7 +46,7 @@ extern "C" void NOAHMP_SFLX(int* iLoc, int* jLoc, float* lat, int* yearLen, floa
                             float* sav, float* sag, float* fSno, float* nee, float* gpp, float* npp, float* fVeg, float* albedo, float* qsnBot, float* ponding,
                             float* ponding1, float* ponding2, float* rsSun, float* rsSha, float* bGap, float* wGap, float* chv, float* chb, float* emissi,
                             float* shg, float* shc, float* shb, float* evg, float* evb, float* ghv, float* ghb, float* irg, float* irc, float* irb, float* tr,
-                            float* evc, float* chLeaf, float* chuc, float* chv2, float* chb2, float* fpIce);
+                            float* evc, float* chLeaf, float* chuc, float* chv2, float* chb2, float* fpIce, float* qRain);
 extern "C" void NOAHMP_GLACIER(int* iLoc, int* jLoc, float* cosZ, int* nSnow, int* nSoil, float* dt, float* sfcTmp, float* sfcPrs, float* uu, float* vv,
                                float* q2, float* solDn, float* prcp, float* lwDn, float* tBot, float* zLvl, float* fIceOld, float* zSoil, float* qSnow,
                                float* snEqvO, float* albOld, float* cm, float* ch, int* iSnow, float* snEqv, float* smc, float* zSnso, float* snowH,
@@ -305,13 +305,14 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
   float chv2     = NAN; // Unused.
   float chb2     = NAN; // Unused.
   float fpIce    = NAN; // Fraction of precipitation that is frozen, unitless.
+  float qRain    = NAN; // Rainfall rate below the canopy in millimeters of water per second.
   
   // Derived output variables.
   float canIceOriginal;              // Quantity of canopy ice before timestep in millimeters of water equivalent.
-  float changeInCanopyIce;           // Change in canopy ice during timestep in millimeters of water equivalent.  Positive means the amount of canopy ice
-                                     // increased.
   float canLiqOriginal;              // Quantity of canopy liquid before timestep in millimeters of water.
-  float changeInCanopyLiquid;        // Change in canopy liquid during timestep in millimeters of water.  Positive means the amount of canopy liquid increased.
+  float canWaterShouldBe;            // There are two situations where water can be erroneously created or destroyed in the canopy.  We don't want this
+                                     // behavior so in this variable we calculate what (canIce + canLiq) should be and set it back.  If those situations do not
+                                     // occur this instead performs a mass balance check.
   int   iSnowOriginal;               // Actual number of snow layers before timestep.
   float evaporationFromSurface;      // Quantity of evaporation from the surface in millimeters of water equivalent.  Positive means water evaporated off of
                                      // the surface.  Negative means water condensed on to the surface.  Surface evaporation sometimes comes from snow and is
@@ -710,7 +711,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                   &evapoTranspirationState->tauss, &evapoTranspirationSoilMoisture->smcwtd, &evapoTranspirationState->deepRech, &evapoTranspirationState->rech,
                   &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran, &eDir, &tRad, &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub,
                   &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg, &albedo, &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap,
-                  &chv, &chb, &emissi, &shg, &shc, &shb, &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
+                  &chv, &chb, &emissi, &shg, &shc, &shb, &evg, &evb, &ghv, &ghb, &irg, &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce, &qRain);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.
@@ -742,9 +743,9 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
         }
       
-      // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall rate below the canopy is not negative, and the
-      // snowmelt out the bottom of the snowpack is not negative.
-      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
+      // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall and rainfall rates below the canopy are not negative,
+      // and the snowmelt out the bottom of the snowpack is not negative.
+      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qRain && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Store fIce from the beginning of the timestep in fIceOld.
@@ -761,8 +762,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
         }
       
       // Calculate derived output variables.
-      changeInCanopyIce      = evapoTranspirationState->canIce - canIceOriginal;
-      changeInCanopyLiquid   = evapoTranspirationState->canLiq - canLiqOriginal;
       *evaporationFromCanopy = eCan * dt;
       evaporationFromSurface = eDir * dt;
       
@@ -797,27 +796,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       snowfallInterceptedByCanopy = snowfallAboveCanopy - snowfallBelowCanopy;
       snowmeltOnGround            = qSnBot * dt + ponding + ponding1 + ponding2;
       rainfallAboveCanopy         = evapoTranspirationForcing->prcp * dt - snowfallAboveCanopy;
-      rainfallInterceptedByCanopy = changeInCanopyIce + changeInCanopyLiquid + *evaporationFromCanopy - snowfallInterceptedByCanopy;
-      rainfallBelowCanopy         = rainfallAboveCanopy - rainfallInterceptedByCanopy;
-      
-      // FIXLATER There appears to be a mass balance bug.  When the canopy completely empties of water the total outflow of (qSnow * dt + eCan * dt) can be
-      // greater than the total water available.  When you calculate snowfallInterceptedByCanopy, rainfallInterceptedByCanopy, and rainfallBelowCanopy from
-      // mass conservation it results in a negative value for rainfallBelowCanopy.  My first thought was to take the missing water back from
-      // snowfallBelowCanopy and evaporationFromCanopy.  However, the mass balance check for the snow pack only works with the unaltered value of
-      // snowfallBelowCanopy so I would have to take the missing water back from the snowpack too.  And what if the snowpack happened to disappear as well
-      // during the exact same timestep as the canopy emptying.  It started to get complicated so I have decided to just create the water and record it in
-      // waterError.  The canopy completely emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only
-      // created 0.1 micron of water.
-      //
-      // It's also possible for rainfallBelowCanopy to be negative at other times due to round off error.  This is not a mass balance bug.  However, I
-      // can't proceed with rainfallBelowCanopy negative so I have to set it to zero.  But if I only set it to zero when it is negative the roundoff error
-      // becomes biased because a small positive value due to round off error will not be set to zero, but a negative one will.  This sets both positive
-      // and negative roundoff error to zero in addition to the large negative values caused by the mass balance bug.
-      if (epsilonGreaterOrEqual(0.0f, rainfallBelowCanopy))
-        {
-          *waterError         -= rainfallBelowCanopy;
-          rainfallBelowCanopy  = 0.0f;
-        }
+      rainfallBelowCanopy         = qRain * dt;
+      rainfallInterceptedByCanopy = rainfallAboveCanopy - rainfallBelowCanopy;
       
       // If there is a snow layer at the end of the timestep it intercepts all of the rainfall.
       if (0 > evapoTranspirationState->iSnow)
@@ -831,22 +811,67 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           rainfallOnGround          = rainfallBelowCanopy;
         }
       
-      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
+      // Do a mass balance check for the canopy.
+      canWaterShouldBe = canIceOriginal + canLiqOriginal + snowfallInterceptedByCanopy + rainfallInterceptedByCanopy - *evaporationFromCanopy;
+
+      // There is a mass balance bug that can happen to the canopy water.  When the canopy completely empties of water, the total outflow of
+      // ((qSnow + qRain + eCan) * dt) can be greater than the total water available of (prcp * dt + canIce + canLiq).  This will result in canWaterShouldBe
+      // being negative.  My first thought was to take the missing water back from snowfallBelowCanopy, rainfallBelowCanopy, and evaporationFromCanopy.
+      // However, the mass balance check for the snow pack only works with the unaltered values of snowfallBelowCanopy and rainfallBelowCanopy so I would have
+      // to take the missing water back from the snowpack too.  And what if the snowpack happened to disappear as well during the exact same timestep as the
+      // canopy emptying.  It started to get complicated so I have decided to just create the water and record it in waterError.  The canopy completely
+      // emptying should occur infrequently; at most once per storm event.  In the one case where I have seen this it only created 0.1 micron of water.
+      // 
+      // canWaterShouldBe can also go negative due to round-off error.  This is not a mass balance bug, but I can't proceed with canWaterShouldBe negative.
+      // However, setting canWaterShouldBe to zero for negative roundoff errors, but not positive roundoff errors creates a water creating bias so it is
+      // correct to record the created water in waterError.
+      if (0.0f > canWaterShouldBe)
+        {
+          *waterError     -= canWaterShouldBe;
+          canWaterShouldBe = 0.0f;
+        }
+
+      // If canIce or canLiq fall below 1e-6 mm then Noah-MP sets them to zero and the water is lost.  One pernicious aspect of this problem is that our
+      // timesteps are smaller than what the Noah-MP code developers expected so we can see accumulations on the canopy of less than 1e-6 mm per timestep.
+      // This water will be thrown away every timestep and nothing will ever accumulate.  This only happens for very light precipitation, and it only throws
+      // away less than a nanometer of water each timestep so it's not too bad, but I wish they hadn't coded it this way.
+      //
+      // This problem went undetected for a long time because our epsilon for single precision floats is 1e-6 so when Noah-MP threw away less than 1e-6 it was
+      // still epsilon equal.  The problem only became visible when canIce and canLiq were both set to zero during the same timestep and the water thrown away
+      // added up to more than 1e-6.  So potentially, (canIce + canLiq) can be from (epsilon equal to (canWaterShouldBe - 2.0e-6)) up to
+      // (epsilon equal to canWaterShouldBe).
+      //
+      // We can't really tell the difference between small amounts of water being thrown away and roundoff error so in every case we set canIce and canLiq to
+      // equal canWaterShouldBe.  This should fix small amounts of water being thrown away without making roundoff error any worse.
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      CkAssert(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq) &&
+               epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq));
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      
+      // Set (canIce + canLiq) to equal canWaterShouldBe while maintaining the same proportion of ice.
+      evapoTranspirationState->canIce = canWaterShouldBe * evapoTranspirationState->canIce / (evapoTranspirationState->canIce + evapoTranspirationState->canLiq);
+      evapoTranspirationState->canLiq = canWaterShouldBe - evapoTranspirationState->canIce;
+      
+      // Do a mass balance check for the snowpack.
       snEqvShouldBe = snEqvOriginal + snowfallBelowCanopy + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
       
-      // snEqvShouldBe can go negative due to round-off error.
+      // snEqvShouldBe can go negative due to round-off error.  This is not a mass balance bug, but I can't proceed with snEqvShouldBe negative.
+      // However, setting snEqvShouldBe to zero for negative roundoff errors, but not positive roundoff errors creates a water creating bias so it is
+      // correct to record the created water in waterError.
       if (0.0f > snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
+          *waterError  -= snEqvShouldBe;
           snEqvShouldBe = 0.0f;
         }
       
       runoff = (runSrf + runSub) * dt;
       
+      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are putting the water back.
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -861,6 +886,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -887,28 +914,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
         }
       else
         {
-          // If canLiq falls below 1e-6 mm then Noah-MP sets it to zero and the water is lost.  It does the same for canIce.  I cannot think of a good way to
-          // detect when this happens.  I can't do a should be mass balance check like I do for snEqv because I don't know the correct value of
-          // rainfallInterceptedByCanopy or rainfallBelowCanopy.  In fact, I am using the old and new values of canLiq and canIce to calculate
-          // rainfallInterceptedByCanopy and rainfallBelowCanopy so they will always be consistent with them.
-          //
-          // One pernicious aspect of this problem is that our timesteps are smaller than what the Noah-MP code developers expected so we can see accumulations
-          // on the canopy of less than 1e-6 mm per timestep.  This water will be thrown away every timestep and nothing will ever accumulate.  This only
-          // happens for very light precipitation, and it only throws away less than a nanometer of water each timestep so it's not too bad, but I wish they
-          // hadn't coded it this way.
-          //
-          // This problem went undetected for a long time because our epsilon for single precision floats is 1e-6 so when Noah-MP threw away less than 1e-6 it
-          // was still epsilon equal.  The problem only became visible when canLiq and canIce were both set to zero during the same timestep and the water
-          // thrown away added up to more than 1e-6.
-          //
-          // The solution I have decided on is just to put the difference between snEqv and snEqvShouldBe into waterError.  I also changed the assertion so
-          // that it's okay for the error to be up to 2e-6 if canLiq and canIce are both zero and thus water could have been thrown away from both.
-          *waterError += evapoTranspirationState->snEqv - snEqvShouldBe;
-          
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe) ||
-                   (0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce &&       // Using std::abs instead of fabs so that the
-                    epsilonGreaterOrEqual(2.0e-6f, std::abs(evapoTranspirationState->snEqv - snEqvShouldBe)))); // result is a float and not a double
+          CkAssert(epsilonEqual(evapoTranspirationState->snEqv, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
 
@@ -1077,6 +1084,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
   float chv2     = NAN; // Unused.
   float chb2     = NAN; // Unused.
   float fpIce    = NAN; // Fraction of precipitation that is frozen, unitless.
+  float qRain    = NAN; // Rainfall rate below the canopy in millimeters of water per second.
   
   // Derived output variables.
   int   iSnowOriginal;             // Actual number of snow layers before timestep.
@@ -1360,7 +1368,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
                   &evapoTranspirationState->deepRech, &evapoTranspirationState->rech, &fsa, &fsr, &fira, &fsh, &sSoil, &fcev, &fgev, &fctr, &eCan, &eTran,
                   &eDir, &tRad, &tgb, &tgv, &t2mv, &t2mb, &q2v, &q2b, &runSrf, &runSub, &apar, &psn, &sav, &sag, &fSno, &nee, &gpp, &npp, &fVeg, &albedo,
                   &qSnBot, &ponding, &ponding1, &ponding2, &rsSun, &rsSha, &bGap, &wGap, &chv, &chb, &emissi, &shg, &shc, &shb, &evg, &evb, &ghv, &ghb, &irg,
-                  &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce);
+                  &irc, &irb, &tr, &evc, &chLeaf, &chuc, &chv2, &chb2, &fpIce, &qRain);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       // Verify that the input variables have not changed.
@@ -1391,9 +1399,9 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           CkAssert(snEqvOriginal == evapoTranspirationState->snEqvO);
         }
       
-      // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall rate below the canopy is not negative, and the
-      // snowmelt out the bottom of the snowpack is not negative.
-      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
+      // Verify that the fraction of the precipitation that falls as snow is between 0 and 1, the snowfall and rainfall rates below the canopy are not negative,
+      // and the snowmelt out the bottom of the snowpack is not negative.
+      CkAssert(0.0f <= fpIce && 1.0f >= fpIce && 0.0f <= qSnow && 0.0f <= qRain && 0.0f <= qSnBot && 0.0f <= ponding && 0.0f <= ponding1 && 0.0f <= ponding2);
       
       // Verify that there is no water, no evaporation, and no transpiration, in the non-existant canopy.
       CkAssert(0.0f == evapoTranspirationState->canLiq && 0.0f == evapoTranspirationState->canIce && 0.0f == eCan && 0.0f == eTran);
@@ -1426,6 +1434,9 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           CkAssert(epsilonEqual(evapoTranspirationForcing->prcp * fpIce, qSnow));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         }
+      
+      // Verify that there is no rainfall interception in the non-existant canopy.
+      CkAssert(epsilonEqual(evapoTranspirationForcing->prcp * (1.0f - fpIce), qRain));
       
       // Store fIce from the beginning of the timestep in fIceOld.
       for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS; ii++)
@@ -1485,22 +1496,26 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           rainfallOnGround          = rainfall;
         }
       
-      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
+      // Do a mass balance check for the snowpack.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
       
-      // snEqvShouldBe can go negative due to round-off error.
+      // snEqvShouldBe can go negative due to round-off error.  This is not a mass balance bug, but I can't proceed with snEqvShouldBe negative.
+      // However, setting snEqvShouldBe to zero for negative roundoff errors, but not positive roundoff errors creates a water creating bias so it is
+      // correct to record the created water in waterError.
       if (0.0f > snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
+          *waterError  -= snEqvShouldBe;
           snEqvShouldBe = 0.0f;
         }
       
       runoff = (runSrf + runSub) * dt;
       
+      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are putting the water back.
       if (0.0f == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -1515,6 +1530,8 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -1977,22 +1994,26 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           *evaporationFromGround = evaporationFromSurface - *evaporationFromSnow;
         }
       
-      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
-      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are calculating what snEqv should be and putting the water back.
+      // Do a mass balance check for the snowpack.
       snEqvShouldBe = snEqvOriginal + snowfall + rainfallInterceptedBySnow - *evaporationFromSnow - snowmeltOnGround;
       
-      // snEqvShouldBe can go negative due to round-off error.
+      // snEqvShouldBe can go negative due to round-off error.  This is not a mass balance bug, but I can't proceed with snEqvShouldBe negative.
+      // However, setting snEqvShouldBe to zero for negative roundoff errors, but not positive roundoff errors creates a water creating bias so it is
+      // correct to record the created water in waterError.
       if (0.0f > snEqvShouldBe)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(0.0f, snEqvShouldBe));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
+          *waterError  -= snEqvShouldBe;
           snEqvShouldBe = 0.0f;
         }
       
       runoff = (runSrf + runSub) * dt;
       
+      // If snEqv falls below 0.001 mm, or snowH falls below 1e-6 m then Noah-MP sets both to zero and the water is lost.  If snEqv grows above 2000 mm then
+      // Noah-MP sets it to 2000 and the water is added to runSub as glacier flow.  We are putting the water back.
       if (0.0 == evapoTranspirationState->snEqv)
         {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
@@ -2007,6 +2028,8 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+          
+          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
