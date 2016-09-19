@@ -20,6 +20,7 @@ from glob import glob
 parser = argparse.ArgumentParser(description="Generate Charm++ code for management components.")
 parser.add_argument('inputDirectory', help='Directory containing management component data for generation.  Should contain reservoirs, diversions, and parcels sub directories, each of these containing their respective .csv data.')
 parser.add_argument('-o', '--outputDirectory', help='Optional output directory to place generated code into.  Defaults to ../generated_code .')
+#parser.add_argument('-e', '--empty', help='Flag for createing empty management code.  This creates the required files to compile, but contains no management objects.', action='store_true', default=False)
 group = parser.add_argument_group('Components', 'Which management components should code be generated for.')
 group.add_argument('-r', '--reservoirs', help='Flag for generating reservoir object code.', action='store_true', default=False)
 group.add_argument('-d', '--diversions', help='Flag for generating diversion object code.', action='store_true', default=False)
@@ -207,7 +208,9 @@ def generateReservoirs():
     #treat each row as an entry of data
     #apply the makeClassFiles function to each
     df.apply(makeResClassFiles, axis=1)
-
+    if len(df) == 0:
+        with open(path.join(res_dir, 'reservoirs.ci'), 'a') as output:
+            output.write('module emptyRes{}')
     #print df
     f = factory.ResFactory()
     #Create the abstract classes for a ReservoirFactory
@@ -257,7 +260,10 @@ def generateDiversions():
     #treat each row as an entry of data
     #apply the makeClassFiles function to each
     df.apply(makeDivClassFiles, axis=1)
-    
+    if len(df) == 0:
+        with open(path.join(div_dir, 'diversions.ci'), 'a') as output:
+            output.write('module emptyDiv{}')
+
     #Create the DiversionFactory
     f = factory.DiversionFactory()
     #Create the abstract classes for a DiversionFactory
@@ -290,6 +296,9 @@ def generateParcels():
     #treat each row as an entry of data
     #apply the makeClassFiles function to each
     df.apply(makeParcelClassFiles, axis=1)
+    if len(df) == 0:
+        with open(path.join(div_dir, 'parcels.ci'), 'a') as output:
+            output.write('module emptyPar{}')
 
     #Create the ParcelFactory
     f = factory.ParcelFactory()
@@ -304,6 +313,9 @@ def generateParcels():
         output.write(str(f))
 
 def main():
+    #if(args.empty):
+    #	createEmpty()
+    #	return
     if(args.reservoirs): 
         generateReservoirs()
     if(args.diversions):
