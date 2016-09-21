@@ -8,6 +8,22 @@ class FileManager
 {
 public:
 
+  // The state of the evapotranspiration and vadose zone infiltration simulations are generally complex data structures.
+  // We want ADHydro to support using third party modules for those simulations so we don't necessarily have control over the data structure,
+  // and the data structure can change if you change to a different module, but we need to save that state in the input/output files as a fixed size blob.
+  // These declarations provide fixed size blobs for that data.  Any new simulation module must shoehorn their state into a fixed size blob and add it as an additional union option.
+  union EvapoTranspirationStateBlob
+  {
+    int dummy;
+    // FIXME EvapoTranspirationStateStruct NoahMPStateBlob;
+  };
+
+  union VadoseZoneStateBlob
+  {
+    int dummy;
+    // FIXME GARTOStateBlob
+  };
+
   // Pure virtual interface to file operations.
 
   // Create a new empty output file.  This may include setting up file meta-data.

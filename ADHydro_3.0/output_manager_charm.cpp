@@ -2,19 +2,18 @@
 #include "adhydro.h"
 
 OutputManagerCharm::OutputManagerCharm(FileManagerEnum fileManagerInit) :
-OutputManager((FILE_MANAGER_NETCDF == fileManagerInit) ? &fileManagerNetCDFInit :
-    NULL), // NULL will cause an error in the OutputManager constructor if fileManagerInit is not a valid enum value.
-    fileManagerNetCDFInit(this)
+OutputManager(convertFileManagerEnumToFileManagerReference(fileManagerInit)),
+fileManagerNetCDFInit(*this)
 {
-  // no-op.
+  // No-op.
 }
 
-int OutputManagerCharm::numberOfOutputManagers()
+size_t OutputManagerCharm::numberOfOutputManagers()
 {
   return CkNumPes();
 }
 
-int OutputManagerCharm::myOutputManagerIndex()
+size_t OutputManagerCharm::myOutputManagerIndex()
 {
   return CkMyPe();
 }
@@ -44,29 +43,72 @@ double OutputManagerCharm::outputPeriod()
   return ADHydro::outputPeriod;
 }
 
-int OutputManagerCharm::globalNumberOfMeshElements()
+size_t OutputManagerCharm::globalNumberOfMeshElements()
 {
   return 5; // FIXME
 }
 
-int OutputManagerCharm::numberOfMeshSoilLayers()
+size_t OutputManagerCharm::localNumberOfMeshElements()
+{
+  return 5; // FIXME
+}
+
+size_t OutputManagerCharm::localMeshElementStart()
+{
+  return 0; // FIXME
+}
+
+size_t OutputManagerCharm::maximumNumberOfMeshSoilLayers()
 {
   return 1; // FIXME
 }
 
-int OutputManagerCharm::numberOfMeshNeighbors()
+size_t OutputManagerCharm::maximumNumberOfMeshNeighbors()
 {
   return 2; // FIXME
 }
 
-int OutputManagerCharm::globalNumberOfChannelElements()
+size_t OutputManagerCharm::globalNumberOfChannelElements()
 {
   return 3; // FIXME
 }
 
-int OutputManagerCharm::numberOfChannelNeighbors()
+size_t OutputManagerCharm::localNumberOfChannelElements()
+{
+  return 3; // FIXME
+}
+
+size_t OutputManagerCharm::localChannelElementStart()
+{
+  return 0; // FIXME
+}
+
+size_t OutputManagerCharm::maximumNumberOfChannelNeighbors()
 {
   return 2; // FIXME
+}
+
+FileManager& OutputManagerCharm::convertFileManagerEnumToFileManagerReference(FileManagerEnum fileManagerInit)
+{
+  FileManager* fileManager;
+  
+  switch (fileManagerInit)
+  {
+  case FILE_MANAGER_NETCDF:
+    fileManager = &fileManagerNetCDFInit;
+    break;
+  default:
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+      {
+        CkError("ERROR in OutputManagerCharm::convertFileManagerEnumToFileManagerReference: fileManagerInit must be a valid enum value.\n");
+        CkExit();
+      }
+    
+    fileManager = &fileManagerNetCDFInit;
+    break;
+  }
+  
+  return *fileManager;
 }
 
 #include "output_manager_charm.def.h"

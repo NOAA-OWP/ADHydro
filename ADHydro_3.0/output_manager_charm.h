@@ -22,21 +22,30 @@ public:
   OutputManagerCharm(FileManagerEnum fileManagerInit);
 
   // OutputManager communication system interface.
-  int         numberOfOutputManagers();
-  int         myOutputManagerIndex();
+  size_t      numberOfOutputManagers();
+  size_t      myOutputManagerIndex();
   std::string directory();
   double      referenceDate();
   double      simulationStartTime();
   double      simulationDuration();
   double      outputPeriod();
-  int         globalNumberOfMeshElements();
-  int         numberOfMeshSoilLayers();
-  int         numberOfMeshNeighbors();
-  int         globalNumberOfChannelElements();
-  int         numberOfChannelNeighbors();
+  size_t      globalNumberOfMeshElements();
+  size_t      localNumberOfMeshElements();
+  size_t      localMeshElementStart();
+  size_t      maximumNumberOfMeshSoilLayers();
+  size_t      maximumNumberOfMeshNeighbors();
+  size_t      globalNumberOfChannelElements();
+  size_t      localNumberOfChannelElements();
+  size_t      localChannelElementStart();
+  size_t      maximumNumberOfChannelNeighbors();
 
 private:
 
+  // Helper function to error check a FileManagerEnum.
+  //
+  // Returns: a reference to the correct private member variable for the enum value.
+  FileManager& convertFileManagerEnumToFileManagerReference(FileManagerEnum fileManagerInit);
+  
   // FileManager objects to pass to OutputManager.
   FileManagerNetCDF fileManagerNetCDFInit;
 };

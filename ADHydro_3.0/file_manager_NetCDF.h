@@ -13,15 +13,22 @@ public:
   //
   // Parameters:
   //
-  // outputManagerInit - Scalar passed by reference.  The OutputManager provides some values that FileManagerNetCDF needs to create NetCDF files.
-  //                     The OutputManager pointed to must exist for the entire lifetime of the FileManagerNetCDF,
-  //                     but the FileManagerNetCDF destructor does not delete the OutputManager.
-  FileManagerNetCDF(OutputManager* outputManagerInit);
+  // outputManagerInit - Provides some values that the FileManagerNetCDF needs to create NetCDF files.  Must exist for the entire lifetime of the FileManagerNetCDF,
+  FileManagerNetCDF(OutputManager& outputManagerInit);
 
   // FileManager interface.
   bool createFile(double outputTime);
 
 private:
+
+  // Helper function to create a standard filename string for a given time.
+  //
+  // Returns: the filename.
+  //
+  // Parameters:
+  //
+  // outputTime - Time point to create a filename for.
+  std::string createFilename(double outputTime);
 
   // Helper function to create a variable with units and comment in a NetCDF file.
   //
@@ -40,7 +47,7 @@ private:
   // comment            - A comment string that will be added as an attribute of the variable.  Can be passed as NULL in which case no attribute will be added.
   bool createVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1, int dimensionID2, const char* units, const char* comment);
 
-  OutputManager* outputManager; // Wrapper for some values that FileManagerNetCDF needs to create NetCDF files.
+  OutputManager& outputManager; // Wrapper for some values that FileManagerNetCDF needs to create NetCDF files.
 };
 
 #endif // __FILE_MANAGER_NETCDF_H__
