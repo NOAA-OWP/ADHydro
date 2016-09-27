@@ -1,9 +1,8 @@
 #ifndef __ADHYDRO_H__
 #define __ADHYDRO_H__
 
-#include "all.h"
+#include "output_manager_charm.h"
 #include "adhydro.decl.h"
-#include "output_manager_charm.decl.h"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its constructor.
 class ADHydro : public CBase_ADHydro

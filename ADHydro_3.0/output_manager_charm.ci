@@ -4,6 +4,42 @@ module output_manager_charm
   {
     entry OutputManagerCharm(FileManagerEnum fileManagerInit);
     
-    entry void createFiles();
+    entry void runForever()
+    {
+      when sendCreateFiles()
+      {
+        serial
+        {
+          createFiles();
+        }
+      }
+      
+      while (true)
+      {
+        case
+        {
+          when sendMeshElementState(const MeshElementState& state)
+          {
+            serial
+            {
+              handleMeshElementState(state);
+            }
+          }
+          
+          when sendChannelElementState(const ChannelElementState& state)
+          {
+            serial
+            {
+              handleChannelElementState(state);
+            }
+          }
+        }
+      }
+    };
+    
+    entry void sendCreateFiles();
+    entry void sendMeshElementState(const MeshElementState& state);
+    entry void sendChannelElementState(const ChannelElementState& state);
+    
   }; // End group OutputManagerCharm.
 }; // End module output_manager_charm.

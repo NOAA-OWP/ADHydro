@@ -1,11 +1,93 @@
-#include "output_manager_charm.h"
 #include "adhydro.h"
 
-OutputManagerCharm::OutputManagerCharm(FileManagerEnum fileManagerInit) :
-OutputManager(convertFileManagerEnumToFileManagerReference(fileManagerInit)),
-fileManagerNetCDFInit(*this)
+PUPbytes(FileManager::EvapoTranspirationStateBlob);
+PUPbytes(FileManager::VadoseZoneStateBlob);
+
+void MeshElementState::pup(PUP::er &p)
 {
-  // No-op.
+  p | elementNumber;
+  p | currentTime;
+  p | numberOfSoilLayers;
+  p | numberOfNeighbors;
+
+  if (p.isUnpacking())
+    {
+      deleteArrays();
+      allocateArrays();
+    }
+
+  p | surfacewaterDepth;
+  p | surfacewaterCreated;
+
+  if (0 < numberOfSoilLayers)
+    {
+      PUParray(p, groundwaterHead,     numberOfSoilLayers);
+      PUParray(p, groundwaterRecharge, numberOfSoilLayers);
+      PUParray(p, groundwaterCreated,  numberOfSoilLayers);
+    }
+
+  p | precipitationRate;
+  p | precipitationCumulative;
+  p | evaporationRate;
+  p | evaporationCumulative;
+  p | transpirationRate;
+  p | transpirationCumulative;
+  p | evapoTranspirationState;
+  p | canopyWaterEquivalent;
+  p | snowWaterEquivalent;
+
+  if (0 < numberOfSoilLayers)
+    {
+      PUParray(p, vadoseZoneState, numberOfSoilLayers);
+      PUParray(p, rootZoneWater,   numberOfSoilLayers);
+      PUParray(p, totalSoilWater,  numberOfSoilLayers);
+    }
+
+  if (0 < numberOfNeighbors)
+    {
+      PUParray(p, surfacewaterNeighborsExpirationTime, numberOfNeighbors);
+      PUParray(p, surfacewaterNeighborsFlowRate,       numberOfNeighbors);
+      PUParray(p, surfacewaterNeighborsFlowCumulative, numberOfNeighbors);
+
+      if (0 < numberOfSoilLayers)
+        {
+          PUParray(p, groundwaterNeighborsExpirationTime, numberOfNeighbors * numberOfSoilLayers);
+          PUParray(p, groundwaterNeighborsFlowRate,       numberOfNeighbors * numberOfSoilLayers);
+          PUParray(p, groundwaterNeighborsFlowCumulative, numberOfNeighbors * numberOfSoilLayers);
+        }
+    }
+}
+
+void ChannelElementState::pup(PUP::er &p)
+{
+  p | elementNumber;
+  p | currentTime;
+  p | numberOfNeighbors;
+
+  if (p.isUnpacking())
+    {
+      deleteArrays();
+      allocateArrays();
+    }
+
+  p | surfacewaterDepth;
+  p | surfacewaterCreated;
+  p | precipitationRate;
+  p | precipitationCumulative;
+  p | evaporationRate;
+  p | evaporationCumulative;
+  p | evapoTranspirationState;
+  p | snowWaterEquivalent;
+
+  if (0 < numberOfNeighbors)
+    {
+      PUParray(p, surfacewaterNeighborsExpirationTime, numberOfNeighbors);
+      PUParray(p, surfacewaterNeighborsFlowRate,       numberOfNeighbors);
+      PUParray(p, surfacewaterNeighborsFlowCumulative, numberOfNeighbors);
+      PUParray(p, groundwaterNeighborsExpirationTime,  numberOfNeighbors);
+      PUParray(p, groundwaterNeighborsFlowRate,        numberOfNeighbors);
+      PUParray(p, groundwaterNeighborsFlowCumulative,  numberOfNeighbors);
+    }
 }
 
 size_t OutputManagerCharm::numberOfOutputManagers()
@@ -70,12 +152,12 @@ size_t OutputManagerCharm::maximumNumberOfMeshNeighbors()
 
 size_t OutputManagerCharm::globalNumberOfChannelElements()
 {
-  return 3; // FIXME
+  return 4; // FIXME
 }
 
 size_t OutputManagerCharm::localNumberOfChannelElements()
 {
-  return 3; // FIXME
+  return 4; // FIXME
 }
 
 size_t OutputManagerCharm::localChannelElementStart()
@@ -85,13 +167,13 @@ size_t OutputManagerCharm::localChannelElementStart()
 
 size_t OutputManagerCharm::maximumNumberOfChannelNeighbors()
 {
-  return 2; // FIXME
+  return 3; // FIXME
 }
 
 FileManager& OutputManagerCharm::convertFileManagerEnumToFileManagerReference(FileManagerEnum fileManagerInit)
 {
   FileManager* fileManager;
-  
+
   switch (fileManagerInit)
   {
   case FILE_MANAGER_NETCDF:
@@ -103,11 +185,11 @@ FileManager& OutputManagerCharm::convertFileManagerEnumToFileManagerReference(Fi
         CkError("ERROR in OutputManagerCharm::convertFileManagerEnumToFileManagerReference: fileManagerInit must be a valid enum value.\n");
         CkExit();
       }
-    
+
     fileManager = &fileManagerNetCDFInit;
     break;
   }
-  
+
   return *fileManager;
 }
 

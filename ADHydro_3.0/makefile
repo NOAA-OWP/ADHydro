@@ -44,7 +44,11 @@ adhydro.o: adhydro.cpp                 \
            adhydro.h                   \
            adhydro.decl.h              \
            adhydro.def.h               \
+           output_manager_charm.h      \
            output_manager_charm.decl.h \
+           output_manager.h            \
+           file_manager_NetCDF.h       \
+           file_manager.h              \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 

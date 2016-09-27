@@ -108,7 +108,30 @@ ADHydro::ADHydro(CkArgMsg* msg)
       // Create output manager.
       outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
 
-      outputManagerProxy.createFiles();
+      // FIXME call this after referenceDate and simulationStartTime are possibly loaded from file.
+      outputManagerProxy.sendCreateFiles();
+      
+      // FIXME remove
+      /**/
+      MeshElementState meshState(0, 0, 0, 0);
+      outputManagerProxy[0].sendMeshElementState(meshState);
+      meshState.elementNumber = 1;
+      outputManagerProxy[0].sendMeshElementState(meshState);
+      meshState.elementNumber = 2;
+      outputManagerProxy[0].sendMeshElementState(meshState);
+      meshState.elementNumber = 3;
+      outputManagerProxy[0].sendMeshElementState(meshState);
+      meshState.elementNumber = 4;
+      outputManagerProxy[0].sendMeshElementState(meshState);
+      ChannelElementState channelState(0, 0, 0);
+      outputManagerProxy[0].sendChannelElementState(channelState);
+      channelState.elementNumber = 1;
+      outputManagerProxy[0].sendChannelElementState(channelState);
+      channelState.elementNumber = 2;
+      outputManagerProxy[0].sendChannelElementState(channelState);
+      channelState.elementNumber = 3;
+      outputManagerProxy[0].sendChannelElementState(channelState);
+      /**/
     }
 
   if (error)

@@ -1,6 +1,9 @@
 #ifndef __FILE_MANAGER_H__
 #define __FILE_MANAGER_H__
 
+// Break circular dependency with output_manager.h.
+class TimePointState;
+
 // FileManager is a wrapper for file operations used by OutputManager.
 // FileManager must be subclassed for each type of file that can be created.
 // Currently, only NetCDF files are implemented, but this could be extended.
@@ -44,6 +47,18 @@ public:
   //
   // outputTime - Time point to create a file for.  This value can be used for the file name and/or stored inside the file.
   virtual bool createFile(double outputTime) = 0;
+
+  // Write data out to a file.
+  //
+  // Each FileManager may only write a slice of data to each file, may write in parallel or serially, etc.  The subclass must figure all this out.
+  //
+  // Returns: true if there is an error, false otherwise.
+  //
+  // Parameters:
+  //
+  // outputTime     - Time point to write output for.  This value can be used for the file name and/or stored inside the file.
+  // timePointState - Output data to write.
+  virtual bool writeOutput(double outputTime, TimePointState* timePointState) = 0;
 };
 
 #endif // __FILE_MANAGER_H__
