@@ -4,21 +4,16 @@
 
 # Use these values for EN3038 lab.
 
-HDF5DIR          := /opt
-NETCDFDIR        := /opt
-EXTRANETCDFFLAGS := -lcurl
-METISDIR         := /opt
-LIBDIRNAME       := lib64
+METISDIR         := /opt/lib64
 EXTRAFLAGS       := -fdiagnostics-show-option
 
 # Use these values for all.
 
 CHARMC            := $(CHARMDIR)/bin/charmc -language charm++
-NETCDFCPPFLAGS    := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS     := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
-METISLDFLAGS      := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
+NETCDFLDFLAGS     := -lnetcdf -lhdf5_hl -lhdf5 -lcurl
+METISLDFLAGS      := -L$(METISDIR) -lmetis -balancer MetisLB
 #OPTIMIZATIONFLAGS := -O3 -optimize -production
-CPPFLAGS          := $(NETCDFCPPFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
+CPPFLAGS          := $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
 LDFLAGS           := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -g -Wall
 
 VPATH := ../inih ../inih/cpp

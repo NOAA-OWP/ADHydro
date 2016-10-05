@@ -12,16 +12,15 @@ CProxy_OutputManagerCharm ADHydro::outputManagerProxy;
 
 ADHydro::ADHydro(CkArgMsg* msg)
 {
-  bool        error         = false;    // Error flag.
-  const char* superfileName =           // The first command line argument protected against non-existance.
-      (1 < msg->argc) ? (msg->argv[1]) : ("");
-  INIReader   superfile(superfileName); // Superfile reader object.
-  long        referenceDateYear;        // For converting Gregorian date to Julian date.
-  long        referenceDateMonth;       // For converting Gregorian date to Julian date.
-  long        referenceDateDay;         // For converting Gregorian date to Julian date.
-  long        referenceDateHour;        // For converting Gregorian date to Julian date.
-  long        referenceDateMinute;      // For converting Gregorian date to Julian date.
-  double      referenceDateSecond;      // For converting Gregorian date to Julian date.
+  bool        error         = false;                                   // Error flag.
+  const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
+  INIReader   superfile(superfileName);                                // Superfile reader object.
+  long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
+  long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
+  long        referenceDateHour;                                       // For converting Gregorian date to Julian date.
+  long        referenceDateMinute;                                     // For converting Gregorian date to Julian date.
+  double      referenceDateSecond;                                     // For converting Gregorian date to Julian date.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     {
@@ -107,30 +106,34 @@ ADHydro::ADHydro(CkArgMsg* msg)
 
       // Create output manager.
       outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
+      
+      // FIXME remove
+      // Set reduction client for barrier.
+      //outputManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(OutputManagerCharm, barrier), outputManagerProxy));
 
       // FIXME call this after referenceDate and simulationStartTime are possibly loaded from file.
       outputManagerProxy.sendCreateFiles();
       
       // FIXME remove
       /**/
-      MeshElementState meshState(0, 0, 0, 0);
+      MeshElementStateCharm meshState(0, 1, 0, 0);
       outputManagerProxy[0].sendMeshElementState(meshState);
       meshState.elementNumber = 1;
       outputManagerProxy[0].sendMeshElementState(meshState);
       meshState.elementNumber = 2;
       outputManagerProxy[0].sendMeshElementState(meshState);
       meshState.elementNumber = 3;
-      outputManagerProxy[0].sendMeshElementState(meshState);
+      outputManagerProxy[1 % CkNumPes()].sendMeshElementState(meshState);
       meshState.elementNumber = 4;
-      outputManagerProxy[0].sendMeshElementState(meshState);
-      ChannelElementState channelState(0, 0, 0);
+      outputManagerProxy[1 % CkNumPes()].sendMeshElementState(meshState);
+      ChannelElementStateCharm channelState(0, 1, 0);
       outputManagerProxy[0].sendChannelElementState(channelState);
       channelState.elementNumber = 1;
       outputManagerProxy[0].sendChannelElementState(channelState);
       channelState.elementNumber = 2;
-      outputManagerProxy[0].sendChannelElementState(channelState);
+      outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
       channelState.elementNumber = 3;
-      outputManagerProxy[0].sendChannelElementState(channelState);
+      outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
       /**/
     }
 

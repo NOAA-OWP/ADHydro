@@ -18,7 +18,7 @@ public:
 
   // FileManager interface.
   bool createFile(double outputTime);
-  bool writeOutput(double outputTime, TimePointState* timePointState);
+  bool writeOutput(double outputTime, TimePointState& timePointState);
 
 private:
 

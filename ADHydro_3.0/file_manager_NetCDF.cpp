@@ -1,7 +1,6 @@
 #include "file_manager_NetCDF.h"
 #include "all.h"
 #include <sstream>
-#include <netcdf_par.h>
 
 bool FileManagerNetCDF::createFile(double outputTime)
 {
@@ -455,7 +454,7 @@ bool FileManagerNetCDF::createFile(double outputTime)
   return error;
 }
 
-bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePointState)
+bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState& timePointState)
 {
   bool        error    = false; // Error flag.
   int         ncErrorCode;      // Return value of NetCDF functions.
@@ -470,12 +469,6 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
           ADHYDRO_ERROR("ERROR in FileManagerNetCDF::writeOutput: outputTime must be greater than or equal to simulationStartTime and less than or equal to simulationStartTime plus simulationDuration.\n");
           error = true;
         }
-
-      if (!(NULL != timePointState))
-        {
-          ADHYDRO_ERROR("ERROR in FileManagerNetCDF::writeOutput: timePointState must not be NULL.\n");
-          error = true;
-        }
     }
 
   // Build the filename and open the file.
@@ -483,7 +476,7 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
     {
       filename = createFilename(outputTime);
 
-      ncErrorCode = nc_open_par(filename.c_str(), NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &fileID);
+      ncErrorCode = nc_open(filename.c_str(), NC_NETCDF4 | NC_WRITE, &fileID);
 
       if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
@@ -507,12 +500,12 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
     {
       if (!error)
         {
-          error = writeVariable(fileID, "meshSurfacewaterDepth", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshSurfacewaterDepth);
+          error = writeVariable(fileID, "meshSurfacewaterDepth", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshSurfacewaterDepth);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshSurfacewaterCreated", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshSurfacewaterCreated);
+          error = writeVariable(fileID, "meshSurfacewaterCreated", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshSurfacewaterCreated);
         }
 
       if (0 < outputManager.maximumNumberOfMeshSoilLayers())
@@ -520,65 +513,65 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
           if (!error)
             {
               error = writeVariable(fileID, "meshGroundwaterHead", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshGroundwaterHead);
+                  timePointState.meshGroundwaterHead);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshGroundwaterRecharge", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshGroundwaterRecharge);
+                  timePointState.meshGroundwaterRecharge);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshGroundwaterCreated", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshGroundwaterCreated);
+                  timePointState.meshGroundwaterCreated);
             }
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshPrecipitationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshPrecipitationRate);
+          error = writeVariable(fileID, "meshPrecipitationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshPrecipitationRate);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshPrecipitationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshPrecipitationCumulative);
+          error = writeVariable(fileID, "meshPrecipitationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshPrecipitationCumulative);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshEvaporationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshEvaporationRate);
+          error = writeVariable(fileID, "meshEvaporationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshEvaporationRate);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshEvaporationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshEvaporationCumulative);
+          error = writeVariable(fileID, "meshEvaporationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshEvaporationCumulative);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshTranspirationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshTranspirationRate);
+          error = writeVariable(fileID, "meshTranspirationRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshTranspirationRate);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshTranspirationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshTranspirationCumulative);
+          error = writeVariable(fileID, "meshTranspirationCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshTranspirationCumulative);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshEvapoTranspirationState", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshEvapoTranspirationState);
+          error = writeVariable(fileID, "meshEvapoTranspirationState", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshEvapoTranspirationState);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshCanopyWaterEquivalent", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshCanopyWaterEquivalent);
+          error = writeVariable(fileID, "meshCanopyWaterEquivalent", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshCanopyWaterEquivalent);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "meshSnowWaterEquivalent", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState->meshSnowWaterEquivalent);
+          error = writeVariable(fileID, "meshSnowWaterEquivalent", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), 0, 0, timePointState.meshSnowWaterEquivalent);
         }
 
       if (0 < outputManager.maximumNumberOfMeshSoilLayers())
@@ -586,19 +579,19 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
           if (!error)
             {
               error = writeVariable(fileID, "meshVadoseZoneState", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshVadoseZoneState);
+                  timePointState.meshVadoseZoneState);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshRootZoneWater", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshRootZoneWater);
+                  timePointState.meshRootZoneWater);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshTotalSoilWater", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(), 0,
-                  timePointState->meshTotalSoilWater);
+                  timePointState.meshTotalSoilWater);
             }
         }
 
@@ -607,19 +600,19 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
           if (!error)
             {
               error = writeVariable(fileID, "meshSurfacewaterNeighborsExpirationTime", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshNeighbors(), 0,
-                  timePointState->meshSurfacewaterNeighborsExpirationTime);
+                  timePointState.meshSurfacewaterNeighborsExpirationTime);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshSurfacewaterNeighborsFlowRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshNeighbors(), 0,
-                  timePointState->meshSurfacewaterNeighborsFlowRate);
+                  timePointState.meshSurfacewaterNeighborsFlowRate);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "meshSurfacewaterNeighborsFlowCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshNeighbors(), 0,
-                  timePointState->meshSurfacewaterNeighborsFlowCumulative);
+                  timePointState.meshSurfacewaterNeighborsFlowCumulative);
             }
 
           if (0 < outputManager.maximumNumberOfMeshSoilLayers())
@@ -627,19 +620,19 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
               if (!error)
                 {
                   error = writeVariable(fileID, "meshGroundwaterNeighborsExpirationTime", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(),
-                      outputManager.maximumNumberOfMeshNeighbors(), timePointState->meshGroundwaterNeighborsExpirationTime);
+                      outputManager.maximumNumberOfMeshNeighbors(), timePointState.meshGroundwaterNeighborsExpirationTime);
                 }
 
               if (!error)
                 {
                   error = writeVariable(fileID, "meshGroundwaterNeighborsFlowRate", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(),
-                      outputManager.maximumNumberOfMeshNeighbors(), timePointState->meshGroundwaterNeighborsFlowRate);
+                      outputManager.maximumNumberOfMeshNeighbors(), timePointState.meshGroundwaterNeighborsFlowRate);
                 }
 
               if (!error)
                 {
                   error = writeVariable(fileID, "meshGroundwaterNeighborsFlowCumulative", outputManager.localMeshElementStart(), outputManager.localNumberOfMeshElements(), outputManager.maximumNumberOfMeshSoilLayers(),
-                      outputManager.maximumNumberOfMeshNeighbors(), timePointState->meshGroundwaterNeighborsFlowCumulative);
+                      outputManager.maximumNumberOfMeshNeighbors(), timePointState.meshGroundwaterNeighborsFlowCumulative);
                 }
             }
         }
@@ -649,42 +642,42 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
     {
       if (!error)
         {
-          error = writeVariable(fileID, "channelSurfacewaterDepth", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelSurfacewaterDepth);
+          error = writeVariable(fileID, "channelSurfacewaterDepth", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelSurfacewaterDepth);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelSurfacewaterCreated", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelSurfacewaterCreated);
+          error = writeVariable(fileID, "channelSurfacewaterCreated", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelSurfacewaterCreated);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelPrecipitationRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelPrecipitationRate);
+          error = writeVariable(fileID, "channelPrecipitationRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelPrecipitationRate);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelPrecipitationCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelPrecipitationCumulative);
+          error = writeVariable(fileID, "channelPrecipitationCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelPrecipitationCumulative);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelEvaporationRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelEvaporationRate);
+          error = writeVariable(fileID, "channelEvaporationRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelEvaporationRate);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelEvaporationCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelEvaporationCumulative);
+          error = writeVariable(fileID, "channelEvaporationCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelEvaporationCumulative);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelEvapoTranspirationState", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelEvapoTranspirationState);
+          error = writeVariable(fileID, "channelEvapoTranspirationState", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelEvapoTranspirationState);
         }
 
       if (!error)
         {
-          error = writeVariable(fileID, "channelSnowWaterEquivalent", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState->channelSnowWaterEquivalent);
+          error = writeVariable(fileID, "channelSnowWaterEquivalent", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), 0, 0, timePointState.channelSnowWaterEquivalent);
         }
 
       if (0 < outputManager.maximumNumberOfChannelNeighbors())
@@ -692,37 +685,37 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState* timePoint
           if (!error)
             {
               error = writeVariable(fileID, "channelSurfacewaterNeighborsExpirationTime", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelSurfacewaterNeighborsExpirationTime);
+                  timePointState.channelSurfacewaterNeighborsExpirationTime);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "channelSurfacewaterNeighborsFlowRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelSurfacewaterNeighborsFlowRate);
+                  timePointState.channelSurfacewaterNeighborsFlowRate);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "channelSurfacewaterNeighborsFlowCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelSurfacewaterNeighborsFlowCumulative);
+                  timePointState.channelSurfacewaterNeighborsFlowCumulative);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "channelGroundwaterNeighborsExpirationTime", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelGroundwaterNeighborsExpirationTime);
+                  timePointState.channelGroundwaterNeighborsExpirationTime);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "channelGroundwaterNeighborsFlowRate", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelGroundwaterNeighborsFlowRate);
+                  timePointState.channelGroundwaterNeighborsFlowRate);
             }
 
           if (!error)
             {
               error = writeVariable(fileID, "channelGroundwaterNeighborsFlowCumulative", outputManager.localChannelElementStart(), outputManager.localNumberOfChannelElements(), outputManager.maximumNumberOfChannelNeighbors(), 0,
-                  timePointState->channelGroundwaterNeighborsFlowCumulative);
+                  timePointState.channelGroundwaterNeighborsFlowCumulative);
             }
         }
     }

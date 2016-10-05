@@ -58,7 +58,7 @@ public:
   //
   // outputTime     - Time point to write output for.  This value can be used for the file name and/or stored inside the file.
   // timePointState - Output data to write.
-  virtual bool writeOutput(double outputTime, TimePointState* timePointState) = 0;
+  virtual bool writeOutput(double outputTime, TimePointState& timePointState) = 0;
 };
 
 #endif // __FILE_MANAGER_H__

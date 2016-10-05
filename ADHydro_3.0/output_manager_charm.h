@@ -4,17 +4,16 @@
 #include "file_manager_NetCDF.h"
 #include "all.h"
 
-// This is a wrapper to provide a pup routine.  It should be a nested class of OutputManagerCharm, but it can't be because we have to forward declare it before including output_manager_charm.decl.h.
-class MeshElementState : public OutputManager::MeshElementState
+// These classes really belong as nested classes of OutputManagerCharm, but there were problems with circular dependencies and being unable to forward declare nested classes.
+
+// This is a wrapper to provide a pup routine.
+class MeshElementStateCharm : public MeshElementState
 {
 public:
 
-  // Default constructor.  Only needed for pupping.
-  MeshElementState() : OutputManager::MeshElementState(0, 0.0, 0, 0) {}
-
-  // Constructor.  Forwarded to base class constructor.
-  MeshElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfSoilLayersInit, size_t numberOfNeighborsInit) :
-    OutputManager::MeshElementState(elementNumberInit, currentTimeInit, numberOfSoilLayersInit, numberOfNeighborsInit) {}
+  // Constructor.  Forwarded to base class constructor.  No argument constructor needed for pupping.
+  MeshElementStateCharm(size_t elementNumberInit = 0, double currentTimeInit = 0.0, size_t numberOfSoilLayersInit = 0, size_t numberOfNeighborsInit = 0) :
+    MeshElementState(elementNumberInit, currentTimeInit, numberOfSoilLayersInit, numberOfNeighborsInit) {}
   
   // Charm++ pack/unpack method.
   //
@@ -24,17 +23,14 @@ public:
   void pup(PUP::er &p);
 };
 
-// This is a wrapper to provide a pup routine.  It should be a nested class of OutputManagerCharm, but it can't be because we have to forward declare it before including output_manager_charm.decl.h.
-class ChannelElementState : public OutputManager::ChannelElementState
+// This is a wrapper to provide a pup routine.
+class ChannelElementStateCharm : public ChannelElementState
 {
 public:
 
-  // Default constructor.  Only needed for pupping.
-  ChannelElementState() : OutputManager::ChannelElementState(0, 0.0, 0) {}
-  
-  // Constructor.  Forwarded to base class constructor.
-  ChannelElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfNeighborsInit) :
-    OutputManager::ChannelElementState(elementNumberInit, currentTimeInit, numberOfNeighborsInit) {}
+  // Constructor.  Forwarded to base class constructor.  No argument constructor needed for pupping.
+  ChannelElementStateCharm(size_t elementNumberInit = 0, double currentTimeInit = 0.0, size_t numberOfNeighborsInit = 0) :
+    ChannelElementState(elementNumberInit, currentTimeInit, numberOfNeighborsInit) {}
 
   // Charm++ pack/unpack method.
   //

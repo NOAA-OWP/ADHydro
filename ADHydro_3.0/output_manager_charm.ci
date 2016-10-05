@@ -11,14 +11,17 @@ module output_manager_charm
         serial
         {
           createFiles();
+          contribute(CkCallback(CkReductionTarget(OutputManagerCharm, barrier), thisProxy));
         }
       }
+      
+      when barrier() { serial { CkPrintf("got the barrier response.\n"); } }
       
       while (true)
       {
         case
         {
-          when sendMeshElementState(const MeshElementState& state)
+          when sendMeshElementState(const MeshElementStateCharm& state)
           {
             serial
             {
@@ -26,7 +29,7 @@ module output_manager_charm
             }
           }
           
-          when sendChannelElementState(const ChannelElementState& state)
+          when sendChannelElementState(const ChannelElementStateCharm& state)
           {
             serial
             {
@@ -38,8 +41,9 @@ module output_manager_charm
     };
     
     entry void sendCreateFiles();
-    entry void sendMeshElementState(const MeshElementState& state);
-    entry void sendChannelElementState(const ChannelElementState& state);
+    entry [reductiontarget] void barrier();
+    entry void sendMeshElementState(const MeshElementStateCharm& state);
+    entry void sendChannelElementState(const ChannelElementStateCharm& state);
     
   }; // End group OutputManagerCharm.
 }; // End module output_manager_charm.
