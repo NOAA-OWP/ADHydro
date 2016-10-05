@@ -1,6 +1,8 @@
 #include "file_manager_NetCDF.h"
 #include "all.h"
 #include <sstream>
+#include <iomanip>
+#include <netcdf_par.h>
 
 bool FileManagerNetCDF::createFile(double outputTime)
 {
@@ -476,7 +478,7 @@ bool FileManagerNetCDF::writeOutput(double outputTime, TimePointState& timePoint
     {
       filename = createFilename(outputTime);
 
-      ncErrorCode = nc_open(filename.c_str(), NC_NETCDF4 | NC_WRITE, &fileID);
+      ncErrorCode = nc_open_par(filename.c_str(), NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD, MPI_INFO_NULL, &fileID);
 
       if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
@@ -754,8 +756,8 @@ std::string FileManagerNetCDF::createFilename(double outputTime)
 
   julianToGregorian(outputManager.referenceDate() + (outputTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
 
-  // FIXME formatting
-  filename << outputManager.directory() << "/state_" << month << "-" << day << "-" << year << "_" << hour << ":" << minute << ":" << second << ".nc";
+  filename << outputManager.directory() << "/state_" << std::setfill('0') << std::setw(2) << month << "-" << std::setw(2) << day << "-" << std::setw(2) << year << "_"
+      << std::setw(2) << hour << ":" << std::setw(2) << minute << ":" << std::fixed << std::setprecision(0) << std::setw(2) << second << ".nc";
 
   return filename.str();
 }

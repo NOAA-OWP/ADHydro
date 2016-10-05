@@ -47,7 +47,7 @@ private:
   // units              - A units   string that will be added as an attribute of the variable.  Can be passed as NULL in which case no attribute will be added.
   // comment            - A comment string that will be added as an attribute of the variable.  Can be passed as NULL in which case no attribute will be added.
   bool createVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID1, int dimensionID2, int dimensionID3, const char* units, const char* comment);
-  
+
   // Helper function to write a variable in a NetCDF file.
   //
   // Can write to a subset of the first dimenison, but always writes all values in higher dimensions of multi-dimensional arrays.
@@ -67,7 +67,7 @@ private:
   // sizeDimension3  - The number of indices to write in the third  dimension.  Start is always zero.  Ignored if variable is less than three dimensions.
   // data            - The data to write.
   bool writeVariable(int fileID, const char* variableName, size_t startDimension1, size_t countDimension1, size_t sizeDimension2, size_t sizeDimension3, void* data);
-  
+
   OutputManager& outputManager; // Wrapper for some values that FileManagerNetCDF needs to create NetCDF files.
 };
 

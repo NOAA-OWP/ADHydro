@@ -261,7 +261,7 @@ private:
   bool allStateReceived(TimePointState& timePointState);
 
   FileManager&                      fileManager; // Wrapper for what type of files are created.
-  std::map<double, TimePointState*> outputData;  // Sets of data for different time points.  Key is time in seconds.
+  std::map<double, TimePointState*> outputData;  // Sets of data for different time points.  Key is time in seconds after referenceDate.
 };
 
 #endif // __OUTPUT_MANAGER_H__

@@ -14,7 +14,7 @@ public:
   // Constructor.  Forwarded to base class constructor.  No argument constructor needed for pupping.
   MeshElementStateCharm(size_t elementNumberInit = 0, double currentTimeInit = 0.0, size_t numberOfSoilLayersInit = 0, size_t numberOfNeighborsInit = 0) :
     MeshElementState(elementNumberInit, currentTimeInit, numberOfSoilLayersInit, numberOfNeighborsInit) {}
-  
+
   // Charm++ pack/unpack method.
   //
   // Parameters:
@@ -43,7 +43,7 @@ public:
 #include "output_manager_charm.decl.h"
 
 // Implementation of OutputManager for Charm++.
-class OutputManagerCharm : public OutputManager, public CBase_OutputManagerCharm
+class OutputManagerCharm : public CBase_OutputManagerCharm, public OutputManager
 {
   OutputManagerCharm_SDAG_CODE
 

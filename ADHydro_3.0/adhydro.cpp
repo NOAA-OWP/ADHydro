@@ -106,14 +106,10 @@ ADHydro::ADHydro(CkArgMsg* msg)
 
       // Create output manager.
       outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
-      
-      // FIXME remove
-      // Set reduction client for barrier.
-      //outputManagerProxy.ckSetReductionClient(new CkCallback(CkReductionTarget(OutputManagerCharm, barrier), outputManagerProxy));
 
       // FIXME call this after referenceDate and simulationStartTime are possibly loaded from file.
       outputManagerProxy.sendCreateFiles();
-      
+
       // FIXME remove
       /**/
       MeshElementStateCharm meshState(0, 1, 0, 0);

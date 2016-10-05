@@ -15,7 +15,7 @@ module output_manager_charm
         }
       }
       
-      when barrier() { serial { CkPrintf("got the barrier response.\n"); } }
+      when barrier() {}
       
       while (true)
       {
