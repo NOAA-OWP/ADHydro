@@ -16,7 +16,8 @@ METISLDFLAGS      := -L$(METISDIR) -lmetis -balancer MetisLB
 CPPFLAGS          := $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -I../inih/cpp -g -Wall
 LDFLAGS           := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(OPTIMIZATIONFLAGS) $(EXTRAFLAGS) -g -Wall
 
-VPATH := ../inih ../inih/cpp
+VPATH := ../inih \
+         ../inih/cpp
 
 EXES := adhydro
 
