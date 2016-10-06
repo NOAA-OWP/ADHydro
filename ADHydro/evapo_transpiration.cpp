@@ -851,8 +851,25 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
                epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
-      // Set (canIce + canLiq) to equal canWaterShouldBe while maintaining the same proportion of ice.
-      evapoTranspirationState->canIce = canWaterShouldBe * evapoTranspirationState->canIce / (evapoTranspirationState->canIce + evapoTranspirationState->canLiq);
+      // Determine the fraction of canopy ice.  This reuses the variable fIce for a different purpose because it is not used again in this function.
+      if ((evapoTranspirationState->canIce + evapoTranspirationState->canLiq) > 0.0)
+        {
+          // If canIce and canLiq weren't set to zero maintain the same proportion of canopy ice.
+          fIce[0] = evapoTranspirationState->canIce / (evapoTranspirationState->canIce + evapoTranspirationState->canLiq);
+        }
+      else if (NOAHMP_TFRZ < evapoTranspirationState->tv)
+        {
+          // If canIce and canLiq were set to zero make it all liquid if the temperature is above freezing.
+          fIce[0] = 0.0f;
+        }
+      else
+        {
+          // If canIce and canLiq were set to zero make it all ice if the temperature is at or below freezing.
+          fIce[0] = 1.0f;
+        }
+      
+      // Set (canIce + canLiq) to equal canWaterShouldBe.
+      evapoTranspirationState->canIce = canWaterShouldBe * fIce[0];
       evapoTranspirationState->canLiq = canWaterShouldBe - evapoTranspirationState->canIce;
       
       // Do a mass balance check for the snowpack.
@@ -1411,7 +1428,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Verify that there is no snowfall interception in the non-existant canopy.
-      if (evapoTranspirationState->tg > NOAHMP_TFRZ)
+      if (NOAHMP_TFRZ < evapoTranspirationState->tg)
         {
           // There is something weird in the Noah-MP code.  If ist is 2 indicating a waterbody, and the ground temperature is above freezing, then any snow
           // that reaches the ground is set to zero.  It doesn't get melted and added to rainfall.  It just gets thrown away.  This occurs in
