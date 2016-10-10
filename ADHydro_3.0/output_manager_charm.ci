@@ -16,21 +16,24 @@ module output_manager_charm
       
       while (true)
       {
-        case
+        if (0 < localNumberOfMeshElements() || 0 < localNumberOfChannelElements())
         {
-          when sendMeshElementState(const MeshElementStateCharm& state)
+          case
           {
-            serial
+            when sendMeshElementState(const MeshElementStateCharm& state)
             {
-              handleMeshElementState(state);
+              serial
+              {
+                handleMeshElementState(state);
+              }
             }
-          }
-          
-          when sendChannelElementState(const ChannelElementStateCharm& state)
-          {
-            serial
+            
+            when sendChannelElementState(const ChannelElementStateCharm& state)
             {
-              handleChannelElementState(state);
+              serial
+              {
+                handleChannelElementState(state);
+              }
             }
           }
         }

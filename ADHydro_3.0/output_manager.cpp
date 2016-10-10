@@ -206,6 +206,7 @@ void OutputManager::ChannelElementState::copyData(const ChannelElementState& oth
 
 void OutputManager::handleInitialize()
 {
+  size_t ii;                                                                     // Loop counter.
   size_t numberOfOutputFiles = std::ceil(simulationDuration() / outputPeriod()); // Total number of output files for the entire run.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -279,6 +280,16 @@ void OutputManager::handleInitialize()
     }
 
   outputData.assign(numberOfOutputFiles + 1, NULL);
+  
+  // If this outputManager has no elements create the empty TimePointStates now so that the pointers won't be NULL.
+  if (0 == localNumberOfMeshElements() && 0 == localNumberOfChannelElements())
+    {
+      for (ii = 1; ii < outputData.size(); ++ii)
+        {
+          outputData[ii] = new FileManager::TimePointState(directory(), referenceDate(), calculateOutputTime(ii), globalNumberOfMeshElements(), localNumberOfMeshElements(), localMeshElementStart(),
+              maximumNumberOfMeshSoilLayers(),  maximumNumberOfMeshNeighbors(), globalNumberOfChannelElements(), localNumberOfChannelElements(), localChannelElementStart(), maximumNumberOfChannelNeighbors());
+        }
+    }
 }
 
 void OutputManager::handleMeshElementState(const MeshElementState& state)
