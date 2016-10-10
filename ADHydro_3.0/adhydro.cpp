@@ -7,6 +7,7 @@ double                    ADHydro::referenceDate;
 double                    ADHydro::simulationStartTime;
 double                    ADHydro::simulationDuration;
 double                    ADHydro::outputPeriod;
+size_t                    ADHydro::outputGroupSize;
 int                       ADHydro::verbosityLevel;
 CProxy_OutputManagerCharm ADHydro::outputManagerProxy;
 
@@ -77,9 +78,10 @@ ADHydro::ADHydro(CkArgMsg* msg)
 
   if (!error)
     {
-      simulationStartTime = superfile.GetReal("", "simulationStartTime", NAN);
-      simulationDuration  = superfile.GetReal("", "simulationDuration",  0.0);
-      outputPeriod        = superfile.GetReal("", "outputPeriod",        INFINITY);
+      simulationStartTime = superfile.GetReal(   "", "simulationStartTime", NAN);
+      simulationDuration  = superfile.GetReal(   "", "simulationDuration",  0.0);
+      outputPeriod        = superfile.GetReal(   "", "outputPeriod",        INFINITY);
+      outputGroupSize     = superfile.GetInteger("", "outputGroupSize",     1);
 
       if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
         {
@@ -97,6 +99,12 @@ ADHydro::ADHydro(CkArgMsg* msg)
               CkError("ERROR in ADHydro::ADHydro: outputPeriod must be greater than zero.\n");
               error = true;
             }
+
+          if (!(0 < outputGroupSize))
+            {
+              CkError("ERROR in ADHydro::ADHydro: outputGroupSize must be greater than zero.\n");
+              error = true;
+            }
         }
     }
 
@@ -108,7 +116,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
       outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
 
       // FIXME call this after referenceDate and simulationStartTime are possibly loaded from file.
-      outputManagerProxy.sendCreateFiles();
+      outputManagerProxy.sendInitialize();
 
       // FIXME remove
       /**/

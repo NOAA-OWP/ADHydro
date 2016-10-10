@@ -1,8 +1,7 @@
 #ifndef __FILE_MANAGER_H__
 #define __FILE_MANAGER_H__
 
-// Break circular dependency with output_manager.h.
-class TimePointState;
+#include <string>
 
 // FileManager is a wrapper for file operations used by OutputManager.
 // FileManager must be subclassed for each type of file that can be created.
@@ -27,38 +26,108 @@ public:
     // FIXME GARTOStateBlob
   };
 
+  // TimePointState contains the state to be written to file for a single time point.  If any array dimension is zero applicable array pointers are NULL.
+  // For parallel output, each TimePointState might only contain a slice of the total state with each processor getting a different TimePointState.
+  class TimePointState
+  {
+  public:
+
+    // Constructor.  Allocates arrays and sets received flags to false.
+    //
+    // All parameters directly initialize member variables.
+    TimePointState(const std::string& directoryInit, double referenceDateInit, double outputTimeInit, size_t globalNumberOfMeshElementsInit, size_t localNumberOfMeshElementsInit,
+        size_t localMeshElementStartInit, size_t maximumNumberOfMeshSoilLayersInit,  size_t maximumNumberOfMeshNeighborsInit, size_t globalNumberOfChannelElementsInit,
+        size_t localNumberOfChannelElementsInit, size_t localChannelElementStartInit, size_t maximumNumberOfChannelNeighborsInit);
+
+    // Destructor.  Deletes arrays.
+    ~TimePointState();
+
+    // Sets received flags to false.
+    void clearReceivedFlags();
+
+    // Helper function to create a standard filename string for the TimePointState.
+    //
+    // Returns: the filename.
+    std::string createFilename() const;
+
+  private:
+
+    // Copy constructor.  Should never be copy constructed.
+    TimePointState(const TimePointState& other);
+
+    // Assignment operator.  Should never be assigned to.
+    TimePointState& operator=(const TimePointState& other);
+
+  public:
+
+    // Values that are used to create filenames and/or stored in the files.
+    const std::string directory;     // The directory in which to create output files.  Filenames will be generated from the date and time.
+    const double      referenceDate; // Julian date.  Must be on or after 1 CE (1721425.5).
+    double            outputTime;    // Time point to write output for in seconds after referenceDate.  Can be positive, negative, or zero, but the corresponding calendar date must be on or after 1 CE.
+
+    // Dimensions of the entire state and this slice.
+    const size_t globalNumberOfMeshElements;
+    const size_t localNumberOfMeshElements;    // Must be less than or equal to globalNumberOfMeshElements.
+    const size_t localMeshElementStart;        // Must be less than globalNumberOfMeshElements or zero if localNumberOfMeshElements is zero.
+    const size_t maximumNumberOfMeshSoilLayers;
+    const size_t maximumNumberOfMeshNeighbors;
+    const size_t globalNumberOfChannelElements;
+    const size_t localNumberOfChannelElements; // Must be less than or equal to globalNumberOfChannelElements.
+    const size_t localChannelElementStart;     // Must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.
+    const size_t maximumNumberOfChannelNeighbors;
+
+    // The state.
+    bool*                        meshStateReceived;                          // 1D array of size localNumberOfMeshElements.  True if that element's state has been received.
+    double*                      meshSurfacewaterDepth;                      // 1D array of size localNumberOfMeshElements.
+    double*                      meshSurfacewaterCreated;                    // 1D array of size localNumberOfMeshElements.
+    double*                      meshGroundwaterHead;                        // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshGroundwaterRecharge;                    // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshGroundwaterCreated;                     // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshPrecipitationRate;                      // 1D array of size localNumberOfMeshElements.
+    double*                      meshPrecipitationCumulative;                // 1D array of size localNumberOfMeshElements.
+    double*                      meshEvaporationRate;                        // 1D array of size localNumberOfMeshElements.
+    double*                      meshEvaporationCumulative;                  // 1D array of size localNumberOfMeshElements.
+    double*                      meshTranspirationRate;                      // 1D array of size localNumberOfMeshElements.
+    double*                      meshTranspirationCumulative;                // 1D array of size localNumberOfMeshElements.
+    EvapoTranspirationStateBlob* meshEvapoTranspirationState;                // 1D array of size localNumberOfMeshElements.
+    double*                      meshCanopyWaterEquivalent;                  // 1D array of size localNumberOfMeshElements.
+    double*                      meshSnowWaterEquivalent;                    // 1D array of size localNumberOfMeshElements.
+    VadoseZoneStateBlob*         meshVadoseZoneState;                        // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshRootZoneWater;                          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshTotalSoilWater;                         // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
+    double*                      meshSurfacewaterNeighborsExpirationTime;    // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshSurfacewaterNeighborsFlowRate;          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshSurfacewaterNeighborsFlowCumulative;    // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshGroundwaterNeighborsExpirationTime;     // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
+    double*                      meshGroundwaterNeighborsFlowRate;           // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
+    double*                      meshGroundwaterNeighborsFlowCumulative;     // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
+    bool*                        channelStateReceived;                       // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
+    double*                      channelSurfacewaterDepth;                   // 1D array of size localNumberOfChannelElements.
+    double*                      channelSurfacewaterCreated;                 // 1D array of size localNumberOfChannelElements.
+    double*                      channelPrecipitationRate;                   // 1D array of size localNumberOfChannelElements.
+    double*                      channelPrecipitationCumulative;             // 1D array of size localNumberOfChannelElements.
+    double*                      channelEvaporationRate;                     // 1D array of size localNumberOfChannelElements.
+    double*                      channelEvaporationCumulative;               // 1D array of size localNumberOfChannelElements.
+    EvapoTranspirationStateBlob* channelEvapoTranspirationState;             // 1D array of size localNumberOfChannelElements.
+    double*                      channelSnowWaterEquivalent;                 // 1D array of size localNumberOfChannelElements.
+    double*                      channelSurfacewaterNeighborsExpirationTime; // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelSurfacewaterNeighborsFlowRate;       // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelSurfacewaterNeighborsFlowCumulative; // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelGroundwaterNeighborsExpirationTime;  // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelGroundwaterNeighborsFlowRate;        // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelGroundwaterNeighborsFlowCumulative;  // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+  };
+
   // Pure virtual interface to file operations.
 
-  // Create a new empty output file.  This may include setting up file meta-data.
-  //
-  // OutputManager starts by creating all of the files that it will write over the course of a simulation.
-  // Each file is created serially. One OutputManager calls this method on a single processor.
-  // All of the files are created at the same time with separate OutputManagers creating separate files to distribute the workload.
-  //
-  // We do it this way because for NetCDF files we use the serial library to create files and the parallel library to write data into existing files.
-  // Parallel file creation requires collective operations so that all OutputManagers agree on the meta-data.
-  // Collective operations require all OutputManagers to synchronize at a barrier, which we have found to be inefficient.
-  // However, parallel data writes into existing files can be done with independent operations that do not require a barrier.
-  // Therefore, the optimal configuration that we have found is multiple simultaneous serial file creation followed by parallel data writes into existing files.
+  // Write data out to a file.  Each FileManager may only write a slice of data, may write in parallel or serially, etc.  The subclass must figure all this out.
   //
   // Returns: true if there is an error, false otherwise.
   //
   // Parameters:
   //
-  // outputTime - Time point to create a file for.  This value can be used for the file name and/or stored inside the file.
-  virtual bool createFile(double outputTime) = 0;
-
-  // Write data out to a file.
-  //
-  // Each FileManager may only write a slice of data to each file, may write in parallel or serially, etc.  The subclass must figure all this out.
-  //
-  // Returns: true if there is an error, false otherwise.
-  //
-  // Parameters:
-  //
-  // outputTime     - Time point to write output for.  This value can be used for the file name and/or stored inside the file.
   // timePointState - Output data to write.
-  virtual bool writeOutput(double outputTime, TimePointState& timePointState) = 0;
+  virtual bool writeOutput(const TimePointState& timePointState) = 0;
 };
 
 #endif // __FILE_MANAGER_H__

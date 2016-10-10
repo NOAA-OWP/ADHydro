@@ -1,7 +1,7 @@
 #ifndef __FILE_MANAGER_NETCDF_H__
 #define __FILE_MANAGER_NETCDF_H__
 
-#include "output_manager.h"
+#include "file_manager.h"
 #include <netcdf.h>
 
 // Implementation of FileManager interface for NetCDF files.
@@ -9,27 +9,13 @@ class FileManagerNetCDF : public FileManager
 {
 public:
 
-  // Constructor.
-  //
-  // Parameters:
-  //
-  // outputManagerInit - Provides some values that the FileManagerNetCDF needs to create NetCDF files.  Must exist for the entire lifetime of the FileManagerNetCDF,
-  FileManagerNetCDF(OutputManager& outputManagerInit) : outputManager(outputManagerInit) {}
-
   // FileManager interface.
-  bool createFile(double outputTime);
-  bool writeOutput(double outputTime, TimePointState& timePointState);
+
+  // writeOutput does collective parallel I/O so you must call it from all processors simultaneously, one call per processor, all outputing to the same file.
+  // It will block until all processors attempt to open the same file.
+  bool writeOutput(const TimePointState& timePointState);
 
 private:
-
-  // Helper function to create a standard filename string for a given time.
-  //
-  // Returns: the filename.
-  //
-  // Parameters:
-  //
-  // outputTime - Time point to create a filename for.
-  std::string createFilename(double outputTime);
 
   // Helper function to create a variable with units and comment in a NetCDF file.
   //
@@ -67,8 +53,6 @@ private:
   // sizeDimension3  - The number of indices to write in the third  dimension.  Start is always zero.  Ignored if variable is less than three dimensions.
   // data            - The data to write.
   bool writeVariable(int fileID, const char* variableName, size_t startDimension1, size_t countDimension1, size_t sizeDimension2, size_t sizeDimension3, void* data);
-
-  OutputManager& outputManager; // Wrapper for some values that FileManagerNetCDF needs to create NetCDF files.
 };
 
 #endif // __FILE_MANAGER_NETCDF_H__

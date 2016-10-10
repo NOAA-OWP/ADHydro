@@ -17,6 +17,7 @@ public:
   static double                    simulationStartTime;        // Seconds.
   static double                    simulationDuration;         // Seconds.
   static double                    outputPeriod;               // Seconds.
+  static size_t                    outputGroupSize;            // Count.
   static int                       verbosityLevel;             // Flag.
   static CProxy_OutputManagerCharm outputManagerProxy;         // Charm group proxy.
 

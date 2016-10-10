@@ -2,179 +2,7 @@
 #define __OUTPUT_MANAGER_H__
 
 #include "file_manager.h"
-#include <string>
-#include <map>
-
-// These classes really belong as nested classes of OutputManager, but there were problems with circular dependencies and being unable to forward declare nested classes.
-
-// MeshElementState and ChannelElementState are for individual elements to send their state to an OutputManager.
-// numberOfSoilLayers and/or numberOfNeighbors can be zero in which case applicable array pointers are NULL.
-class MeshElementState
-{
-public:
-
-  size_t  elementNumber;                             // The element that this data is for.
-  double  currentTime;                               // The time point that this data is for.
-  size_t  numberOfSoilLayers;                        // The size of the soil layer and neighbor arrays can be less than the maximum number allowed if the element has less.
-  size_t  numberOfNeighbors;
-  double  surfacewaterDepth;
-  double  surfacewaterCreated;
-  double* groundwaterHead;                           // 1D array of size numberOfSoilLayers.
-  double* groundwaterRecharge;                       // 1D array of size numberOfSoilLayers.
-  double* groundwaterCreated;                        // 1D array of size numberOfSoilLayers.
-  double  precipitationRate;
-  double  precipitationCumulative;
-  double  evaporationRate;
-  double  evaporationCumulative;
-  double  transpirationRate;
-  double  transpirationCumulative;
-  FileManager::EvapoTranspirationStateBlob evapoTranspirationState;
-  double  canopyWaterEquivalent;
-  double  snowWaterEquivalent;
-  FileManager::VadoseZoneStateBlob* vadoseZoneState; // 1D array of size numberOfSoilLayers.
-  double* rootZoneWater;                             // 1D array of size numberOfSoilLayers.
-  double* totalSoilWater;                            // 1D array of size numberOfSoilLayers.
-  double* surfacewaterNeighborsExpirationTime;       // 1D array of size numberOfNeighbors.
-  double* surfacewaterNeighborsFlowRate;             // 1D array of size numberOfNeighbors.
-  double* surfacewaterNeighborsFlowCumulative;       // 1D array of size numberOfNeighbors.
-  double* groundwaterNeighborsExpirationTime;        // 2D array of size numberOfSoilLayers * numberOfNeighbors.
-  double* groundwaterNeighborsFlowRate;              // 2D array of size numberOfSoilLayers * numberOfNeighbors.
-  double* groundwaterNeighborsFlowCumulative;        // 2D array of size numberOfSoilLayers * numberOfNeighbors.
-
-  // Constructor.  Allocates arrays of the appropriate size.
-  //
-  // All parameters directly initialize member variables.
-  MeshElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfSoilLayersInit, size_t numberOfNeighborsInit);
-
-  // Destructor.  Deletes arrays.
-  ~MeshElementState();
-
-  // Copy constructor.  Deep copy.
-  MeshElementState(const MeshElementState& other);
-
-  // Assignment operator.  Deep copy.
-  MeshElementState& operator=(const MeshElementState& other);
-
-  // Helper function to allocate arrays.  numberOfSoilLayers and numberOfNeighbors must already be set.  Does not delete anything previously pointed to so arrays must be unallocated or deleted.
-  void allocateArrays();
-
-  // Helper function to delete arrays.
-  void deleteArrays();
-
-  // Helper function to copy data.  numberOfSoilLayers and numberOfNeighbors must already be set and arrays must already exist.
-  void copyData(const MeshElementState& other);
-};
-
-// MeshElementState and ChannelElementState are for individual elements to send their state to an OutputManager.
-// numberOfSoilLayers and/or numberOfNeighbors can be zero in which case applicable array pointers are NULL.
-class ChannelElementState
-{
-public:
-
-  size_t  elementNumber;                       // The element that this data is for.
-  double  currentTime;                         // The time point that this data is for.
-  size_t  numberOfNeighbors;                   // The size of the neighbor arrays can be less than the maximum number allowed if the element has less.
-  double  surfacewaterDepth;
-  double  surfacewaterCreated;
-  double  precipitationRate;
-  double  precipitationCumulative;
-  double  evaporationRate;
-  double  evaporationCumulative;
-  FileManager::EvapoTranspirationStateBlob evapoTranspirationState;
-  double  snowWaterEquivalent;
-  double* surfacewaterNeighborsExpirationTime; // 1D array of size numberOfNeighbors.
-  double* surfacewaterNeighborsFlowRate;       // 1D array of size numberOfNeighbors.
-  double* surfacewaterNeighborsFlowCumulative; // 1D array of size numberOfNeighbors.
-  double* groundwaterNeighborsExpirationTime;  // 1D array of size numberOfNeighbors.
-  double* groundwaterNeighborsFlowRate;        // 1D array of size numberOfNeighbors.
-  double* groundwaterNeighborsFlowCumulative;  // 1D array of size numberOfNeighbors.
-
-  // Constructor.  Allocates arrays of the appropriate size.
-  //
-  // All parameters directly initialize member variables.
-  ChannelElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfNeighborsInit);
-
-  // Destructor.  Deletes arrays.
-  ~ChannelElementState();
-
-  // Copy constructor.  Deep copy.
-  ChannelElementState(const ChannelElementState& other);
-
-  // Assignment operator.  Deep copy.
-  ChannelElementState& operator=(const ChannelElementState& other);
-
-  // Helper function to allocate arrays.  numberOfNeighbors must already be set.  Does not delete anything previously pointed to so arrays must be unallocated or deleted.
-  void allocateArrays();
-
-  // Helper function to delete arrays.
-  void deleteArrays();
-
-  // Helper function to copy data.  numberOfNeighbors must already be set and arrays must already exist.
-  void copyData(const ChannelElementState& other);
-};
-
-// TimePointState contains all of this OutputManager's state for a single time point.  It is the data that will be written out to a single file.
-// If any array dimension is zero applicable array pointers are NULL.
-class TimePointState
-{
-public:
-
-  bool*   meshStateReceived;                                                // 1D array of size localNumberOfMeshElements.  True if that element's state has been received.
-  double* meshSurfacewaterDepth;                                            // 1D array of size localNumberOfMeshElements.
-  double* meshSurfacewaterCreated;                                          // 1D array of size localNumberOfMeshElements.
-  double* meshGroundwaterHead;                                              // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshGroundwaterRecharge;                                          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshGroundwaterCreated;                                           // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshPrecipitationRate;                                            // 1D array of size localNumberOfMeshElements.
-  double* meshPrecipitationCumulative;                                      // 1D array of size localNumberOfMeshElements.
-  double* meshEvaporationRate;                                              // 1D array of size localNumberOfMeshElements.
-  double* meshEvaporationCumulative;                                        // 1D array of size localNumberOfMeshElements.
-  double* meshTranspirationRate;                                            // 1D array of size localNumberOfMeshElements.
-  double* meshTranspirationCumulative;                                      // 1D array of size localNumberOfMeshElements.
-  FileManager::EvapoTranspirationStateBlob* meshEvapoTranspirationState;    // 1D array of size localNumberOfMeshElements.
-  double* meshCanopyWaterEquivalent;                                        // 1D array of size localNumberOfMeshElements.
-  double* meshSnowWaterEquivalent;                                          // 1D array of size localNumberOfMeshElements.
-  FileManager::VadoseZoneStateBlob* meshVadoseZoneState;                    // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshRootZoneWater;                                                // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshTotalSoilWater;                                               // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
-  double* meshSurfacewaterNeighborsExpirationTime;                          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-  double* meshSurfacewaterNeighborsFlowRate;                                // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-  double* meshSurfacewaterNeighborsFlowCumulative;                          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-  double* meshGroundwaterNeighborsExpirationTime;                           // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
-  double* meshGroundwaterNeighborsFlowRate;                                 // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
-  double* meshGroundwaterNeighborsFlowCumulative;                           // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
-  bool*   channelStateReceived;                                             // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
-  double* channelSurfacewaterDepth;                                         // 1D array of size localNumberOfChannelElements.
-  double* channelSurfacewaterCreated;                                       // 1D array of size localNumberOfChannelElements.
-  double* channelPrecipitationRate;                                         // 1D array of size localNumberOfChannelElements.
-  double* channelPrecipitationCumulative;                                   // 1D array of size localNumberOfChannelElements.
-  double* channelEvaporationRate;                                           // 1D array of size localNumberOfChannelElements.
-  double* channelEvaporationCumulative;                                     // 1D array of size localNumberOfChannelElements.
-  FileManager::EvapoTranspirationStateBlob* channelEvapoTranspirationState; // 1D array of size localNumberOfChannelElements.
-  double* channelSnowWaterEquivalent;                                       // 1D array of size localNumberOfChannelElements.
-  double* channelSurfacewaterNeighborsExpirationTime;                       // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-  double* channelSurfacewaterNeighborsFlowRate;                             // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-  double* channelSurfacewaterNeighborsFlowCumulative;                       // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-  double* channelGroundwaterNeighborsExpirationTime;                        // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-  double* channelGroundwaterNeighborsFlowRate;                              // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-  double* channelGroundwaterNeighborsFlowCumulative;                        // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-
-  // Constructor.  Allocates arrays of the appropriate size and sets all received flags to false.
-  //
-  // All parameters specify array sizes.
-  TimePointState(size_t localNumberOfMeshElements, size_t maximumNumberOfMeshSoilLayers, size_t maximumNumberOfMeshNeighbors, size_t localNumberOfChannelElements, size_t maximumNumberOfChannelNeighbors);
-
-  // Destructor.  Deletes arrays.
-  ~TimePointState();
-
-private:
-
-  // Copy constructor.  Should never be copy constructed.
-  TimePointState(const TimePointState& other);
-
-  // Assignment operator.  Should never be assigned to.
-  TimePointState& operator=(const TimePointState& other);
-};
+#include <vector>
 
 // OutputManager contains the generic code for creating ADHydro output files.
 // It outputs a separate file for each time point.
@@ -189,24 +17,130 @@ class OutputManager
 {
 public:
 
-  // Constructor.
+  // MeshElementState and ChannelElementState are for individual elements to send their state to an OutputManager.
+  // numberOfSoilLayers and/or numberOfNeighbors can be zero in which case applicable array pointers are NULL.
+  class MeshElementState
+  {
+  public:
+
+    size_t  elementNumber;                             // The element that this data is for.
+    size_t  outputIndex;                               // The time point that this data is for.
+    size_t  numberOfSoilLayers;                        // The size of the soil layer and neighbor arrays can be less than the maximum number allowed if the element has less.
+    size_t  numberOfNeighbors;
+    double  surfacewaterDepth;
+    double  surfacewaterCreated;
+    double* groundwaterHead;                           // 1D array of size numberOfSoilLayers.
+    double* groundwaterRecharge;                       // 1D array of size numberOfSoilLayers.
+    double* groundwaterCreated;                        // 1D array of size numberOfSoilLayers.
+    double  precipitationRate;
+    double  precipitationCumulative;
+    double  evaporationRate;
+    double  evaporationCumulative;
+    double  transpirationRate;
+    double  transpirationCumulative;
+    FileManager::EvapoTranspirationStateBlob evapoTranspirationState;
+    double  canopyWaterEquivalent;
+    double  snowWaterEquivalent;
+    FileManager::VadoseZoneStateBlob* vadoseZoneState; // 1D array of size numberOfSoilLayers.
+    double* rootZoneWater;                             // 1D array of size numberOfSoilLayers.
+    double* totalSoilWater;                            // 1D array of size numberOfSoilLayers.
+    double* surfacewaterNeighborsExpirationTime;       // 1D array of size numberOfNeighbors.
+    double* surfacewaterNeighborsFlowRate;             // 1D array of size numberOfNeighbors.
+    double* surfacewaterNeighborsFlowCumulative;       // 1D array of size numberOfNeighbors.
+    double* groundwaterNeighborsExpirationTime;        // 2D array of size numberOfSoilLayers * numberOfNeighbors.
+    double* groundwaterNeighborsFlowRate;              // 2D array of size numberOfSoilLayers * numberOfNeighbors.
+    double* groundwaterNeighborsFlowCumulative;        // 2D array of size numberOfSoilLayers * numberOfNeighbors.
+
+    // Constructor.  Allocates arrays.
+    //
+    // All parameters directly initialize member variables.
+    MeshElementState(size_t elementNumberInit, size_t outputIndexInit, size_t numberOfSoilLayersInit, size_t numberOfNeighborsInit) :
+      elementNumber(elementNumberInit), outputIndex(outputIndexInit), numberOfSoilLayers(numberOfSoilLayersInit), numberOfNeighbors(numberOfNeighborsInit) { allocateArrays(); }
+
+    // Destructor.  Deletes arrays.
+    ~MeshElementState() { deleteArrays(); }
+
+    // Copy constructor.  Deep copy.
+    MeshElementState(const MeshElementState& other) :
+      elementNumber(other.elementNumber), outputIndex(other.outputIndex), numberOfSoilLayers(other.numberOfSoilLayers), numberOfNeighbors(other.numberOfNeighbors) { allocateArrays(); copyData(other); }
+
+    // Assignment operator.  Deep copy.
+    MeshElementState& operator=(const MeshElementState& other);
+
+    // Helper function to allocate arrays.  numberOfSoilLayers and numberOfNeighbors must already be set.  Does not delete anything previously pointed to so arrays must be unallocated or deleted.
+    void allocateArrays();
+
+    // Helper function to delete arrays.
+    void deleteArrays();
+
+    // Helper function to copy data.  numberOfSoilLayers and numberOfNeighbors must already be set and arrays must already exist.
+    void copyData(const MeshElementState& other);
+  };
+
+  // MeshElementState and ChannelElementState are for individual elements to send their state to an OutputManager.
+  // numberOfSoilLayers and/or numberOfNeighbors can be zero in which case applicable array pointers are NULL.
+  class ChannelElementState
+  {
+  public:
+
+    size_t  elementNumber;                       // The element that this data is for.
+    size_t  outputIndex;                         // The time point that this data is for.
+    size_t  numberOfNeighbors;                   // The size of the neighbor arrays can be less than the maximum number allowed if the element has less.
+    double  surfacewaterDepth;
+    double  surfacewaterCreated;
+    double  precipitationRate;
+    double  precipitationCumulative;
+    double  evaporationRate;
+    double  evaporationCumulative;
+    FileManager::EvapoTranspirationStateBlob evapoTranspirationState;
+    double  snowWaterEquivalent;
+    double* surfacewaterNeighborsExpirationTime; // 1D array of size numberOfNeighbors.
+    double* surfacewaterNeighborsFlowRate;       // 1D array of size numberOfNeighbors.
+    double* surfacewaterNeighborsFlowCumulative; // 1D array of size numberOfNeighbors.
+    double* groundwaterNeighborsExpirationTime;  // 1D array of size numberOfNeighbors.
+    double* groundwaterNeighborsFlowRate;        // 1D array of size numberOfNeighbors.
+    double* groundwaterNeighborsFlowCumulative;  // 1D array of size numberOfNeighbors.
+
+    // Constructor.  Allocates arrays.
+    //
+    // All parameters directly initialize member variables.
+    ChannelElementState(size_t elementNumberInit, size_t outputIndexInit, size_t numberOfNeighborsInit) :
+      elementNumber(elementNumberInit), outputIndex(outputIndexInit), numberOfNeighbors(numberOfNeighborsInit) { allocateArrays(); }
+
+    // Destructor.  Deletes arrays.
+    ~ChannelElementState() { deleteArrays(); }
+
+    // Copy constructor.  Deep copy.
+    ChannelElementState(const ChannelElementState& other) :
+      elementNumber(other.elementNumber), outputIndex(other.outputIndex), numberOfNeighbors(other.numberOfNeighbors) { allocateArrays(); copyData(other); }
+
+    // Assignment operator.  Deep copy.
+    ChannelElementState& operator=(const ChannelElementState& other);
+
+    // Helper function to allocate arrays.  numberOfNeighbors must already be set.  Does not delete anything previously pointed to so arrays must be unallocated or deleted.
+    void allocateArrays();
+
+    // Helper function to delete arrays.
+    void deleteArrays();
+
+    // Helper function to copy data.  numberOfNeighbors must already be set and arrays must already exist.
+    void copyData(const ChannelElementState& other);
+  };
+
+  // Constructor.  Does not completely initialize outputData because that requires values from the pure virtual interface that can't be called in the constructor.
+  // You must call handleInitialize after those values are ready.
   //
   // Parameters:
   //
   // fileManagerInit - The subclass of FileManager used determines what type of files are created.  Must exist for the entire lifetime of the OutputManager.
-  OutputManager(FileManager& fileManagerInit) : fileManager(fileManagerInit) {}
+  OutputManager(FileManager& fileManagerInit) : fileManager(fileManagerInit), nextOutputIndex(1) {}
 
-  // OutputManager starts by creating all of the files that it will write over the course of a simulation.  We do it this way for performance reasons for NetCDF files.
-  // We do not call createFiles in the constructor for two reasons.
-  // First, it calls the pure virtual interface, and the virtual dispatch tables won't be set up until the subclass constructor runs.
-  // Second, it requires knowing referenceDate and simulationStartTime, which might need to be loaded from input files after construction time.
-  // You must call createFiles on all OutputManagers and wait until they all return before proceeding with any other OutputManager operations.
-  void createFiles();
+  // outputData is initialized to have a size of the number of output files plus one with all elements set to NULL.  outputData[0] is unused.
+  void handleInitialize();
 
   // Handle a state message received from a mesh element.
   // Puts the received state in the right location in a TimePointState.
   // If this is the first element received for that time point it allocates a new TimePointState.
-  // If this is the last element needing to be received for that time point it writes the TimePointState to file and deletes it.
   //
   // Parameters:
   //
@@ -216,12 +150,20 @@ public:
   // Handle a state message received from a channel element.
   // Puts the received state in the right location in a TimePointState.
   // If this is the first element received for that time point it allocates a new TimePointState.
-  // If this is the last element needing to be received for that time point it writes the TimePointState to file and deletes it.
   //
   // Parameters:
   //
   // state - The state received from the channel element.
   void handleChannelElementState(const ChannelElementState& state);
+
+  // Returns: true if all state that is needed for the next output phase has been received.
+  bool readyToOutput();
+
+  FileManager&                              fileManager;     // Wrapper for what type of files are created.
+  std::vector<FileManager::TimePointState*> outputData;      // Sets of data for different time points.  The size of outputData is the number of output files plus one and outputData[0] is unused.
+  size_t                                    nextOutputIndex; // The next index in outputData to output.  Goes from one to the number of output files.
+
+private:
 
   // Pure virtual interface to the communication system.
 
@@ -235,7 +177,9 @@ public:
   virtual double      referenceDate()       = 0; // Julian date.  Must be on or after 1 CE (1721425.5).
   virtual double      simulationStartTime() = 0; // Seconds after referenceDate.  Can be positive, negative, or zero, but the calendar date must be on or after 1 CE.
   virtual double      simulationDuration()  = 0; // Seconds.  Must be greater than or equal to zero.
-  virtual double      outputPeriod()        = 0; // Seconds.  Must be greater than zero.
+  virtual double      outputPeriod()        = 0; // A file will be outputted for every this many seconds of simulation time.  Must be greater than zero.
+  virtual size_t      outputGroupSize()     = 0; // The OutputManager waits until it gets this many files worth of data and outputs them all together in a single output phase.  Must be greater than zero.
+  virtual int         verbosityLevel()      = 0; // Flag for how much progress and warning messages to display.
 
   // Wrappers for number of simulation elements.  Return values must not change over the course of a single run.
   // This OutputManager is responsible for the range of elements from localElementStart to (localElementStart + localNumberOfElements - 1).
@@ -251,17 +195,8 @@ public:
   virtual size_t localChannelElementStart()        = 0; // Must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.
   virtual size_t maximumNumberOfChannelNeighbors() = 0;
 
-private:
-
-  // Returns: true if all state has been received for a time point, false otherwise.
-  //
-  // Parameters:
-  //
-  // timePointState - The data container for the time point to check if all state has been received.
-  bool allStateReceived(TimePointState& timePointState);
-
-  FileManager&                      fileManager; // Wrapper for what type of files are created.
-  std::map<double, TimePointState*> outputData;  // Sets of data for different time points.  Key is time in seconds after referenceDate.
+  // Returns the outputTime for an outputIndex.
+  double calculateOutputTime(size_t outputIndex);
 };
 
 #endif // __OUTPUT_MANAGER_H__

@@ -1,34 +1,10 @@
 #include "output_manager.h"
 #include "all.h"
 
-MeshElementState::MeshElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfSoilLayersInit, size_t numberOfNeighborsInit) :
-elementNumber(elementNumberInit),
-currentTime(currentTimeInit),
-numberOfSoilLayers(numberOfSoilLayersInit),
-numberOfNeighbors(numberOfNeighborsInit)
-{
-  allocateArrays();
-}
-
-MeshElementState::~MeshElementState()
-{
-  deleteArrays();
-}
-
-MeshElementState::MeshElementState(const MeshElementState& other) :
-elementNumber(other.elementNumber),
-currentTime(other.currentTime),
-numberOfSoilLayers(other.numberOfSoilLayers),
-numberOfNeighbors(other.numberOfNeighbors)
-{
-  allocateArrays();
-  copyData(other);
-}
-
-MeshElementState& MeshElementState::operator=(const MeshElementState& other)
+OutputManager::MeshElementState& OutputManager::MeshElementState::operator=(const MeshElementState& other)
 {
   elementNumber = other.elementNumber;
-  currentTime   = other.currentTime;
+  outputIndex   = other.outputIndex;
 
   if (numberOfSoilLayers != other.numberOfSoilLayers || numberOfNeighbors != other.numberOfNeighbors)
     {
@@ -45,7 +21,7 @@ MeshElementState& MeshElementState::operator=(const MeshElementState& other)
   return *this;
 }
 
-void MeshElementState::allocateArrays()
+void OutputManager::MeshElementState::allocateArrays()
 {
   if (0 < numberOfSoilLayers)
     {
@@ -96,7 +72,7 @@ void MeshElementState::allocateArrays()
     }
 }
 
-void MeshElementState::deleteArrays()
+void OutputManager::MeshElementState::deleteArrays()
 {
   delete[] groundwaterHead;
   delete[] groundwaterRecharge;
@@ -112,7 +88,7 @@ void MeshElementState::deleteArrays()
   delete[] groundwaterNeighborsFlowCumulative;
 }
 
-void MeshElementState::copyData(const MeshElementState& other)
+void OutputManager::MeshElementState::copyData(const MeshElementState& other)
 {
   size_t ii, jj; // Loop counters.
 
@@ -153,32 +129,10 @@ void MeshElementState::copyData(const MeshElementState& other)
     }
 }
 
-ChannelElementState::ChannelElementState(size_t elementNumberInit, double currentTimeInit, size_t numberOfNeighborsInit) :
-elementNumber(elementNumberInit),
-currentTime(currentTimeInit),
-numberOfNeighbors(numberOfNeighborsInit)
-{
-  allocateArrays();
-}
-
-ChannelElementState::~ChannelElementState()
-{
-  deleteArrays();
-}
-
-ChannelElementState::ChannelElementState(const ChannelElementState& other) :
-elementNumber(other.elementNumber),
-currentTime(other.currentTime),
-numberOfNeighbors(other.numberOfNeighbors)
-{
-  allocateArrays();
-  copyData(other);
-}
-
-ChannelElementState& ChannelElementState::operator=(const ChannelElementState& other)
+OutputManager::ChannelElementState& OutputManager::ChannelElementState::operator=(const ChannelElementState& other)
 {
   elementNumber = other.elementNumber;
-  currentTime   = other.currentTime;
+  outputIndex   = other.outputIndex;
 
   if (numberOfNeighbors != other.numberOfNeighbors)
     {
@@ -194,7 +148,7 @@ ChannelElementState& ChannelElementState::operator=(const ChannelElementState& o
   return *this;
 }
 
-void ChannelElementState::allocateArrays()
+void OutputManager::ChannelElementState::allocateArrays()
 {
   if (0 < numberOfNeighbors)
     {
@@ -216,7 +170,7 @@ void ChannelElementState::allocateArrays()
     }
 }
 
-void ChannelElementState::deleteArrays()
+void OutputManager::ChannelElementState::deleteArrays()
 {
   delete[] surfacewaterNeighborsExpirationTime;
   delete[] surfacewaterNeighborsFlowRate;
@@ -226,7 +180,7 @@ void ChannelElementState::deleteArrays()
   delete[] groundwaterNeighborsFlowCumulative;
 }
 
-void ChannelElementState::copyData(const ChannelElementState& other)
+void OutputManager::ChannelElementState::copyData(const ChannelElementState& other)
 {
   size_t ii; // Loop counter.
 
@@ -250,572 +204,307 @@ void ChannelElementState::copyData(const ChannelElementState& other)
     }
 }
 
-TimePointState::TimePointState(size_t localNumberOfMeshElements, size_t maximumNumberOfMeshSoilLayers, size_t maximumNumberOfMeshNeighbors, size_t localNumberOfChannelElements, size_t maximumNumberOfChannelNeighbors)
+void OutputManager::handleInitialize()
 {
-  size_t ii; // Loop counter.
-
-  if (0 < localNumberOfMeshElements)
-    {
-      meshStateReceived = new bool[localNumberOfMeshElements];
-
-      for (ii = 0; ii < localNumberOfMeshElements; ++ii)
-        {
-          meshStateReceived[ii] = false;
-        }
-
-      meshSurfacewaterDepth   = new double[localNumberOfMeshElements];
-      meshSurfacewaterCreated = new double[localNumberOfMeshElements];
-
-      if (0 < maximumNumberOfMeshSoilLayers)
-        {
-          meshGroundwaterHead     = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-          meshGroundwaterRecharge = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-          meshGroundwaterCreated  = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-          meshVadoseZoneState     = new FileManager::VadoseZoneStateBlob[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-          meshRootZoneWater       = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-          meshTotalSoilWater      = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers];
-        }
-      else
-        {
-          meshGroundwaterHead     = NULL;
-          meshGroundwaterRecharge = NULL;
-          meshGroundwaterCreated  = NULL;
-          meshVadoseZoneState     = NULL;
-          meshRootZoneWater       = NULL;
-          meshTotalSoilWater      = NULL;
-        }
-
-      meshPrecipitationRate       = new double[localNumberOfMeshElements];
-      meshPrecipitationCumulative = new double[localNumberOfMeshElements];
-      meshEvaporationRate         = new double[localNumberOfMeshElements];
-      meshEvaporationCumulative   = new double[localNumberOfMeshElements];
-      meshTranspirationRate       = new double[localNumberOfMeshElements];
-      meshTranspirationCumulative = new double[localNumberOfMeshElements];
-      meshEvapoTranspirationState = new FileManager::EvapoTranspirationStateBlob[localNumberOfMeshElements];
-      meshCanopyWaterEquivalent   = new double[localNumberOfMeshElements];
-      meshSnowWaterEquivalent     = new double[localNumberOfMeshElements];
-
-      if (0 < maximumNumberOfMeshNeighbors)
-        {
-          meshSurfacewaterNeighborsExpirationTime = new double[localNumberOfMeshElements * maximumNumberOfMeshNeighbors];
-          meshSurfacewaterNeighborsFlowRate       = new double[localNumberOfMeshElements * maximumNumberOfMeshNeighbors];
-          meshSurfacewaterNeighborsFlowCumulative = new double[localNumberOfMeshElements * maximumNumberOfMeshNeighbors];
-
-          if (0 < maximumNumberOfMeshSoilLayers)
-            {
-              meshGroundwaterNeighborsExpirationTime = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors];
-              meshGroundwaterNeighborsFlowRate       = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors];
-              meshGroundwaterNeighborsFlowCumulative = new double[localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors];
-            }
-          else
-            {
-              meshGroundwaterNeighborsExpirationTime = NULL;
-              meshGroundwaterNeighborsFlowRate       = NULL;
-              meshGroundwaterNeighborsFlowCumulative = NULL;
-            }
-        }
-      else
-        {
-          meshSurfacewaterNeighborsExpirationTime = NULL;
-          meshSurfacewaterNeighborsFlowRate       = NULL;
-          meshSurfacewaterNeighborsFlowCumulative = NULL;
-          meshGroundwaterNeighborsExpirationTime  = NULL;
-          meshGroundwaterNeighborsFlowRate        = NULL;
-          meshGroundwaterNeighborsFlowCumulative  = NULL;
-        }
-    }
-  else
-    {
-      meshStateReceived                       = NULL;
-      meshSurfacewaterDepth                   = NULL;
-      meshSurfacewaterCreated                 = NULL;
-      meshGroundwaterHead                     = NULL;
-      meshGroundwaterRecharge                 = NULL;
-      meshGroundwaterCreated                  = NULL;
-      meshPrecipitationRate                   = NULL;
-      meshPrecipitationCumulative             = NULL;
-      meshEvaporationRate                     = NULL;
-      meshEvaporationCumulative               = NULL;
-      meshTranspirationRate                   = NULL;
-      meshTranspirationCumulative             = NULL;
-      meshEvapoTranspirationState             = NULL;
-      meshCanopyWaterEquivalent               = NULL;
-      meshSnowWaterEquivalent                 = NULL;
-      meshVadoseZoneState                     = NULL;
-      meshRootZoneWater                       = NULL;
-      meshTotalSoilWater                      = NULL;
-      meshSurfacewaterNeighborsExpirationTime = NULL;
-      meshSurfacewaterNeighborsFlowRate       = NULL;
-      meshSurfacewaterNeighborsFlowCumulative = NULL;
-      meshGroundwaterNeighborsExpirationTime  = NULL;
-      meshGroundwaterNeighborsFlowRate        = NULL;
-      meshGroundwaterNeighborsFlowCumulative  = NULL;
-    }
-
-  if (0 < localNumberOfChannelElements)
-    {
-      channelStateReceived           = new bool[localNumberOfChannelElements];
-
-      for (ii = 0; ii < localNumberOfChannelElements; ++ii)
-        {
-          channelStateReceived[ii] = false;
-        }
-
-      channelSurfacewaterDepth       = new double[localNumberOfChannelElements];
-      channelSurfacewaterCreated     = new double[localNumberOfChannelElements];
-      channelPrecipitationRate       = new double[localNumberOfChannelElements];
-      channelPrecipitationCumulative = new double[localNumberOfChannelElements];
-      channelEvaporationRate         = new double[localNumberOfChannelElements];
-      channelEvaporationCumulative   = new double[localNumberOfChannelElements];
-      channelEvapoTranspirationState = new FileManager::EvapoTranspirationStateBlob[localNumberOfChannelElements];
-      channelSnowWaterEquivalent     = new double[localNumberOfChannelElements];
-
-      if (0 < maximumNumberOfChannelNeighbors)
-        {
-          channelSurfacewaterNeighborsExpirationTime = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-          channelSurfacewaterNeighborsFlowRate       = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-          channelSurfacewaterNeighborsFlowCumulative = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-          channelGroundwaterNeighborsExpirationTime  = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-          channelGroundwaterNeighborsFlowRate        = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-          channelGroundwaterNeighborsFlowCumulative  = new double[localNumberOfChannelElements * maximumNumberOfChannelNeighbors];
-        }
-      else
-        {
-          channelSurfacewaterNeighborsExpirationTime = NULL;
-          channelSurfacewaterNeighborsFlowRate       = NULL;
-          channelSurfacewaterNeighborsFlowCumulative = NULL;
-          channelGroundwaterNeighborsExpirationTime  = NULL;
-          channelGroundwaterNeighborsFlowRate        = NULL;
-          channelGroundwaterNeighborsFlowCumulative  = NULL;
-        }
-    }
-  else
-    {
-      channelStateReceived                       = NULL;
-      channelSurfacewaterDepth                   = NULL;
-      channelSurfacewaterCreated                 = NULL;
-      channelPrecipitationRate                   = NULL;
-      channelPrecipitationCumulative             = NULL;
-      channelEvaporationRate                     = NULL;
-      channelEvaporationCumulative               = NULL;
-      channelEvapoTranspirationState             = NULL;
-      channelSnowWaterEquivalent                 = NULL;
-      channelSurfacewaterNeighborsExpirationTime = NULL;
-      channelSurfacewaterNeighborsFlowRate       = NULL;
-      channelSurfacewaterNeighborsFlowCumulative = NULL;
-      channelGroundwaterNeighborsExpirationTime  = NULL;
-      channelGroundwaterNeighborsFlowRate        = NULL;
-      channelGroundwaterNeighborsFlowCumulative  = NULL;
-    }
-}
-
-TimePointState::~TimePointState()
-{
-  delete[] meshStateReceived;
-  delete[] meshSurfacewaterDepth;
-  delete[] meshSurfacewaterCreated;
-  delete[] meshGroundwaterHead;
-  delete[] meshGroundwaterRecharge;
-  delete[] meshGroundwaterCreated;
-  delete[] meshPrecipitationRate;
-  delete[] meshPrecipitationCumulative;
-  delete[] meshEvaporationRate;
-  delete[] meshEvaporationCumulative;
-  delete[] meshTranspirationRate;
-  delete[] meshTranspirationCumulative;
-  delete[] meshEvapoTranspirationState;
-  delete[] meshCanopyWaterEquivalent;
-  delete[] meshSnowWaterEquivalent;
-  delete[] meshVadoseZoneState;
-  delete[] meshRootZoneWater;
-  delete[] meshTotalSoilWater;
-  delete[] meshSurfacewaterNeighborsExpirationTime;
-  delete[] meshSurfacewaterNeighborsFlowRate;
-  delete[] meshSurfacewaterNeighborsFlowCumulative;
-  delete[] meshGroundwaterNeighborsExpirationTime;
-  delete[] meshGroundwaterNeighborsFlowRate;
-  delete[] meshGroundwaterNeighborsFlowCumulative;
-  delete[] channelStateReceived;
-  delete[] channelSurfacewaterDepth;
-  delete[] channelSurfacewaterCreated;
-  delete[] channelPrecipitationRate;
-  delete[] channelPrecipitationCumulative;
-  delete[] channelEvaporationRate;
-  delete[] channelEvaporationCumulative;
-  delete[] channelEvapoTranspirationState;
-  delete[] channelSnowWaterEquivalent;
-  delete[] channelSurfacewaterNeighborsExpirationTime;
-  delete[] channelSurfacewaterNeighborsFlowRate;
-  delete[] channelSurfacewaterNeighborsFlowCumulative;
-  delete[] channelGroundwaterNeighborsExpirationTime;
-  delete[] channelGroundwaterNeighborsFlowRate;
-  delete[] channelGroundwaterNeighborsFlowCumulative;
-}
-
-void OutputManager::createFiles()
-{
-  bool   error = false;       // Error flag.
-  size_t ii;                  // Loop counter.
-  size_t numberOfOutputFiles; // Total number of output files for the entire run.
-  double outputTime;          // The time point of the next output file to create.
+  size_t numberOfOutputFiles = std::ceil(simulationDuration() / outputPeriod()); // Total number of output files for the entire run.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
       if (!(myOutputManagerIndex() < numberOfOutputManagers()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: myOutputManagerIndex must be less than numberOfOutputManagers.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: myOutputManagerIndex must be less than numberOfOutputManagers.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(1721425.5 <= referenceDate()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: referenceDate must be on or after 1 CE (1721425.5).\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: referenceDate must be on or after 1 CE (1721425.5).\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(1721425.5 <= referenceDate() + (simulationStartTime() / (60.0 * 60.0 * 24.0))))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: the calendar date of simulationStartTime must be on or after 1 CE (1721425.5).\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: the calendar date of simulationStartTime must be on or after 1 CE (1721425.5).\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(0.0 <= simulationDuration()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: simulationDuration must be greater than or equal to zero.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: simulationDuration must be greater than or equal to zero.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(0.0 < outputPeriod()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: outputPeriod must be greater than zero.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: outputPeriod must be greater than zero.\n");
+          ADHYDRO_EXIT;
+        }
+
+      if (!(0 < outputGroupSize()))
+        {
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: outputGroupSize must be greater than zero.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(localNumberOfMeshElements() <= globalNumberOfMeshElements()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: localNumberOfMeshElements must be less than or equal to globalNumberOfMeshElements.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: localNumberOfMeshElements must be less than or equal to globalNumberOfMeshElements.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!((0 != localNumberOfMeshElements() && localMeshElementStart() < globalNumberOfMeshElements()) || (0 == localNumberOfMeshElements() && 0 == localMeshElementStart())))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: localMeshElementStart must be less than globalNumberOfMeshElements or zero if localNumberOfMeshElements is zero.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: localMeshElementStart must be less than globalNumberOfMeshElements or zero if localNumberOfMeshElements is zero.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(localNumberOfChannelElements() <= globalNumberOfChannelElements()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: localNumberOfChannelElements must be less than or equal to globalNumberOfChannelElements.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: localNumberOfChannelElements must be less than or equal to globalNumberOfChannelElements.\n");
+          ADHYDRO_EXIT;
         }
 
       if (!((0 != localNumberOfChannelElements() && localChannelElementStart() < globalNumberOfChannelElements()) || (0 == localNumberOfChannelElements() && 0 == localChannelElementStart())))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::createFiles: localChannelElementStart must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleInitialize: localChannelElementStart must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.\n");
+          ADHYDRO_EXIT;
         }
     }
 
-  if (!error)
+  // If simulationDuration is zero or outputPeriod is infinity then numberOfOutputFiles could come out as zero.
+  // In that case, we want to output once at the end of the simulation.
+  if (0 == numberOfOutputFiles)
     {
-      // Calculate the number of output files to create.
-      numberOfOutputFiles = std::ceil(simulationDuration() / outputPeriod());
-
-      // If simulationDuration is zero or outputPeriod is infinity then numberOfOutputFiles could come out as zero.
-      // In that case, we want to output once at the end of the simulation.
-      if (0 == numberOfOutputFiles)
-        {
-          numberOfOutputFiles = 1;
-        }
+      numberOfOutputFiles = 1;
     }
 
-  // Create all of the output files.  Each file will be created serially by one OutputManager with multiple files handled by multiple OutputManagers.
-  for (ii = myOutputManagerIndex() + 1; !error && ii <= numberOfOutputFiles; ii += numberOfOutputManagers())
-    {
-      // Get the time point for the next output file to create.
-      if (ii < numberOfOutputFiles)
-        {
-          outputTime = simulationStartTime() + outputPeriod() * ii;
-        }
-      else
-        {
-          // For the last file use simulationDuration rather than a multiple of outputPeriod.
-          // simulationDuration might not be an exact multiple of outputPeriod, and even if it is, this avoids roundoff error.
-          outputTime = simulationStartTime() + simulationDuration();
-        }
-
-      error = fileManager.createFile(outputTime);
-    }
-
-  if (error)
-    {
-      ADHYDRO_EXIT;
-    }
+  outputData.assign(numberOfOutputFiles + 1, NULL);
 }
 
 void OutputManager::handleMeshElementState(const MeshElementState& state)
 {
-  bool            error      = false;                                         // Error flag.
-  size_t          ii, jj;                                                     // Loop counters.
-  TimePointState* timePointState;                                             // The output data for the current time point.
-  size_t          localIndex = state.elementNumber - localMeshElementStart(); // The array index in timePointState for this data.
+  size_t ii, jj;                                                     // Loop counters.
+  size_t localIndex = state.elementNumber - localMeshElementStart(); // The array index in the TimePointState for this data.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
       if (!(localMeshElementStart() <= state.elementNumber && state.elementNumber < localMeshElementStart() + localNumberOfMeshElements()))
         {
           ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: OutputManager received state from a mesh element it does not own.\n");
-          error = true;
+          ADHYDRO_EXIT;
         }
 
-      if (!(simulationStartTime() <= state.currentTime && state.currentTime <= simulationStartTime() + simulationDuration()))
+      if (!(nextOutputIndex <= state.outputIndex && state.outputIndex < outputData.size()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: currentTime must be greater than or equal to simulationStartTime and less than or equal to simulationStartTime plus simulationDuration.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: outputIndex must be greater than or equal to nextOutputIndex and less than outputData.size().\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(state.numberOfSoilLayers <= maximumNumberOfMeshSoilLayers()))
         {
           ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: numberOfSoilLayers must be less than or equal to maximumNumberOfMeshSoilLayers.\n");
-          error = true;
+          ADHYDRO_EXIT;
         }
 
       if (!(state.numberOfNeighbors <= maximumNumberOfMeshNeighbors()))
         {
           ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: numberOfNeighbors must be less than or equal to maximumNumberOfMeshNeighbors.\n");
-          error = true;
+          ADHYDRO_EXIT;
         }
     }
 
-  if (!error)
+  // If this is the first state received for this time point create a new TimePointState to hold it.
+  if (NULL == outputData[state.outputIndex])
     {
-      // If this is the first state received for this time point create a new TimePointState to hold it.
-      if (outputData.find(state.currentTime) == outputData.end())
+      outputData[state.outputIndex] = new FileManager::TimePointState(directory(), referenceDate(), calculateOutputTime(state.outputIndex), globalNumberOfMeshElements(), localNumberOfMeshElements(), localMeshElementStart(),
+          maximumNumberOfMeshSoilLayers(),  maximumNumberOfMeshNeighbors(), globalNumberOfChannelElements(), localNumberOfChannelElements(), localChannelElementStart(), maximumNumberOfChannelNeighbors());
+    }
+
+  // Copy the data into the right place.
+  outputData[state.outputIndex]->meshStateReceived[          localIndex] = true;
+  outputData[state.outputIndex]->meshSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
+  outputData[state.outputIndex]->meshSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
+  outputData[state.outputIndex]->meshPrecipitationRate[      localIndex] = state.precipitationRate;
+  outputData[state.outputIndex]->meshPrecipitationCumulative[localIndex] = state.precipitationCumulative;
+  outputData[state.outputIndex]->meshEvaporationRate[        localIndex] = state.evaporationRate;
+  outputData[state.outputIndex]->meshEvaporationCumulative[  localIndex] = state.evaporationCumulative;
+  outputData[state.outputIndex]->meshTranspirationRate[      localIndex] = state.transpirationRate;
+  outputData[state.outputIndex]->meshTranspirationCumulative[localIndex] = state.transpirationCumulative;
+  outputData[state.outputIndex]->meshEvapoTranspirationState[localIndex] = state.evapoTranspirationState;
+  outputData[state.outputIndex]->meshCanopyWaterEquivalent[  localIndex] = state.canopyWaterEquivalent;
+  outputData[state.outputIndex]->meshSnowWaterEquivalent[    localIndex] = state.snowWaterEquivalent;
+
+  for (ii = 0; ii < state.numberOfSoilLayers; ++ii)
+    {
+      outputData[state.outputIndex]->meshGroundwaterHead[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterHead[ii];
+      outputData[state.outputIndex]->meshGroundwaterRecharge[localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterRecharge[ii];
+      outputData[state.outputIndex]->meshGroundwaterCreated[ localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterCreated[ii];
+      outputData[state.outputIndex]->meshVadoseZoneState[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.vadoseZoneState[ii];
+      outputData[state.outputIndex]->meshRootZoneWater[      localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.rootZoneWater[ii];
+      outputData[state.outputIndex]->meshTotalSoilWater[     localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.totalSoilWater[ii];
+
+      for (jj = 0; jj < state.numberOfNeighbors; ++jj)
         {
-          outputData[state.currentTime] = new TimePointState(localNumberOfMeshElements(), maximumNumberOfMeshSoilLayers(), maximumNumberOfMeshNeighbors(), localNumberOfChannelElements(), maximumNumberOfChannelNeighbors());
-        }
-
-      // Get the data container for the right time point.
-      timePointState = outputData[state.currentTime];
-
-      if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-        {
-          ADHYDRO_ASSERT(NULL != timePointState);
-        }
-
-      // Copy the data into the right place.
-      timePointState->meshStateReceived[          localIndex] = true;
-      timePointState->meshSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
-      timePointState->meshSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
-      timePointState->meshPrecipitationRate[      localIndex] = state.precipitationRate;
-      timePointState->meshPrecipitationCumulative[localIndex] = state.precipitationCumulative;
-      timePointState->meshEvaporationRate[        localIndex] = state.evaporationRate;
-      timePointState->meshEvaporationCumulative[  localIndex] = state.evaporationCumulative;
-      timePointState->meshTranspirationRate[      localIndex] = state.transpirationRate;
-      timePointState->meshTranspirationCumulative[localIndex] = state.transpirationCumulative;
-      timePointState->meshEvapoTranspirationState[localIndex] = state.evapoTranspirationState;
-      timePointState->meshCanopyWaterEquivalent[  localIndex] = state.canopyWaterEquivalent;
-      timePointState->meshSnowWaterEquivalent[    localIndex] = state.snowWaterEquivalent;
-
-      for (ii = 0; ii < state.numberOfSoilLayers; ++ii)
-        {
-          timePointState->meshGroundwaterHead[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterHead[ii];
-          timePointState->meshGroundwaterRecharge[localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterRecharge[ii];
-          timePointState->meshGroundwaterCreated[ localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.groundwaterCreated[ii];
-          timePointState->meshVadoseZoneState[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.vadoseZoneState[ii];
-          timePointState->meshRootZoneWater[      localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.rootZoneWater[ii];
-          timePointState->meshTotalSoilWater[     localIndex * maximumNumberOfMeshSoilLayers() + ii] = state.totalSoilWater[ii];
-
-          for (jj = 0; jj < state.numberOfNeighbors; ++jj)
-            {
-              timePointState->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsExpirationTime[ii * state.numberOfNeighbors + jj];
-              timePointState->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsFlowRate[      ii * state.numberOfNeighbors + jj];
-              timePointState->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsFlowCumulative[ii * state.numberOfNeighbors + jj];
-            }
-
-          // Fill in any empty cells at the end of the arrays.
-          while (jj < maximumNumberOfMeshNeighbors())
-            {
-              timePointState->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-              timePointState->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-              timePointState->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-              ++jj;
-            }
+          outputData[state.outputIndex]->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsExpirationTime[ii * state.numberOfNeighbors + jj];
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsFlowRate[      ii * state.numberOfNeighbors + jj];
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = state.groundwaterNeighborsFlowCumulative[ii * state.numberOfNeighbors + jj];
         }
 
       // Fill in any empty cells at the end of the arrays.
-      while (ii < maximumNumberOfMeshSoilLayers())
+      while (jj < maximumNumberOfMeshNeighbors())
         {
-          timePointState->meshGroundwaterHead[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
-          timePointState->meshGroundwaterRecharge[localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
-          timePointState->meshGroundwaterCreated[ localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
-          // timePointState->meshVadoseZoneState[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = FIXME how to write "blank" to a data blob?
-          timePointState->meshRootZoneWater[      localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
-          timePointState->meshTotalSoilWater[     localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
-
-          for (jj = 0; jj < maximumNumberOfMeshNeighbors(); ++jj)
-            {
-              timePointState->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-              timePointState->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-              timePointState->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
-            }
-
-          ++ii;
-        }
-
-      for (ii = 0; ii < state.numberOfNeighbors; ++ii)
-        {
-          timePointState->meshSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsExpirationTime[ii];
-          timePointState->meshSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsFlowRate[ii];
-          timePointState->meshSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsFlowCumulative[ii];
-        }
-
-      // Fill in any empty cells at the end of the arrays.
-      while (ii < maximumNumberOfMeshNeighbors())
-        {
-          timePointState->meshSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
-          timePointState->meshSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
-          timePointState->meshSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
-          ++ii;
-        }
-
-      // If all state is received for this time point, output it and delete the TimePointState.
-      if (allStateReceived(*timePointState))
-        {
-          error = fileManager.writeOutput(state.currentTime, *timePointState);
-
-          if (!error)
-            {
-              // FIXME have a reduction and only print when all have written data.
-              ADHYDRO_PRINTF("Output manager %u wrote data for time %lf.\n", myOutputManagerIndex(), state.currentTime);
-            }
-
-          outputData.erase(state.currentTime);
-
-          delete timePointState;
+          outputData[state.outputIndex]->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+          ++jj;
         }
     }
 
-  if (error)
+  // Fill in any empty cells at the end of the arrays.
+  while (ii < maximumNumberOfMeshSoilLayers())
     {
-      ADHYDRO_EXIT;
+      outputData[state.outputIndex]->meshGroundwaterHead[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
+      outputData[state.outputIndex]->meshGroundwaterRecharge[localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
+      outputData[state.outputIndex]->meshGroundwaterCreated[ localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
+      // outputData[state.outputIndex]->meshVadoseZoneState[    localIndex * maximumNumberOfMeshSoilLayers() + ii] = FIXME how to write "blank" to a data blob?
+      outputData[state.outputIndex]->meshRootZoneWater[      localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
+      outputData[state.outputIndex]->meshTotalSoilWater[     localIndex * maximumNumberOfMeshSoilLayers() + ii] = 0.0;
+
+      for (jj = 0; jj < maximumNumberOfMeshNeighbors(); ++jj)
+        {
+          outputData[state.outputIndex]->meshGroundwaterNeighborsExpirationTime[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowRate[      (localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+          outputData[state.outputIndex]->meshGroundwaterNeighborsFlowCumulative[(localIndex * maximumNumberOfMeshSoilLayers() + ii) * maximumNumberOfMeshNeighbors() + jj] = 0.0;
+        }
+
+      ++ii;
+    }
+
+  for (ii = 0; ii < state.numberOfNeighbors; ++ii)
+    {
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsExpirationTime[ii];
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsFlowRate[ii];
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfMeshNeighbors() + ii] = state.surfacewaterNeighborsFlowCumulative[ii];
+    }
+
+  // Fill in any empty cells at the end of the arrays.
+  while (ii < maximumNumberOfMeshNeighbors())
+    {
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->meshSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfMeshNeighbors() + ii] = 0.0;
+      ++ii;
     }
 }
 
 void OutputManager::handleChannelElementState(const ChannelElementState& state)
 {
-  bool            error      = false;                                            // Error flag.
-  size_t          ii;                                                            // Loop counter.
-  TimePointState* timePointState;                                                // The output data for the current time point.
-  size_t          localIndex = state.elementNumber - localChannelElementStart(); // The array index in timePointState for this data.
+  size_t ii;                                                            // Loop counter.
+  size_t localIndex = state.elementNumber - localChannelElementStart(); // The array index in the TimePointState for this data.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
       if (!(localChannelElementStart() <= state.elementNumber && state.elementNumber < localChannelElementStart() + localNumberOfChannelElements()))
         {
           ADHYDRO_ERROR("ERROR in OutputManager::handleChannelElementState: OutputManager received state from a channel element it does not own.\n");
-          error = true;
+          ADHYDRO_EXIT;
         }
 
-      if (!(simulationStartTime() <= state.currentTime && state.currentTime <= simulationStartTime() + simulationDuration()))
+      if (!(nextOutputIndex <= state.outputIndex && state.outputIndex < outputData.size()))
         {
-          ADHYDRO_ERROR("ERROR in OutputManager::handleChannelElementState: currentTime must be greater than or equal to simulationStartTime and less than or equal to simulationStartTime plus simulationDuration.\n");
-          error = true;
+          ADHYDRO_ERROR("ERROR in OutputManager::handleChannelElementState: outputIndex must be greater than or equal to nextOutputIndex and less than outputData.size().\n");
+          ADHYDRO_EXIT;
         }
 
       if (!(state.numberOfNeighbors <= maximumNumberOfChannelNeighbors()))
         {
           ADHYDRO_ERROR("ERROR in OutputManager::handleChannelElementState: numberOfNeighbors must be less than or equal to maximumNumberOfChannelNeighbors.\n");
-          error = true;
+          ADHYDRO_EXIT;
         }
     }
 
-  if (!error)
+  // If this is the first state received for this time point create a new TimePointState to hold it.
+  if (NULL == outputData[state.outputIndex])
     {
-      // If this is the first state received for this time point create a new TimePointState to hold it.
-      if (outputData.find(state.currentTime) == outputData.end())
-        {
-          outputData[state.currentTime] = new TimePointState(localNumberOfMeshElements(), maximumNumberOfMeshSoilLayers(), maximumNumberOfMeshNeighbors(), localNumberOfChannelElements(), maximumNumberOfChannelNeighbors());
-        }
-
-      // Get the data container for the right time point.
-      timePointState = outputData[state.currentTime];
-
-      if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-        {
-          ADHYDRO_ASSERT(NULL != timePointState);
-        }
-
-      // Copy the data into the right place.
-      timePointState->channelStateReceived[          localIndex] = true;
-      timePointState->channelSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
-      timePointState->channelSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
-      timePointState->channelPrecipitationRate[      localIndex] = state.precipitationRate;
-      timePointState->channelPrecipitationCumulative[localIndex] = state.precipitationCumulative;
-      timePointState->channelEvaporationRate[        localIndex] = state.evaporationRate;
-      timePointState->channelEvaporationCumulative[  localIndex] = state.evaporationCumulative;
-      timePointState->channelEvapoTranspirationState[localIndex] = state.evapoTranspirationState;
-      timePointState->channelSnowWaterEquivalent[    localIndex] = state.snowWaterEquivalent;
-
-      for (ii = 0; ii < state.numberOfNeighbors; ++ii)
-        {
-          timePointState->channelSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsExpirationTime[ii];
-          timePointState->channelSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsFlowRate[ii];
-          timePointState->channelSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsFlowCumulative[ii];
-          timePointState->channelGroundwaterNeighborsExpirationTime[ localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsExpirationTime[ii];
-          timePointState->channelGroundwaterNeighborsFlowRate[       localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsFlowRate[ii];
-          timePointState->channelGroundwaterNeighborsFlowCumulative[ localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsFlowCumulative[ii];
-        }
-
-      // Fill in any empty cells at the end of the arrays.
-      while (ii < maximumNumberOfChannelNeighbors())
-        {
-          timePointState->channelSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          timePointState->channelSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          timePointState->channelSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          timePointState->channelGroundwaterNeighborsExpirationTime[ localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          timePointState->channelGroundwaterNeighborsFlowRate[       localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          timePointState->channelGroundwaterNeighborsFlowCumulative[ localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
-          ++ii;
-        }
-
-      // If all state is received for this time point, output it and delete the TimePointState.
-      if (allStateReceived(*timePointState))
-        {
-          error = fileManager.writeOutput(state.currentTime, *timePointState);
-
-          if (!error)
-            {
-              // FIXME have a reduction and only print when all have written data.
-              ADHYDRO_PRINTF("Output manager %u wrote data for time %lf.\n", myOutputManagerIndex(), state.currentTime);
-            }
-
-          outputData.erase(state.currentTime);
-
-          delete timePointState;
-        }
+      outputData[state.outputIndex] = new FileManager::TimePointState(directory(), referenceDate(), calculateOutputTime(state.outputIndex), globalNumberOfMeshElements(), localNumberOfMeshElements(), localMeshElementStart(),
+          maximumNumberOfMeshSoilLayers(),  maximumNumberOfMeshNeighbors(), globalNumberOfChannelElements(), localNumberOfChannelElements(), localChannelElementStart(), maximumNumberOfChannelNeighbors());
     }
 
-  if (error)
+  // Copy the data into the right place.
+  outputData[state.outputIndex]->channelStateReceived[          localIndex] = true;
+  outputData[state.outputIndex]->channelSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
+  outputData[state.outputIndex]->channelSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
+  outputData[state.outputIndex]->channelPrecipitationRate[      localIndex] = state.precipitationRate;
+  outputData[state.outputIndex]->channelPrecipitationCumulative[localIndex] = state.precipitationCumulative;
+  outputData[state.outputIndex]->channelEvaporationRate[        localIndex] = state.evaporationRate;
+  outputData[state.outputIndex]->channelEvaporationCumulative[  localIndex] = state.evaporationCumulative;
+  outputData[state.outputIndex]->channelEvapoTranspirationState[localIndex] = state.evapoTranspirationState;
+  outputData[state.outputIndex]->channelSnowWaterEquivalent[    localIndex] = state.snowWaterEquivalent;
+
+  for (ii = 0; ii < state.numberOfNeighbors; ++ii)
     {
-      ADHYDRO_EXIT;
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsExpirationTime[ii];
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsFlowRate[ii];
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfChannelNeighbors() + ii] = state.surfacewaterNeighborsFlowCumulative[ii];
+      outputData[state.outputIndex]->channelGroundwaterNeighborsExpirationTime[ localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsExpirationTime[ii];
+      outputData[state.outputIndex]->channelGroundwaterNeighborsFlowRate[       localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsFlowRate[ii];
+      outputData[state.outputIndex]->channelGroundwaterNeighborsFlowCumulative[ localIndex * maximumNumberOfChannelNeighbors() + ii] = state.groundwaterNeighborsFlowCumulative[ii];
+    }
+
+  // Fill in any empty cells at the end of the arrays.
+  while (ii < maximumNumberOfChannelNeighbors())
+    {
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsExpirationTime[localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsFlowRate[      localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->channelSurfacewaterNeighborsFlowCumulative[localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->channelGroundwaterNeighborsExpirationTime[ localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->channelGroundwaterNeighborsFlowRate[       localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      outputData[state.outputIndex]->channelGroundwaterNeighborsFlowCumulative[ localIndex * maximumNumberOfChannelNeighbors() + ii] = 0.0;
+      ++ii;
     }
 }
 
-bool OutputManager::allStateReceived(TimePointState& timePointState)
+bool OutputManager::readyToOutput()
 {
-  size_t ii; // Loop counter.
-  bool   allReceived = true;
+  size_t ii, jj;       // Loop counters.
+  bool   ready = true; // Return value.  Stays true until we find something that is not ready.
 
-  for (ii = 0; allReceived && ii < localNumberOfMeshElements(); ++ii)
+  // We are going to output the next outputGroupSize time points together so we are only ready if they are all ready.
+  for (ii = nextOutputIndex; ready && ii < nextOutputIndex + outputGroupSize() && ii < outputData.size(); ++ii)
     {
-      allReceived = timePointState.meshStateReceived[ii];
+      // If a TimePointState hasn't been created yet it is not ready.
+      ready = (NULL != outputData[ii]);
+
+      // Check that all mesh element data has been received.
+      for (jj = 0; ready && jj < localNumberOfMeshElements(); ++jj)
+        {
+          ready = outputData[ii]->meshStateReceived[jj];
+        }
+
+      // Check that all channel element data has been received.
+      for (jj = 0; ready && jj < localNumberOfChannelElements(); ++jj)
+        {
+          ready = outputData[ii]->channelStateReceived[jj];
+        }
     }
 
-  for (ii = 0; allReceived && ii < localNumberOfChannelElements(); ++ii)
+  return ready;
+}
+
+double OutputManager::calculateOutputTime(size_t outputIndex)
+{
+  double outputTime; // Return value.
+
+  if (outputIndex < outputData.size() - 1)
     {
-      allReceived = timePointState.channelStateReceived[ii];
+      outputTime = simulationStartTime() + outputPeriod() * outputIndex;
+    }
+  else
+    {
+      // For the last file use simulationDuration rather than a multiple of outputPeriod.
+      // simulationDuration might not be an exact multiple of outputPeriod, and even if it is, this avoids roundoff error.
+      outputTime = simulationStartTime() + simulationDuration();
     }
 
-  return allReceived;
+  return outputTime;
 }

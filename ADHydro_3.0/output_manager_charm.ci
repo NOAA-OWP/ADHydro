@@ -6,16 +6,13 @@ module output_manager_charm
     
     entry void runForever()
     {
-      when sendCreateFiles()
+      when sendInitialize()
       {
         serial
         {
-          createFiles();
-          contribute(CkCallback(CkReductionTarget(OutputManagerCharm, barrier), thisProxy));
+          handleInitialize();
         }
       }
-      
-      when barrier() {}
       
       while (true)
       {
@@ -37,13 +34,61 @@ module output_manager_charm
             }
           }
         }
-      }
-    };
+        
+        if (readyToOutput())
+        {
+          // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library,
+          // which waits for all other output managers to hit the barrier.  Because Charm++ is single threaded on each PE, when an output manager enters
+          // writeOutput and hits that barrier no further Charm++ operations can take place on that PE until all output managers reach the NetCDF barrier.
+          // But there may be another output manager that is waiting for a state message from an element that has migrated to the PE that is locked by the
+          // output manager waiting at the NetCDF barrier.  The solution is to put a Charm++ barrier (implemented as a reduction) before the NetCDF barrier
+          // because the Charm++ barrier is implemented in such a way that other Charm++ operations can continue while an output manager is waiting at the barrier.
+          serial
+          {
+            contribute(CkCallback(CkReductionTarget(OutputManagerCharm, barrier), thisProxy));
+            endOutputIndex = nextOutputIndex + outputGroupSize();
+          }
+          
+          when barrier() {}
+          
+          while (nextOutputIndex < endOutputIndex && nextOutputIndex < outputData.size())
+          {
+            serial
+            {
+              if (0 == CkMyPe() && 1 <= verbosityLevel())
+                {
+                  outputFilename = outputData[nextOutputIndex]->createFilename();
+                  CkPrintf("Writing output file %s.\n", outputFilename.c_str());
+                }
+              
+              fileManager.writeOutput(*(outputData[nextOutputIndex]));
+              delete outputData[nextOutputIndex];
+              outputData[nextOutputIndex] = NULL;
+              contribute(CkCallback(CkReductionTarget(OutputManagerCharm, barrier), thisProxy));
+            }
+            
+            // We also put a barrier after writing each file for two reasons.  First, I don't know if it will cause a problem for the NetCDF library if one PE tries to parallel create
+            // the next file before all PEs close the last one.  Second, I want to make sure that all PEs are done writing before I tell the user that we are finished writing the file.
+            when barrier() {}
+            
+            serial
+            {
+              if (0 == CkMyPe() && 1 <= verbosityLevel())
+                {
+                  CkPrintf("Finished writing output file %s.\n", outputFilename.c_str());
+                }
+              
+              ++nextOutputIndex;
+            }
+          } // End while (nextOutputIndex < endOutputIndex && nextOutputIndex < outputData.size())
+        } // End if (readyToOutput()).
+      } // End while (true).
+    }; // End entry void runForever().
     
-    entry void sendCreateFiles();
-    entry [reductiontarget] void barrier();
+    entry void sendInitialize();
     entry void sendMeshElementState(const MeshElementStateCharm& state);
     entry void sendChannelElementState(const ChannelElementStateCharm& state);
+    entry [reductiontarget] void barrier();
     
   }; // End group OutputManagerCharm.
 }; // End module output_manager_charm.

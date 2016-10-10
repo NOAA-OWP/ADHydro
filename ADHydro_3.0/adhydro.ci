@@ -10,6 +10,7 @@ mainmodule adhydro
     readonly double                    simulationStartTime;
     readonly double                    simulationDuration;
     readonly double                    outputPeriod;
+    readonly size_t                    outputGroupSize;
     readonly int                       verbosityLevel;
     readonly CProxy_OutputManagerCharm outputManagerProxy;
     

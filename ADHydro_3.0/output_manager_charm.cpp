@@ -6,7 +6,7 @@ PUPbytes(FileManager::VadoseZoneStateBlob);
 void MeshElementStateCharm::pup(PUP::er &p)
 {
   p | elementNumber;
-  p | currentTime;
+  p | outputIndex;
   p | numberOfSoilLayers;
   p | numberOfNeighbors;
 
@@ -61,7 +61,7 @@ void MeshElementStateCharm::pup(PUP::er &p)
 void ChannelElementStateCharm::pup(PUP::er &p)
 {
   p | elementNumber;
-  p | currentTime;
+  p | outputIndex;
   p | numberOfNeighbors;
 
   if (p.isUnpacking())
@@ -123,6 +123,16 @@ double OutputManagerCharm::simulationDuration()
 double OutputManagerCharm::outputPeriod()
 {
   return ADHydro::outputPeriod;
+}
+
+size_t OutputManagerCharm::outputGroupSize()
+{
+  return ADHydro::outputGroupSize;
+}
+
+int OutputManagerCharm::verbosityLevel()
+{
+  return ADHydro::verbosityLevel;
 }
 
 size_t OutputManagerCharm::globalNumberOfMeshElements()

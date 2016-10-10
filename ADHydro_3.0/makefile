@@ -24,7 +24,8 @@ EXES := adhydro
 ADHYDRO_OBJS := adhydro.o              \
                 output_manager_charm.o \
                 output_manager.o       \
-                file_manager_NetCDF.o
+                file_manager_NetCDF.o  \
+                file_manager.o
 
 INIH_OBJS := INIReader.o \
              ini.o
@@ -77,9 +78,13 @@ output_manager.o: output_manager.cpp \
 
 file_manager_NetCDF.o: file_manager_NetCDF.cpp \
                        file_manager_NetCDF.h   \
-                       output_manager.h        \
                        file_manager.h          \
                        all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+file_manager.o: file_manager.cpp \
+                file_manager.h   \
+                all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 clean:
