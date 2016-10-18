@@ -65,6 +65,7 @@ module output_manager_charm
                 }
               
               fileManager.writeOutput(*(outputData[nextOutputIndex]));
+              // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
               delete outputData[nextOutputIndex];
               outputData[nextOutputIndex] = NULL;
               contribute(CkCallback(CkReductionTarget(OutputManagerCharm, barrier), thisProxy));

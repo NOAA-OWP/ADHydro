@@ -3,7 +3,6 @@
 
 #include "output_manager.h"
 #include "file_manager_NetCDF.h"
-#include "all.h"
 
 // These classes really belong as nested classes of OutputManagerCharm, but there were problems with circular dependencies and being unable to forward declare nested classes.
 

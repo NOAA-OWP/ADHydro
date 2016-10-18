@@ -1,5 +1,4 @@
 #include "file_manager_NetCDF.h"
-#include "all.h"
 #include <netcdf_par.h>
 
 bool FileManagerNetCDF::writeOutput(const TimePointState& timePointState)
@@ -10,7 +9,6 @@ bool FileManagerNetCDF::writeOutput(const TimePointState& timePointState)
   int         fileID;                        // NetCDF file handle.
   bool        fileOpen = false;              // Whether the file is open.
   int         intValue;                      // For writing ints    to the NetCDF file.
-  double      doubleValue;                   // For writing doubles to the NetCDF file.
   int         meshElementsDimensionID;       // ID of dimension in NetCDF file.
   int         meshSoilLayersDimensionID;     // ID of dimension in NetCDF file.
   int         meshNeighborsDimensionID;      // ID of dimension in NetCDF file.
@@ -72,8 +70,7 @@ bool FileManagerNetCDF::writeOutput(const TimePointState& timePointState)
 
   if (!error)
     {
-      doubleValue = timePointState.referenceDate;
-      ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "referenceDate", NC_DOUBLE, 1, &doubleValue);
+      ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "referenceDate", NC_DOUBLE, 1, &(timePointState.referenceDate));
 
       if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
@@ -87,8 +84,7 @@ bool FileManagerNetCDF::writeOutput(const TimePointState& timePointState)
 
   if (!error)
     {
-      doubleValue = timePointState.outputTime;
-      ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "currentTime", NC_DOUBLE, 1, &doubleValue);
+      ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "currentTime", NC_DOUBLE, 1, &(timePointState.outputTime));
 
       if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {

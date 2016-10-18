@@ -1,5 +1,4 @@
 #include "output_manager.h"
-#include "all.h"
 
 OutputManager::MeshElementState& OutputManager::MeshElementState::operator=(const MeshElementState& other)
 {
@@ -280,7 +279,7 @@ void OutputManager::handleInitialize()
     }
 
   outputData.assign(numberOfOutputFiles + 1, NULL);
-  
+
   // If this outputManager has no elements create the empty TimePointStates now so that the pointers won't be NULL.
   if (0 == localNumberOfMeshElements() && 0 == localNumberOfChannelElements())
     {
@@ -327,12 +326,25 @@ void OutputManager::handleMeshElementState(const MeshElementState& state)
   // If this is the first state received for this time point create a new TimePointState to hold it.
   if (NULL == outputData[state.outputIndex])
     {
+      // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
       outputData[state.outputIndex] = new FileManager::TimePointState(directory(), referenceDate(), calculateOutputTime(state.outputIndex), globalNumberOfMeshElements(), localNumberOfMeshElements(), localMeshElementStart(),
           maximumNumberOfMeshSoilLayers(),  maximumNumberOfMeshNeighbors(), globalNumberOfChannelElements(), localNumberOfChannelElements(), localChannelElementStart(), maximumNumberOfChannelNeighbors());
     }
 
+  // Record that the element was received.
+  outputData[state.outputIndex]->elementsReceived++;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  if (!(false == outputData[state.outputIndex]->meshStateReceived[localIndex]))
+    {
+      ADHYDRO_ERROR("ERROR in OutputManager::handleMeshElementState: OutputManager received duplicate state from a mesh element.\n");
+      ADHYDRO_EXIT;
+    }
+
+  outputData[state.outputIndex]->meshStateReceived[localIndex] = true;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
   // Copy the data into the right place.
-  outputData[state.outputIndex]->meshStateReceived[          localIndex] = true;
   outputData[state.outputIndex]->meshSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
   outputData[state.outputIndex]->meshSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
   outputData[state.outputIndex]->meshPrecipitationRate[      localIndex] = state.precipitationRate;
@@ -437,12 +449,25 @@ void OutputManager::handleChannelElementState(const ChannelElementState& state)
   // If this is the first state received for this time point create a new TimePointState to hold it.
   if (NULL == outputData[state.outputIndex])
     {
+      // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
       outputData[state.outputIndex] = new FileManager::TimePointState(directory(), referenceDate(), calculateOutputTime(state.outputIndex), globalNumberOfMeshElements(), localNumberOfMeshElements(), localMeshElementStart(),
           maximumNumberOfMeshSoilLayers(),  maximumNumberOfMeshNeighbors(), globalNumberOfChannelElements(), localNumberOfChannelElements(), localChannelElementStart(), maximumNumberOfChannelNeighbors());
     }
 
+  // Record that the element was received.
+  outputData[state.outputIndex]->elementsReceived++;
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  if (!(false == outputData[state.outputIndex]->channelStateReceived[localIndex]))
+    {
+      ADHYDRO_ERROR("ERROR in OutputManager::handleChannelElementState: OutputManager received duplicate state from a channel element.\n");
+      ADHYDRO_EXIT;
+    }
+
+  outputData[state.outputIndex]->channelStateReceived[localIndex] = true;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
   // Copy the data into the right place.
-  outputData[state.outputIndex]->channelStateReceived[          localIndex] = true;
   outputData[state.outputIndex]->channelSurfacewaterDepth[      localIndex] = state.surfacewaterDepth;
   outputData[state.outputIndex]->channelSurfacewaterCreated[    localIndex] = state.surfacewaterCreated;
   outputData[state.outputIndex]->channelPrecipitationRate[      localIndex] = state.precipitationRate;
@@ -477,26 +502,14 @@ void OutputManager::handleChannelElementState(const ChannelElementState& state)
 
 bool OutputManager::readyToOutput()
 {
-  size_t ii, jj;       // Loop counters.
+  size_t ii;           // Loop counter.
   bool   ready = true; // Return value.  Stays true until we find something that is not ready.
 
   // We are going to output the next outputGroupSize time points together so we are only ready if they are all ready.
   for (ii = nextOutputIndex; ready && ii < nextOutputIndex + outputGroupSize() && ii < outputData.size(); ++ii)
     {
-      // If a TimePointState hasn't been created yet it is not ready.
-      ready = (NULL != outputData[ii]);
-
-      // Check that all mesh element data has been received.
-      for (jj = 0; ready && jj < localNumberOfMeshElements(); ++jj)
-        {
-          ready = outputData[ii]->meshStateReceived[jj];
-        }
-
-      // Check that all channel element data has been received.
-      for (jj = 0; ready && jj < localNumberOfChannelElements(); ++jj)
-        {
-          ready = outputData[ii]->channelStateReceived[jj];
-        }
+      // If a TimePointState hasn't been created yet it is not ready.  Otherwise, ask the TimePointState if all of its state has been received.
+      ready = ((NULL != outputData[ii]) && outputData[ii]->allStateReceived());
     }
 
   return ready;

@@ -1,6 +1,7 @@
 #ifndef __FILE_MANAGER_H__
 #define __FILE_MANAGER_H__
 
+#include "all.h"
 #include <string>
 
 // FileManager is a wrapper for file operations used by OutputManager.
@@ -32,7 +33,7 @@ public:
   {
   public:
 
-    // Constructor.  Allocates arrays and sets received flags to false.
+    // Constructor.  Allocates arrays, sets elementsReceived to zero, and sets received flags to false.
     //
     // All parameters directly initialize member variables.
     TimePointState(const std::string& directoryInit, double referenceDateInit, double outputTimeInit, size_t globalNumberOfMeshElementsInit, size_t localNumberOfMeshElementsInit,
@@ -41,14 +42,6 @@ public:
 
     // Destructor.  Deletes arrays.
     ~TimePointState();
-
-    // Sets received flags to false.
-    void clearReceivedFlags();
-
-    // Helper function to create a standard filename string for the TimePointState.
-    //
-    // Returns: the filename.
-    std::string createFilename() const;
 
   private:
 
@@ -59,6 +52,19 @@ public:
     TimePointState& operator=(const TimePointState& other);
 
   public:
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    // Sets received flags to false.  Received flags are only used in debug mode for checking that the same element isn't received twice.
+    void clearReceivedFlags();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
+    // Returns: true if the state from all elements have been received.
+    bool allStateReceived() { return (localNumberOfMeshElements + localNumberOfChannelElements == elementsReceived); }
+
+    // Helper function to create a standard filename string for the TimePointState.
+    //
+    // Returns: the filename.
+    std::string createFilename() const;
 
     // Values that are used to create filenames and/or stored in the files.
     const std::string directory;     // The directory in which to create output files.  Filenames will be generated from the date and time.
@@ -76,8 +82,15 @@ public:
     const size_t localChannelElementStart;     // Must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.
     const size_t maximumNumberOfChannelNeighbors;
 
+    // For checking when all state is received.
+    size_t elementsReceived;     // Number of both mesh and channel elements received.
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    bool*  meshStateReceived;    // 1D array of size localNumberOfMeshElements.     True if that element's state has been received.
+    bool*  channelStateReceived; // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
     // The state.
-    bool*                        meshStateReceived;                          // 1D array of size localNumberOfMeshElements.  True if that element's state has been received.
     double*                      meshSurfacewaterDepth;                      // 1D array of size localNumberOfMeshElements.
     double*                      meshSurfacewaterCreated;                    // 1D array of size localNumberOfMeshElements.
     double*                      meshGroundwaterHead;                        // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers.
@@ -101,7 +114,6 @@ public:
     double*                      meshGroundwaterNeighborsExpirationTime;     // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
     double*                      meshGroundwaterNeighborsFlowRate;           // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
     double*                      meshGroundwaterNeighborsFlowCumulative;     // 3D array of size localNumberOfMeshElements * maximumNumberOfMeshSoilLayers * maximumNumberOfMeshNeighbors.
-    bool*                        channelStateReceived;                       // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
     double*                      channelSurfacewaterDepth;                   // 1D array of size localNumberOfChannelElements.
     double*                      channelSurfacewaterCreated;                 // 1D array of size localNumberOfChannelElements.
     double*                      channelPrecipitationRate;                   // 1D array of size localNumberOfChannelElements.

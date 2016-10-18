@@ -1,5 +1,4 @@
 #include "file_manager.h"
-#include "all.h"
 #include <iomanip>
 
 FileManager::TimePointState::TimePointState(const std::string& directoryInit, double referenceDateInit, double outputTimeInit, size_t globalNumberOfMeshElementsInit, size_t localNumberOfMeshElementsInit,
@@ -16,7 +15,8 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
     globalNumberOfChannelElements(globalNumberOfChannelElementsInit),
     localNumberOfChannelElements(localNumberOfChannelElementsInit),
     localChannelElementStart(localChannelElementStartInit),
-    maximumNumberOfChannelNeighbors(maximumNumberOfChannelNeighborsInit)
+    maximumNumberOfChannelNeighbors(maximumNumberOfChannelNeighborsInit),
+    elementsReceived(0)
 {
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -59,7 +59,10 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
 
   if (0 < localNumberOfMeshElements)
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       meshStateReceived       = new bool[  localNumberOfMeshElements];
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
       meshSurfacewaterDepth   = new double[localNumberOfMeshElements];
       meshSurfacewaterCreated = new double[localNumberOfMeshElements];
 
@@ -123,7 +126,10 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
     }
   else
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       meshStateReceived                       = NULL;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
       meshSurfacewaterDepth                   = NULL;
       meshSurfacewaterCreated                 = NULL;
       meshGroundwaterHead                     = NULL;
@@ -151,7 +157,10 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
 
   if (0 < localNumberOfChannelElements)
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       channelStateReceived           = new bool[                       localNumberOfChannelElements];
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
       channelSurfacewaterDepth       = new double[                     localNumberOfChannelElements];
       channelSurfacewaterCreated     = new double[                     localNumberOfChannelElements];
       channelPrecipitationRate       = new double[                     localNumberOfChannelElements];
@@ -182,7 +191,10 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
     }
   else
     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
       channelStateReceived                       = NULL;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
       channelSurfacewaterDepth                   = NULL;
       channelSurfacewaterCreated                 = NULL;
       channelPrecipitationRate                   = NULL;
@@ -199,12 +211,18 @@ FileManager::TimePointState::TimePointState(const std::string& directoryInit, do
       channelGroundwaterNeighborsFlowCumulative  = NULL;
     }
 
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   clearReceivedFlags();
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
 }
 
 FileManager::TimePointState::~TimePointState()
 {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
   delete[] meshStateReceived;
+  delete[] channelStateReceived;
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+
   delete[] meshSurfacewaterDepth;
   delete[] meshSurfacewaterCreated;
   delete[] meshGroundwaterHead;
@@ -228,7 +246,6 @@ FileManager::TimePointState::~TimePointState()
   delete[] meshGroundwaterNeighborsExpirationTime;
   delete[] meshGroundwaterNeighborsFlowRate;
   delete[] meshGroundwaterNeighborsFlowCumulative;
-  delete[] channelStateReceived;
   delete[] channelSurfacewaterDepth;
   delete[] channelSurfacewaterCreated;
   delete[] channelPrecipitationRate;
@@ -245,6 +262,7 @@ FileManager::TimePointState::~TimePointState()
   delete[] channelGroundwaterNeighborsFlowCumulative;
 }
 
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
 void FileManager::TimePointState::clearReceivedFlags()
 {
   size_t ii; // Loop counter.
@@ -259,6 +277,7 @@ void FileManager::TimePointState::clearReceivedFlags()
       channelStateReceived[ii] = false;
     }
 }
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
 
 std::string FileManager::TimePointState::createFilename() const
 {
