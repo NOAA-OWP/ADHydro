@@ -8144,6 +8144,20 @@ void FileManager::meshMassageVegetationAndSoilType()
       oldNumberOfRemainingElementsWithInvalidVegetationType = newNumberOfRemainingElementsWithInvalidVegetationType;
       oldNumberOfRemainingElementsWithInvalidSoilType       = newNumberOfRemainingElementsWithInvalidSoilType;
     }
+  
+  // Print out which elements still have invalid vegetation and soil type.
+  if (2 <= ADHydro::verbosityLevel)
+    {
+      CkPrintf("element\tvegetation type\tsoil type\n");
+
+      for (ii = 0; ii < globalNumberOfMeshElements; ii++)
+        {
+          if (16 == meshVegetationType[ii] || 24 == meshVegetationType[ii] || -1 == meshSoilType[ii] || 14 == meshSoilType[ii] || 16 == meshSoilType[ii])
+            {
+              CkPrintf("%d\t%d\t%d\n", ii, meshVegetationType[ii], meshSoilType[ii]);
+            }
+        }
+    }
 }
 
 int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
@@ -9310,12 +9324,13 @@ void FileManager::calculateDerivedValues()
           
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
           // FIXLATER Sanity test the new polygon area function before replacing the above code permanently.
-          double testPolyArea = getAreaOfPolygon(meshVertexX[ii], meshVertexY[ii], MESH_ELEMENT_MESH_NEIGHBORS_SIZE);
-          
-          if (!epsilonEqual(meshElementArea[ii], testPolyArea))
-            {
-              CkError("WARNING in FileManager::calculateDerivedValues: new and old codes for calculating area disagree.\n");
-            }
+          //double testPolyArea = getAreaOfPolygon(meshVertexX[ii], meshVertexY[ii], MESH_ELEMENT_MESH_NEIGHBORS_SIZE);
+          //
+          // The two codes are mathematically equivalent, but the order of operations is different enough that some elements wind up being slightly more than epsilon different.
+          //if (!epsilonEqual(meshElementArea[ii], testPolyArea))
+          //  {
+          //    CkError("WARNING in FileManager::calculateDerivedValues: new and old codes for calculating area disagree.\n");
+          //  }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
         }
     }
