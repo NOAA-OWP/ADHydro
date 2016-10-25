@@ -1801,8 +1801,8 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
               linkType = ICEMASS;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 == strcmp("LakePond", ftype)  || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
-                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype) || 0 == strcmp("Playa", ftype)))
+          else if (!(0 == strcmp("LakePond",  ftype) || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
+                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype) || 0 == strcmp("Playa",      ftype) || 0 == strcmp("361", ftype)))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;

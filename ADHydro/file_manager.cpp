@@ -8052,7 +8052,7 @@ void FileManager::meshMassageVegetationAndSoilType()
   
   if (!(NULL != meshMeshNeighbors))
     {
-      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshSurfacewaterMeshNeighbors must not be NULL.\n");
+      CkError("ERROR in FileManager::meshMassageVegetationAndSoilType: meshMeshNeighbors must not be NULL.\n");
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
