@@ -82,8 +82,8 @@ if __name__ == '__main__':
         print input_directory_path+" does not contain a SSURGO directory."
     else:
         if args.extract:
-            pass#extractSSURGO()
-        #prepareSSURGO()
+            extractSSURGO()
+        prepareSSURGO()
     if not os.path.isdir(STATSGO_DIR):
         print input_directory_path+" does not contain a STATSGO directory."
     else:
