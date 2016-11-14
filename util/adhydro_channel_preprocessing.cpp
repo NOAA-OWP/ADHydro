@@ -4413,6 +4413,9 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
   double             overlapLength;                   // For calculating channel mesh neighbors edge length.
   int                meshNeighbors[ChannelElement_meshNeighborsSize];           // For storing channel mesh neighbors before outputting.
   double             meshNeighborsEdgeLength[ChannelElement_meshNeighborsSize]; // For storing channel mesh neighbors before outputting.
+  int                waterbodyNumberOfVertices;       // Total number of vertices of a waterbody.
+  double             waterbodyVerticesFraction;       // Fraction of those vertices that can be stored.
+  int                waterbodyVerticesSoFar;          // Number of vertices seen so far through the loop.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   assert(NULL != channels && 0 < size);
@@ -5137,8 +5140,23 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
         } // End if (STREAM == channels[ii].type).
       else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type)
         {
-          // Create the vertices.  In this loop, ii is the link number, jj is the element number, kk is the vertex number of element jj, and ll is the vertex
-          // number of shape.
+          // Create the vertices.  Waterbodies can have lots of vertices.  In order to keep the ChannelElement_channelVerticesSize array dimension from
+          // getting too big we make it only a warning for a waterbody to have more than that many vertices, and we throw any extra vertices out.  In order
+          // not to distort the waterbody shape too much we don't want to throw out a bunch of vertices at the end.  Instead, we throw out every Nth one.
+          // To do this we first need to figure out how many total vertices the waterbody has and the fraction of them that can be stored.
+          waterbodyNumberOfVertices = 0;
+          
+          for (jj = 0; !error && jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
+            {
+              waterbodyNumberOfVertices += shape->nVertices;
+            }
+          
+          // Get the fraction of the number of vertices that can be stored.  Can be greater than one in which case all vertices are stored.
+          waterbodyVerticesFraction = ((double)ChannelElement_channelVerticesSize) / waterbodyNumberOfVertices;
+          waterbodyVerticesSoFar    = 0;
+          
+          // Now store the vertices.  In this loop, ii is the link number, jj is the shape number, kk is the number of vertices that have been stored for the
+          // one and only element of the waterbody, and ll is the vertex number of shape jj.
           kk = 0;
           
           for (jj = 0; !error && jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
@@ -5147,17 +5165,16 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
 
               for (ll = shape->nVertices - 1; !error && ll >= 0; ll--)
                 {
-                  if (kk < ChannelElement_channelVerticesSize)
+                  // Now we ask oursleves, if we store this vertex will it exceed the allowable fraction of vertices seen so far?
+                  if ((((double)(kk + 1)) / ++waterbodyVerticesSoFar) <= waterbodyVerticesFraction)
                     {
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                      assert(kk < ChannelElement_channelVerticesSize);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                      
                       // FIXME see if the point is a duplicate with any connected link.
                       createNode(shape->padfX[ll], shape->padfY[ll], &channelNodesSize, &numberOfChannelNodes, &channelNodesX, &channelNodesY,
                                  &channelVertices[channels[ii].elementStart][kk++]);
-                    }
-                  else
-                    {
-                      fprintf(stderr, "ERROR in writeChannelNetwork: element %d: number of vertices exceeds maximum number %d.\n",
-                              channels[ii].elementStart, ChannelElement_channelVerticesSize);
-                      error = true;
                     }
                 }
             }
@@ -5166,6 +5183,17 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
           for (mm = kk; !error && mm < ChannelElement_channelVerticesSize; mm++)
             {
               channelVertices[channels[ii].elementStart][mm] = channelVertices[channels[ii].elementStart][kk - 1];
+            }
+          
+          // Warn if vertices were thrown away.
+          if (1.0 > waterbodyVerticesFraction)
+            {
+              fprintf(stderr, "WARNING in writeChannelNetwork: element %d: waterbody has %d vertices, which exceeds maximum number %d.  Extra vertices being "
+                              "discarded.\n", channels[ii].elementStart, waterbodyNumberOfVertices, ChannelElement_channelVerticesSize);
+              
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+              assert(kk == ChannelElement_channelVerticesSize);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
             }
         } // End else if (WATERBODY == channels[ii].type || ICEMASS == channels[ii].type).
     } // End loop over all links.  For each used link loop over its shapes creating channel nodes and filling in channel vertices as you go.
