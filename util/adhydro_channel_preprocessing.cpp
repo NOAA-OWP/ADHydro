@@ -5148,7 +5148,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
           
           for (jj = 0; !error && jj < SHAPES_SIZE && NULL != channels[ii].shapes[jj]; jj++)
             {
-              waterbodyNumberOfVertices += shape->nVertices;
+              waterbodyNumberOfVertices += channels[ii].shapes[jj]->nVertices;
             }
           
           // Get the fraction of the number of vertices that can be stored.  Can be greater than one in which case all vertices are stored.
