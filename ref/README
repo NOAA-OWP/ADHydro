@@ -1,0 +1,3 @@
+This directory contains old code that is no longer used, but we are saving for reference just in case.
+
+WRFtoADHydro_ncdf4.R is an R script written by Hernan Moreno for generating NetCDF forcing data files from WRF data.  We now do this with a python script.
