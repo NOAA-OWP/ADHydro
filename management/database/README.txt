@@ -1,5 +1,6 @@
 The database directory should contain inputs for the charm code generation script.
 Documentation on the input formats can be found in management/documents.
+FIXME this dicumentation has not yet been written.
 
 This directory will contain sub directories for each mesh, named after the mesh.
 For example, the District 58 data is contained in the directory co_district_58.
