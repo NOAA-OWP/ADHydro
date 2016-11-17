@@ -3,24 +3,38 @@ import geopandas as gpd
 import os
 import argparse
 
-parser = argparse.ArgumentParser(description="Create a single vector polygon defining the perimeter of the mesh.\nBy default, generates an outline which includes holes for water bodies.")
-parser.add_argument('meshDirectory', help='Directory containing mesh data, specifically mesh_catchments.shp file.\nBy default this directory will also be used for all output.')
-parser.add_argument('-o','--output', help='Optional output directory.')
-parser.add_argument('-n','--name', help='Name of the mesh, defaults to the input directory basename.')
-parser.add_argument('-b','--boundary', help='Dissolve the original catchements to generate a single polygon defining the boundary of the mesh (no holes).', action='store_true')
-parser.add_argument('-x','--extent', help='Print the extents of the existing mesh outline in its original CRS as well as WSG84 lat/long coordinates.  (minX, minY, maxX, maxY)', action='store_true')
+parser = argparse.ArgumentParser(description="Create a single vector polygon defining the perimeter of the mesh.\n\
+    The shape file passed in determines the type of outline produced.  I.e passing mesh_catchments.shp will produce an outline with holes for all water bodies,\n\
+    where as passing the original catchments.shp file will produce a single polygon outline with no holes.")
+parser.add_argument('catchmentFile', help='Shape file containing mesh catchments.')
+parser.add_argument('-o','--output', help='Optional output directory. (Default is current working directory)')
+#parser.add_argument('-n','--name', help='Name of the mesh, defaults to the input directory basename.')
+#parser.add_argument('-b','--boundary', help='Dissolve the original catchements to generate a single polygon defining the boundary of the mesh (no holes).', action='store_true')
+parser.add_argument('-x','--extent', help='Print the extents of the provided shapefile in its original CRS as well as WSG84 lat/long coordinates.  (minX, minY, maxX, maxY)', action='store_true')
 
 args = parser.parse_args()
 
 # input_directory_path
-input_directory_path =  os.path.abspath(args.meshDirectory)
+#input_directory_path =  os.path.abspath(args.meshDirectory)
+if os.path.isfile(args.catchmentFile):
+    inputFile = os.path.abspath(args.catchmentFile)
+else:
+    parser.error("Input file {} does not exist".format(args.catchmentFile))
 
 # This script will write its output to this directory
 # the files it will write are:
 #
 # output_directory_path/outline.shp
-output_directory_path = os.path.abspath(args.output) if args.output else input_directory_path
-mesh_name = args.name if args.name else os.path.basename(input_directory_path)
+output_directory_path = os.path.abspath(args.output) if args.output else os.getcwd() 
+#mesh_name = args.name if args.name else os.path.basename(input_directory_path)
+
+def dd_to_dms(dd):
+    positive = dd >= 0
+    dd = abs(dd)
+    m,s = divmod(dd*3600,60)
+    d,m = divmod(m, 60)
+    d = d if positive else -d
+    return (d, m, s)
 
 def dissolve_mesh(inputShape):
     """
@@ -34,26 +48,26 @@ def dissolve_mesh(inputShape):
     #and provides an outline polygon almost identical (difference is 0.359375 square meters!) 
     #df = gpd.read_file(os.path.join(input_directory_path, 'elements.shp'))
     print "Dissolving mesh"
-    shp = inputShape+'.shp'
-    prj = inputShape+'.prj'
+    #shp = inputShape+'.shp'
+    prj = inputShape[0:-4]+'.prj'
     #Have to get devel version of geopandas, or bad geometries cause read to fail
-    df = gpd.read_file(os.path.join(input_directory_path, shp))
+    df = gpd.read_file(inputShape)
     g = df.geometry
-    #Deal with bad geometries, happens with catchements_validated, but oddly not mesh_catchments
+    #Deal with bad geometries, just in case.
     g = g[ g.notnull() ]
     #Prevents self intersection topolgy exception
     g = g.buffer(0)
     g = gpd.GeoSeries([g.unary_union])
     g.to_file(os.path.join(output_directory_path, 'outline.shp'))
     from shutil import copy
-    copy(os.path.join(input_directory_path, prj), os.path.join(output_directory_path, 'outline.prj'))
+    copy(prj, os.path.join(output_directory_path, 'outline.prj'))
     return
 
 def printExtent(shapeName):
     from osgeo import ogr, osr, gdal
     #gdal.UseExceptions()
-    shpFile = shapeName+'.shp'
-    shp = ogr.Open(os.path.join(input_directory_path, shpFile))
+    #shpFile = shapeName+'.shp'
+    shp = ogr.Open(shapeName)
     layer = shp.GetLayer()
     source_srs = layer.GetSpatialRef()
     #Get the extents of the outline as close as possible to shape of the mesh
@@ -74,22 +88,16 @@ def printExtent(shapeName):
     max.AddPoint(extent[1], extent[3])
     min.Transform(xform)
     max.Transform(xform)
-    print "ADHydro: {}, {}, {}, {}".format(extent[0], extent[1], extent[2], extent[3])
-    print "Lat/Long: {}, {}, {}, {}".format(min.GetX(), max.GetX(), min.GetY(), max.GetY()) 
+    print "Original: {}, {}, {}, {}".format(extent[0], extent[1], extent[2], extent[3])
+    print "Lat/Long: {}, {}, {}, {}".format(min.GetX(), max.GetX(), min.GetY(), max.GetY())
+    minX = "{} {} {}".format(*dd_to_dms(min.GetX()))
+    maxX = "{} {} {}".format(*dd_to_dms(max.GetX()))
+    minY = "{} {} {}".format(*dd_to_dms(min.GetY()))
+    maxY = "{} {} {}".format(*dd_to_dms(max.GetY()))
+    print "Lat/Long (DMS): {}, {}, {}, {}".format(minX, maxX, minY, maxY)
  
 if __name__ == "__main__":
   if args.extent:
-    outline = os.path.join(input_directory_path, 'outline.shp')
-    if(os.path.isfile(outline)):
-         print "Determining extents from outline shape."
-         printExtent('outline')
-    else:
-        print "Outline doesn't exist, determining extents from catchments"
-        printExtent('catchments')
-  
-  elif args.boundary:
-    parent = os.path.join(input_directory_path, 'TauDEM')
-    dissolve_mesh(os.path.join(parent,'catchments'))
+         printExtent(inputFile)
   else:
-    parent = os.path.join(input_directory_path, 'ArcGIS')
-    dissolve_mesh(os.path.join(parent,'mesh_catchments'))
+    dissolve_mesh(inputFile)
