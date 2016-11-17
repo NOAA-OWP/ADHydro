@@ -1,0 +1,454 @@
+diff --git a/HRLDAS-v3.6/.gitignore b/HRLDAS-v3.6/.gitignore
+new file mode 100644
+index 0000000..7829704
+--- /dev/null
++++ b/HRLDAS-v3.6/.gitignore
+@@ -0,0 +1,5 @@
++*.f
++*.mod
++libsmda.a
++consolidate_grib.exe
++Noah_hrldas_beta
+diff --git a/HRLDAS-v3.6/HRLDAS_COLLECT_DATA/consolidate_grib.F b/HRLDAS-v3.6/HRLDAS_COLLECT_DATA/consolidate_grib.F
+index 77044fb..a551907 100644
+--- a/HRLDAS-v3.6/HRLDAS_COLLECT_DATA/consolidate_grib.F
++++ b/HRLDAS-v3.6/HRLDAS_COLLECT_DATA/consolidate_grib.F
+@@ -79,7 +79,7 @@ program consolidate
+ #ifndef _GFORTRAN_
+   ! For some reason, gfortran does not like this declared external,
+   ! but everyone else wants it declared external.  So we use #ifndef
+-  integer, external :: iargc
++  integer           :: iargc
+ #endif
+ 
+ 
+diff --git a/HRLDAS-v3.6/IO_code/module_NoahMP_hrldas_driver.F b/HRLDAS-v3.6/IO_code/module_NoahMP_hrldas_driver.F
+index ea29e16..2e481ff 100644
+--- a/HRLDAS-v3.6/IO_code/module_NoahMP_hrldas_driver.F
++++ b/HRLDAS-v3.6/IO_code/module_NoahMP_hrldas_driver.F
+@@ -264,6 +264,9 @@ module module_NoahMP_hrldas_driver
+ 
+     INTEGER, PARAMETER                  :: NSNOW = 3    ! number of snow layers fixed to 3
+     REAL, PARAMETER                     :: undefined_value = -1.E36
++    ! The Intel compiler won't let you assign a constant real value to an integer if it will cause overflow.
++    ! Create this value to assign undefined_value to integers.
++    INTEGER, PARAMETER                  :: undefined_value_integer = -HUGE(I)
+ 
+ !---------------------------------------------------------------------
+ !  File naming, parallel
+@@ -343,7 +346,7 @@ module module_NoahMP_hrldas_driver
+   integer            :: ystart = 1
+   integer            ::   xend = 0
+   integer            ::   yend = 0
+-  REAL, PARAMETER    :: MAX_SOIL_LEVELS = 10   ! maximum soil levels in namelist
++  integer, PARAMETER :: MAX_SOIL_LEVELS = 10   ! maximum soil levels in namelist
+   REAL, DIMENSION(MAX_SOIL_LEVELS) :: soil_thick_input       ! depth to soil interfaces from namelist [m]
+ 
+   namelist / NOAHLSM_OFFLINE /    &
+@@ -388,21 +391,21 @@ module module_NoahMP_hrldas_driver
+ 
+ #endif
+ 
+-  nsoil                   = undefined_value
++  nsoil                   = undefined_value_integer
+   soil_thick_input        = undefined_value
+   dtbl                    = undefined_value
+-  start_year              = undefined_value
+-  start_month             = undefined_value
+-  start_day               = undefined_value
+-  start_hour              = undefined_value
+-  start_min               = undefined_value
+-  khour                   = undefined_value
+-  kday                    = undefined_value
++  start_year              = undefined_value_integer
++  start_month             = undefined_value_integer
++  start_day               = undefined_value_integer
++  start_hour              = undefined_value_integer
++  start_min               = undefined_value_integer
++  khour                   = undefined_value_integer
++  kday                    = undefined_value_integer
+   zlvl                    = undefined_value
+-  forcing_timestep        = undefined_value
+-  noah_timestep           = undefined_value
+-  output_timestep         = undefined_value
+-  restart_frequency_hours = undefined_value
++  forcing_timestep        = undefined_value_integer
++  noah_timestep           = undefined_value_integer
++  output_timestep         = undefined_value_integer
++  restart_frequency_hours = undefined_value_integer
+ 
+   open(30, file="namelist.hrldas", form="FORMATTED")
+   read(30, NOAHLSM_OFFLINE, iostat=ierr)
+@@ -840,8 +843,8 @@ module module_NoahMP_hrldas_driver
+      STEPWTD = nint(WTDDT*60./DTBL)
+      STEPWTD = max(STEPWTD,1)
+ 
+-     call read_mp_veg_parameters(trim(LLANDUSE))
+-     CALL  SOIL_VEG_GEN_PARM( LLANDUSE, MMINSL )
++     call read_mp_veg_parameters(trim(LLANDUSE), "MPTABLE.TBL")
++     CALL  SOIL_VEG_GEN_PARM( LLANDUSE, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL", 3)
+ 
+   else
+ 
+diff --git a/HRLDAS-v3.6/Noah/module_sf_noahmpdrv.F b/HRLDAS-v3.6/Noah/module_sf_noahmpdrv.F
+index 8f83ace..d67b537 100644
+--- a/HRLDAS-v3.6/Noah/module_sf_noahmpdrv.F
++++ b/HRLDAS-v3.6/Noah/module_sf_noahmpdrv.F
+@@ -955,14 +955,14 @@ end if
+     character(len=*), intent(in) :: MMINLU
+     MMINSL='STAS'
+ 
+-    call read_mp_veg_parameters(trim(MMINLU))
++    call read_mp_veg_parameters(trim(MMINLU), "MPTABLE.TBL")
+ 
+     !
+     ! initialize three Noah LSM related tables
+     !
+     IF ( allowed_to_read ) THEN
+        CALL wrf_message( 'INITIALIZE THREE Noah LSM RELATED TABLES' )
+-       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL )
++       CALL  SOIL_VEG_GEN_PARM( MMINLU, MMINSL, "VEGPARM.TBL", "SOILPARM.TBL", "GENPARM.TBL", 3)
+     ENDIF
+ 
+     IF( .NOT. restart ) THEN
+@@ -1504,13 +1504,14 @@ END  SUBROUTINE EQSMOISTURE
+ !------------------------------------------------------------------------------------------
+ !
+ !-----------------------------------------------------------------
+-        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL)
++        SUBROUTINE SOIL_VEG_GEN_PARM( MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE, VERBOSITY_LEVEL)
+ !-----------------------------------------------------------------
+ 
+ !        USE module_wrf_error
+         IMPLICIT NONE
+ 
+-        CHARACTER(LEN=*), INTENT(IN) :: MMINLU, MMINSL
++        CHARACTER(LEN=*), INTENT(IN) :: MMINLU, MMINSL, VEGPARM_FILE, SOILPARM_FILE, GENPARM_FILE
++        INTEGER, INTENT(IN) :: VERBOSITY_LEVEL
+         integer :: LUMATCH, IINDEX, LC, NUM_SLOPE
+         integer :: ierr
+         INTEGER , PARAMETER :: OPEN_OK = 0
+@@ -1545,10 +1546,10 @@ END  SUBROUTINE EQSMOISTURE
+ 
+        IF ( wrf_dm_on_monitor() ) THEN
+ 
+-        OPEN(19, FILE='VEGPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
++        OPEN(19, FILE=VEGPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+         IF(ierr .NE. OPEN_OK ) THEN
+-          WRITE(message,FMT='(A)') &
+-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening VEGPARM.TBL'
++          WRITE(message,FMT='(A, A)') &
++          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', VEGPARM_FILE
+           CALL wrf_error_fatal ( message )
+         END IF
+ 
+@@ -1561,8 +1562,10 @@ END  SUBROUTINE EQSMOISTURE
+            READ (19,*)LUCATS,IINDEX
+ 
+            IF(LUTYPE.EQ.MMINLU)THEN
+-              WRITE( mess , * ) 'LANDUSE TYPE = ' // TRIM ( LUTYPE ) // ' FOUND', LUCATS,' CATEGORIES'
+-              CALL wrf_message( mess )
++              IF(3.LE.VERBOSITY_LEVEL)THEN
++                 WRITE( mess , * ) 'LANDUSE TYPE = ' // TRIM ( LUTYPE ) // ' FOUND', LUCATS,' CATEGORIES'
++                 CALL wrf_message( mess )
++              ENDIF
+               LUMATCH=1
+            ELSE
+               call wrf_message ( "Skipping over LUTYPE = " // TRIM ( LUTYPE ) )
+@@ -1657,15 +1660,17 @@ END  SUBROUTINE EQSMOISTURE
+ !-----READ IN SOIL PROPERTIES FROM SOILPARM.TBL
+ !
+       IF ( wrf_dm_on_monitor() ) THEN
+-        OPEN(19, FILE='SOILPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
++        OPEN(19, FILE=SOILPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+         IF(ierr .NE. OPEN_OK ) THEN
+-          WRITE(message,FMT='(A)') &
+-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening SOILPARM.TBL'
++          WRITE(message,FMT='(A, A)') &
++          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', SOILPARM_FILE
+           CALL wrf_error_fatal ( message )
+         END IF
+ 
+-        WRITE(mess,*) 'INPUT SOIL TEXTURE CLASSIFICATION = ', TRIM ( MMINSL )
+-        CALL wrf_message( mess )
++        IF(3.LE.VERBOSITY_LEVEL)THEN
++           WRITE(mess,*) 'INPUT SOIL TEXTURE CLASSIFICATION = ', TRIM ( MMINSL )
++           CALL wrf_message( mess )
++        ENDIF
+ 
+         LUMATCH=0
+ 
+@@ -1674,9 +1679,11 @@ END  SUBROUTINE EQSMOISTURE
+  2000   FORMAT (A4)
+         READ (19,*)SLCATS,IINDEX
+         IF(SLTYPE.EQ.MMINSL)THEN
+-            WRITE( mess , * ) 'SOIL TEXTURE CLASSIFICATION = ', TRIM ( SLTYPE ) , ' FOUND', &
+-                  SLCATS,' CATEGORIES'
+-            CALL wrf_message ( mess )
++            IF(3.LE.VERBOSITY_LEVEL)THEN
++               WRITE( mess , * ) 'SOIL TEXTURE CLASSIFICATION = ', TRIM ( SLTYPE ) , ' FOUND', &
++                     SLCATS,' CATEGORIES'
++               CALL wrf_message ( mess )
++            ENDIF
+           LUMATCH=1
+         ENDIF
+ ! prevent possible array overwrite, Bill Bovermann, IBM, May 6, 2008
+@@ -1731,10 +1738,10 @@ END  SUBROUTINE EQSMOISTURE
+ !-----READ IN GENERAL PARAMETERS FROM GENPARM.TBL
+ !
+       IF ( wrf_dm_on_monitor() ) THEN
+-        OPEN(19, FILE='GENPARM.TBL',FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
++        OPEN(19, FILE=GENPARM_FILE,FORM='FORMATTED',STATUS='OLD',IOSTAT=ierr)
+         IF(ierr .NE. OPEN_OK ) THEN
+-          WRITE(message,FMT='(A)') &
+-          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening GENPARM.TBL'
++          WRITE(message,FMT='(A, A)') &
++          'module_sf_noahlsm.F: soil_veg_gen_parm: failure opening ', GENPARM_FILE
+           CALL wrf_error_fatal ( message )
+         END IF
+ 
+diff --git a/HRLDAS-v3.6/Noah/module_sf_noahmplsm.F b/HRLDAS-v3.6/Noah/module_sf_noahmplsm.F
+index 5158be3..2434e25 100644
+--- a/HRLDAS-v3.6/Noah/module_sf_noahmplsm.F
++++ b/HRLDAS-v3.6/Noah/module_sf_noahmplsm.F
+@@ -271,9 +271,9 @@ MODULE NOAHMP_VEG_PARAMETERS
+     real eps(MVT,5)
+ 
+ CONTAINS
+-  subroutine read_mp_veg_parameters(DATASET_IDENTIFIER)
++  subroutine read_mp_veg_parameters(DATASET_IDENTIFIER, MPTABLE_FILE)
+     implicit none
+-    character(len=*), intent(in) :: DATASET_IDENTIFIER
++    character(len=*), intent(in) :: DATASET_IDENTIFIER, MPTABLE_FILE
+     integer :: ierr
+ 
+     ! Temporary arrays used in reshaping namelist arrays
+@@ -345,10 +345,10 @@ CONTAINS
+     SLAREA = -1.E36
+     EPS    = -1.E36
+ 
+-    open(15, file="MPTABLE.TBL", status='old', form='formatted', action='read', iostat=ierr)
++    open(15, file=MPTABLE_FILE, status='old', form='formatted', action='read', iostat=ierr)
+     if (ierr /= 0) then
+        write(*,'("****** Error ******************************************************")')
+-       write(*,'("Cannot find file MPTABLE.TBL")')
++       write(*,'("Cannot find file ''", A, "''")') MPTABLE_FILE
+        write(*,'("STOP")')
+        write(*,'("*******************************************************************")')
+        call wrf_error_fatal("STOP in Noah-MP read_mp_veg_parameters")
+@@ -1159,6 +1159,11 @@ contains
+   REAL                                        :: ERRSW  !error in shortwave radiation balance [w/m2]
+   REAL                                        :: FSRVG
+   CHARACTER(len=256)                          :: message
++  
++  REAL                                        :: ERROR_EPSILON !for scaling error threshold when
++                                                               !numbers get big and floating point
++                                                               !roundoff error is larger than the
++                                                               !previous fixed error threshold
+ ! --------------------------------------------------------------------------------------------------
+ !jref:start
+    ERRSW   = SWDOWN - (FSA + FSR)
+@@ -1204,7 +1209,17 @@ contains
+         ERRWAT = END_WB-BEG_WB-(PRCP-ECAN-ETRAN-EDIR-RUNSRF-RUNSUB)*DT
+ 
+ #ifndef WRF_HYDRO
+-        IF(ABS(ERRWAT) > 0.1) THEN
++        ERROR_EPSILON = 0.1
++        
++        IF (ERROR_EPSILON < BEG_WB * 1.0E-6) THEN
++           ERROR_EPSILON = BEG_WB * 1.0E-6
++        END IF
++        
++        IF (ERROR_EPSILON < END_WB * 1.0E-6) THEN
++           ERROR_EPSILON = END_WB * 1.0E-6
++        END IF
++
++        IF(ABS(ERRWAT) > ERROR_EPSILON) THEN
+            if (ERRWAT > 0) then
+               call wrf_message ('The model is gaining water (ERRWAT is positive)')
+            else
+@@ -1218,7 +1233,9 @@ contains
+            WRITE(message,'(i6,1x,i6,1x,2f15.3,9f11.5)')ILOC,JLOC,END_WB,BEG_WB,PRCP*DT,ECAN*DT,&
+                 EDIR*DT,ETRAN*DT,RUNSRF*DT,RUNSUB*DT,ZWT
+            call wrf_message(trim(message))
+-           call wrf_error_fatal("Water budget problem in NOAHMP LSM")
++           !Make this just a warning.
++           !call wrf_error_fatal("Water budget problem in NOAHMP LSM")
++           call wrf_message("Water budget problem in NOAHMP LSM")
+         END IF
+ #endif
+    ELSE                 !KWM
+@@ -6403,6 +6420,23 @@ contains
+          SH2O(1) = SH2O(1) + SICE(1)
+          SICE(1) = 0.
+       END IF
++      
++      ! RCS There was a bug here.  Evaporation or condensation was being taken
++      ! from or added to SICE and possibly SH2O, but the value of SMC was not
++      ! being updated to match.
++      IF (SH2O(1) < 0.) THEN
++        ! Excess evaporation must be put back into QSEVA.
++        QSEVA   = (-SH2O(1)) * (DZSNSO(1)*1000.) / DT
++        SH2O(1) = 0.
++      ELSE IF (SH2O(1) + SICE(1) > SMCMAX) THEN
++        ! Excess condensation must be put back into QSDEW.
++        QSDEW   = (SH2O(1) + SICE(1) - SMCMAX) * (DZSNSO(1)*1000.) / DT
++        SICE(1) = SMCMAX - SH2O(1)
++      ENDIF
++      
++      SMC(1) = SH2O(1) + SICE(1)
++      ! End RCS
++      
+    END IF
+ 
+ ! convert units (mm/s -> m/s)
+@@ -6814,6 +6848,17 @@ contains
+         zsnso(iz) = 0.
+    enddo
+ 
++! sum up snow mass for layered snow
++! RCS at this point in the code SNEQV is not necessarily equal to the sum of SNICE and SNLIQ because it's possible some processes like evaporation have been
++! applied to SNICE and SNLIQ, but not to SNEQV.  I'm making sure SNEQV is consistent with SNICE and SNLIQ before checking the value of SNEQV for glacier flow.
++
++   IF(ISNOW < 0) THEN  ! MB: only do for multi-layer
++       SNEQV = 0.
++       DO IZ = ISNOW+1,0
++             SNEQV = SNEQV + SNICE(IZ) + SNLIQ(IZ)
++       ENDDO
++   END IF
++
+ !to obtain equilibrium state of snow in glacier region
+        
+    IF(SNEQV > 2000.) THEN   ! 2000 mm -> maximum water depth
+diff --git a/HRLDAS-v3.6/user_build_options b/HRLDAS-v3.6/user_build_options
+index c8be61a..acbbe73 100644
+--- a/HRLDAS-v3.6/user_build_options
++++ b/HRLDAS-v3.6/user_build_options
+@@ -1,69 +1,85 @@
+ #
+-#  Options for Linux with Intel Fortran
++#  Options for Linux with Intel Fortran for Yellowstone
+ #
+-# COMPILERF90	=	ifort
++
++# COMPILERF90	=	mpif90
+ # FREESOURCE	=	-free
+ # F90FLAGS	=       -convert big_endian -g -O0 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
+-# MODFLAG		=	-I
+-# LDFLAGS		=	
++# MODFLAG	=	-I
++# LDFLAGS	=	
+ # CPP		=	cpp
+ # CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+ # LIBS		=	
+-# LIBJASPER       =       -ljpeg -L/scholar/kmanning/jasper/lib -ljasper
+-# INCJASPER       =       -I/scholar/kmanning/jasper/include
+-# NETCDFMOD	=	-I/scholar/kmanning/netcdf-3.6.3-ifort/include
+-# NETCDFLIB	=	-L/scholar/kmanning/netcdf-3.6.3-ifort/lib -lnetcdf
+-# BZIP2           =       YES
+-# BZIP2_INCLUDE   =       -I/usr/include
+-# BZIP2_LIB       =       -L/usr/lib -lbz2
++# LIBJASPER      =       -ljpeg -ljasper
++# BZIP2          =       YES
++# BZIP2_INCLUDE  =       
++# BZIP2_LIB      =       -lbz2
+ # RM		= 	rm -f
+-# CC		=	cc
++# CC		=	mpicc
+ 
+ #
+-#  Options for Linux with gfortran
++#  Options for Linux with Intel Fortran for Mt Moran
+ #
+ 
+-# COMPILERF90	=	gfortran
+-# FREESOURCE	=	-ffree-form  -ffree-line-length-none
+-# F90FLAGS	=       -g -fconvert=big-endian -fbounds-check
++# COMPILERF90	=	ifort
++# FREESOURCE	=	-free
++# F90FLAGS	=       -convert big_endian -g -O0 -check all,noshape,nopointer,noarg_temp_created -mp -fpe0
+ # MODFLAG	=	-I
+ # LDFLAGS	=	
+ # CPP		=	cpp
+ # CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+ # LIBS		=	
+-# LIBJASPER     =       -ljpeg -L/usr/lib -ljasper
+-# INCJASPER     =       -I/usr/include
+-# LIBJASPER     =       -ljpeg -L/scholar/kmanning/jasper/lib -ljasper
+-# INCJASPER     =       -I/scholar/kmanning/jasper/include
+-# NETCDFMOD	=	-I/scholar/kmanning/netcdf-3.6.3-gfortran/include
+-# NETCDFLIB	=	-L/scholar/kmanning/netcdf-3.6.3-gfortran/lib -lnetcdf
+-# NETCDFMOD      =       -I/d3/mukul/netcdf413/netcdf-4.1.3-pgi/include
+-# NETCDFLIB      =       -L/d3/mukul/netcdf413/netcdf-4.1.3-pgi/lib -lnetcdf
+-# BZIP2		=       YES
+-# BZIP2_LIB	=       -lbz2
+-# BZIP2_INCLUDE	=       -I/usr/include
++# LIBJASPER      =       -ljpeg -L/apps/JASPER/intel-15.0/1.900.1/lib -ljasper
++# INCJASPER      =       -I/apps/JASPER/intel-15.0/1.900.1/include
++# NETCDFMOD	=	-I/apps/NetCDF-mpi/intel/15.0.0/4.3.2/include
++# NETCDFLIB	=	-L/apps/NetCDF-mpi/intel/15.0.0/4.3.2/lib -L/apps/HDF5-mpi/intel/15.0.0/1.8.13/lib -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
++# BZIP2          =       NO
++# BZIP2_INCLUDE  =       
++# BZIP2_LIB      =       # -lbz2
+ # RM		= 	rm -f
+-# CC		=	cc
+-#
++# CC		=	mpicc
++
+ #
+-#  Options for Linux with pgf90
++#  Options for Linux with gfortran for EN3038 lab
+ #
+ 
+- COMPILERF90	=	pgf90
+- FREESOURCE	=	-Mfree
+- F90FLAGS	=       -g -byteswapio 
++ COMPILERF90	=	mpif90
++ FREESOURCE	=	-ffree-form  -ffree-line-length-none
++ F90FLAGS	=       -g -fconvert=big-endian -fbounds-check -fno-range-check
+  MODFLAG	=	-I
+  LDFLAGS	=	
+  CPP		=	cpp
+  CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+  LIBS		=	
+- LIBJASPER     =       -ljpeg -L/usr/lib -ljasper
+- INCJASPER     =       -I/usr/include
+- NETCDFMOD      =       -I/usr/local/netcdf4-pgi/include
+- NETCDFLIB      =       -L/usr/local/netcdf4-pgi/lib -lnetcdf -lnetcdff
+- BZIP2          =       YES
+- BZIP2_LIB      =       -lbz2
+- BZIP2_INCLUDE  =       -I/usr/include
+- RM             =       rm -f
+- CC             =       cc
++ LIBJASPER     =       -ljpeg -ljasper
++ INCJASPER     =       
++ NETCDFMOD	=	-I/opt/include
++ NETCDFLIB	=	-L/opt/lib64 -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
++ BZIP2		=       YES
++ BZIP2_LIB	=       -lbz2
++ BZIP2_INCLUDE	=       -I/usr/include
++ RM		= 	rm -f
++ CC		=	mpicc
++
++#
++#  Options for Linux with pgf90
++#
++
++# COMPILERF90	=	pgf90
++# FREESOURCE	=	-Mfree
++# F90FLAGS	=       -g -byteswapio 
++# MODFLAG	=	-I
++# LDFLAGS	=	
++# CPP		=	cpp
++# CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
++# LIBS		=	
++# LIBJASPER     =       -ljpeg -L/usr/lib -ljasper
++# INCJASPER     =       -I/usr/include
++# NETCDFMOD      =       -I/usr/local/netcdf4-pgi/include
++# NETCDFLIB      =       -L/usr/local/netcdf4-pgi/lib -lnetcdf -lnetcdff
++# BZIP2          =       YES
++# BZIP2_LIB      =       -lbz2
++# BZIP2_INCLUDE  =       -I/usr/include
++# RM             =       rm -f
++# CC             =       cc
+ 
