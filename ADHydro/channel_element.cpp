@@ -1600,6 +1600,7 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
   std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
   std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh; // Loop iterator.
   double area  = surfacewaterDepth * (baseWidth + sideSlope * surfacewaterDepth);   // Wetted cross sectional area of channel in square meters.
+  bool   outflowNeighbor = false;                                                   // To detect if this element has an outflow boundary neighbor.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(currentTime <= timestepEndTime))
@@ -1627,6 +1628,11 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
             {
               area += (*itChannel).getMaterial(currentTime, timestepEndTime) / elementLength;
             }
+          
+          if (ADHydro::drainDownMode && OUTFLOW == (*itChannel).neighbor)
+            {
+              outflowNeighbor = true;
+            }
         }
       
       for (itUndergroundMesh = undergroundMeshNeighbors.begin(); itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
@@ -1644,6 +1650,10 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
       if (ADHydro::drainDownMode && surfacewaterDepth > (elementZBank - elementZBed))
         {
           surfacewaterDepth = (elementZBank - elementZBed);
+        }
+      else if (ADHydro::drainDownMode && outflowNeighbor && 1 <= ADHydro::verbosityLevel)
+        {
+          CkPrintf("During drain down, outflow channel element %d is no longer over bank at simulation time %lf.\n", elementNumber, timestepEndTime);
         }
     }
   

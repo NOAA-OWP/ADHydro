@@ -8303,6 +8303,17 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
         }
     }
   
+  // Don't connect the element to an icemass because it could be higher than the mesh element.
+  while (NOFLOW != neighbor && ICEMASS == channelChannelType[neighbor])
+    {
+      neighbor = findDownstreamChannelElement(neighbor);
+      
+      if (OUTFLOW == neighbor)
+        {
+          neighbor = NOFLOW;
+        }
+    }
+  
   // Connect the mesh element to that channel element
   if (NOFLOW != neighbor)
     {
@@ -8723,6 +8734,7 @@ void FileManager::meshMassage()
       localStartAndNumber(&localRegionStart, &localNumberOfRegions, globalNumberOfRegions);
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+      // This code can only be run on one PE so the local regions must include all of them.
       CkAssert(0 == localRegionStart && globalNumberOfRegions == localNumberOfRegions);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
@@ -9204,6 +9216,8 @@ void FileManager::calculateDerivedValues()
   // Delete vertex updated arrays that are no longer needed.
   delete[] meshVertexUpdated;
   delete[] channelVertexUpdated;
+  meshVertexUpdated    = NULL;
+  channelVertexUpdated = NULL;
   
   // If a mesh element has any channel neighbors it is automatically considered alluvium.
   if (NULL != meshAlluvium && NULL != meshChannelNeighbors)

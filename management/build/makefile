@@ -10,7 +10,7 @@
 ######
 #MOUNT MORAN
 ######
-CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm
+#CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm
 
 ######
 #OTHER
