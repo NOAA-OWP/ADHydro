@@ -2,4 +2,5 @@
 *.decl.h
 *.def.h
 *.o
+*.so
 

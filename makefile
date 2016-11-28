@@ -4,9 +4,15 @@
 # 	You still need to modify various environment variables in their respective makefiles before using this file.
 # 	TODO Pass these along from this top level makefile ^^^
 #
-.PHONY: inih HRLDAS management utils ADHydro clean
+.PHONY: util scripts inih HRLDAS management ADHydro clean
 
-all: inih management util HRLDAS ADHydro
+all:    util scripts inih HRLDAS management ADHydro
+
+util:
+	$(MAKE) -C ./util
+
+scripts:
+	$(MAKE) -C ./scripts
 
 inih:
 	$(MAKE) -C ./inih
@@ -18,15 +24,14 @@ HRLDAS:
 management:
 	$(MAKE) -C ./management/build
 
-util:
-	$(MAKE) -C ./util
-
 ADHydro:
 	$(MAKE) -C ./ADHydro
 
 clean:
-	$(MAKE) -C ./ADHydro clean
-	$(MAKE) -C ./util clean
+	$(MAKE) -C ./util             clean
+	$(MAKE) -C ./scripts          clean
+	$(MAKE) -C ./inih             clean
+	$(MAKE) -C ./HRLDAS-v3.6      clean
 	$(MAKE) -C ./management/build clean
-	$(MAKE) -C ./HRLDAS-v3.6 clean
-	$(MAKE) -C ./inih clean
+	$(MAKE) -C ./ADHydro          clean
+
