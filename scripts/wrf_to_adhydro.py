@@ -142,7 +142,7 @@ Faster to access globals than trying to pickle large data and pass as args.
 """
 initTime0 = time.time()
 #TODO/FIXME work on a range of years
-endYear = '{}_new/'.format(args.startTime.year)
+endYear = '{}/'.format(args.startTime.year)
 yearDir = os.path.join(args.WRFdir, endYear)
 #Figure out which wrf files for the given year we need to work with
 #Get a list of all files
@@ -163,6 +163,8 @@ monthRegex = '|'.join(monthStrings)
 #Grab the subset of needed files
 needed = [f for f in files if re.search(r'wrfout_d03_{}-({})'.format(args.endTime.year, monthRegex), f)]
 needed = [ os.path.join(yearDir, x) for x in needed ]
+#Need to sort the file names so that they are passed in chronological order to netcdf, otherwise they get read in in the wrong time order
+needed.sort()
 #print monthRegex
 #print needed
 #os._exit(1)
@@ -179,8 +181,9 @@ def getTimes(subset):
     ts = pd.to_datetime(pd.Series((''.join(ca) for ca in wrfData.variables['Times'][subset[0]:subset[-1]+1]), index=subset), format='%Y-%m-%d_%H:%M:%S').to_frame(name='Time')
     wrfData.close()
     return ts
+
 pool = mp.Pool()
-chunks = getChunks(len(tIndex), mp.cpu_count())
+chunks = getChunks(wrf.variables['Times'].shape[0], mp.cpu_count())
 results = pool.map(getTimes, chunks)
 pool.close()
 pool.join()
@@ -188,14 +191,15 @@ pool.join()
 times = pd.concat(results)
 t1 = time.time()
 print 'Time to get times: {}'.format(t1-t0)
-"""
-    Parallel:
-        Read geometries and intersect in parallel 
-        For each variable:
-            Fork a processes to read
-            Join
-            Write output
-"""
+times = times.reset_index().set_index('Time')[args.startTime:args.endTime].set_index('Time')
+print times
+tmp = times
+tmp['Time'] = tmp.set_index('Time').index.to_julian_date()
+pd.set_option('display.float_format', lambda x: '{:.4f}'.format(x))
+print tmp
+os._exit(1)
+
+
 v_theta = ["T2", "QVAPOR","QCLOUD","PSFC","SWDOWN","GLW","PBLH","TSLB"]
 v_theta_precip = ['RAINC', 'RAINSH', 'RAINNC']
 v_u = ['U']
