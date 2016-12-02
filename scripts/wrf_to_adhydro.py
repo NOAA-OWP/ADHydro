@@ -169,7 +169,7 @@ needed.sort()
 #print needed
 #os._exit(1)
 #In case the wrf file naming tries to give us too much info, build a proper time index to cover the input range
-tIndex = pd.Series(pd.date_range(args.startTime, args.endTime, freq='H'))
+#tIndex = pd.Series(pd.date_range(args.startTime, args.endTime, freq='H'))
 #use exclude=[list_of_unneeded_vars] for speed/resource management???
 exclude_list = [u'LU_INDEX', u'ZNU', u'ZNW', u'ZS', u'DZS', u'W', u'PH', u'PHB', u'T', u'HFX_FORCE', u'LH_FORCE', u'TSK_FORCE', u'HFX_FORCE_TEND', u'LH_FORCE_TEND', u'TSK_FORCE_TEND', u'MU', u'MUB', u'NEST_POS', u'P', u'PB', u'FNM', u'FNP', u'RDNW', u'RDN', u'DNW', u'DN', u'CFN', u'CFN1', u'P_HYD', u'Q2', u'TH2', u'U10', u'V10', u'RDX', u'RDY', u'RESM', u'ZETATOP', u'CF1', u'CF2', u'CF3', u'ITIMESTEP', u'XTIME', u'QRAIN', u'QICE', u'QSNOW', u'QGRAUP', u'QNICE', u'QNRAIN', u'LANDMASK', u'SMOIS', u'SH2O', u'SMCREL', u'SEAICE', u'XICEM', u'SFROFF', u'UDROFF', u'IVGTYP', u'ISLTYP', u'VEGFRA', u'GRDFLX', u'ACGRDFLX', u'SNOW', u'SNOWH', u'CANWAT', u'SST', u'SSTSK', u'LAI', u'TKE_PBL', u'EL_PBL', u'H_DIABATIC', u'MAPFAC_M', u'MAPFAC_U', u'MAPFAC_V', u'MAPFAC_MX', u'MAPFAC_MY', u'MAPFAC_UX', u'MAPFAC_UY', u'MAPFAC_VX', u'MF_VX_INV', u'MAPFAC_VY', u'F', u'E', u'SINALPHA', u'COSALPHA', u'HGT', u'TSK', u'P_TOP', u'T00', u'P00', u'TLP', u'TISO', u'MAX_MSTFX', u'MAX_MSTFY', u'SNOWNC', u'GRAUPELNC', u'HAILNC', u'STEPAVE_COUNT', u'CLDFRA', u'GSW', u'SWNORM', u'ACSWUPT', u'ACSWUPTC', u'ACSWDNT', u'ACSWDNTC', u'ACSWUPB', u'ACSWUPBC', u'ACSWDNB', u'ACSWDNBC', u'ACLWUPT', u'ACLWUPTC', u'ACLWDNT', u'ACLWDNTC', u'ACLWUPB', u'ACLWUPBC', u'ACLWDNB', u'ACLWDNBC', u'I_ACSWUPT', u'I_ACSWUPTC', u'I_ACSWDNT', u'I_ACSWDNTC', u'I_ACSWUPB', u'I_ACSWUPBC', u'I_ACSWDNB', u'I_ACSWDNBC', u'I_ACLWUPT', u'I_ACLWUPTC', u'I_ACLWDNT', u'I_ACLWDNTC', u'I_ACLWUPB', u'I_ACLWUPBC', u'I_ACLWDNB', u'I_ACLWDNBC', u'SWUPT', u'SWUPTC', u'SWDNT', u'SWDNTC', u'SWUPB', u'SWUPBC', u'SWDNB', u'SWDNBC', u'LWUPT', u'LWUPTC', u'LWDNT', u'LWDNTC', u'LWUPB', u'LWUPBC', u'LWDNB', u'LWDNBC', u'OLR', u'ALBEDO', u'ALBBCK', u'EMISS', u'NOAHRES', u'TMN', u'XLAND', u'UST', u'HFX', u'QFX', u'LH', u'ACHFX', u'ACLHF', u'SNOWC', u'SR', u'POTEVP', u'SNOPCX', u'SOILTB', u'SAVE_TOPO_FROM_REAL', u'AVG_FUEL_FRAC', u'UAH', u'VAH', u'SEED1', u'SEED2']
 
@@ -191,14 +191,16 @@ pool.join()
 times = pd.concat(results)
 t1 = time.time()
 print 'Time to get times: {}'.format(t1-t0)
-times = times.reset_index().set_index('Time')[args.startTime:args.endTime].set_index('Time')
+times = times.reset_index().set_index('Time')[args.startTime:args.endTime]
+times = times.reset_index().set_index('index')
+"""
 print times
 tmp = times
 tmp['Time'] = tmp.set_index('Time').index.to_julian_date()
 pd.set_option('display.float_format', lambda x: '{:.4f}'.format(x))
 print tmp
 os._exit(1)
-
+"""
 
 v_theta = ["T2", "QVAPOR","QCLOUD","PSFC","SWDOWN","GLW","PBLH","TSLB"]
 v_theta_precip = ['RAINC', 'RAINSH', 'RAINNC']
