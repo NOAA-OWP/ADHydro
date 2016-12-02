@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Run the following code on shapefiles that contain all of the catchment,
 # waterbody, and stream edges that you want to be in the simulation mesh.
 # These files must already have been pre-processed according to the mesh
@@ -6,21 +7,63 @@
 # reach codes to link numbers.
 import sys
 import math
+import argparse
+import os
+
+from qgis.core import *
+qgishome = '/project/CI-WATER/tools/CI-WATER-tools'
+app = QgsApplication([], True)
+app.setPrefixPath(qgishome, True)
+app.initQgis()
+
+parser = argparse.ArgumentParser(description="Create Triangle input files from pre-processed mesh shapefiles.")
+parser.add_argument('ADHydroMapDir', help='The ADHydro map directory containing ArcGIS and TauDEM sub-directories.')
+parser.add_argument('-o', '--outputDir', help='Optional output directory. By default, output will be put in ADHydroMapDir/ASCII')
+args = parser.parse_args()
+
+if not os.path.isdir(args.ADHydroMapDir):
+    parser.error("Directory '{}' does not exist.".format(args.ADHydroMapDir))
+
+meshPath = os.path.join(args.ADHydroMapDir, 'ArcGIS')
+netPath = os.path.join(args.ADHydroMapDir, 'TauDEM')
+
+if not os.path.isdir(meshPath):
+    parser.error("Directory '{}' does not exist.".format(meshPath))
+if not os.path.isdir(netPath):
+    parser.error("Directory '{}' does not exist.".format(netPath))
+
+# modify these to point to your files
+input_catchment_file       = os.path.join(meshPath, "mesh_catchments.shp")
+input_waterbody_file       = os.path.join(meshPath, "mesh_waterbodies.shp")
+input_stream_file          = os.path.join(meshPath, "mesh_streams.shp")
+input_original_stream_file = os.path.join(netPath,  "projectednet.shp")
+
+def fileNotFound(name):
+    parser.error("Could not find required file '{}'".format(name))
+
+if not os.path.isfile(input_catchment_file):
+    fileNotFound(input_catchment_file)
+if not os.path.isfile(input_waterbody_file):
+    fileNotFound(input_waterbody_file)
+if not os.path.isfile(input_stream_file):
+    fileNotFound(input_stream_file)
+if not os.path.isfile(input_original_stream_file):
+    fileNotFound(input_original_stream_file)
+
+output_directory_path = os.path.join(args.ADHydroMapDir, 'ASCII')
+if args.outputDir:
+    output_directory_path = args.outputDir
+if not os.path.isdir(output_directory_path):
+    print "'{}' directory does not exist, creating...".format(output_directory_path)
+    os.mkdir(output_directory_path)
+
+output_node_file           = os.path.join(output_directory_path, "mesh.node")
+output_poly_file           = os.path.join(output_directory_path, "mesh.poly")
+output_link_file           = os.path.join(output_directory_path, "mesh.1.link")
 
 # Reach codes of waterbodies are 14 digit integers, which can be represented in
 # a 64 bit int.  Make sure that a python int is large enough.
 assert long(sys.maxint) >= 99999999999999L
-
-# modify these to point to your files
-input_directory_path       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
-input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
-input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
-input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
-input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
-output_directory_path      = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
-output_node_file           = output_directory_path + "/" + "mesh.node"
-output_poly_file           = output_directory_path + "/" + "mesh.poly"
-output_link_file           = output_directory_path + "/" + "mesh.1.link"
 
 # To generate a point in a polygon generate a point on each side of the first
 # line segment in the polygon.  One of the points will be in the polygon.
@@ -71,17 +114,24 @@ with open(output_node_file, "w") as node_file:
       used_linknos = []
       linknoindex = original_stream_provider.fieldNameIndex("LINKNO")
       assert -1 != linknoindex # LINKNO must be found.
+      """
+      #DEPRICATED IN QGIS 2.0 and above
       original_stream_provider.select([linknoindex])
       while original_stream_provider.nextFeature(feature):
-        linkno, success = feature.attributeMap()[linknoindex].toInt()
-        assert success # Integer conversion must succeed.
+      """
+      for feature in original_stream_layer.getFeatures():
+        linkno = feature[linknoindex]
+        assert isinstance(linkno, (int, long)) # Integer conversion must succeed.
         while linkno >= len(used_linknos):
           used_linknos.append(-1)
         used_linknos[linkno] = linkno
       #
       # Add the catchment nodes and segments to the mesh.
+      """
       catchment_provider.select()
       while catchment_provider.nextFeature(feature):
+      """
+      for feature in catchment_layer.getFeatures():
         polygon = feature.geometry().asPolygon()
         assert 0 < len(polygon) # No empty polygons.
         boundary_marker = "0" # Catchment segments have no boundary marker.
@@ -104,18 +154,23 @@ with open(output_node_file, "w") as node_file:
       assert -1 != reachcodeindex # ReachCode must be found.
       permanentindex = waterbody_provider.fieldNameIndex("Permanent_")
       assert -1 != permanentindex # Permanent_ must be found.
+      """
       waterbody_provider.select([reachcodeindex, permanentindex])
       while waterbody_provider.nextFeature(feature):
+      """
+      for feature in waterbody_layer.getFeatures():
         polygon = feature.geometry().asPolygon()
         assert 0 < len(polygon) # No empty polygons.
-        # For some reason toInt rolls over like it is doing a 32 bit conversion even though sys.maxint indicates a 64 bit int.
+        # For some reason toInt rolls over like it is doing a 32 bit conversion even though sys.maxint indicates a 64 bit int. NOT VALID with QGIS > 2.0
         # Deal with this by converting to long first, and then to int.
-        reachcodelong, success = feature.attributeMap()[reachcodeindex].toString().toLong()
         # If reach code is not found, use permanent code instead.
-        if not success:
-          reachcodelong, success = feature.attributeMap()[permanentindex].toString().toLong()
-        assert success # Integer conversion must succeed.
-        reachcode = int(reachcodelong)
+        if not feature[reachcodeindex]:
+            reachcodelong = long(feature[permanentindex])
+        else:
+            reachcodelong = long(feature[reachcodeindex])
+
+        assert isinstance(reachcodelong, long)  # Integer conversion must succeed.
+        reachcode = int(reachcodelong) #TODO just use int conversion in the first place since this is the python impelementation, should use maxint
         # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
         linkno = 0
         while linkno < len(used_linknos) and -1 != used_linknos[linkno] and reachcode != used_linknos[linkno]:
@@ -144,12 +199,15 @@ with open(output_node_file, "w") as node_file:
       # Add the stream nodes and segments to the mesh.
       linknoindex = stream_provider.fieldNameIndex("LINKNO")
       assert -1 != linknoindex # LINKNO must be found.
+      """
       stream_provider.select([linknoindex])
       while stream_provider.nextFeature(feature):
+      """
+      for feature in stream_layer.getFeatures():
         polyline = feature.geometry().asPolyline()
         assert 0 < len(polyline) # No empty polylines.
-        linkno, success = feature.attributeMap()[linknoindex].toInt()
-        assert success # Integer conversion must succeed.
+        linkno = int(feature[linknoindex])
+        assert isinstance(linkno, (int,long)) # Integer conversion must succeed.
         assert 0 <= linkno # linkno must be non-negative.
         assert linkno == used_linknos[linkno] # The permanent code of a stream must be its linkno.
         # The boundary marker indicates which stream.  Use linkno + 2 in the poly file because 0 is already used for no boundary and 1 is already used for
@@ -169,8 +227,11 @@ with open(output_node_file, "w") as node_file:
       # To do this we need to generate a point in each polygon.
       poly_file.write(str(hole) + "\n")
       hole = 0
+      """
       waterbody_provider.select()
       while waterbody_provider.nextFeature(feature):
+      """
+      for feature in waterbody_layer.getFeatures():
         holex, holey = point_in_polygon(feature)
         poly_file.write(str(hole) + " " + str(holex) + " " + str(holey) + "\n")
         hole += 1
@@ -181,11 +242,14 @@ with open(output_node_file, "w") as node_file:
       region = 0
       catchmentindex = catchment_provider.fieldNameIndex("Catchment")
       assert -1 != catchmentindex # Catchment must be found.
+      """
       catchment_provider.select([catchmentindex])
       while catchment_provider.nextFeature(feature):
+      """
+      for feature in catchment_layer.getFeatures():
         regionx, regiony = point_in_polygon(feature)
-        catchment_number, success = feature.attributeMap()[catchmentindex].toInt()
-        assert success # Integer conversion must succeed.
+        catchment_number = int(feature[catchmentindex])
+        assert isinstance(catchment_number, (int,long)) # Integer conversion must succeed.
         assert 0 <= catchment_number # Catchment number must be non-negative.
         # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
         # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
