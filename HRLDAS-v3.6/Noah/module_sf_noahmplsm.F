@@ -6705,7 +6705,9 @@ contains
          QTHROS = SNOW
       ENDIF
 
-      QSUBC = MIN(CANICE/DT,QSUBC) 
+!      RCS this protected against QSUBC taking more ice than is present in CANICE, but it did not protect against QSUBC and QDRIPS combined taking more ice than is present.
+!      QSUBC = MIN(CANICE/DT,QSUBC) 
+      QSUBC = MIN((CANICE/DT)+QINTS-QDRIPS+QFROC,QSUBC)
       CANICE= MAX(0.,CANICE+(QINTS-QDRIPS)*DT + (QFROC-QSUBC)*DT)
       IF(CANICE.LE.1.E-6) CANICE = 0.
      
