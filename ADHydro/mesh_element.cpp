@@ -1914,14 +1914,16 @@ bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& exte
         {
           if (SHALLOW_AQUIFER == groundwaterMethod && groundwaterHead > layerZBottom)
             {
-              waterInDomain += (groundwaterHead - layerZBottom) * porosity * elementArea;
+              waterInDomain += (((groundwaterHead - layerZBottom) * porosity) + groundwaterRecharge) * elementArea;
             }
-          
-          waterInDomain += groundwaterRecharge * elementArea;
+          else
+            {
+              waterInDomain += groundwaterRecharge * elementArea;
+            }
         }
       else if (GARTO_INFILTRATION == vadoseZone.infiltrationMethod)
         {
-          waterInDomain += garto_total_water_in_domain((garto_domain*)vadoseZone.state) * elementArea;
+          waterInDomain += (garto_total_water_in_domain((garto_domain*)vadoseZone.state) + groundwaterRecharge) * elementArea;
         }
 
       for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
