@@ -1895,8 +1895,9 @@ bool InfiltrationAndGroundwater::receiveInflows(double currentTime, double times
 
 bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& externalFlows, double& waterError, double elementArea)
 {
-  bool                                                    error = false; // Error flag.
-  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator itMesh;        // Loop iterator.
+  bool                                                       error = false; // Error flag.
+  std::vector<MeshGroundwaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
+  std::vector<MeshGroundwaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 <= waterInDomain))
@@ -1929,6 +1930,13 @@ bool InfiltrationAndGroundwater::massBalance(double& waterInDomain, double& exte
             {
               externalFlows += (*itMesh).flowCumulativeShortTerm + (*itMesh).flowCumulativeLongTerm;
             }
+          
+          waterInDomain += (*itMesh).totalWaterInIncomingMaterial();
+        }
+      
+      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+        {
+          waterInDomain += (*itChannel).totalWaterInIncomingMaterial();
         }
 
       waterError += groundwaterError * elementArea;
@@ -2773,8 +2781,9 @@ bool MeshElement::receiveInflows(double currentTime, double timestepEndTime)
 
 bool MeshElement::massBalance(double& waterInDomain, double& externalFlows, double& waterError)
 {
-  bool                                                     error = false; // Error flag.
-  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator itMesh;        // Loop iterator.
+  bool                                                        error = false; // Error flag.
+  std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
+  std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 <= waterInDomain))
@@ -2801,6 +2810,13 @@ bool MeshElement::massBalance(double& waterInDomain, double& externalFlows, doub
             {
               externalFlows += (*itMesh).flowCumulativeShortTerm + (*itMesh).flowCumulativeLongTerm;
             }
+          
+          waterInDomain += (*itMesh).totalWaterInIncomingMaterial();
+        }
+      
+      for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
+        {
+          waterInDomain += (*itChannel).totalWaterInIncomingMaterial();
         }
       
       externalFlows += (precipitationCumulativeShortTerm + precipitationCumulativeLongTerm) * elementArea;

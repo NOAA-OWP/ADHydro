@@ -325,3 +325,16 @@ double SimpleNeighborProxy::getMaterial(double currentTime, double timestepEndTi
   
   return material;
 }
+
+double SimpleNeighborProxy::totalWaterInIncomingMaterial()
+{
+  double                                material = 0.0; // Return value.
+  std::list<MaterialTransfer>::iterator it;             // Loop iterator.
+  
+  for (it = incomingMaterial.begin(); it != incomingMaterial.end(); ++it)
+    {
+      material += (*it).material;
+    }
+  
+  return material;
+}

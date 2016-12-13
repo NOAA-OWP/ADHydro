@@ -161,6 +161,10 @@ public:
   //          material is also removed from incomingMaterial.  Exit on error.
   double getMaterial(double currentTime, double timestepEndTime);
   
+  // Returns: The amount of material currently held in the incomingMaterial
+  //          list.  This is used for mass balance.
+  double totalWaterInIncomingMaterial();
+  
   double nominalFlowRate;         // Material flow rate in quantity per second.  Positive means flow out of the element into the neighbor.  Negative means flow
                                   // into the element out of the neighbor.  Actual flows may be less than this if the sender does not have enough material to
                                   // satisfy all outflows.

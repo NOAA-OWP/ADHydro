@@ -1652,10 +1652,12 @@ bool ChannelElement::receiveInflows(double currentTime, double timestepEndTime)
 
 bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, double& waterError)
 {
-  bool                                                           error   = false; // Error flag.
-  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;       // Loop iterator.
+  bool                                                           error   = false;   // Error flag.
+  std::vector<ChannelSurfacewaterMeshNeighborProxy>::iterator    itMesh;            // Loop iterator.
+  std::vector<ChannelSurfacewaterChannelNeighborProxy>::iterator itChannel;         // Loop iterator.
+  std::vector<ChannelGroundwaterMeshNeighborProxy>::iterator     itUndergroundMesh; // Loop iterator.
   double                                                         topArea = (baseWidth + 2.0 * sideSlope * surfacewaterDepth) * elementLength;
-                                                                                  // surface area of the water top surface in square meters.
+                                                                                    // surface area of the water top surface in square meters.
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0.0 <= waterInDomain))
@@ -1671,12 +1673,24 @@ bool ChannelElement::massBalance(double& waterInDomain, double& externalFlows, d
       waterInDomain += (evapoTranspirationTotalWaterInDomain(&evapoTranspirationState) / 1000.0) * topArea; // Divide by one thousand to convert from
                                                                                                             // millimeters to meters.
 
+      for (itMesh = meshNeighbors.begin(); itMesh != meshNeighbors.end(); ++itMesh)
+        {
+          waterInDomain += (*itMesh).totalWaterInIncomingMaterial();
+        }
+      
       for (itChannel = channelNeighbors.begin(); itChannel != channelNeighbors.end(); ++itChannel)
         {
           if (isBoundary((*itChannel).neighbor))
             {
               externalFlows += (*itChannel).flowCumulativeShortTerm + (*itChannel).flowCumulativeLongTerm;
             }
+          
+          waterInDomain += (*itChannel).totalWaterInIncomingMaterial();
+        }
+
+      for (itUndergroundMesh = undergroundMeshNeighbors.begin(); itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
+        {
+          waterInDomain += (*itUndergroundMesh).totalWaterInIncomingMaterial();
         }
 
       externalFlows += precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
