@@ -1,3 +1,9 @@
+# Use these values for Yellowstone.
+
+#METISDIR   := /glade/p/work/nfrazie1/CI-WATER-tools
+#LIBDIRNAME := lib
+#EXTRAFLAGS := -DINTEL_COMPILER -ld++ mpif90 -ld++-option -nofor_main
+
 # Use these values for Mt Moran.
 
 #CHARMDIR         := /project/CI-WATER/tools/CI-WATER-tools/charm
@@ -17,11 +23,14 @@ LIBDIRNAME       := lib64
 EXTRAFLAGS       := -fdiagnostics-show-option
 EXTRANETCDFFLAGS := -lcurl
 
+# Use these values for Mt Moran and EN3038 lab, but not for Yellowstone.
+
+NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
+
 # Use these values for all.
 
 CHARMC         := $(CHARMDIR)/bin/charmc
-NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
 CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_diversions -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall -O3
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++ -O3
