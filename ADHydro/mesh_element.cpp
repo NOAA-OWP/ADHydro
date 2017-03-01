@@ -1097,6 +1097,12 @@ InfiltrationAndGroundwater::InfiltrationAndGroundwater(GroundwaterMethodEnum  gr
   meshNeighbors(),
   channelNeighbors()
 {
+//If trivial infiltration is being used, ensure groundwaterRecharge is not less than 0.
+//This can happen by switching between garto and trivial schemes
+if(TRIVIAL_INFILTRATION == vadoseZoneInit.infiltrationMethod && groundwaterRecharge < 0)
+{
+  groundwaterRecharge = 0;
+}
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NO_AQUIFER == groundwaterMethodInit || DEEP_AQUIFER == groundwaterMethodInit || SHALLOW_AQUIFER== groundwaterMethodInit))
     {
