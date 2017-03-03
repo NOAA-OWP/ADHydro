@@ -439,7 +439,10 @@ bool MeshElement::allInflowsHaveArrived(double currentTime, double timestepEndTi
     
     for (it = neighbors.begin(); arrived && it != neighbors.end(); ++it)
     {
-        arrived = it->second.allWaterHasArrived(currentTime, timestepEndTime);
+        if (0.0 > it->second.getNominalFlowRate())
+        {
+            arrived = it->second.allWaterHasArrived(currentTime, timestepEndTime);
+        }
     }
     
     return arrived;

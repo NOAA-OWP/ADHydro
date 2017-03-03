@@ -227,7 +227,7 @@ public:
         p | incomingWater;
     }
     
-    // Check invariant conditions on data.
+    // Check invariant conditions on data.  Does not check that neighbor values are the same as the values stored at the neighbor.  That is done elsewhere with messages.
     //
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant();

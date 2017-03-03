@@ -217,7 +217,7 @@ bool NeighborProxy::sendWaterTransfer(WaterTransfer water)
             outflowCumulativeShortTerm += water.water;
         }
         
-        // FIXME Send message
+        // FIXME Send message.  If the remote endpoint is a boundary or transbasin outflow there is no recipient element so don't send a message.
     }
     
     return error;
@@ -297,6 +297,15 @@ bool NeighborProxy::allWaterHasArrived(double currentTime, double timestepEndTim
         if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
         {
             CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
+            CkExit();
+        }
+    }
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    {
+        if (!(0.0 > nominalFlowRate))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: when checking if all water has arrived nominalFlowRate must be an inflow.\n");
             CkExit();
         }
     }
