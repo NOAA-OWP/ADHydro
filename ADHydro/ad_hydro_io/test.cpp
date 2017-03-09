@@ -15,7 +15,7 @@ int main(int argc, char** argv)
     }
   Lexer lexer(inputFile);
   Parser parser(lexer);
-  Spec tree = parser.parse();
+  AbstractSyntaxTree& tree = parser.parse();
   Interperter interperter(tree);
   interperter.interpert();
 }

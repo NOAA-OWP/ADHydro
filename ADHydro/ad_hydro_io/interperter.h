@@ -10,23 +10,26 @@ class Interperter : public NodeVisitor
      * Implements the visitor pattern
      */
 public:
-    Interperter(Spec _tree):tree(_tree){}
+    Interperter(AbstractSyntaxTree& _tree):tree(_tree){}
     ~Interperter(){}
+
     void visit(Spec& spec)
     {
         cout << "Interperting a spec\n";
-        visit(spec.left);
-        visit(spec.right);
+        cout <<"LEFT type "<<typeid(spec.left).name()<<"\n";
+        cout <<"RIGHT type "<<typeid(spec.right).name()<<"\n";
+        spec.left->accept(this);
+        spec.right->accept(this);
     }
-    void visit(IDList& idlist)
+    void visit(IDList idlist)
     {
         cout << "Visiting an ID list\n";
     }
-    void visit(MeshOutputVar& output)
+    void visit(MeshOutputVar output)
     {
         cout << "Visiting a MeshOutputVar: "<<output.value<<"\n";
     }
-    void visit(ChannelOutputVar& output)
+    void visit(ChannelOutputVar output)
     {
         
     }
@@ -34,11 +37,12 @@ public:
     
     void interpert()
     {
-        visit(tree);
+        cout << "Interperting "<<typeid(tree).name()<<"\n";
+        tree.accept(this);
     }
     
 private:
-    Spec tree;
+    AbstractSyntaxTree& tree;
 };
 
 #endif

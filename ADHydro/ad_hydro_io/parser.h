@@ -3,6 +3,10 @@
 
 #include "lexer.h"
 #include <vector>
+#include <typeinfo> //For debugging only
+
+//forward declaration of NodeVisitor
+class NodeVisitor;
 
 class AbstractSyntaxTree
 {
@@ -11,7 +15,9 @@ class AbstractSyntaxTree
      * Each node in the tree will be a sublcass of this base.
      */
 public:
-    virtual void getNodeType(){}
+    virtual ~AbstractSyntaxTree(){}
+    virtual void accept(NodeVisitor* v){cout << "UNKNON ACCEPTANCE!!! "<<typeid(v).name()<<"\n";}
+
 };
 
 class IDList : public AbstractSyntaxTree
@@ -20,7 +26,8 @@ class IDList : public AbstractSyntaxTree
      * An id_list node consists of a list of ids
      */
 public:
-    IDList(std::vector<int> _list):list(_list){};
+    IDList(std::vector<int> _list);
+    void accept(NodeVisitor* v);
 
 private:
     std::vector<int> list;
@@ -33,10 +40,11 @@ class MeshOutputVar : public AbstractSyntaxTree
      * A mesh_output_var node consists of the name of the ouput variable
      */
 public:
-    MeshOutputVar(string name):value(name){}
-    
-private:
+    MeshOutputVar(string name);
+    void accept(NodeVisitor* v);
     string value;
+private:
+    //string value;
 };
 
 class ChannelOutputVar : public AbstractSyntaxTree
@@ -46,10 +54,11 @@ class ChannelOutputVar : public AbstractSyntaxTree
      * A channel_output_var node consists of the name of the ouput variable
      */
 public:
-    ChannelOutputVar(string name):value(name){}
-    
-private:
+    ChannelOutputVar(string name);
+    void accept(NodeVisitor* v);
     string value;
+private:
+
 };
 
 class Spec : public AbstractSyntaxTree
@@ -59,11 +68,13 @@ class Spec : public AbstractSyntaxTree
      * A spec node consists of an id_list node and mesh_outpt_var node
      */
 public:
-    Spec(IDList id_list, MeshOutputVar outputVar):left(id_list), right(outputVar){}
-    Spec(IDList id_list, ChannelOutputVar outputVar):left(id_list), right(outputVar){}
-    
-    AbstractSyntaxTree left;
-    AbstractSyntaxTree right;
+    Spec(IDList* id_list, MeshOutputVar* outputVar);
+    Spec(IDList* id_list, ChannelOutputVar* outputVar);
+    Spec();
+    ~Spec();
+    void accept(NodeVisitor* v);
+    AbstractSyntaxTree* left;
+    AbstractSyntaxTree* right;
 private:
 
 };
@@ -75,10 +86,11 @@ class NodeVisitor
      */
 public:
     virtual ~NodeVisitor(){}
-    virtual void visit(Spec& spec){}
-    virtual void visit(IDList& idlist){}
-    virtual void visit(MeshOutputVar& output){}
-    virtual void visit(ChannelOutputVar& output){}
+    
+    virtual void visit(Spec& spec){};
+    virtual void visit(IDList& idlist){};
+    virtual void visit(MeshOutputVar& output){};
+    virtual void visit(ChannelOutputVar& output){};
 };
 
 class Parser
@@ -109,7 +121,7 @@ public:
     /*
      * Destructor, must ensure current_token is properly cleaned up.
      */
-    ~Parser(){delete current_token;}
+    ~Parser(){delete current_token; delete root;}
     
     /*
     * Error function for reporting parsing errors
@@ -137,7 +149,7 @@ public:
     /*
     * Function for parsing a spec based on grammer rule
     */
-    Spec spec()
+    Spec* spec()
     {
         //spec : MESH id_list mesh_output_var | CHANNEL id_list channel_output_var
 
@@ -147,23 +159,23 @@ public:
         {
             //Consume the mesh token
             eat(MESH);
-            IDList ids = id_list();
-            MeshOutputVar output = mesh_output_var();
-            return Spec(ids, output);
+            IDList* ids = id_list();
+            MeshOutputVar* output = mesh_output_var();
+            return new Spec(ids, output);
         }
         else
         {
             eat(CHANNEL);
-            IDList ids = id_list();
-            ChannelOutputVar output = channel_output_var();
-            return Spec(ids, output);
+            IDList* ids = id_list();
+            ChannelOutputVar* output = channel_output_var();
+            return new Spec(ids, output);
         }
     }
     
     /*
     * Function for parsing an id_list based on grammer rule
     */
-    IDList id_list()
+    IDList* id_list()
     {
         std::vector<int> ids;
         while(current_token->getType() == INT)
@@ -173,13 +185,13 @@ public:
             ids.push_back(static_cast<TokenTemplate<int>*>(current_token)->value);
             eat(INT);
         }
-        return IDList(ids);
+        return new IDList(ids);
     }
     
     /*
      * Function for parsing a mesh_output_var based on grammer rule
      */
-    MeshOutputVar mesh_output_var()
+    MeshOutputVar* mesh_output_var()
     {
         //Since we know we are dealing with an string type token, cast current_token
         //to the appropriate string template to get the value
@@ -187,7 +199,7 @@ public:
         {
             string tmp = static_cast<TokenTemplate<string>*>(current_token)->value;
             eat(ID);
-            return MeshOutputVar( tmp );
+            return new MeshOutputVar( tmp );
         }
         else
         {
@@ -198,24 +210,26 @@ public:
     /*
      * Function for parsing a channel_output_var based on grammer rule
      */
-    ChannelOutputVar channel_output_var()
+    ChannelOutputVar* channel_output_var()
     {
         string tmp = static_cast<TokenTemplate<string>*>(current_token)->value;
         eat(ID);
-        return ChannelOutputVar( tmp );
+        return new ChannelOutputVar( tmp );
     }
     
-    Spec parse()
+    Spec& parse()
     {
-        Spec root = spec();
+        root = spec();
         if(current_token->getType() != EOI)
             error("Extra input at end of spec");
         else cout<<*current_token; //FIXME remove this print, only useful for debugging
+        return *root;
     }
     
 private:
     Lexer lexer;
     Token *current_token;
+    Spec* root;
 };
 
 #endif
