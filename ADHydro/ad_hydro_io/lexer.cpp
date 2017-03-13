@@ -34,7 +34,7 @@ Token* Lexer::_id()
         if(result == "mesh")
             return new TokenTemplate<string>(MESH, result);
         if(result == "channel")
-            return new TokenTemplate<string>(MESH, result);
+            return new TokenTemplate<string>(CHANNEL, result);
         
         return new TokenTemplate<string>(ID, result);
 }
