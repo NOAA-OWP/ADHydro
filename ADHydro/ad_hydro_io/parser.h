@@ -96,6 +96,7 @@ public:
 class Parser
 {
     /*
+    * 
     * This is a parser for the custom grammer for ADHydro IO specification.
     * The grammer is presented here as a context free grammer in BNF form.
     * 
@@ -108,6 +109,15 @@ class Parser
     * 
     * NOTE this is a first attempt at parsing an output spec.  This grammer will get more complicated,
     * and the possible output vars should include all mesh/channel state including neighbor flows!
+    *
+    * I don't think we can implement this as a pure binary tree...At least not at the top level.
+    * Need to decide how to deal with a spec that includes both mesh and channel elements.  
+    * To proceed, we probably need to establish the grammer in a form that should be, for now,
+    * complete to the current desired results of the ADHydro output module.  Then we can translate
+    * this appropriately to the nessicary AST node types and write the parser code.  Then the 
+    * interperter visitor can be extended to create the appropriate structures/interfaces with the
+    * ADHydro module to make the output work as desired.
+    *
     */
 public:
     /*
@@ -154,7 +164,6 @@ public:
         //spec : MESH id_list mesh_output_var | CHANNEL id_list channel_output_var
 
         string outputVar;
-        
         if(current_token->getType() == MESH)
         {
             //Consume the mesh token
