@@ -7,6 +7,8 @@
 
 //forward declaration of NodeVisitor
 class NodeVisitor;
+//Forward declaration of AST nodes
+class Compound;
 
 class AbstractSyntaxTree
 {
@@ -61,6 +63,19 @@ private:
 
 };
 
+class Compound: public AbstractSyntaxTree
+{
+    /*
+     * compound : (statement)+
+     * A compound node consists of a list of children statements
+     */
+public:
+    Compound();
+    void accept(NodeVisitor* v);
+    //TODO clean up children pointers in dtor
+    std::vector<AbstractSyntaxTree*> children;
+};
+
 class Spec : public AbstractSyntaxTree
 {
     /*
@@ -68,13 +83,11 @@ class Spec : public AbstractSyntaxTree
      * A spec node consists of an id_list node and mesh_outpt_var node
      */
 public:
-    Spec(IDList* id_list, MeshOutputVar* outputVar);
-    Spec(IDList* id_list, ChannelOutputVar* outputVar);
+    Spec(Compound* compound);
     Spec();
     ~Spec();
     void accept(NodeVisitor* v);
-    AbstractSyntaxTree* left;
-    AbstractSyntaxTree* right;
+    AbstractSyntaxTree* child;
 private:
 
 };
@@ -88,6 +101,7 @@ public:
     virtual ~NodeVisitor(){}
     
     virtual void visit(Spec& spec){};
+    virtual void visit(Compound& compound){};
     virtual void visit(IDList& idlist){};
     virtual void visit(MeshOutputVar& output){};
     virtual void visit(ChannelOutputVar& output){};
@@ -100,10 +114,14 @@ class Parser
     * This is a parser for the custom grammer for ADHydro IO specification.
     * The grammer is presented here as a context free grammer in BNF form.
     * 
-    * spec                 :   MESH id_list mesh_output_var | CHANNEL id_list channel_output_var
-    * id_list              :   (INT)+
-    * mesh_output_var      :   surfaceWaterDepth | PrecipitationRate
-    * channel_output_var   :   SurfacewaterDepth | PrecipitationRate
+    * spec                  :   REGION compound END
+    * compound              :   statement | statement SEMI compound
+    * statement             :   mesh_statement | channel_statement | compound
+    * mesh_statement        :   MESH id_list mesh_output_var
+    * channel_statement     :   CHANNEL id_list channel_output_var
+    * id_list               :   (INT)+
+    * mesh_output_var       :   surfaceWaterDepth | PrecipitationRate
+    * channel_output_var    :   SurfacewaterDepth | PrecipitationRate
     * 
     * 
     * 
@@ -156,13 +174,17 @@ public:
         }
     }
     
+    
     /*
     * Function for parsing a spec based on grammer rule
     */
     Spec* spec()
     {
-        //spec : MESH id_list mesh_output_var | CHANNEL id_list channel_output_var
-
+        //spec : REGION compound END
+        eat(REGION);
+        return new Spec(compound());
+        eat(END);
+        /*
         string outputVar;
         if(current_token->getType() == MESH)
         {
@@ -179,8 +201,24 @@ public:
             ChannelOutputVar* output = channel_output_var();
             return new Spec(ids, output);
         }
+        */
     }
-    
+    //TODO/FIXME Circular dependencies in the recursion here require a declaration/definition
+    //Decoupling.  Need to implement all these functions purely in the .cpp and let the linker
+    //work its magic!!!
+    /*
+     * Function for parsing compound region statements based on grammer rule
+     */
+    Compound* compound()
+    {
+        //Should have at least one statement here, then possibly more
+        Compound *result = new Compound();
+        result->children.push_back(statement());
+        while(current_token->getType() == SEMI)
+        {
+            result->children.push_back(statement());
+        }
+    }
     /*
     * Function for parsing an id_list based on grammer rule
     */
@@ -226,6 +264,21 @@ public:
         return new ChannelOutputVar( tmp );
     }
     
+    /*
+     * function for parsing individual statements based on grammer rule
+     */
+    
+    AbstractSyntaxTree* statement()
+    {
+        if(current_token->getType() == REGION)
+            return new Compound();
+        if(current_token->getType() == MESH)
+            return mesh_output_var();
+        if(current_token->getType() == CHANNEL)
+            return channel_output_var();
+        //TODO/FIXME do we want an empty statement to return???
+        else error("UNKNOWN STATEMENT for "+current_token->getType());
+    }
     Spec& parse()
     {
         root = spec();

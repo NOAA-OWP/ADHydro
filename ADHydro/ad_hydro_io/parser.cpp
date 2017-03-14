@@ -26,14 +26,18 @@ void ChannelOutputVar::accept(NodeVisitor* v)
     return v->visit(*this);
 }
 
-Spec::Spec(IDList* id_list, MeshOutputVar* outputVar):left(id_list), right(outputVar){}
-Spec::Spec(IDList* id_list, ChannelOutputVar* outputVar):left(id_list), right(outputVar){}
+void Compound::accept(NodeVisitor* v)
+{
+    cout << "ACCEPTING COMPOUND\n";
+    return v->visit(*this);
+}
+
+Spec::Spec(Compound* compound){child = compound;}
 //Empty constructor
 Spec::Spec(){};
 Spec::~Spec()
 {
-    delete left;
-    delete right;
+    delete child;
 }
 void Spec::accept(NodeVisitor* v)
 {
