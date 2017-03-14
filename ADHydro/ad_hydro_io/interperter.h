@@ -16,10 +16,16 @@ public:
     void visit(Spec& spec)
     {
         cout << "Interperting a spec\n";
-        cout <<"LEFT type "<<typeid(spec.left).name()<<"\n";
-        cout <<"RIGHT type "<<typeid(spec.right).name()<<"\n";
-        spec.left->accept(this);
-        spec.right->accept(this);
+        cout <<"CHILD type "<<typeid(spec.child).name()<<"\n";
+        spec.child->accept(this);
+    }
+    void visit(Compound& compound)
+    {
+        //TODO maybe use iterator???
+        for(int i = 0; i < compound.children.size(); i++)
+        {
+            compound.children[i]->accept(this);
+        }
     }
     void visit(IDList idlist)
     {
