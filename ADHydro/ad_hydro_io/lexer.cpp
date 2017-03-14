@@ -35,6 +35,12 @@ Token* Lexer::_id()
             return new TokenTemplate<string>(MESH, result);
         if(result == "channel")
             return new TokenTemplate<string>(CHANNEL, result);
+        if(result == "region")
+            return new TokenTemplate<string>(REGION, result);
+        if(result == "end")
+            return new TokenTemplate<string>(END, result);
+        if(result == ";")
+            return new TokenTemplate<string>(SEMI, result);
         
         return new TokenTemplate<string>(ID, result);
 }

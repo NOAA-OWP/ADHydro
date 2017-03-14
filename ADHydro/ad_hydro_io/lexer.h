@@ -10,6 +10,8 @@ using namespace::std;
 
 //Define the token labels we wish to create
 #define REGION "REGION"
+#define END "END"
+#define SEMI "SEMI"
 #define COLON ":"
 #define ID "ID"
 #define DOUBLE "DOUBLE"
