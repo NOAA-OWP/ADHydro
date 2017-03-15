@@ -73,6 +73,7 @@ Token* Lexer::number()
 
 Token* Lexer::get_next_token()
 {
+    string result;
     while(!input.eof())
     {
             skip_whitespace();
@@ -80,10 +81,15 @@ Token* Lexer::get_next_token()
             {
                 return _id();
             }
-            
             if(isdigit(current_char))
             {
                 return number();   
+            }
+            result = current_char;
+            if(result == ";")
+            {
+                advance();
+                return new TokenTemplate<string>(SEMI, result);
             }
     }
     
