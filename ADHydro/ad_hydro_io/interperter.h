@@ -19,25 +19,37 @@ public:
         cout <<"CHILD type "<<typeid(spec.child).name()<<"\n";
         spec.child->accept(this);
     }
+    
     void visit(Compound& compound)
     {
+        cout << "Visiting a compound node\n";
         //TODO maybe use iterator???
         for(int i = 0; i < compound.children.size(); i++)
         {
             compound.children[i]->accept(this);
         }
     }
-    void visit(IDList idlist)
+    
+    void visit(IDList& idlist)
     {
-        cout << "Visiting an ID list\n";
+        cout << "Visiting an ID list with ids: ";
+        for(int i = 0; i < idlist.list.size(); i++)
+        {
+            cout<<idlist.list[i]<<" ";
+        }
+        cout << "\n";
     }
-    void visit(MeshOutputVar output)
+    
+    void visit(MeshOutputVar& output)
     {
         cout << "Visiting a MeshOutputVar: "<<output.value<<"\n";
+        output.id_list->accept(this);
     }
-    void visit(ChannelOutputVar output)
+    
+    void visit(ChannelOutputVar& output)
     {
-        
+        cout << "Visiting a ChannelOutputVar: "<<output.value<<"\n";
+        output.id_list->accept(this);
     }
 
     
