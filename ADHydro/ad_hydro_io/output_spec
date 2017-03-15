@@ -1,6 +1,8 @@
 region
 mesh 1 2 3
-surfaceWaterDepth
+surfaceWaterDepth;
 channel 4 5 6
+PrecipitationRate;
+mesh 8 9 10
 PrecipitationRate
 end
