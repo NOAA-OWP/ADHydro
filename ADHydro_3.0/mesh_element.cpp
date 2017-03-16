@@ -1,25 +1,389 @@
 #include "mesh_element.h"
 #include "readonly.h"
 
-bool MeshElement::checkInvariant()
+// FIXME stubs
+static size_t numberOfMeshElements;
+// FIXME end stubs
+
+bool MeshElement::checkInvariant() const
 {
-    bool error = false; // Error flag.
+    bool                                                        error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::const_iterator it;            // Loop iterator.
     
-    // FIXME implement
-    /* FIXME notes
-     * 
-     * if !soilExists then soilThickness is set to zero
-     * if !aquiferExists then aquiferThicnkness is set to zero and aquiferHead is set to -INFINITY
-     * get groundwater state invariants from doPointProcessesAndSendOutflows
-     */
+    if (!(elementNumber < numberOfMeshElements))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: elementNumber must be less than numberOfMeshElements.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 < elementArea))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: elementArea must be greater than zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(-M_PI / 2.0 <= latitude && M_PI / 2.0 >= latitude))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: latitude must be greater than or equal to negative PI over two and less than or equal to PI over two.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(-M_PI * 2.0 <= longitude && M_PI * 2.0 >= longitude))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: longitude must be greater than or equal to negative two PI and less than or equal to two PI.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(1 <= vegetationType && 27 >= vegetationType))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: vegetationType must be greater than or equal to 1 and less than or equal to 27.\n", elementNumber);
+        error = true;
+    }
+    else if (16 == vegetationType)
+    {
+        if (2 <= Readonly::verbosityLevel)
+        {
+            CkError("WARNING in MeshElement::checkInvariant, element %lu: vegetationType is 'Water Bodies'.  Should be a waterbody instead.\n", elementNumber);
+        }
+    }
+    else if (24 == vegetationType)
+    {
+        if (2 <= Readonly::verbosityLevel)
+        {
+            CkError("WARNING in MeshElement::checkInvariant, element %lu: vegetationType is 'Snow or Ice'.  Should be an icemass instead.\n", elementNumber);
+        }
+    }
+    
+    if (!(1 <= groundType && 19 >= groundType))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: groundType must be greater than or equal to 1 and less than or equal to 19.\n", elementNumber);
+        error = true;
+    }
+    else if (14 == groundType)
+    {
+        if (2 <= Readonly::verbosityLevel)
+        {
+            CkError("WARNING in MeshElement::checkInvariant, element %lu: groundType is 'WATER'.  Should be a waterbody instead.\n", elementNumber);
+        }
+    }
+    else if (16 == groundType)
+    {
+        if (2 <= Readonly::verbosityLevel)
+        {
+            CkError("WARNING in MeshElement::checkInvariant, element %lu: groundType is 'OTHER(land-ice)'.  Should be an icemass instead.\n", elementNumber);
+        }
+    }
+    
+    if (!(0.0 < manningsN))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: manningsN must be greater than zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= impedanceConductivity))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: impedanceConductivity must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= deepConductivity))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: deepConductivity must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    error = checkEvapoTranspirationForcingStructInvariant(&evapoTranspirationForcing) || error;
+    error = checkEvapoTranspirationStateStructInvariant(&evapoTranspirationState)     || error;
+    
+    if (!(0.0 <= surfaceWater))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: surfaceWater must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    switch (groundwaterMode)
+    {
+        case SATURATED_AQUIFER:
+            if (!(soilExists && aquiferExists))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is SATURATED_AQUIFER then both soil and aquifer must exist.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(aquiferWater.isFull()))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is SATURATED_AQUIFER then aquiferWater must be full.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(elementZ - soilThickness() <= aquiferHead && aquiferHead <= elementZ))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is SATURATED_AQUIFER then aquiferHead must be greater than or equal to the top of the aquifer and less than or equal to the land surface.\n", elementNumber);
+                error = true;
+            }
+            break;
+        case UNSATURATED_AQUIFER:
+            if (!(soilExists && aquiferExists))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is UNSATURATED_AQUIFER then both soil and aquifer must exist.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(!aquiferWater.isFull()))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is UNSATURATED_AQUIFER then aquiferWater must not be full.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(elementZ - soilThickness() > aquiferHead))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is UNSATURATED_AQUIFER then aquiferHead must be less than the top of the aquifer.\n", elementNumber);
+                error = true;
+            }
+            break;
+        case PERCHED_WATER_TABLE:
+            if (!(soilExists && aquiferExists))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is PERCHED_WATER_TABLE then both soil and aquifer must exist.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(!aquiferWater.isFull()))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is PERCHED_WATER_TABLE then aquiferWater must not be full.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(aquiferHead <= perchedHead && perchedHead <= elementZ))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is PERCHED_WATER_TABLE then perchedHead must be greater than or equal to aquiferHead and less than or equal to the land surface.\n", elementNumber);
+                error = true;
+            }
+            
+            if (!(elementZ - soilThickness() > aquiferHead))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is PERCHED_WATER_TABLE then aquiferHead must be less than the top of the aquifer.\n", elementNumber);
+                error = true;
+            }
+            break;
+        case NO_MULTILAYER:
+            if (soilExists)
+            {
+                if (!(!aquiferExists))
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is NO_MULTILAYER then soil and aquifer cannot both exist.\n", elementNumber);
+                    error = true;
+                }
+                
+                if (!(perchedHead <= elementZ))
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is NO_MULTILAYER and soilExists then perchedHead must be less than or equal to the land surface.\n", elementNumber);
+                    error = true;
+                }
+                
+                if (!(-INFINITY == aquiferHead))
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is NO_MULTILAYER and soilExists then aquiferHead must be -INFINITY.\n", elementNumber);
+                    error = true;
+                }
+            }
+            else if (aquiferExists)
+            {
+                if (!(aquiferHead <= elementZ))
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is NO_MULTILAYER and aquiferExists then aquiferHead must be less than or equal to the land surface.\n", elementNumber);
+                    error = true;
+                }
+            }
+            break;
+        default:
+            CkError("ERROR in MeshElement::checkInvariant, element %lu: invalid groundwaterMode %d.\n", elementNumber, groundwaterMode);
+            error = true;
+            break;
+    }
+    
+    error = soilWater.checkInvariant() || error;
+    
+    if (!(0.0 == soilRecharge))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: soilRecharge must be zero at the time the invariant is checked.\n", elementNumber);
+        error = true;
+    }
+    
+    error = aquiferWater.checkInvariant() || error;
+    
+    if (!(0.0 == aquiferRecharge))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: aquiferRecharge must be zero at the time the invariant is checked.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= deepGroundwater))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: deepGroundwater must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 >= precipitationRate))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: precipitationRate must be less than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 >= precipitationCumulativeShortTerm))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: precipitationCumulativeShortTerm must be less than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 >= precipitationCumulativeLongTerm))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: precipitationCumulativeLongTerm must be less than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= transpirationRate))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: transpirationRate must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= transpirationCumulativeShortTerm))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: transpirationCumulativeShortTerm must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    if (!(0.0 <= transpirationCumulativeLongTerm))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: transpirationCumulativeLongTerm must be greater than or equal to zero.\n", elementNumber);
+        error = true;
+    }
+    
+    for (it = neighbors.begin(); it != neighbors.end(); ++it)
+    {
+        error = it->first.checkInvariant()  || error;
+        error = it->second.checkInvariant() || error;
+        
+        switch (it->first.localEndpoint)
+        {
+            case MESH_SURFACE:
+                // This is valid and has no other conditions.
+                break;
+            case MESH_SOIL:
+                if (!soilExists)
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if localEndpoint is MESH_SOIL then soil must exist.\n", elementNumber);
+                    error = true;
+                }
+                break;
+            case MESH_AQUIFER:
+                if (!aquiferExists)
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: if localEndpoint is MESH_AQUIFER then aquifer must exist.\n", elementNumber);
+                    error = true;
+                }
+                break;
+            case IRRIGATION_RECIPIENT:
+                // This connection type is a one way flow where the two neighbors never communicate to calculate nominalFlowRate.  Instead, the sender just sends water.
+                // We handle this at the recipient by setting nominalFlowRate to -INFINITY and expirationTime to INFINITY.  This is equivalent to saying that the pair has negotiated
+                // that the remote element is the sender, the flow rate will be less than or equal to infinity, and they will meet again to renegotiate at the end of time.
+                // This does not apply to natural boundary and transbasin inflows.  In those cases, there is no other neighbor and the recipient calculates nominalFlowRate.
+                if (!(-INFINITY == it->second.getNominalFlowRate() && INFINITY == it->second.getExpirationTime()))
+                {
+                    CkError("ERROR in MeshElement::checkInvariant, element %lu: For a one way inflow nominalFlowRate must be minus infinity and expirationTime must be infinity.\n", elementNumber);
+                    error = true;
+                }
+                break;
+            default:
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: localEndpoint must be a mesh element.\n", elementNumber);
+                error = true;
+                break;
+        }
+        
+        if (!(elementNumber == it->first.localElementNumber))
+        {
+            CkError("ERROR in MeshElement::checkInvariant, element %lu: localElementNumber must be elementNumber.\n", elementNumber);
+            error = true;
+        }
+        
+        if (BOUNDARY_INFLOW == it->first.remoteEndpoint || TRANSBASIN_INFLOW == it->first.remoteEndpoint)
+        {
+            if (!(0.0 >= it->second.getNominalFlowRate()))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: For a boundary inflow nominalFlowRate must be less than or equal to zero.\n", elementNumber);
+                error = true;
+            }
+        }
+        else if (BOUNDARY_OUTFLOW == it->first.remoteEndpoint || TRANSBASIN_OUTFLOW == it->first.remoteEndpoint)
+        {
+            if (!(0.0 <= it->second.getNominalFlowRate()))
+            {
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: For a boundary outflow nominalFlowRate must be greater than or equal to zero.\n", elementNumber);
+                error = true;
+            }
+        }
+    }
     
     return error;
 }
 
-bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime)
+bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime)
+{
+    bool                                                  error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
+    
+    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
+    {
+        error = it->second.calculateNominalFlowRate(outgoingMessages, it->first, currentTime);
+    }
+    
+    return error;
+}
+
+bool MeshElement::receiveState(const StateMessage& state)
+{
+    bool                                                  error = false;                             // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(state.destination); // Iterator for finding correct NeighborProxy.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = state.checkInvariant();
+        
+        if (!(neighbors.end() != it))
+        {
+            CkError("ERROR in MeshElement::receiveState: received a StateMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+    }
+    
+    if (!error)
+    {
+        error = it->second.receiveStateTransfer(it->first, state.state);
+    }
+    
+    return error;
+}
+
+double MeshElement::minimumExpirationTime()
+{
+    double                                                minimumTime = INFINITY; // Return value gets set to the minimum of expirationTime for all NeighborProxies.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;                     // Loop iterator.
+    
+    for (it = neighbors.begin(); it != neighbors.end(); ++it)
+    {
+        minimumTime = std::min(minimumTime, it->second.getExpirationTime());
+    }
+    
+    return minimumTime;
+}
+
+bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, double currentTime, double timestepEndTime)
 {
     bool   error                = false;                                 // Error flag.
-    double localSolarDateTime   = referenceDate + (currentTime / (24.0 * 60.0 * 60.0)) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
+    double localSolarDateTime   = Readonly::referenceDate + (currentTime / (24.0 * 60.0 * 60.0)) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
     long   year;                                                         // For calculating yearlen, julian, and hourAngle.
     long   month;                                                        // For calculating hourAngle.
     long   day;                                                          // For calculating hourAngle.
@@ -59,12 +423,6 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        if (!(1721425.5 <= referenceDate))
-        {
-            CkError("ERROR in MeshElement::doPointProcessesAndSendOutflows: referenceDate must not be before 1 CE.\n");
-            error = true;
-        }
-        
         if (!(currentTime < timestepEndTime))
         {
             CkError("ERROR in MeshElement::doPointProcessesAndSendOutflows: currentTime must be less than timestepEndTime.\n");
@@ -72,12 +430,11 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         }
     }
     
-    // Check invariants on groundwater state.
+    // Check invariants on groundwater state.  The processing below that modifies these is fairly complicated.
+    // I feel that an extra check on these at the beginning and end of that processing is warranted in addition to the normal checkInvariant calls.
+    // FIXME maybe this could be eliminated later.
     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
     {
-        CkAssert(0.0 == soilRecharge);
-        CkAssert(0.0 == aquiferRecharge);
-        
         if (soilExists && aquiferExists)
         {
             CkAssert(SATURATED_AQUIFER == groundwaterMode || UNSATURATED_AQUIFER == groundwaterMode || PERCHED_WATER_TABLE == groundwaterMode);
@@ -90,19 +447,31 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         if (SATURATED_AQUIFER == groundwaterMode)
         {
             CkAssert(aquiferWater.isFull());
-            CkAssert(elementZ - soilThickness <= aquiferHead);
+            CkAssert(elementZ - soilThickness() <= aquiferHead && aquiferHead <= elementZ);
         }
         else if (UNSATURATED_AQUIFER == groundwaterMode)
         {
             CkAssert(!aquiferWater.isFull());
-            CkAssert(elementZ - soilThickness > aquiferHead);
+            CkAssert(elementZ - soilThickness() > aquiferHead);
         }
         else if (PERCHED_WATER_TABLE == groundwaterMode)
         {
             CkAssert(!aquiferWater.isFull());
-            CkAssert(elementZ - soilThickness > aquiferHead);
-            CkAssert(perchedHead > aquiferHead);
+            CkAssert(aquiferHead <= perchedHead && perchedHead <= elementZ);
+            CkAssert(elementZ - soilThickness() > aquiferHead);
         }
+        else if (NO_MULTILAYER == groundwaterMode && soilExists)
+        {
+            CkAssert(perchedHead <= elementZ);
+            CkAssert(-INFINITY == aquiferHead);
+        }
+        else if (NO_MULTILAYER == groundwaterMode && aquiferExists)
+        {
+            CkAssert(aquiferHead <= elementZ);
+        }
+        
+        CkAssert(0.0 == soilRecharge);
+        CkAssert(0.0 == aquiferRecharge);
     }
     
     if (!error)
@@ -272,7 +641,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         // Move water for infiltration.
         if (soilExists)
         {
-            soilRecharge += soilWater.vadoseZoneSolver(surfaceWater, (PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode) ? perchedHead : aquiferHead);
+            error = soilWater.doTimestep(soilRecharge, surfaceWater, elementZ - ((PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode) ? perchedHead : aquiferHead), dt);
         }
         else if (aquiferExists)
         {
@@ -287,7 +656,10 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
                 surfaceWater     = 0.0;
             }
         }
-        
+    }
+    
+    if (!error)
+    {
         // Add up total lateral outflows.
         for (it = neighbors.begin(); it != neighbors.end(); ++it)
         {
@@ -314,14 +686,6 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
                 case IRRIGATION_RECIPIENT:
                     // This can't be an outflow so do nothing.
                     break;
-                case CHANNEL_SURFACE:
-                case BOUNDARY_INFLOW:
-                case BOUNDARY_OUTFLOW:
-                case TRANSBASIN_INFLOW:
-                case TRANSBASIN_OUTFLOW:
-                case RESERVOIR_RELEASE:
-                case RESERVOIR_RECIPIENT:
-                case IRRIGATION_DIVERSION:
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
@@ -361,7 +725,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
         
         // For soil and aquifer if there is any positive pressure water don't limit outflows.  We assume there will be enough water in the capillary fringe to cover mass conservation.
         // FIXME add something to bridge the time when a perched water table gets subsumed into a saturated aquifer, but the aquifer flow rate hasn't been recalculated yet?
-        if (soilExists && (PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode) && perchedHead > elementZ - soilThickness)
+        if (soilExists && (PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode) && perchedHead > elementZ - soilThickness())
         {
             soilOutflowFraction    = 1.0;
             soilRecharge          -= (totalSoilOutflows / elementArea) * dt;
@@ -371,7 +735,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
             soilOutflowFraction    = 0.0;
         }
         
-        if (aquiferExists && aquiferHead > elementZ - soilThickness - aquiferThickness)
+        if (aquiferExists && aquiferHead > elementZ - soilThickness() - aquiferThickness())
         {
             // Also take water for leakage from the aquifer to deep groundwater.
             aquiferOutflowFraction = 1.0;
@@ -392,32 +756,24 @@ bool MeshElement::doPointProcessesAndSendOutflows(double referenceDate, double c
             case MESH_SURFACE:
                 if (0.0 < it->second.getNominalFlowRate())
                 {
-                    error = it->second.sendWaterTransfer(WaterTransfer(it->second.getNominalFlowRate() * dt * surfaceOutflowFraction, currentTime, timestepEndTime));
+                    error = it->second.sendWater(outgoingMessages, WaterMessage(WaterTransfer(it->second.getNominalFlowRate() * dt * surfaceOutflowFraction, currentTime, timestepEndTime), it->first));
                 }
                 break;
             case MESH_SOIL:
                 if (0.0 < it->second.getNominalFlowRate())
                 {
-                    error = it->second.sendWaterTransfer(WaterTransfer(it->second.getNominalFlowRate() * dt * soilOutflowFraction,    currentTime, timestepEndTime));
+                    error = it->second.sendWater(outgoingMessages, WaterMessage(WaterTransfer(it->second.getNominalFlowRate() * dt * soilOutflowFraction,    currentTime, timestepEndTime), it->first));
                 }
                 break;
             case MESH_AQUIFER:
                 if (0.0 < it->second.getNominalFlowRate())
                 {
-                    error = it->second.sendWaterTransfer(WaterTransfer(it->second.getNominalFlowRate() * dt * aquiferOutflowFraction, currentTime, timestepEndTime));
+                    error = it->second.sendWater(outgoingMessages, WaterMessage(WaterTransfer(it->second.getNominalFlowRate() * dt * aquiferOutflowFraction, currentTime, timestepEndTime), it->first));
                 }
                 break;
             case IRRIGATION_RECIPIENT:
                 // This can't be an outflow so do nothing.
                 break;
-            case CHANNEL_SURFACE:
-            case BOUNDARY_INFLOW:
-            case BOUNDARY_OUTFLOW:
-            case TRANSBASIN_INFLOW:
-            case TRANSBASIN_OUTFLOW:
-            case RESERVOIR_RELEASE:
-            case RESERVOIR_RECIPIENT:
-            case IRRIGATION_DIVERSION:
             default:
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                 {
@@ -441,19 +797,44 @@ bool MeshElement::allInflowsHaveArrived(double currentTime, double timestepEndTi
     {
         if (0.0 > it->second.getNominalFlowRate())
         {
-            arrived = it->second.allWaterHasArrived(currentTime, timestepEndTime);
+            arrived = it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime);
         }
     }
     
     return arrived;
 }
 
+bool MeshElement::receiveWater(const WaterMessage& water)
+{
+    bool                                                  error = false;                             // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(water.destination); // Iterator for finding correct NeighborProxy.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = water.checkInvariant();
+        
+        if (!(neighbors.end() != it))
+        {
+            CkError("ERROR in MeshElement::receiveWater: received a WaterMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+    }
+    
+    if (!error)
+    {
+        error = it->second.receiveWaterTransfer(water.water);
+    }
+    
+    return error;
+}
+
 bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timestepEndTime)
 {
-    bool   error = false;                                     // Error flag.
-    std::map<NeighborConnection, NeighborProxy>::iterator it; // Iterator over neighbor proxies.
-    double dt    = timestepEndTime - currentTime;             // (s) duration of timestep.
-    double impedanceFlow;                                     // (m) Water that makes it through the impedance layer.
+    bool                                                  error = false;                         // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;                                    // Iterator over neighbor proxies.
+    double                                                dt    = timestepEndTime - currentTime; // (s) duration of timestep.
+    double                                                impedanceFlow;                         // (m) Water that makes it through the impedance layer.
+    double                                                dummy = 0.0;                           // aquiferWater.doTimestep needs a reference parameter for surfaceWater, but we always pass zero and it is then unmodified.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -483,35 +864,27 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
                 case MESH_SURFACE:
                     if (0.0 > it->second.getNominalFlowRate())
                     {
-                        surfaceWater    += it->second.receiveWater(timestepEndTime) / elementArea;
+                        surfaceWater    += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
                     }
                     break;
                 case MESH_SOIL:
                     if (0.0 > it->second.getNominalFlowRate())
                     {
-                        soilRecharge    += it->second.receiveWater(timestepEndTime) / elementArea;
+                        soilRecharge    += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
                     }
                     break;
                 case MESH_AQUIFER:
                     if (0.0 > it->second.getNominalFlowRate())
                     {
-                        aquiferRecharge += it->second.receiveWater(timestepEndTime) / elementArea;
+                        aquiferRecharge += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
                     }
                     break;
                 case IRRIGATION_RECIPIENT:
                     if (0.0 > it->second.getNominalFlowRate())
                     {
-                        surfaceWater    += it->second.receiveWater(timestepEndTime) / elementArea;
+                        surfaceWater    += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
                     }
                     break;
-                case CHANNEL_SURFACE:
-                case BOUNDARY_INFLOW:
-                case BOUNDARY_OUTFLOW:
-                case TRANSBASIN_INFLOW:
-                case TRANSBASIN_OUTFLOW:
-                case RESERVOIR_RELEASE:
-                case RESERVOIR_RECIPIENT:
-                case IRRIGATION_DIVERSION:
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
@@ -531,7 +904,7 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             }
             else
             {
-                impedanceFlow = std::min(impedanceConductivity, soilWater.kThetaAtBottomOfSoil()) * dt;
+                impedanceFlow = std::min(impedanceConductivity, soilWater.conductivityAtDepth(soilThickness())) * dt;
                 
                 if (aquiferExists)
                 {
@@ -550,9 +923,12 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
         // If groundwaterMode is SATURATED_AQUIFER there is no need to run this solver because the aquifer will always start and end full so no water movement.
         if (aquiferExists && SATURATED_AQUIFER != groundwaterMode)
         {
-            aquiferRecharge += aquiferWater.capillaryFringeSolver(aquiferHead);
+            error = aquiferWater.doTimestep(aquiferRecharge, dummy, elementZ - soilThickness() - aquiferHead, dt);
         }
-        
+    }
+    
+    if (!error)
+    {
         // Update water table heads and resolve recharge.
         if (SATURATED_AQUIFER == groundwaterMode)
         {
@@ -566,7 +942,7 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             {
                 groundwaterMode = PERCHED_WATER_TABLE;
                 perchedHead     = aquiferHead;
-                aquiferHead     = elementZ - soilThickness;
+                aquiferHead     = elementZ - soilThickness();
                 resolveAquiferRechargeUnsaturatedAquifer();
                 resolveSoilRechargePerchedWaterTable();
             }
@@ -591,14 +967,14 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
                 resolveSoilRechargePerchedWaterTable();
             }
         }
-        else if (soilExists)
+        else if (soilExists) // NO_MULTILAYER == groundwaterMode.
         {
             resolveSoilRechargePerchedWaterTable();
         }
-        else if (aquiferExists)
+        else if (aquiferExists) // NO_MULTILAYER == groundwaterMode.
         {
             updateHead(aquiferHead, aquiferRecharge, elementZ);
-            addOrRemoveWater(aquiferWater, aquiferRecharge);
+            aquiferWater.addOrRemoveWater(aquiferRecharge, aquiferWaterCreated);
             
             if (aquiferWater.isFull())
             {
@@ -608,12 +984,11 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             }
         }
         
-        // Check invariants on groundwater state.
+        // Check invariants on groundwater state.  The processing below that modifies these is fairly complicated.
+        // I feel that an extra check on these at the beginning and end of that processing is warranted in addition to the normal checkInvariant calls.
+        // FIXME maybe this could be eliminated later.
         if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
         {
-            CkAssert(0.0 == soilRecharge);
-            CkAssert(0.0 == aquiferRecharge);
-            
             if (soilExists && aquiferExists)
             {
                 CkAssert(SATURATED_AQUIFER == groundwaterMode || UNSATURATED_AQUIFER == groundwaterMode || PERCHED_WATER_TABLE == groundwaterMode);
@@ -626,19 +1001,31 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             if (SATURATED_AQUIFER == groundwaterMode)
             {
                 CkAssert(aquiferWater.isFull());
-                CkAssert(elementZ - soilThickness <= aquiferHead);
+                CkAssert(elementZ - soilThickness() <= aquiferHead && aquiferHead <= elementZ);
             }
             else if (UNSATURATED_AQUIFER == groundwaterMode)
             {
                 CkAssert(!aquiferWater.isFull());
-                CkAssert(elementZ - soilThickness > aquiferHead);
+                CkAssert(elementZ - soilThickness() > aquiferHead);
             }
             else if (PERCHED_WATER_TABLE == groundwaterMode)
             {
                 CkAssert(!aquiferWater.isFull());
-                CkAssert(elementZ - soilThickness > aquiferHead);
-                CkAssert(perchedHead > aquiferHead);
+                CkAssert(aquiferHead <= perchedHead && perchedHead <= elementZ);
+                CkAssert(elementZ - soilThickness() > aquiferHead);
             }
+            else if (NO_MULTILAYER == groundwaterMode && soilExists)
+            {
+                CkAssert(perchedHead <= elementZ);
+                CkAssert(-INFINITY == aquiferHead);
+            }
+            else if (NO_MULTILAYER == groundwaterMode && aquiferExists)
+            {
+                CkAssert(aquiferHead <= elementZ);
+            }
+            
+            CkAssert(0.0 == soilRecharge);
+            CkAssert(0.0 == aquiferRecharge);
         }
     }
     
@@ -647,18 +1034,70 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
 
 void MeshElement::fillInEvapoTranspirationSoilMoistureStruct(EvapoTranspirationSoilMoistureStruct& evapoTranspirationSoilMoisture)
 {
-    // FIXME implement
+    int    ii;               // Loop counter.
+    double layerMiddleDepth; // (m) The depth of the middle of a Noah-MP layer expressed as a positive number.
+    double waterContent;     // (m^3/m^3) The water content of a Noah-MP layer.
+    
+    // Set water content for layers.
+    for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ++ii)
+    {
+        layerMiddleDepth = -0.5 * (evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS] +     // zSnso is negative.
+                                   evapoTranspirationState.zSnso[ii + EVAPO_TRANSPIRATION_NUMBER_OF_SNOW_LAYERS - 1]); // layerMiddleDepth is positive.
+        
+        if (soilThickness() > layerMiddleDepth)
+        {
+            waterContent = soilWater.waterContentAtDepth(layerMiddleDepth);
+        }
+        else if (soilThickness() + aquiferThickness() > layerMiddleDepth)
+        {
+            waterContent = aquiferWater.waterContentAtDepth(layerMiddleDepth - soilThickness());
+        }
+        else if (aquiferExists)
+        {
+            waterContent = aquiferWater.waterContentAtDepth(aquiferThickness());
+        }
+        else if (soilExists)
+        {
+            waterContent = soilWater.waterContentAtDepth(soilThickness());
+        }
+        else
+        {
+            waterContent = 0.01; // Noah-MP can't handle water content of zero so even if there's no soil or aquifer we need to fill in something positive.
+        }
+        
+        // Set minimum residual water content.
+        if (0.01 > waterContent)
+        {
+            waterContent = 0.01;
+        }
+        
+        evapoTranspirationSoilMoisture.smcEq[ii] = waterContent;
+        evapoTranspirationSoilMoisture.sh2o[ii]  = waterContent;
+        evapoTranspirationSoilMoisture.smc[ii]   = waterContent;
+    }
+    
+    // Set water table depth.
+    if (PERCHED_WATER_TABLE == groundwaterMode || (NO_MULTILAYER == groundwaterMode && soilExists))
+    {
+        evapoTranspirationSoilMoisture.zwt = elementZ - perchedHead;
+    }
+    else if (aquiferExists)
+    {
+        evapoTranspirationSoilMoisture.zwt = elementZ - aquiferHead;
+    }
+    else
+    {
+        evapoTranspirationSoilMoisture.zwt = 0.0;
+    }
+    
+    // Make the lowest layer water content extend down forever.
+    evapoTranspirationSoilMoisture.smcwtd = evapoTranspirationSoilMoisture.smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS - 1];
 }
 
 void MeshElement::updateHead(double& head, double recharge, double maxHead)
 {
     head += recharge; // FIXME adjust for specific yield
     head  = std::min(head, maxHead);
-}
-
-void MeshElement::addOrRemoveWater(WaterDataStructure& water, double& recharge)
-{
-    // FIXME implement
 }
 
 void MeshElement::resolveSoilRechargeSaturatedAquifer()
@@ -670,7 +1109,7 @@ void MeshElement::resolveSoilRechargeSaturatedAquifer()
     
     updateHead(aquiferHead, soilRecharge, elementZ);
     
-    if (elementZ - soilThickness > aquiferHead)
+    if (elementZ - soilThickness() > aquiferHead)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
         {
@@ -678,11 +1117,11 @@ void MeshElement::resolveSoilRechargeSaturatedAquifer()
         }
         
         groundwaterMode = UNSATURATED_AQUIFER;
-        addOrRemoveWater(aquiferWater, soilRecharge);
+        aquiferWater.addOrRemoveWater(soilRecharge, aquiferWaterCreated);
     }
     else
     {
-        addOrRemoveWater(soilWater, soilRecharge);
+        soilWater.addOrRemoveWater(soilRecharge, soilWaterCreated);
         
         if (soilWater.isFull())
         {
@@ -701,7 +1140,7 @@ void MeshElement::resolveSoilRechargePerchedWaterTable()
     }
     
     updateHead(perchedHead, soilRecharge, elementZ);
-    addOrRemoveWater(soilWater, soilRecharge);
+    soilWater.addOrRemoveWater(soilRecharge, soilWaterCreated);
     
     if (soilWater.isFull())
     {
@@ -723,18 +1162,18 @@ void MeshElement::resolveAquiferRechargeUnsaturatedAquifer()
         CkAssert(UNSATURATED_AQUIFER == groundwaterMode || PERCHED_WATER_TABLE == groundwaterMode);
     }
     
-    updateHead(aquiferHead, aquiferRecharge, elementZ - soilThickness - epsilon(0.0));
-    addOrRemoveWater(aquiferWater, aquiferRecharge);
+    updateHead(aquiferHead, aquiferRecharge, elementZ - soilThickness() - epsilon(0.0));
+    aquiferWater.addOrRemoveWater(aquiferRecharge, aquiferWaterCreated);
     
     if (aquiferWater.isFull())
     {
-        if (PERCHED_WATER_TABLE == groundwaterMode && elementZ - soilThickness < perchedHead)
+        if (PERCHED_WATER_TABLE == groundwaterMode && elementZ - soilThickness() < perchedHead)
         {
             aquiferHead = perchedHead;
         }
         else
         {
-            aquiferHead = elementZ - soilThickness;
+            aquiferHead = elementZ - soilThickness();
         }
         
         groundwaterMode = SATURATED_AQUIFER;

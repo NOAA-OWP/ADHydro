@@ -21,8 +21,10 @@ VPATH := ../inih \
 
 EXES := adhydro
 
-ADHYDRO_OBJS := mesh_element.o        \
+ADHYDRO_OBJS := region.o              \
+                mesh_element.o        \
                 neighbor_proxy.o      \
+                simple_groundwater.o  \
                 evapo_transpiration.o \
                 readonly.o
 
@@ -36,17 +38,39 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS) $(INIH_OBJS)
 # FIXME uncomment	$(CHARMC) $(LDFLAGS) $^ -o $@
 
-mesh_element.o: mesh_element.cpp        \
-                mesh_element.h          \
-                neighbor_proxy.h        \
-                evapo_transpiration.h   \
-                readonly.h              \
+region.o: region.cpp            \
+          region.h              \
+          region.decl.h         \
+          region.def.h          \
+          mesh_element.h        \
+          neighbor_proxy.h      \
+          simple_groundwater.h  \
+          evapo_transpiration.h \
+          readonly.h            \
+          all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+region.decl.h \
+region.def.h: region.ci
+	$(CHARMC) $<
+
+mesh_element.o: mesh_element.cpp      \
+                mesh_element.h        \
+                neighbor_proxy.h      \
+                simple_groundwater.h  \
+                evapo_transpiration.h \
+                readonly.h            \
                 all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 neighbor_proxy.o: neighbor_proxy.cpp \
                   neighbor_proxy.h   \
                   all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+simple_groundwater.o: simple_groundwater.cpp \
+                      simple_groundwater.h   \
+                      all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 evapo_transpiration.o: evapo_transpiration.cpp \
@@ -56,7 +80,8 @@ evapo_transpiration.o: evapo_transpiration.cpp \
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 readonly.o: readonly.cpp \
-            readonly.h
+            readonly.h   \
+            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 clean:

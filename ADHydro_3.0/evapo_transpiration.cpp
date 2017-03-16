@@ -177,7 +177,7 @@ bool evapoTranspirationInit(const char* mpTableFile, const char* vegParmFile, co
   return error;
 }
 
-float evapoTranspirationTotalWaterInDomain(EvapoTranspirationStateStruct* evapoTranspirationState)
+float evapoTranspirationTotalWaterInDomain(const EvapoTranspirationStateStruct* evapoTranspirationState)
 {
   return evapoTranspirationState->canLiq + evapoTranspirationState->canIce + evapoTranspirationState->snEqv;
 }
@@ -472,17 +472,6 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: evapoTranspirationSoilMoisture must not be NULL.\n");
       error = true;
     }
-  else
-    {
-      // Values of smcEq, sh2o, smc, and smcwtd will be error checked later.  They need to be compared against NOAHMP_POROSITY, which is not set until after we
-      // call REDPRM.
-
-      if (!(0.0f <= evapoTranspirationSoilMoisture->zwt))
-        {
-          ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: zwt must be greater than or equal to zero.\n");
-          error = true;
-        }
-    }
   
   if (!(NULL != evapoTranspirationState))
     {
@@ -567,6 +556,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       error = checkEvapoTranspirationForcingStructInvariant(evapoTranspirationForcing);
     }
   
+  // Check evapoTranspirationSoilMoisture later after NOAHMP_POROSITY is set.
+  
   if (!error)
     {
       error = checkEvapoTranspirationStateStructInvariant(evapoTranspirationState);
@@ -631,6 +622,14 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // Set Noah-MP globals.
       REDPRM(&vegType, &soilType, &slopeType, zSoil, &nSoil, &isUrban);
       
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+      // Now that NOAHMP_POROSITY is set check that none of the soil moisture variables exceed porosity.
+      error = checkEvapoTranspirationSoilMoistureStructInvariant(evapoTranspirationSoilMoisture, NOAHMP_POROSITY);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    }
+  
+  if (!error)
+    {
       // Calculate water in the aquifer and saturated soil.
       if (evapoTranspirationSoilMoisture->zwt > -zSoil[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS - 1])
         {
@@ -662,40 +661,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // Include water in the aquifer in the mass balance check.
       soilMoistureOriginal += wa;
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-      // Error check that none of the soil moisture variables are greater than NOAHMP_POROSITY.
-      for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
-        {
-          if (!(0.0f < evapoTranspirationSoilMoisture->smcEq[ii] && evapoTranspirationSoilMoisture->smcEq[ii] <= NOAHMP_POROSITY))
-            {
-              ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: smcEq must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
-              error = true;
-            }
-          
-          if (!(0.0f < evapoTranspirationSoilMoisture->smc[ii] && evapoTranspirationSoilMoisture->smc[ii] <= NOAHMP_POROSITY))
-            {
-              ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: smc must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
-              error = true;
-            }
-          
-          if (!(0.0f < evapoTranspirationSoilMoisture->sh2o[ii] && evapoTranspirationSoilMoisture->sh2o[ii] <= evapoTranspirationSoilMoisture->smc[ii]))
-            {
-              ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: sh2o must be greater than zero and less than or equal to smc[ii].\n");
-              error = true;
-            }
-        }
-      
-      if (!(0.0f < evapoTranspirationSoilMoisture->smcwtd && evapoTranspirationSoilMoisture->smcwtd <= NOAHMP_POROSITY))
-        {
-          ADHYDRO_ERROR("ERROR in evapoTranspirationSoil: smcwtd must be greater than zero and less than or equal to NOAHMP_POROSITY.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-    }
 
-  if (!error)
-    {
       // Run Noah-MP.
       NOAHMP_SFLX(&iLoc, &jLoc, &lat, &yearLen, &julian, &cosZ, &dt, &dx, &evapoTranspirationForcing->dz8w, &nSoil, zSoil, &nSnow, &shdFac, &shdMax, &vegType,
                   &isUrban, &ice, &ist, &isc, evapoTranspirationSoilMoisture->smcEq, &iz0tlnd, &evapoTranspirationForcing->sfcTmp,
@@ -2114,7 +2080,7 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
   return error;
 }
 
-bool checkEvapoTranspirationForcingStructInvariant(EvapoTranspirationForcingStruct* evapoTranspirationForcing)
+bool checkEvapoTranspirationForcingStructInvariant(const EvapoTranspirationForcingStruct* evapoTranspirationForcing)
 {
   bool error = false; // Error flag.
   
@@ -2245,7 +2211,42 @@ bool checkEvapoTranspirationForcingStructInvariant(EvapoTranspirationForcingStru
   return error;
 }
 
-bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* evapoTranspirationState)
+bool checkEvapoTranspirationSoilMoistureStructInvariant(const EvapoTranspirationSoilMoistureStruct* evapoTranspirationSoilMoisture, float porosity)
+{
+  bool error = false; // Error flag.
+  int  ii;            // Loop counter.
+  
+  for (ii = 0; ii < EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS; ii++)
+    {
+      if (!(0.0f < evapoTranspirationSoilMoisture->smcEq[ii] && evapoTranspirationSoilMoisture->smcEq[ii] <= porosity))
+        {
+          ADHYDRO_ERROR("ERROR in checkEvapoTranspirationSoilMoistureStructInvariant: smcEq must be greater than zero and less than or equal to porosity.\n");
+          error = true;
+        }
+      
+      if (!(0.0f < evapoTranspirationSoilMoisture->sh2o[ii] && evapoTranspirationSoilMoisture->sh2o[ii] <= evapoTranspirationSoilMoisture->smc[ii] && evapoTranspirationSoilMoisture->smc[ii] <= porosity))
+        {
+          ADHYDRO_ERROR("ERROR in checkEvapoTranspirationSoilMoistureStructInvariant: sh2o must be greater than zero and less than or equal to smc, and smc must be less than or equal to porosity.\n");
+          error = true;
+        }
+    }
+  
+  if (!(0.0f <= evapoTranspirationSoilMoisture->zwt))
+    {
+      ADHYDRO_ERROR("ERROR in checkEvapoTranspirationSoilMoistureStructInvariant: zwt must be greater than or equal to zero.\n");
+      error = true;
+    }
+  
+  if (!(0.0f < evapoTranspirationSoilMoisture->smcwtd && evapoTranspirationSoilMoisture->smcwtd <= porosity))
+    {
+      ADHYDRO_ERROR("ERROR in checkEvapoTranspirationSoilMoistureStructInvariant: smcwtd must be greater than zero and less than or equal to porosity.\n");
+      error = true;
+    }
+  
+  return error;
+}
+
+bool checkEvapoTranspirationStateStructInvariant(const EvapoTranspirationStateStruct* evapoTranspirationState)
 {
   bool  error          = false; // Error flag.
   int   ii;                     // Loop counter.

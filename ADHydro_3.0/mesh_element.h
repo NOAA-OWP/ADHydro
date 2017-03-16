@@ -2,23 +2,10 @@
 #define __MESH_ELEMENT_H__
 
 #include "neighbor_proxy.h"
+#include "simple_groundwater.h"
 #include "evapo_transpiration.h"
 
-// FIXME stubs
-
-class WaterDataStructure
-{
-public:
-    
-    void   pup(PUP::er &p);
-    bool   isFull();
-    double vadoseZoneSolver(double& surfaceWater, double head);
-    double kThetaAtBottomOfSoil();
-    double capillaryFringeSolver(double head);
-};
-
-// FIXME end of stubs
-
+// A GroundwaterModeEnum describes the current mode of the multi-layer groundwater simulation in a single mesh element.
 enum GroundwaterModeEnum
 {
     SATURATED_AQUIFER,   // Implies no perched water table.
@@ -34,19 +21,25 @@ class MeshElement
 {
 public:
     
-    // Constructor.  All parameters directly initialize member variables.  Reference parameters are unmodified.  Passing parameters by reference is just to avoid copying.
+    // Default constructor.  Only needed for pup_stl.h code.
+    inline MeshElement() : elementNumber(0), catchment(0), elementX(0.0), elementY(0.0), elementZ(0.0), elementArea(1.0), latitude(0.0), longitude(0.0), vegetationType(1), groundType(1), manningsN(1.0),
+                           soilExists(false), impedanceConductivity(0.0), aquiferExists(false), deepConductivity(0.0), evapoTranspirationForcing(), evapoTranspirationState(), surfaceWater(0.0),
+                           surfaceWaterCreated(0.0), groundwaterMode(NO_MULTILAYER), perchedHead(0.0), soilWater(1.0, 1.0, 1.0, 0.0, 0.0), soilWaterCreated(0.0), soilRecharge(0.0), aquiferHead(0.0),
+                           aquiferWater(1.0, 1.0, 1.0, 0.0, 0.0), aquiferWaterCreated(0.0), aquiferRecharge(0.0), deepGroundwater(0.0), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0),
+                           precipitationCumulativeLongTerm(0.0), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), transpirationRate(0.0),
+                           transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(0.0), neighbors() {}
+    
+    // Constructor.  All parameters directly initialize member variables.  FIXME initialize neighbors somehow.
     inline MeshElement(size_t elementNumber, size_t catchment, double elementX, double elementY, double elementZ, double elementArea, double latitude, double longitude, int vegetationType, int groundType,
-                       double manningsN, bool soilExists, double soilThickness, double soilConductivity, double soilPorosity, double impedanceConductivity, bool aquiferExists, double aquiferThickness,
-                       double aquiferConductivity, double aquiferPorosity, double deepConductivity, EvapoTranspirationStateStruct& evapoTranspirationState, double surfaceWater, double surfaceWaterCreated,
-                       GroundwaterModeEnum groundwaterMode, double perchedHead, WaterDataStructure& soilWater, double soilWaterCreated, double aquiferHead, WaterDataStructure& aquiferWater,
-                       double aquiferWaterCreated, double deepGroundwater, double precipitationCumulative, double evaporationCumulative, double transpirationCumulative) :
+                       double manningsN, bool soilExists, double impedanceConductivity, bool aquiferExists, double deepConductivity, const EvapoTranspirationStateStruct& evapoTranspirationState,
+                       double surfaceWater, double surfaceWaterCreated, GroundwaterModeEnum groundwaterMode, double perchedHead, const SimpleGroundwater& soilWater, double soilWaterCreated, double aquiferHead,
+                       const SimpleGroundwater& aquiferWater, double aquiferWaterCreated, double deepGroundwater, double precipitationCumulative, double evaporationCumulative, double transpirationCumulative) :
         elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude),
-        vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), soilThickness(soilThickness), soilConductivity(soilConductivity),
-        soilPorosity(soilPorosity), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists), aquiferThickness(aquiferThickness), aquiferConductivity(aquiferConductivity),
-        aquiferPorosity(aquiferPorosity), deepConductivity(deepConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState),
-        surfaceWater(surfaceWater), surfaceWaterCreated(surfaceWaterCreated), groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated),
-        soilRecharge(0.0), aquiferHead(aquiferHead), aquiferWater(aquiferWater), aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater),
-        precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0),
+        vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
+        deepConductivity(deepConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
+        surfaceWaterCreated(surfaceWaterCreated), groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated), soilRecharge(0.0),
+        aquiferHead(aquiferHead), aquiferWater(aquiferWater), aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater), precipitationRate(0.0),
+        precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0),
         evaporationCumulativeLongTerm(evaporationCumulative), transpirationRate(0.0), transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(transpirationCumulative), neighbors()
     {
         // Values for evapoTranspirationForcing are going to be received before we start simulating.  For now, just fill in values that will pass the invariant.
@@ -64,12 +57,15 @@ public:
         evapoTranspirationForcing.tBot   = 300.0f;
         evapoTranspirationForcing.pblh   = 0.0f;
         
-        if (checkInvariant())
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
-            CkExit();
+            if (checkInvariant())
+            {
+                CkExit();
+            }
         }
     }
-        
+    
     // Charm++ pack/unpack method.
     //
     // Parameters:
@@ -89,14 +85,8 @@ public:
         p | groundType;
         p | manningsN;
         p | soilExists;
-        p | soilThickness;
-        p | soilConductivity;
-        p | soilPorosity;
         p | impedanceConductivity;
         p | aquiferExists;
-        p | aquiferThickness;
-        p | aquiferConductivity;
-        p | aquiferPorosity;
         p | deepConductivity;
         p | evapoTranspirationForcing;
         p | evapoTranspirationState;
@@ -127,7 +117,29 @@ public:
     // Check invariant conditions on data.
     //
     // Returns: true if the invariant is violated, false otherwise.
-    bool checkInvariant();
+    bool checkInvariant() const;
+    
+    // Call calculateNominalFlowRate on all NeighborProxies.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime);
+    
+    // Pass the received StateMessage to the correct NeighborProxy so that it can calculate its nominalFlowRate.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // state - The received message.
+    bool receiveState(const StateMessage& state);
+    
+    // Returns: The minimum value of expirationTime for all NeighborProxies.
+    double minimumExpirationTime();
     
     // Perform precipitation, snowmelt, evaporation, transpiration, infiltration, and send lateral outflows.
     //
@@ -135,18 +147,27 @@ public:
     //
     // Parameters:
     //
-    // referenceDate   - (days) Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to referenceDate + (currentTime / (24.0 * 60.0 * 60.0)). Time zone is UTC.
-    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool doPointProcessesAndSendOutflows(double referenceDate, double currentTime, double timestepEndTime);
+    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, double currentTime, double timestepEndTime);
     
-    // Returns: true if all water has arrived between currentTime and timestepEndTime for all NeighborProxies that are inflows, false otherwise.  Exit on error.
+    // Returns: true if allWaterHasArrived is true for all NeighborProxies that are inflows, false otherwise.  Exit on error.
     //
     // Parameters:
     //
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool allInflowsHaveArrived(double currentTime, double timestepEndTime);
+    
+    // Pass the received WaterMessage to the correct NeighborProxy so that it can add it to its incomingWater.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // water - The received message.
+    bool receiveWater(const WaterMessage& water);
     
     // Recieve lateral inflows, move water through impedance layer, run aquifer capillary fringe solver, update water table heads, and resolve recharge.
     //
@@ -179,18 +200,6 @@ private:
     // maxHead  - (m) The maximum value allowed for the updated value of head.
     void updateHead(double& head, double recharge, double maxHead = INFINITY);
     
-    // Add or remove recharge water to or from a water data structure.
-    // If recharge is positive, and it will all fit in water, add it all and set recharge to zero.  If recharge is positive, but not all will fit, add as much as can fit and set recharge to the excess.
-    // If recharge is negative, remove it all from water and set recharge to zero.  There should always be enough water in the capillary fringe to cover a negative recharge.  If not, the timestep is too long.
-    // If it ever happens that there is not enough water to cover a negative recharge, take all the water there is, set recharge to zero, and record the deficit in a created water variable.
-    // At the end, recharge cannot be negative, and can only be positive if water is full.
-    //
-    // Parameters:
-    //
-    // water    - A data structure containing a moisture content profile.
-    // recharge - (m) A thickness of water that is left over in a recharge bucket after accounting for all flows.  Can be negative for a water deficit.
-    void addOrRemoveWater(WaterDataStructure& water, double& recharge);
-    
     // A helper function for updating state when there is a saturated aquifer.
     void resolveSoilRechargeSaturatedAquifer();
     
@@ -199,6 +208,18 @@ private:
     
     // A helper function for updating state when there is an unsaturated aquifer.
     void resolveAquiferRechargeUnsaturatedAquifer();
+    
+    // Returns: (m) the thickness of the soil layer, which is the thickness stored in soilWater if soilExists is true, zero otherwise.
+    inline double soilThickness() const
+    {
+        return (soilExists ? soilWater.getThickness() : 0.0);
+    }
+    
+    // Returns: (m) the thickness of the aquifer layer, which is the thickness stored in aquiferWater if aquiferExists is true, zero otherwise.
+    inline double aquiferThickness() const
+    {
+        return (aquiferExists ? aquiferWater.getThickness() : 0.0);
+    }
     
     // Immutable attributes of the element.
     size_t elementNumber;         // ID number of this element.
@@ -210,22 +231,16 @@ private:
     double latitude;              // (radians)
     double longitude;             // (radians)
     int    vegetationType;        // Type of land cover or land use.
-    int    groundType;            // Type of ground material exposed at the surface.  This could be the type of dirt in the soil layer, or the type of material in the aquifer layer if no soil layer exists,
-                                  // or something like pavement if there is no soil layer but there is an impedance layer above the aquifer, or it could be bedrock if no soil or aquifer exist.
+    int    groundType;            // Type of ground material exposed at the surface.  This could be the type of dirt in the soil layer, or the type of material in the aquifer layer if there is no soil layer,
+                                  // or something like pavement if there is no soil layer but there is an impedance layer above the aquifer, or it could be bedrock if there is no soil or aquifer layers.
     double manningsN;             // (s/(m^(1/3))) Surface roughness parameter.
     bool   soilExists;            // True if a soil layer exists for this element.
-    double soilThickness;         // (m) Thickness of soil layer.
-    double soilConductivity;      // (m/s) Hydraulic conductivity of soil layer.
-    double soilPorosity;          // (m^3/m^3) Porosity of soil layer.
     double impedanceConductivity; // (m/s) Hydraulic conductivity through impedance layer.
     bool   aquiferExists;         // True if an aquifer layer exists for this element.
-    double aquiferThickness;      // (m) Thickness of aquifer layer.
-    double aquiferConductivity;   // (m/s) Hydraulic conductivity of aquifer layer.
-    double aquiferPorosity;       // (m^3/m^3) Porosity of aquifer layer.
     double deepConductivity;      // (m/s) Hydraulic conductivity of leakage to deep groundwater.
     
     // Forcing data changes over the course of the simulation, but it is sent by someone else and is never changed by the MeshElement so it's not immutable, but it's not state.
-    EvapoTranspirationForcingStruct evapoTranspirationForcing;
+    EvapoTranspirationForcingStruct evapoTranspirationForcing; // Data structure containing the forcing used by Noah-MP.
     
     // Mutable state of the element.
     EvapoTranspirationStateStruct evapoTranspirationState; // Data structure containing the state used by Noah-MP.
@@ -233,11 +248,11 @@ private:
     double                        surfaceWaterCreated;     // (m) Surface water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     GroundwaterModeEnum           groundwaterMode;         // The mode corresponding to the current groundwater state.
     double                        perchedHead;             // (m) Elevation above datum of the perched water table if it exists.  Only valid when groundwaterMode is PERCHED_WATER_TABLE or NO_MULTILAYER and soil exists.
-    WaterDataStructure            soilWater;               // Data structure containing the moisture content profile of the soil layer.
+    SimpleGroundwater             soilWater;               // Data structure containing the moisture content profile of the soil layer.
     double                        soilWaterCreated;        // (m) Soil water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     double                        soilRecharge;            // (m) Temporary holding bucket for water that is moving to/from the soil expressed as a thickness of water.  Can be negative for a water deficit.
     double                        aquiferHead;             // (m) Elevation above datum of the aquifer water table.
-    WaterDataStructure            aquiferWater;            // Data structure containing the moisture content profile of the aquifer layer.
+    SimpleGroundwater             aquiferWater;            // Data structure containing the moisture content profile of the aquifer layer.
     double                        aquiferWaterCreated;     // (m) Aquifer water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     double                        aquiferRecharge;         // (m) Temporary holding bucket for water that is moving to/from the aquifer expressed as a thickness of water.  Can be negative for a water deficit.
     double                        deepGroundwater;         // (m) Water that has reached a deep aquifer.  FIXME this might not be accounted for within individual elements separately.
@@ -257,7 +272,7 @@ private:
     double transpirationCumulativeShortTerm; // (m)   Positive means water transpired from the element.  Must be non-negative.
     double transpirationCumulativeLongTerm;  // (m)   Positive means water transpired from the element.  Must be non-negative.
     
-    // A map of NeighborProxies allowing the element to find a specific neighor or iterate over all neighbors.
+    // A map of NeighborProxies allowing the element to find a specific neighor or iterate over all neighbors.  Keys are NeighborConnection objects that uniquely identify each connection.
     std::map<NeighborConnection, NeighborProxy> neighbors;
 };
 

@@ -3,7 +3,7 @@
 
 #include "all.h"
 
-// A NeighborEndpointEnum describes how a neighbor is connected to an element.
+// A NeighborEndpointEnum describes how an element is connected to a neighbor.
 // Elements can have surface flows, subsurface flows, and other types of flows like water management.
 // When you receive a message from a neighbor it's not enough to know what neighbor it came from.
 // You may have more than one type of connection with that neighbor and you need to know which connection the message refers to.
@@ -23,7 +23,7 @@ enum NeighborEndpointEnum
     TRANSBASIN_OUTFLOW   = 11, // Only allowed as a remote endpoint.  The local endpoint describes whether the boundary is connected to surface, soil, etc.
     RESERVOIR_RELEASE    = 12, // Releasing element is a channel element.  Water comes from surfaceWater.
     RESERVOIR_RECIPIENT  = 13, // Recipient element is a channel element.  Water goes to    surfaceWater.
-    IRRIGATION_DIVERSION = 14, // Diversion element is a channel element.  Water comes from surfaceWater.
+    IRRIGATION_DIVERSION = 14, // Diverting element is a channel element.  Water comes from surfaceWater.
     IRRIGATION_RECIPIENT = 15, // Recipient element is a mesh    element.  Water goes to    surfaceWater.
 };
 
@@ -33,7 +33,7 @@ PUPbytes(NeighborEndpointEnum);
 // It consists of two endpoints.  Each endpoint consists of a NeighborEndpointEnum and an element number.
 // The element number could be a mesh or channel element number depending on the NeighborEndpointEnum.
 // One endpoint is called local and the other remote.
-// A NeighborProxy at one element stores its element as the local endpoint and the other element as the remote element.
+// A NeighborProxy at one element stores its element as the local endpoint and the other element as the remote endpoint.
 // The NeighborProxy at the other end of the connection would store the local and remote endpoints reversed.
 // Two NeighborConnections that are reverses of each other describe the same connection and are equivalent.
 //
@@ -77,7 +77,7 @@ public:
     // Check invariant conditions on data.
     //
     // Returns: true if the invariant is violated, false otherwise.
-    bool checkInvariant();
+    bool checkInvariant() const;
     
     // Comparison operator to provide strict ordering so that NeighborConnection can be used as a Map key.
     //
@@ -86,49 +86,7 @@ public:
     // Parameters:
     //
     // other - The other NeighborConnection to compare to.
-    inline bool operator<(const NeighborConnection& other) const
-    {
-        bool lessThan; // Return value.
-        
-        if (remoteElementNumber < other.remoteElementNumber)
-        {
-            lessThan = true;
-        }
-        else if (remoteElementNumber > other.remoteElementNumber)
-        {
-            lessThan = false;
-        }
-        else if (remoteEndpoint < other.remoteEndpoint)
-        {
-            lessThan = true;
-        }
-        else if (remoteEndpoint > other.remoteEndpoint)
-        {
-            lessThan = false;
-        }
-        else if (localElementNumber < other.localElementNumber)
-        {
-            lessThan = true;
-        }
-        else if (localElementNumber > other.localElementNumber)
-        {
-            lessThan = false;
-        }
-        else if (localEndpoint < other.localEndpoint)
-        {
-            lessThan = true;
-        }
-        else if (localEndpoint > other.localEndpoint)
-        {
-            lessThan = false;
-        }
-        else
-        {
-            lessThan = false;
-        }
-        
-        return lessThan;
-    }
+    bool operator<(const NeighborConnection& other) const;
     
     // Swap the local and remote ends of the connection.
     inline void reverse()
@@ -141,6 +99,87 @@ public:
     size_t               localElementNumber;  // The number of the mesh or channel element at one end of the connection.
     NeighborEndpointEnum remoteEndpoint;      // How the connection is connected at the other end.
     size_t               remoteElementNumber; // The number of the mesh or channel element at the other end of the connection.
+};
+
+// A StateTransfer contains the state that an element has to exchange with its neighbor so that they can calculate nominal flow rates.
+class StateTransfer
+{
+public:
+    
+    // Default constructor.  Only needed for pup_stl.h code.
+    inline StateTransfer() : payload(0) {}
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline StateTransfer(int payload) : payload(payload)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | payload;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    bool checkInvariant() const;
+    
+    int payload; // FIXME this is a placeholder.
+};
+
+// A StateMessage contains a StateTransfer that is being sent and a NeighborConnection to specify the destination.
+class StateMessage
+{
+public:
+    
+    // Default constructor.  Only needed for pup_stl.h code.
+    inline StateMessage() : state(), destination() {}
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline StateMessage(const StateTransfer& state, const NeighborConnection& destination) : state(state), destination(destination)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | state;
+        p | destination;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline bool checkInvariant() const
+    {
+        return state.checkInvariant() || destination.checkInvariant();
+    }
+    
+    StateTransfer      state;       // The state that is being sent.
+    NeighborConnection destination; // The remote neighbor is the destination of this message.
 };
 
 // A WaterTransfer represents some water that has been sent by one element and not yet received by another element.
@@ -179,26 +218,70 @@ public:
     // Check invariant conditions on data.
     //
     // Returns: true if the invariant is violated, false otherwise.
-    bool checkInvariant();
+    bool checkInvariant() const;
     
     double water;     // (m^3) A quantity of water being transferred from one element to another.
     double startTime; // (s) Simulation time when the transfer starts specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double endTime;   // (s) Simulation time when the transfer ends   specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
 };
 
+// A WaterMessage contains a WaterTransfer that is being sent and a NeighborConnection to specify the destination.
+class WaterMessage
+{
+public:
+    
+    // Default constructor.  Only needed for pup_stl.h code.
+    inline WaterMessage() : water(), destination() {}
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline WaterMessage(const WaterTransfer& water, const NeighborConnection& destination) : water(water), destination(destination)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | water;
+        p | destination;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline bool checkInvariant() const
+    {
+        return water.checkInvariant() || destination.checkInvariant();
+    }
+    
+    WaterTransfer      water;       // The water that is being sent.
+    NeighborConnection destination; // The remote neighbor is the destination of this message.
+};
+
 // A NeighborProxy is how elements store their neighbor connections with other elements.  For each neighbor connection, two NeighborProxies are stored, one at each element.
-// The element where the NeighborProxy is stored is its local element.  The other is its remote element.  A NeighborProxy stores the destination information needed to
-// communicate with the remote element, immutable attributes of the remote element needed for local calculations, and information about water flows between the elements.
+// The element where the NeighborProxy is stored is its local neighbor.  The other is its remote neighbor.  A NeighborProxy stores the destination information needed to
+// communicate with the remote neighbor, immutable attributes of the remote neighbor needed for local calculations, and information about water flows between the neighbors.
 class NeighborProxy
 {
 public:
     
     // Default constructor.  Only needed for pup_stl.h code.
-    inline NeighborProxy() : connection(), nominalFlowRate(0.0), expirationTime(0.0), inflowCumulativeShortTerm(0.0), inflowCumulativeLongTerm(0.0), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(0.0), incomingWater() {}
+    inline NeighborProxy() : neighborRegion(0), nominalFlowRate(0.0), expirationTime(0.0), inflowCumulativeShortTerm(0.0), inflowCumulativeLongTerm(0.0),
+                             outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(0.0), incomingWater() {}
     
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborProxy(NeighborConnection connection, double nominalFlowRate, double expirationTime, double inflowCumulative, double outflowCumulative) :
-        connection(connection), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
+    inline NeighborProxy(size_t neighborRegion, double nominalFlowRate, double expirationTime, double inflowCumulative, double outflowCumulative) :
+        neighborRegion(neighborRegion), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
         inflowCumulativeLongTerm(inflowCumulative), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -217,7 +300,7 @@ public:
     // p - Pack/unpack processing object.
     inline void pup(PUP::er &p)
     {
-        p | connection;
+        p | neighborRegion;
         p | nominalFlowRate;
         p | expirationTime;
         p | inflowCumulativeShortTerm;
@@ -230,20 +313,51 @@ public:
     // Check invariant conditions on data.  Does not check that neighbor values are the same as the values stored at the neighbor.  That is done elsewhere with messages.
     //
     // Returns: true if the invariant is violated, false otherwise.
-    bool checkInvariant();
+    bool checkInvariant() const;
     
-    // FIXME helper function to calculate nominalFlowRate
-    
-    // Send a WaterTransfer to the remote element.  The water has already been removed from the local element.
+    // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
+    // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same region, or a boundary condition where there is no neighbor.
+    // If expirationTime is already past currentTime then nominalFlowRate hasn't expired so do nothing.
     //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
-    // water - The water to send.
-    bool sendWaterTransfer(WaterTransfer water);
+    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
+    // connection       - How the local and remote neighbors are connected.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime);
     
-    // Receive a WaterTransfer from the remote element.  The WaterTransfer will be placed in incomingWater to wait until the local element is ready to advance time.
+    // Receive a StateTransfer from the remote neighbor and finish recalculating nominalFlowRate.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // connection - How the local and remote neighbors are connected.
+    // state      - The state that is being received.
+    bool receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state);
+    
+    // Send a WaterTransfer to the remote neighbor.  The water has already been removed from the local element.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
+    // water            - The water to send.
+    bool sendWater(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, const WaterMessage& water);
+    
+    // Returns: true if there are no time gaps in incomingWater between currentTime and timestepEndTime, which implies all WaterTransfers have arrived, false otherwise.  Exit on error.
+    //
+    // Parameters:
+    //
+    // connection      - How the local and remote neighbors are connected.
+    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime);
+    
+    // Receive a WaterTransfer from the remote neighbor.  The WaterTransfer will be placed in incomingWater to wait until the local element is ready to advance time.
     // This keeps the list sorted and checks that the time range of the newly inserted WaterTransfer is non-overlapping.
     //
     // Returns: true if there is an error, false otherwise.
@@ -251,15 +365,7 @@ public:
     // Parameters:
     //
     // water - The water that is being received.
-    bool receiveWaterTransfer(WaterTransfer water);
-    
-    // Returns: true if there are no time gaps in incomingWater between currentTime and timestepEndTime, which implies all WaterTransfers have arrived, false otherwise.  Exit on error.
-    //
-    // Parameters:
-    //
-    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool allWaterHasArrived(double currentTime, double timestepEndTime);
+    bool receiveWaterTransfer(const WaterTransfer& water);
     
     // Remove all water in incomingWater up to timestepEndTime and return that water to the local element to formally receive the water into the state variables of the element.
     //
@@ -267,21 +373,29 @@ public:
     //
     // Parameters:
     //
+    // connection      - How the local and remote neighbors are connected.
+    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    double receiveWater(double timestepEndTime);
+    double receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime);
     
     // Returns: the value of nominalFlowRate.
-    inline double getNominalFlowRate()
+    inline double getNominalFlowRate() const
     {
         return nominalFlowRate;
     }
     
+    // Returns: the value of expirationTime.
+    inline double getExpirationTime() const
+    {
+        return expirationTime;
+    }
+    
 private:
     
-    // Information identifying the two ends of the neighbor connection.
-    NeighborConnection connection;
+    // Destination information needed to communicate with the remote neighbor.
+    size_t neighborRegion; // Where to send messages to contact the remote neighbor.
     
-    // Immutable attributes of the remote element.
+    // Immutable attributes of the remote neighbor.
     // FIXME implement, also constructor, pup, and invariant, and figure out how to initialize
     
     // Mutable state of the current flow between the neighbors.

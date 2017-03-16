@@ -126,7 +126,7 @@ bool evapoTranspirationInit(const char* mpTableFile, const char* vegParmFile, co
 //
 // evapoTranspirationState - a pointer to the state of the evapo-transpiration
 //                           domain.
-float evapoTranspirationTotalWaterInDomain(EvapoTranspirationStateStruct* evapoTranspirationState);
+float evapoTranspirationTotalWaterInDomain(const EvapoTranspirationStateStruct* evapoTranspirationState);
 
 // Calculate evapo-transpiration for a location with a soil surface.  The soil
 // might be currently covered with surfacewater or snow, but it is not
@@ -321,11 +321,22 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
 // Parameters:
 //
 // evapoTranspirationForcing - Struct to check passed by reference.
-bool checkEvapoTranspirationForcingStructInvariant(EvapoTranspirationForcingStruct* evapoTranspirationForcing);
+bool checkEvapoTranspirationForcingStructInvariant(const EvapoTranspirationForcingStruct* evapoTranspirationForcing);
 
-// There's no invariant check for EvapoTranspirationSoilMoistureStruct because
-// some things must be checked against NOAHMP_POROSITY, which is not set until
-// after we call REDPRM so it can only be done inside evapoTranspirationSoil.
+// Check invariant conditions on an EvapoTranspirationSoilMoistureStruct.
+//
+// Returns: true if the invariant is violated, false otherwise.
+//
+// Parameters:
+//
+// evapoTranspirationSoilMoisture - Struct to check passed by reference.
+// porosity                       - Porosity is not in the soil moisture
+//                                  struct, but several of the members must not
+//                                  exceed porosity.  If you do not know the
+//                                  porosity you can still check for internal
+//                                  consistency by taking the default that the
+//                                  porosity must not exceed one.
+bool checkEvapoTranspirationSoilMoistureStructInvariant(const EvapoTranspirationSoilMoistureStruct* evapoTranspirationSoilMoisture, float porosity = 1.0);
 
 // Check invariant conditions on an EvapoTranspirationStateStruct.
 //
@@ -334,6 +345,6 @@ bool checkEvapoTranspirationForcingStructInvariant(EvapoTranspirationForcingStru
 // Parameters:
 //
 // evapoTranspirationState - Struct to check passed by reference.
-bool checkEvapoTranspirationStateStructInvariant(EvapoTranspirationStateStruct* evapoTranspirationState);
+bool checkEvapoTranspirationStateStructInvariant(const EvapoTranspirationStateStruct* evapoTranspirationState);
 
 #endif // __EVAPO_TRANSPIRATION_H__

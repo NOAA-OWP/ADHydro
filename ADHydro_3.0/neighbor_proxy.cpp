@@ -1,77 +1,252 @@
 #include "neighbor_proxy.h"
 
-bool NeighborConnection::checkInvariant()
+// FIXME stubs
+static size_t numberOfMeshElements;
+static size_t numberOfChannelElements;
+static size_t numberOfRegions;
+// FIXME end stubs
+
+bool NeighborConnection::checkInvariant() const
 {
-    bool error           = false; // Error flag.
-    bool localIsMesh     = false; // Flag for detecting self-neighbors.
-    bool localIsChannel  = false; // Flag for detecting self-neighbors.
-    bool remoteIsMesh    = false; // Flag for detecting self-neighbors.
-    bool remoteIsChannel = false; // Flag for detecting self-neighbors.
+    bool error = false; // Error flag.
     
     switch (localEndpoint)
     {
         case MESH_SURFACE:
         case MESH_SOIL:
         case MESH_AQUIFER:
-        case IRRIGATION_RECIPIENT:
-            // FIXME localElementNumber must be a valid mesh element
-            localIsMesh = true;
+            if (!(localElementNumber < numberOfMeshElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                error = true;
+            }
+            
+            switch (remoteEndpoint)
+            {
+                case MESH_SURFACE:
+                case MESH_SOIL:
+                case MESH_AQUIFER:
+                    if (!(remoteElementNumber < numberOfMeshElements))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        error = true;
+                    }
+                    
+                    if (!(localElementNumber != remoteElementNumber))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: invalid self-neighbor in mesh element %d.\n", localElementNumber);
+                        error = true;
+                    }
+                    break;
+                case CHANNEL_SURFACE:
+                    if (!(remoteElementNumber < numberOfChannelElements))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        error = true;
+                    }
+                    break;
+                case BOUNDARY_INFLOW:
+                case BOUNDARY_OUTFLOW:
+                case TRANSBASIN_INFLOW:
+                case TRANSBASIN_OUTFLOW:
+                    // These are valid and have no other conditions.
+                    // FIXME do we want to use remoteElementNumber for something like multiple accounting buckets?
+                    break;
+                default:
+                    CkError("ERROR in NeighborConnection::checkInvariant: invalid remoteEndpoint %d.\n", remoteEndpoint);
+                    error = true;
+                    break;
+            }
             break;
         case CHANNEL_SURFACE:
-        case RESERVOIR_RELEASE:
-        case RESERVOIR_RECIPIENT:
-        case IRRIGATION_DIVERSION:
-            // FIXME localElementNumber must be a valid channel element
-            localIsChannel = true;
+            if (!(localElementNumber < numberOfChannelElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                error = true;
+            }
+            
+            switch (remoteEndpoint)
+            {
+                case MESH_SURFACE:
+                case MESH_SOIL:
+                case MESH_AQUIFER:
+                    if (!(remoteElementNumber < numberOfMeshElements))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        error = true;
+                    }
+                    break;
+                case CHANNEL_SURFACE:
+                    if (!(remoteElementNumber < numberOfChannelElements))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        error = true;
+                    }
+                    
+                    if (!(localElementNumber != remoteElementNumber))
+                    {
+                        CkError("ERROR in NeighborConnection::checkInvariant: invalid self-neighbor in channel element %d.\n", localElementNumber);
+                        error = true;
+                    }
+                    break;
+                case BOUNDARY_INFLOW:
+                case BOUNDARY_OUTFLOW:
+                case TRANSBASIN_INFLOW:
+                case TRANSBASIN_OUTFLOW:
+                    // These are valid and have no other conditions.
+                    // FIXME do we want to use remoteElementNumber for something like multiple accounting buckets?
+                    break;
+                default:
+                    CkError("ERROR in NeighborConnection::checkInvariant: invalid remoteEndpoint %d.\n", remoteEndpoint);
+                    error = true;
+                    break;
+            }
             break;
-        case BOUNDARY_INFLOW:
-        case BOUNDARY_OUTFLOW:
-        case TRANSBASIN_INFLOW:
-        case TRANSBASIN_OUTFLOW:
+        case RESERVOIR_RELEASE:
+            if (!(localElementNumber < numberOfChannelElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                error = true;
+            }
+            
+            if (!(RESERVOIR_RECIPIENT == remoteEndpoint))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: remoteEndpoint for a RESERVOIR_RELEASE must be a RESERVOIR_RECIPIENT.\n");
+                error = true;
+            }
+            else
+            {
+                if (!(remoteElementNumber < numberOfChannelElements))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    error = true;
+                }
+            }
+            break;
+        case RESERVOIR_RECIPIENT:
+            if (!(localElementNumber < numberOfChannelElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                error = true;
+            }
+            
+            if (!(RESERVOIR_RELEASE == remoteEndpoint))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: remoteEndpoint for a RESERVOIR_RECIPIENT must be a RESERVOIR_RELEASE.\n");
+                error = true;
+            }
+            else
+            {
+                if (!(remoteElementNumber < numberOfChannelElements))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    error = true;
+                }
+            }
+            break;
+        case IRRIGATION_DIVERSION:
+            if (!(localElementNumber < numberOfChannelElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                error = true;
+            }
+            
+            if (!(IRRIGATION_RECIPIENT == remoteEndpoint))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: remoteEndpoint for an IRRIGATION_DIVERSION must be an IRRIGATION_RECIPIENT.\n");
+                error = true;
+            }
+            else
+            {
+                if (!(remoteElementNumber < numberOfMeshElements))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                    error = true;
+                }
+            }
+            break;
+        case IRRIGATION_RECIPIENT:
+            if (!(localElementNumber < numberOfMeshElements))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                error = true;
+            }
+            
+            if (!(IRRIGATION_DIVERSION == remoteEndpoint))
+            {
+                CkError("ERROR in NeighborConnection::checkInvariant: remoteEndpoint for an IRRIGATION_RECIPIENT must be an IRRIGATION_DIVERSION.\n");
+                error = true;
+            }
+            else
+            {
+                if (!(remoteElementNumber < numberOfChannelElements))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    error = true;
+                }
+            }
+            break;
         default:
             CkError("ERROR in NeighborConnection::checkInvariant: invalid localEndpoint %d.\n", localEndpoint);
             error = true;
             break;
     }
     
-    switch (remoteEndpoint)
+    return error;
+}
+
+bool NeighborConnection::operator<(const NeighborConnection& other) const
+{
+    bool lessThan; // Return value.
+    
+    if (remoteElementNumber < other.remoteElementNumber)
     {
-        case MESH_SURFACE:
-        case MESH_SOIL:
-        case MESH_AQUIFER:
-        case IRRIGATION_RECIPIENT:
-            // FIXME remoteElementNumber must be a valid mesh element
-            remoteIsMesh = true;
-            break;
-        case CHANNEL_SURFACE:
-        case RESERVOIR_RELEASE:
-        case RESERVOIR_RECIPIENT:
-        case IRRIGATION_DIVERSION:
-            // FIXME remoteElementNumber must be a valid channel element
-            remoteIsChannel = true;
-            break;
-        case BOUNDARY_INFLOW:
-        case BOUNDARY_OUTFLOW:
-        case TRANSBASIN_INFLOW:
-        case TRANSBASIN_OUTFLOW:
-            // FIXME do we want to use remoteElementNumber for something like multiple accounting buckets?
-            break;
-        default:
-            CkError("ERROR in NeighborConnection::checkInvariant: invalid remoteEndpoint %d.\n", localEndpoint);
-            error = true;
-            break;
+        lessThan = true;
+    }
+    else if (remoteElementNumber > other.remoteElementNumber)
+    {
+        lessThan = false;
+    }
+    else if (remoteEndpoint < other.remoteEndpoint)
+    {
+        lessThan = true;
+    }
+    else if (remoteEndpoint > other.remoteEndpoint)
+    {
+        lessThan = false;
+    }
+    else if (localElementNumber < other.localElementNumber)
+    {
+        lessThan = true;
+    }
+    else if (localElementNumber > other.localElementNumber)
+    {
+        lessThan = false;
+    }
+    else if (localEndpoint < other.localEndpoint)
+    {
+        lessThan = true;
+    }
+    else if (localEndpoint > other.localEndpoint)
+    {
+        lessThan = false;
+    }
+    else
+    {
+        lessThan = false;
     }
     
-    if (((localIsMesh && remoteIsMesh) || (localIsChannel && remoteIsChannel)) && localElementNumber == remoteElementNumber)
-    {
-        CkError("ERROR in NeighborConnection::checkInvariant: invalid self-neighbor in %s element %d.\n", (localIsMesh ? "mesh" : "channel"), localElementNumber);
-        error = true;
-    }
+    return lessThan;
+}
+
+bool StateTransfer::checkInvariant() const
+{
+    bool error = false; // Error flag.
     
     return error;
 }
 
-bool WaterTransfer::checkInvariant()
+bool WaterTransfer::checkInvariant() const
 {
     bool error = false; // Error flag.
     
@@ -90,25 +265,16 @@ bool WaterTransfer::checkInvariant()
     return error;
 }
 
-bool NeighborProxy::checkInvariant()
+bool NeighborProxy::checkInvariant() const
 {
-    bool                               error = false;                 // Error flag.
-    std::list<WaterTransfer>::iterator it    = incomingWater.begin(); // Loop iterator.
-    double                             previousEndTime;               // To check that the elements of incomingWater are sorted and non-overlapping.
+    bool                                     error = false;   // Error flag.
+    std::list<WaterTransfer>::const_iterator it;              // Loop iterator.
+    double                                   previousEndTime; // To check that the elements of incomingWater are sorted and non-overlapping.
     
-    error = connection.checkInvariant();
-    
-    // These connection types are one way flows where the two neighbors never communicate to calculate nominalFlowRate.  Instead, the sender just sends water.
-    // We handle this at the recipient by setting nominalFlowRate to -INFINITY and expirationTime to INFINITY.  This is equivalent to saying that the pair has negotiated
-    // that the remote element is the sender, the flow rate will be less than or equal to infinity, and they will meet again to renegotiate at the end of time.
-    // This does not apply to natural boundary and transbasin inflows.  In those cases, there is no other neighbor and the recipient calculates nominalFlowRate.
-    if (RESERVOIR_RECIPIENT == connection.localEndpoint || IRRIGATION_RECIPIENT == connection.localEndpoint)
+    if (!(neighborRegion < numberOfRegions))
     {
-        if (!(-INFINITY == nominalFlowRate && INFINITY == expirationTime))
-        {
-            CkError("ERROR in NeighborProxy::checkInvariant: For a one way flow nominalFlowRate must be minus infinity and expirationTime must be infinity.\n");
-            error = true;
-        }
+        CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than numberOfRegions.\n");
+        error = true;
     }
     
     if (!(0.0 >= inflowCumulativeShortTerm))
@@ -148,34 +314,133 @@ bool NeighborProxy::checkInvariant()
             CkError("ERROR in NeighborProxy::checkInvariant: the last endTime in incomingWater must be less than or equal to expirationTime.\n");
             error = true;
         }
-    }
-    
-    while (it != incomingWater.end())
-    {
-        if (!(-nominalFlowRate * (it->endTime - it->startTime) >= it->water))
-        {
-            CkError("ERROR in NeighborProxy::checkInvariant: water received at a rate greater than nominalFlowRate.\n");
-            error = true;
-        }
         
-        error           = it->checkInvariant() || error;
-        previousEndTime = it->endTime;
-        ++it;
+        previousEndTime = incomingWater.front().startTime;
         
-        if (it != incomingWater.end())
+        for (it = incomingWater.begin(); it != incomingWater.end(); ++it)
         {
+            error = it->checkInvariant() || error;
+            
+            if (!(-nominalFlowRate * (it->endTime - it->startTime) >= it->water)) // FIXME do I need to do epsilon on this check?
+            {
+                CkError("ERROR in NeighborProxy::checkInvariant: water received at a rate greater than nominalFlowRate.\n");
+                error = true;
+            }
+            
             if (!(previousEndTime <= it->startTime))
             {
                 CkError("ERROR in NeighborProxy::checkInvariant: elements of incomingWater must be sorted and non-overlapping.\n");
                 error = true;
             }
+            
+            previousEndTime = it->endTime;
         }
     }
     
     return error;
 }
 
-bool NeighborProxy::sendWaterTransfer(WaterTransfer water)
+bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime)
+{
+    bool error   = false; // Error flag.
+    bool inflow  = false; // Flag for whether the flow is an inflow.
+    bool outflow = false; // Flag for whether the flow is an outflow.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(currentTime <= expirationTime))
+        {
+            CkError("ERROR in NeighborProxy::calculateNominalFlowRate: currentTime must be less than or equal to expirationTime.\n");
+            error = true;
+        }
+    }
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    {
+        error = connection.checkInvariant() || error;
+    }
+    
+    // Only recalculate nominalFlowRate if it has expired.
+    if (!error && currentTime == expirationTime)
+    {
+        // FIXME implement.  If the neighbor is in another region send a message with your state.
+        // If the neighbor is in the same region go get its state and calculate right away.
+        // If this is an inflow or outflow that has no neighbor element calculate right away.
+        // For now I'm just hardcoding something simple.  Mesh elements always flow to channel elements.
+        // Between elements of the same type the higher number element flows to the lower number one.
+        // The flow rate is always 0.1 m^3/s and the expiration time is always 1 s.
+        switch (connection.localEndpoint)
+        {
+            case RESERVOIR_RELEASE:
+            case IRRIGATION_DIVERSION:
+                outflow = true;
+                break;
+            case CHANNEL_SURFACE:
+                if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
+                {
+                    inflow = true;
+                }
+                else if (CHANNEL_SURFACE == connection.remoteEndpoint && connection.localElementNumber < connection.remoteElementNumber)
+                {
+                    inflow = true;
+                }
+                else
+                {
+                    outflow = true;
+                }
+                break;
+            case MESH_SURFACE:
+            case MESH_SOIL:
+            case MESH_AQUIFER:
+                if (BOUNDARY_OUTFLOW == connection.remoteEndpoint || TRANSBASIN_OUTFLOW == connection.remoteEndpoint)
+                {
+                    outflow = true;
+                }
+                else if ((MESH_SURFACE == connection.remoteEndpoint || MESH_SOIL == connection.remoteEndpoint || MESH_AQUIFER == connection.remoteEndpoint) && connection.localElementNumber > connection.remoteElementNumber)
+                {
+                    outflow = true;
+                }
+                else
+                {
+                    inflow = true;
+                }
+                break;
+            default:
+                // For IRRIGATION_RECIPIENT and RESERVOIR_RECIPIENT never recalculate nominalFlowRate and expirationTime.
+                break;
+        }
+        
+        if (outflow)
+        {
+            nominalFlowRate = 0.1;
+            expirationTime  = currentTime + 1.0;
+        }
+        else if (inflow)
+        {
+            nominalFlowRate = -0.1;
+            expirationTime  = currentTime + 1.0;
+        }
+    }
+    
+    return error;
+}
+
+bool receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state)
+{
+    bool error = false; // Error flag.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    {
+        error = connection.checkInvariant();
+        error = state.checkInvariant() || error;
+    }
+    
+    // FIXME implement
+    
+    return error;
+}
+
+bool NeighborProxy::sendWater(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, const WaterMessage& water)
 {
     bool error = false; // Error flag.
     
@@ -185,19 +450,19 @@ bool NeighborProxy::sendWaterTransfer(WaterTransfer water)
         
         if (!(0.0 < nominalFlowRate))
         {
-            CkError("ERROR in NeighborProxy::sendWaterTransfer: when sending water nominalFlowRate must be an outflow.\n");
+            CkError("ERROR in NeighborProxy::sendWater: when sending water nominalFlowRate must be an outflow.\n");
             error = true;
         }
         
-        if (!(water.endTime <= expirationTime))
+        if (!(water.water.endTime <= expirationTime))
         {
-            CkError("ERROR in NeighborProxy::sendWaterTransfer: water.endTime must be less than or equal to expirationTime.\n");
+            CkError("ERROR in NeighborProxy::sendWater: water.water.endTime must be less than or equal to expirationTime.\n");
             error = true;
         }
         
-        if (!(nominalFlowRate * (water.endTime - water.startTime) >= water.water))
+        if (!(nominalFlowRate * (water.water.endTime - water.water.startTime) >= water.water.water))
         {
-            CkError("ERROR in NeighborProxy::sendWaterTransfer: water sent at a rate greater than nominalFlowRate.\n");
+            CkError("ERROR in NeighborProxy::sendWater: water sent at a rate greater than nominalFlowRate.\n");
             error = true;
         }
     }
@@ -205,25 +470,81 @@ bool NeighborProxy::sendWaterTransfer(WaterTransfer water)
     if (!error)
     {
         // Record cumulative flow.
-        if (0.0 != water.water)
+        if (0.0 != water.water.water)
         {
-            if (0.0 != outflowCumulativeShortTerm && (outflowCumulativeShortTerm / water.water) > (outflowCumulativeLongTerm / outflowCumulativeShortTerm))
+            if (0.0 != outflowCumulativeShortTerm && (outflowCumulativeShortTerm / water.water.water) > (outflowCumulativeLongTerm / outflowCumulativeShortTerm))
             {
                 // The relative roundoff error of adding this timestep to short term is greater than adding short term to long term so move short term to long term.
                 outflowCumulativeLongTerm += outflowCumulativeShortTerm;
                 outflowCumulativeShortTerm = 0.0;
             }
             
-            outflowCumulativeShortTerm += water.water;
+            outflowCumulativeShortTerm += water.water.water;
         }
         
-        // FIXME Send message.  If the remote endpoint is a boundary or transbasin outflow there is no recipient element so don't send a message.
+        
+        // Send the water.  If the remote endpoint is a boundary or transbasin outflow there is no recipient element so don't send a message.
+        if (BOUNDARY_OUTFLOW != water.destination.remoteEndpoint && TRANSBASIN_OUTFLOW != water.destination.remoteEndpoint)
+        {
+            outgoingMessages[neighborRegion].push_back(water);
+        }
     }
     
     return error;
 }
 
-bool NeighborProxy::receiveWaterTransfer(WaterTransfer water)
+bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime)
+{
+    std::list<WaterTransfer>::iterator it;                        // Loop iterator.
+    double                             lastEndTime = currentTime; // The last endTime for which water has arrived.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
+            CkExit();
+        }
+        
+        if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
+            CkExit();
+        }
+    }
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    {
+        if (connection.checkInvariant())
+        {
+            CkExit();
+        }
+        
+        if (!(0.0 > nominalFlowRate))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: when calling allWaterHasArrived nominalFlowRate must be an inflow.\n");
+            CkExit();
+        }
+    }
+    
+    // If the remote endpoint is a boundary or transbasin inflow then water is always available.
+    if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
+    {
+        lastEndTime = timestepEndTime;
+    }
+    else
+    {
+        // Check that there are no time gaps in incomingWater.
+        for (it = incomingWater.begin(); it != incomingWater.end() && lastEndTime < timestepEndTime && lastEndTime == it->startTime; ++it)
+        {
+            lastEndTime = it->endTime;
+        }
+    }
+    
+    return (lastEndTime >= timestepEndTime);
+}
+
+bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
 {
     bool                                       error = false;                  // Error flag.
     std::list<WaterTransfer>::reverse_iterator it    = incomingWater.rbegin(); // Loop iterator.
@@ -281,70 +602,76 @@ bool NeighborProxy::receiveWaterTransfer(WaterTransfer water)
     return error;
 }
 
-bool NeighborProxy::allWaterHasArrived(double currentTime, double timestepEndTime)
+double NeighborProxy::receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime)
 {
-    std::list<WaterTransfer>::iterator it          = incomingWater.begin(); // Loop iterator.
-    double                             lastEndTime = currentTime;           // The last endTime for which water has arrived.
+    double water = 0.0;     // (m^3) Return value.
+    double partialQuantity; // (m^3) Part of a WaterTransfer that will be received.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        if (!(currentTime < timestepEndTime))
+        if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
         {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than timestepEndTime.\n");
+            CkError("ERROR in NeighborProxy::receiveWater: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
             CkExit();
         }
         
         if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
         {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
+            CkError("ERROR in NeighborProxy::receiveWater: currentTime must be less than or equal to the first startTime in incomingWater.\n");
             CkExit();
         }
     }
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
     {
+        if (connection.checkInvariant())
+        {
+            CkExit();
+        }
+        
         if (!(0.0 > nominalFlowRate))
         {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: when checking if all water has arrived nominalFlowRate must be an inflow.\n");
+            CkError("ERROR in NeighborProxy::receiveWater: when calling receiveWater nominalFlowRate must be an inflow.\n");
+            CkExit();
+        }
+        
+        if (!allWaterHasArrived(connection, currentTime, timestepEndTime))
+        {
+            CkError("ERROR in NeighborProxy::receiveWater: It is an error to call receiveWater when allWaterHasArrived is false.\n");
             CkExit();
         }
     }
     
-    while (it != incomingWater.end() && lastEndTime < timestepEndTime && lastEndTime == it->startTime)
+    // If the remote endpoint is a boundary or transbasin inflow then water is always available.
+    if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
     {
-        lastEndTime = it->endTime;
-        ++it;
+        water = -nominalFlowRate * (timestepEndTime - currentTime);
     }
-    
-    return (lastEndTime >= timestepEndTime);
-}
-
-double NeighborProxy::receiveWater(double timestepEndTime)
-{
-    double water = 0.0;     // (m^3) The water that is being received.
-    double partialQuantity; // (m^3) Part of a WaterTransfer that will be received.
-    
-    while (!incomingWater.empty() && incomingWater.front().startTime < timestepEndTime)
+    else
     {
-        if (incomingWater.front().endTime <= timestepEndTime)
+        // Get all of the WaterTransfers in incomingWater up to timestepEndTime.
+        while (!incomingWater.empty() && incomingWater.front().startTime < timestepEndTime)
         {
-            // Get this entire WaterTransfer.
-            water += incomingWater.front().water;
-            incomingWater.pop_front();
-        }
-        else
-        {
-            // Get part of this transfer up to timestepEndTime.
-            partialQuantity = incomingWater.front().water * (timestepEndTime - incomingWater.front().startTime) / (incomingWater.front().endTime - incomingWater.front().startTime);
-            
-            if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+            if (incomingWater.front().endTime <= timestepEndTime)
             {
-                CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.front().water);
+                // Get this entire WaterTransfer.
+                water += incomingWater.front().water;
+                incomingWater.pop_front();
             }
-            
-            water                          += partialQuantity;
-            incomingWater.front().water    -= partialQuantity;
-            incomingWater.front().startTime = timestepEndTime;
+            else
+            {
+                // Get part of this transfer up to timestepEndTime.
+                partialQuantity = incomingWater.front().water * (timestepEndTime - incomingWater.front().startTime) / (incomingWater.front().endTime - incomingWater.front().startTime);
+                
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                {
+                    CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.front().water);
+                }
+                
+                water                          += partialQuantity;
+                incomingWater.front().water    -= partialQuantity;
+                incomingWater.front().startTime = timestepEndTime;
+            }
         }
     }
     
