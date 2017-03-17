@@ -96,6 +96,8 @@ MeshOutputVar* Parser::mesh_output_var(IDList* ids)
     //to the appropriate string template to get the value
     if(current_token->getType() == ID)
     {
+        //Should check that ID is an appropriate variable identifier at this point, and
+        //raise a syntax error otherwise. TODO/FIXME
         string tmp = static_cast<TokenTemplate<string>*>(current_token)->value;
         eat(ID);
         return new MeshOutputVar( tmp, ids );
@@ -108,9 +110,18 @@ MeshOutputVar* Parser::mesh_output_var(IDList* ids)
 
 ChannelOutputVar* Parser::channel_output_var(IDList* ids)
 {
-    string tmp = static_cast<TokenTemplate<string>*>(current_token)->value;
-    eat(ID);
-    return new ChannelOutputVar( tmp, ids );
+    if(current_token->getType() == ID)
+    {
+        //Should check that ID is an appropriate variable identifier at this point, and
+        //raise a syntax error otherwise. TODO/FIXME
+        string tmp = static_cast<TokenTemplate<string>*>(current_token)->value;
+        eat(ID);
+        return new ChannelOutputVar( tmp, ids );
+    }
+    else
+    {
+        error("Expected ID token, but got "+current_token->getType());
+    }
 }
 
 AbstractSyntaxTree* Parser::statement()

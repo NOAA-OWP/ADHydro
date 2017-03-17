@@ -20,7 +20,7 @@ class Parser
     * channel_statement     :   CHANNEL id_list channel_output_var
     * id_list               :   (INT)+
     * mesh_output_var       :   surfaceWaterDepth | PrecipitationRate
-    * channel_output_var    :   SurfacewaterDepth | PrecipitationRate
+    * channel_output_var    :   SurfacewaterDepth | PrecipitationRate | channelSurfacewaterChannelNeighborsFlowRate
     * 
     * 
     * 
