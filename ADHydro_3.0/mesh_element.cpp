@@ -860,6 +860,7 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             switch(it->first.localEndpoint)
             {
                 case MESH_SURFACE:
+                case IRRIGATION_RECIPIENT:
                     if (0.0 > it->second.getNominalFlowRate())
                     {
                         surfaceWater    += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
@@ -875,12 +876,6 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
                     if (0.0 > it->second.getNominalFlowRate())
                     {
                         aquiferRecharge += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
-                    }
-                    break;
-                case IRRIGATION_RECIPIENT:
-                    if (0.0 > it->second.getNominalFlowRate())
-                    {
-                        surfaceWater    += it->second.receiveWater(it->first, currentTime, timestepEndTime) / elementArea;
                     }
                     break;
                 default:

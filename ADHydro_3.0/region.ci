@@ -20,6 +20,9 @@ module region
                     // FIXME outgoingMessages could be made a member variable of Region to avoid repeated construction/destruction of vectors.
                     
                     // Loop over all elements, who will loop over all of their NeighborProxies telling them to calculate their nominal flow rate if it has expired.
+                    // FIXME it could be more efficient to have two loops, the first sends all messages, and the second does all calculation that doesn't require messages.
+                    // This would provide more time for overlapping computation and communication.
+                    // FIXME For internal neighbors, I could always calculate a new nominal flow rate each timestep.  It may be inexpensive since it won't require a message.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                     {
                         if (itMesh->second.calculateNominalFlowRates(outgoingMessages, currentTime))

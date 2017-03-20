@@ -9,7 +9,13 @@ bool Region::checkInvariant() const
 {
     bool error = false; // Error flag.
     
-    // FIXME implement
+    if (!(currentTime <= timestepEndTime && timestepEndTime <= simulationEndTime)) // FIXME timestepEndTime <= nextSyncTime <= simulationEndTime
+    {
+        CkError("ERROR in Region::checkInvariant: currentTime must be less than or equal to timestepEndTime, which must be less than or equal to simulationEndTime.\n");
+        error = true;
+    }
+    
+    // FIXME check invariant on mesh and channel elements
     
     return error;
 }

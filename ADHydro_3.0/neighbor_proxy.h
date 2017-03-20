@@ -106,9 +106,6 @@ class StateTransfer
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline StateTransfer() : payload(0) {}
-    
     // Constructor.  All parameters directly initialize member variables.
     inline StateTransfer(int payload) : payload(payload)
     {
@@ -145,7 +142,7 @@ class StateMessage
 public:
     
     // Default constructor.  Only needed for pup_stl.h code.
-    inline StateMessage() : state(), destination() {}
+    inline StateMessage() : state(0), destination() {}
     
     // Constructor.  All parameters directly initialize member variables.
     inline StateMessage(const StateTransfer& state, const NeighborConnection& destination) : state(state), destination(destination)

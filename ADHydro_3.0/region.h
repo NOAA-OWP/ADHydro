@@ -58,7 +58,7 @@ public:
     // Parameters:
     //
     // msg - Migration message.
-    Region(CkMigrateMessage* msg);
+    inline Region(CkMigrateMessage* msg) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), meshElements(), channelElements() {}
     
     // Charm++ pack/unpack method.
     //
@@ -67,6 +67,9 @@ public:
     // p - Pack/unpack processing object.
     inline void pup(PUP::er &p)
     {
+        CBase_Region::pup(p);
+        __sdag_pup(p);
+        
         p | currentTime;
         p | timestepEndTime;
         p | meshElements;
