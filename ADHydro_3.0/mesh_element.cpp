@@ -398,7 +398,6 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
     EvapoTranspirationSoilMoistureStruct evapoTranspirationSoilMoisture; // For passing soil moisture profile to Noah-MP.
     double originalEvapoTranspirationTotalWaterInDomain;                 // (mm) For mass balance check.
     double dt                   = timestepEndTime - currentTime;         // (s) Duration of timestep.
-    float  floatDt              = dt;                                    // (s) Duration of timestep as a float for passing to Noah-MP.
     float  surfacewaterAdd;                                              // (mm) Water from Noah-MP that must be added to surface water.  Must be non-negative.
     float  evaporationFromCanopy;                                        // (mm) Water that Noah-MP already added to or removed from the canopy for evaporation or condensation.
                                                                          // Positive means water evaporated off of the canopy.  Negative means water condensed on to the canopy.
@@ -529,7 +528,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
         originalEvapoTranspirationTotalWaterInDomain = evapoTranspirationTotalWaterInDomain(&evapoTranspirationState);
         
         // Call Noah-MP.
-        error = evapoTranspirationSoil(vegetationType, groundType, latitude, yearlen, julian, cosZ, floatDt, sqrt(elementArea), &evapoTranspirationForcing,
+        error = evapoTranspirationSoil(vegetationType, groundType, latitude, yearlen, julian, cosZ, dt, sqrt(elementArea), &evapoTranspirationForcing,
                                        &evapoTranspirationSoilMoisture, &evapoTranspirationState, &surfacewaterAdd, &evaporationFromCanopy, &evaporationFromSnow,
                                        &evaporationFromGround, &transpirationFromVegetation, &noahMPWaterCreated);
     }
@@ -554,7 +553,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
         unsatisfiedEvaporation   = evaporationFromGround / 1000.0;                                         // Divide by a thousand to convert from millimeters to meters.
         unsatisfiedTranspiration = transpirationFromVegetation / 1000.0;                                   // Divide by a thousand to convert from millimeters to meters.
         
-        // Take evaporation first from surfaceWater, and then if there isn't enough SurfaceWater take the rest from subsurface water.
+        // Take evaporation first from surfaceWater, and then if there isn't enough surfaceWater take the rest from subsurface water.
         if (surfaceWater           >= unsatisfiedEvaporation)
         {
             evaporation            += unsatisfiedEvaporation;
@@ -590,8 +589,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
             aquiferRecharge         -= unsatisfiedTranspiration;
             unsatisfiedTranspiration = 0.0;
         }
-        else if ((2 <= Readonly::verbosityLevel && 0.1 < unsatisfiedEvaporation + unsatisfiedTranspiration) ||
-                 (3 <= Readonly::verbosityLevel && 0.0 < unsatisfiedEvaporation + unsatisfiedTranspiration))
+        else if ((2 <= Readonly::verbosityLevel && 0.1 < unsatisfiedEvaporation + unsatisfiedTranspiration) || (3 <= Readonly::verbosityLevel && 0.0 < unsatisfiedEvaporation + unsatisfiedTranspiration))
         {
             CkError("WARNING in MeshElement::doPointProcessesAndSendOutflows, element %lu: unsatisfied evapotranspiration of %le meters.\n", elementNumber, unsatisfiedEvaporation + unsatisfiedTranspiration);
         }

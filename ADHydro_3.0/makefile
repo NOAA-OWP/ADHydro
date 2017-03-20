@@ -23,6 +23,7 @@ EXES := adhydro
 
 ADHYDRO_OBJS := region.o              \
                 mesh_element.o        \
+                channel_element.o     \
                 neighbor_proxy.o      \
                 simple_groundwater.o  \
                 evapo_transpiration.o \
@@ -43,6 +44,7 @@ region.o: region.cpp            \
           region.decl.h         \
           region.def.h          \
           mesh_element.h        \
+          channel_element.h     \
           neighbor_proxy.h      \
           simple_groundwater.h  \
           evapo_transpiration.h \
@@ -61,6 +63,14 @@ mesh_element.o: mesh_element.cpp      \
                 evapo_transpiration.h \
                 readonly.h            \
                 all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+channel_element.o: channel_element.cpp   \
+                   channel_element.h     \
+                   neighbor_proxy.h      \
+                   evapo_transpiration.h \
+                   readonly.h            \
+                   all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 neighbor_proxy.o: neighbor_proxy.cpp \

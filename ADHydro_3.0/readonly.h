@@ -19,6 +19,7 @@ public:
     static double checkpointPeriod;    // (s) Time duration between state checkpoints.  Must be positive.  Checkpoints occur at simulationStartTime + checkpointPeriod, simulationStartTime + 2 * checkpointPeriod, etc.
                                        // There is always a checkpoint at the end of the simulation even if it is not on a multiple of checkpointPeriod.
     static size_t checkpointGroupSize; // The number of state checkpoints that are accumulated and outputed at the same time.  Zero is treated as one.  Increasing this number can reduce time spent on I/O.
+    static bool   drainDownMode;       // If true, do not allow channels to have more water than bank-full.  Excess water is discarded.
     static size_t verbosityLevel;      // Controls the amount of messages printed to the console.
 };
 

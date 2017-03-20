@@ -2,23 +2,7 @@
 #define __REGION_H__
 
 #include "mesh_element.h"
-
-// FIXME stubs for channel_element.h
-class ChannelElement
-{
-public:
-    void pup(PUP::er &p);
-    bool checkInvariant() const;
-    bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime);
-    bool receiveState(const StateMessage& state);
-    double minimumExpirationTime();
-    bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, double currentTime, double timestepEndTime);
-    bool allInflowsHaveArrived(double currentTime, double timestepEndTime);
-    bool receiveWater(const WaterMessage& water);
-    bool receiveInflowsAndUpdateState(double currentTime, double timestepEndTime);
-};
-// FIXME end stubs for channel_element.h
-
+#include "channel_element.h"
 #include "readonly.h"
 #include "region.decl.h"
 

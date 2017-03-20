@@ -9,6 +9,7 @@ bool Readonly::checkInvariant()
     const static double originalSimulationDuration  = simulationDuration;  // For checking that readonly values are never changed.
     const static double originalCheckpointPeriod    = checkpointPeriod;    // For checking that readonly values are never changed.
     const static size_t originalCheckpointGroupSize = checkpointGroupSize; // For checking that readonly values are never changed.
+    const static bool   originalDrainDownMode       = drainDownMode;       // For checking that readonly values are never changed.
     const static size_t originalVerbosityLevel      = verbosityLevel;      // For checking that readonly values are never changed.
     
     if (!(1721425.5 <= referenceDate))
@@ -59,6 +60,12 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(originalDrainDownMode == drainDownMode))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: drainDownMode changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
     if (!(originalVerbosityLevel == verbosityLevel))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: verbosityLevel changed, which is not allowed for a readonly variable.\n");
@@ -74,4 +81,5 @@ double Readonly::simulationStartTime;
 double Readonly::simulationDuration;
 double Readonly::checkpointPeriod;
 size_t Readonly::checkpointGroupSize;
+bool   Readonly::drainDownMode;
 size_t Readonly::verbosityLevel;
