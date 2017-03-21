@@ -7,7 +7,9 @@
 
 bool Region::checkInvariant() const
 {
-    bool error = false; // Error flag.
+    bool                                             error = false; // Error flag.
+    std::map<size_t,    MeshElement>::const_iterator itMesh;        // Loop iterator.
+    std::map<size_t, ChannelElement>::const_iterator itChannel;     // Loop iterator.
     
     if (!(currentTime <= timestepEndTime && timestepEndTime <= simulationEndTime)) // FIXME timestepEndTime <= nextSyncTime <= simulationEndTime
     {
@@ -15,7 +17,15 @@ bool Region::checkInvariant() const
         error = true;
     }
     
-    // FIXME check invariant on mesh and channel elements
+    for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+    {
+        error = itMesh->second.checkInvariant() || error;
+    }
+    
+    for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+    {
+        error = itChannel->second.checkInvariant() || error;
+    }
     
     return error;
 }
