@@ -425,7 +425,7 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
     return error;
 }
 
-bool receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state)
+bool NeighborProxy::receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state)
 {
     bool error = false; // Error flag.
     

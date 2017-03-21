@@ -1,0 +1,25 @@
+mainmodule adhydro
+{
+    extern module region;
+    // FIXME extern module output_manager_charm;
+    
+    mainchare ADHydro
+    {
+        // Constructor.  This is the mainchare constructor where the program starts.
+        entry ADHydro(CkArgMsg* msg);
+        
+        // Global readonly variables.
+        readonly CProxy_Region regionProxy;
+        // FIXME readonly CProxy_OutputManagerCharm outputManagerProxy;
+    }; // End mainchare ADHydro.
+    
+    // Global readonly variables.
+    readonly double      Readonly::referenceDate;
+    readonly double      Readonly::simulationStartTime;
+    readonly double      Readonly::simulationDuration;
+    readonly double      Readonly::checkpointPeriod;
+    readonly size_t      Readonly::checkpointGroupSize;
+    readonly std::string Readonly::checkpointDirectoryPath;
+    readonly bool        Readonly::drainDownMode;
+    readonly size_t      Readonly::verbosityLevel;
+}; // End mainmodule adhydro.
