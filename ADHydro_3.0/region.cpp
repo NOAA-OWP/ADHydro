@@ -133,7 +133,7 @@ bool Region::allInflowsHaveArrived()
     std::map<size_t,    MeshElement>::iterator itMesh;         // Loop iterator.
     std::map<size_t, ChannelElement>::iterator itChannel;      // Loop iterator.
     
-    // This could be done more efficiently by having counters that get incremented each time a NeighborProxy gets all of its water rather than iterating over all NeighborProxies each time.
+    // FIXME This could be done more efficiently by having counters that get incremented each time a NeighborProxy gets all of its water rather than iterating over all NeighborProxies each time.
     
     for (itMesh = meshElements.begin(); arrived && itMesh != meshElements.end(); ++itMesh)
     {
