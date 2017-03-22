@@ -7,6 +7,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
     bool        error         = false;                                   // Error flag.
     const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
     INIReader   superfile(superfileName);                                // Superfile reader object.
+    std::string noahMPDirectoryPath;                                     // Directory path to use with default filenames if file paths not specified.
     long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
     long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
     long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
@@ -36,7 +37,12 @@ ADHydro::ADHydro(CkArgMsg* msg)
     if (!error)
     {
         // Get readonly variables from the superfile.
-        Readonly::referenceDate = superfile.GetReal("", "referenceDateJulian", NAN);
+        noahMPDirectoryPath              = superfile.Get(    "", "noahMPDirectoryPath", ".");
+        Readonly::noahMPMpTableFilePath  = superfile.Get(    "", "noahMPMpTableFilePath",  noahMPDirectoryPath + "/MPTABLE.TBL");
+        Readonly::noahMPVegParmFilePath  = superfile.Get(    "", "noahMPVegParmFilePath",  noahMPDirectoryPath + "/VEGPARM.TBL");
+        Readonly::noahMPSoilParmFilePath = superfile.Get(    "", "noahMPSoilParmFilePath", noahMPDirectoryPath + "/SOILPARM.TBL");
+        Readonly::noahMPGenParmFilePath  = superfile.Get(    "", "noahMPGenParmFilePath",  noahMPDirectoryPath + "/GENPARM.TBL");
+        Readonly::referenceDate          = superfile.GetReal("", "referenceDateJulian", NAN);
         
         // If there is no referenceDateJulian read a Gregorian date and convert to Julian date.
         if (isnan(Readonly::referenceDate))
@@ -66,12 +72,22 @@ ADHydro::ADHydro(CkArgMsg* msg)
     
     if (!error)
     {
+        // Get readonly variables from the superfile.
         Readonly::simulationStartTime     = superfile.GetReal(   "", "simulationStartTime",     NAN);
         Readonly::simulationDuration      = superfile.GetReal(   "", "simulationDuration",      NAN);
         Readonly::checkpointPeriod        = superfile.GetReal(   "", "checkpointPeriod",        INFINITY);
         Readonly::checkpointGroupSize     = superfile.GetInteger("", "checkpointGroupSize",     1);
         Readonly::checkpointDirectoryPath = superfile.Get(       "", "checkpointDirectoryPath", ".");
+        Readonly::drainDownMode           = superfile.GetBoolean("", "drainDownMode",           false);
+        Readonly::zeroExpirationTime      = superfile.GetBoolean("", "zeroExpirationTime",      false);
+        Readonly::zeroCumulativeFlow      = superfile.GetBoolean("", "zeroCumulativeFlow",      false);
+        Readonly::zeroWaterCreated        = superfile.GetBoolean("", "zeroWaterCreated",        false);
         Readonly::verbosityLevel          = superfile.GetInteger("", "verbosityLevel",          2);
+        
+        if (!isnan(Readonly::simulationStartTime))
+        {
+            Readonly::zeroExpirationTime = true;
+        }
         
         if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
         {
@@ -86,20 +102,22 @@ ADHydro::ADHydro(CkArgMsg* msg)
             
             if (!(0.0 < Readonly::checkpointPeriod))
             {
-                CkError("ERROR in ADHydro::ADHydro: outputPeriod must be greater than zero.\n");
+                CkError("ERROR in ADHydro::ADHydro: checkpointPeriod must be greater than zero.\n");
                 error = true;
             }
         }
-        
-        if (0 == Readonly::checkpointGroupSize)
-        {
-            Readonly::checkpointGroupSize = 1;
-        }
     }
     
-    /*
     if (!error)
     {
+        // FIXME put this in a chare group so it gets done on every PE.
+        // Initialize Noah-MP.
+        error = evapoTranspirationInit(Readonly::noahMPMpTableFilePath.c_str(),  Readonly::noahMPVegParmFilePath.c_str(), Readonly::noahMPSoilParmFilePath.c_str(), Readonly::noahMPGenParmFilePath.c_str());
+    }
+    
+    if (!error)
+    {
+        /*
         // Create output manager.
         outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
         
@@ -125,8 +143,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
         outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
         channelState.elementNumber = 3;
         outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
+        */
     }
-    */
     
     if (error)
     {

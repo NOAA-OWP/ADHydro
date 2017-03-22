@@ -4,6 +4,10 @@
 bool Readonly::checkInvariant()
 {
     bool                     error                           = false;                   // Error flag.
+    const static std::string originalNoahMPMpTableFilePath   = noahMPMpTableFilePath;   // For checking that readonly values are never changed.
+    const static std::string originalNoahMPVegParmFilePath   = noahMPVegParmFilePath;   // For checking that readonly values are never changed.
+    const static std::string originalNoahMPSoilParmFilePath  = noahMPSoilParmFilePath;  // For checking that readonly values are never changed.
+    const static std::string originalNoahMPGenParmFilePath   = noahMPGenParmFilePath;   // For checking that readonly values are never changed.
     const static double      originalReferenceDate           = referenceDate;           // For checking that readonly values are never changed.
     const static double      originalSimulationStartTime     = simulationStartTime;     // For checking that readonly values are never changed.
     const static double      originalSimulationDuration      = simulationDuration;      // For checking that readonly values are never changed.
@@ -11,7 +15,34 @@ bool Readonly::checkInvariant()
     const static size_t      originalCheckpointGroupSize     = checkpointGroupSize;     // For checking that readonly values are never changed.
     const static std::string originalCheckpointDirectoryPath = checkpointDirectoryPath; // For checking that readonly values are never changed.
     const static bool        originalDrainDownMode           = drainDownMode;           // For checking that readonly values are never changed.
+    const static bool        originalZeroExpirationTime      = zeroExpirationTime;      // For checking that readonly values are never changed.
+    const static bool        originalZeroCumulativeFlow      = zeroCumulativeFlow;      // For checking that readonly values are never changed.
+    const static bool        originalZeroWaterCreated        = zeroWaterCreated;        // For checking that readonly values are never changed.
     const static size_t      originalVerbosityLevel          = verbosityLevel;          // For checking that readonly values are never changed.
+    
+    if (!(originalNoahMPMpTableFilePath == noahMPMpTableFilePath))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: noahMPMpTableFilePath changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
+    if (!(originalNoahMPVegParmFilePath == noahMPVegParmFilePath))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: noahMPVegParmFilePath changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
+    if (!(originalNoahMPSoilParmFilePath == noahMPSoilParmFilePath))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: noahMPSoilParmFilePath changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
+    if (!(originalNoahMPGenParmFilePath == noahMPGenParmFilePath))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: noahMPGenParmFilePath changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
     
     if (!(1721425.5 <= referenceDate))
     {
@@ -73,6 +104,24 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(originalZeroExpirationTime == zeroExpirationTime))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: zeroExpirationTime changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
+    if (!(originalZeroCumulativeFlow == zeroCumulativeFlow))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: zeroCumulativeFlow changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
+    if (!(originalZeroWaterCreated == zeroWaterCreated))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: zeroWaterCreated changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+    
     if (!(originalVerbosityLevel == verbosityLevel))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: verbosityLevel changed, which is not allowed for a readonly variable.\n");
@@ -83,6 +132,10 @@ bool Readonly::checkInvariant()
 }
 
 // Global readonly variables.
+std::string Readonly::noahMPMpTableFilePath;
+std::string Readonly::noahMPVegParmFilePath;
+std::string Readonly::noahMPSoilParmFilePath;
+std::string Readonly::noahMPGenParmFilePath;
 double      Readonly::referenceDate;
 double      Readonly::simulationStartTime;
 double      Readonly::simulationDuration;
@@ -90,4 +143,7 @@ double      Readonly::checkpointPeriod;
 size_t      Readonly::checkpointGroupSize;
 std::string Readonly::checkpointDirectoryPath;
 bool        Readonly::drainDownMode;
+bool        Readonly::zeroExpirationTime;
+bool        Readonly::zeroCumulativeFlow;
+bool        Readonly::zeroWaterCreated;
 size_t      Readonly::verbosityLevel;
