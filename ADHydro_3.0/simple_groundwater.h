@@ -51,11 +51,9 @@ class SimpleGroundwater
 {
 public:
     
-    // Constructor.
+    // Constructor.  All parameters directly initialize member variables except for:
     //
     // Parameters:
-    //
-    // All parameters directly initialize member variables except for:
     //
     // saturationDepth - (m) If this value is not NAN and is greater than or equal to zero, the water parameter is ignored, and the water member variable is initialized from this saturation depth.
     //                   Otherwise, this parameter is ignored and the water member variable is initialized to the water parameter.

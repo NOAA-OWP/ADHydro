@@ -165,6 +165,58 @@ bool ChannelElement::checkInvariant() const
     return error;
 }
 
+bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages)
+{
+    bool                                                  error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
+    
+    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
+    {
+        error = it->second.sendNeighborAttributes(outgoingMessages, NeighborMessage(NeighborAttributes(0), it->first));
+    }
+    
+    return error;
+}
+
+bool ChannelElement::allNeighborAttributesInitialized()
+{
+    bool                                                  initialized = true; // Return value flag gets set to false when we find one that has not been initialized.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;                 // Loop iterator.
+    
+    for (it = neighbors.begin(); initialized && it != neighbors.end(); ++it)
+    {
+        initialized = it->second.getAttributesInitialized();
+    }
+    
+    return initialized;
+}
+
+bool ChannelElement::receiveNeighborAttributes(const NeighborMessage& message)
+{
+    bool                                                  error = false;                               // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(message.destination); // Iterator for finding correct NeighborProxy.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = message.checkInvariant();
+        
+        if (!(neighbors.end() != it))
+        {
+            CkError("ERROR in ChannelElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+    }
+    
+    if (!error)
+    {
+        error = it->second.receiveNeighborAttributes(message.attributes);
+    }
+    
+    return error;
+}
+
 bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime)
 {
     bool                                                  error = false; // Error flag.
@@ -405,7 +457,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
-                        CkAssert(false); // These endpoints are invalid here.
+                        CkAssert(false); // All other endpoints are invalid here.
                     }
                     break;
             }
@@ -462,7 +514,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
             default:
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                 {
-                    CkAssert(false); // These endpoints are invalid here.
+                    CkAssert(false); // All other endpoints are invalid here.
                 }
                 break;
         }
@@ -558,7 +610,7 @@ bool ChannelElement::receiveInflowsAndUpdateState(double currentTime, double tim
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
-                        CkAssert(false); // These endpoints are invalid here.
+                        CkAssert(false); // All other endpoints are invalid here.
                     }
                     break;
             }

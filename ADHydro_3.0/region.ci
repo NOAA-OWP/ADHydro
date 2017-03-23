@@ -8,6 +8,102 @@ module region
         // Dummy function for structured dagger.
         entry void runUntilSimulationEnd()
         {
+            // Do initialization.  First receive all elements.
+            // FIXME performance optimization aggregate initialization messages.
+            while (meshElements.size() < 1 /* FIXME numberOfMeshElements */ || channelElements.size() < 1 /* FIXME numberOfChannelElements*/)
+            {
+                case
+                {
+                    when sendInitializeMeshElement(const MeshElement& element)
+                    {
+                        serial
+                        {
+                            std::map<size_t, std::vector<NeighborMessage> >::iterator itMessage;        // Loop iterator.
+                            std::map<size_t, std::vector<NeighborMessage> >           outgoingMessages; // Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+                            // FIXME outgoingMessages could be made a member variable of Region to avoid repeated construction/destruction of vectors.
+                            
+                            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                            {
+                                if (element.checkInvariant())
+                                {
+                                    CkExit();
+                                }
+                            }
+                            
+                            meshElements.insert(std::pair<size_t, MeshElement>(element.getElementNumber(), element));
+                            
+                            // Send messages to initialize NeighborProxy remote neighbor attributes.
+                            meshElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages);
+                            
+                            for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
+                            {
+                                if (itMessage->first == thisIndex)
+                                {
+                                    // Don't need to send a message to myself.  Just receive the message immediately.
+                                    // FIXME will I send messages at all?
+                                    receiveNeighborAttributes(itMessage->second);
+                                }
+                                else
+                                {
+                                    // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
+                                    thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
+                                }
+                            }
+                        }
+                    }
+                    
+                    when sendInitializeChannelElement(const ChannelElement& element)
+                    {
+                        serial
+                        {
+                            std::map<size_t, std::vector<NeighborMessage> >::iterator itMessage;        // Loop iterator.
+                            std::map<size_t, std::vector<NeighborMessage> >           outgoingMessages; // Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+                            // FIXME outgoingMessages could be made a member variable of Region to avoid repeated construction/destruction of vectors.
+                            
+                            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                            {
+                                if (element.checkInvariant())
+                                {
+                                    CkExit();
+                                }
+                            }
+                            
+                            channelElements.insert(std::pair<size_t, ChannelElement>(element.getElementNumber(), element));
+                            
+                            // Send messages to initialize NeighborProxy remote neighbor attributes.
+                            channelElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages);
+                            
+                            for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
+                            {
+                                if (itMessage->first == thisIndex)
+                                {
+                                    // Don't need to send a message to myself.  Just receive the message immediately.
+                                    // FIXME will I send messages at all?
+                                    receiveNeighborAttributes(itMessage->second);
+                                }
+                                else
+                                {
+                                    // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
+                                    thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Receive until all NeighborProxies are initialized.
+            while (!allNeighborAttributesInitialized())
+            {
+                when sendNeighborAttributes(const std::vector<NeighborMessage>& messages)
+                {
+                    serial
+                    {
+                        receiveNeighborAttributes(messages);
+                    }
+                }
+            }
+            
             while (currentTime < simulationEndTime)
             {
                 // Step 1: Calculate nominal flow rates with neighbors.
@@ -169,8 +265,18 @@ module region
                     currentTime = timestepEndTime;
                 }
             } // End while (currentTime < simulationEndTime).
+            
+            // Wait until all regions finish before exiting.
+            // FIXME put this in the checkpoint manager so it waits until the last checkpoint is written before exiting.
+            serial
+            {
+                contribute(CkCallback(CkCallback::ckExit));
+            }
         }; // End entry void runUntilSimulationEnd().
         
+        entry void sendInitializeMeshElement(const MeshElement& element);
+        entry void sendInitializeChannelElement(const ChannelElement& element);
+        entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
         entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
         entry void sendWater(const std::vector<WaterMessage>& messages);
     }; // End array [1D] Region.

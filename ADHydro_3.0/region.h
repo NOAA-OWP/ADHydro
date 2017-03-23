@@ -26,6 +26,8 @@
 // The architecture allows neighboring containers to use different timesteps by agreeing on flow rates and using accumulators for flow quantities.
 // In the current implementation, all elements within a single region use the same timestep, but different regions can use different timesteps.
 //
+// Within a Region, elements can interact by directly accessing each others' public methods.  Only communication between Regions requires Charm++ messages.
+//
 // Simulation time is moved forward by the following five steps:
 //
 // Step 1: Calculate nominal flow rates with neighbors.
@@ -81,10 +83,24 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Returns: true if allNeighborAttributesInitialized is true for all elements, false otherwise.
+    bool allNeighborAttributesInitialized();
+    
+    // Pass received NeighborMessages down to the appropriate element.  Exit on error.
+    //
+    // Parameters:
+    //
+    // messages - The received messages.
+    void receiveNeighborAttributes(std::vector<NeighborMessage>& messages);
+    
     // Returns: true if minimumExpirationTime is greater than currentTime for all elements, false otherwise.
     bool allNominalFlowRatesCalculated();
     
     // Pass received StateMessages down to the appropriate element.  Exit on error.
+    //
+    // Parameters:
+    //
+    // messages - The received messages.
     void receiveState(std::vector<StateMessage>& messages);
     
     // Set timestepEndTime to be no later than minimumExpirationTime of any element, and no later than various other times we cannot exceed such as forcing data updates, output times, or the simulation end time.
@@ -94,9 +110,21 @@ public:
     bool allInflowsHaveArrived();
     
     // Pass received WaterMessages down to the appropriate element.  Exit on error.
+    //
+    // Parameters:
+    //
+    // messages - The received messages.
     void receiveWater(std::vector<WaterMessage>& messages);
     
 private:
+    
+    // Returns: A reference to the indicated Element, which could be a MeshElement or ChannelElement.  Exit on error.
+    //
+    // Parameters:
+    //
+    // localEndpoint      - What kind of element.
+    // localElementNumber - Which element of that kind.
+    Element& findElement(NeighborEndpointEnum localEndpoint, size_t localElementNumber);
     
     // Simulation time.
     double currentTime;     // (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.

@@ -17,7 +17,7 @@ enum GroundwaterModeEnum
 PUPbytes(GroundwaterModeEnum);
 
 // A MeshElement is a triangular element in the mesh.  It simulates overland (non-channel) surfacewater state as well as groundwater and vadose zone state.
-class MeshElement
+class MeshElement : public Element
 {
 public:
     
@@ -29,18 +29,19 @@ public:
                            precipitationCumulativeLongTerm(0.0), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), transpirationRate(0.0),
                            transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(0.0), neighbors() {}
     
-    // Constructor.  All parameters directly initialize member variables.  FIXME initialize neighbors somehow.
+    // Constructor.  All parameters directly initialize member variables.
     inline MeshElement(size_t elementNumber, size_t catchment, double elementX, double elementY, double elementZ, double elementArea, double latitude, double longitude, int vegetationType, int groundType,
                        double manningsN, bool soilExists, double impedanceConductivity, bool aquiferExists, double deepConductivity, const EvapoTranspirationStateStruct& evapoTranspirationState,
                        double surfaceWater, double surfaceWaterCreated, GroundwaterModeEnum groundwaterMode, double perchedHead, const SimpleGroundwater& soilWater, double soilWaterCreated, double aquiferHead,
-                       const SimpleGroundwater& aquiferWater, double aquiferWaterCreated, double deepGroundwater, double precipitationCumulative, double evaporationCumulative, double transpirationCumulative) :
+                       const SimpleGroundwater& aquiferWater, double aquiferWaterCreated, double deepGroundwater, double precipitationCumulative, double evaporationCumulative, double transpirationCumulative,
+                       const std::map<NeighborConnection, NeighborProxy>& neighbors) :
         elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude),
         vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
         deepConductivity(deepConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
         surfaceWaterCreated(surfaceWaterCreated), groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated), soilRecharge(0.0),
         aquiferHead(aquiferHead), aquiferWater(aquiferWater), aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater), precipitationRate(0.0),
         precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0),
-        evaporationCumulativeLongTerm(evaporationCumulative), transpirationRate(0.0), transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(transpirationCumulative), neighbors()
+        evaporationCumulativeLongTerm(evaporationCumulative), transpirationRate(0.0), transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(transpirationCumulative), neighbors(neighbors)
     {
         // Values for evapoTranspirationForcing are going to be received before we start simulating.  For now, just fill in values that will pass the invariant.
         evapoTranspirationForcing.dz8w   = 20.0f;
@@ -119,6 +120,27 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Call sendNeighborAttributes on all NeighborProxies.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages);
+    
+    // Returns: true if attributesInitialized is true for all NeighborProxies, false otherwise.
+    bool allNeighborAttributesInitialized();
+    
+    // Pass the received NeighborMessage to the correct NeighborProxy so that it can save the NeighborAttributes.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // message - The received message.
+    bool receiveNeighborAttributes(const NeighborMessage& message);
+    
     // Call calculateNominalFlowRate on all NeighborProxies.
     //
     // Returns: true if there is an error, false otherwise.
@@ -178,6 +200,12 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool receiveInflowsAndUpdateState(double currentTime, double timestepEndTime);
+    
+    // Returns: the value of elementNumber.
+    inline double getElementNumber() const
+    {
+        return elementNumber;
+    }
     
 private:
     

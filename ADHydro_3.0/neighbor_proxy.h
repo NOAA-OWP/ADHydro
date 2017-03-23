@@ -101,6 +101,84 @@ public:
     size_t               remoteElementNumber; // The number of the mesh or channel element at the other end of the connection.
 };
 
+// A NeighborAttributes contains the immutable attributes an element needs to know about its remote neighbor in order to calculate nominal flow rates.
+class NeighborAttributes
+{
+public:
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline NeighborAttributes(int payload) : payload(payload)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | payload;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    bool checkInvariant() const;
+    
+    int payload; // FIXME this is a placeholder.
+};
+
+// A NeighborMessage contains a NeighborAttributes that is being sent and a NeighborConnection to specify the destination.
+class NeighborMessage
+{
+public:
+    
+    // Default constructor.  Only needed for pup_stl.h code.
+    inline NeighborMessage() : attributes(0), destination() {}
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline NeighborMessage(const NeighborAttributes& attributes, const NeighborConnection& destination) : attributes(attributes), destination(destination)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | attributes;
+        p | destination;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline bool checkInvariant() const
+    {
+        return attributes.checkInvariant() || destination.checkInvariant();
+    }
+    
+    NeighborAttributes attributes;  // The attributes that are being sent.
+    NeighborConnection destination; // The remote neighbor is the destination of this message.
+};
+
 // A StateTransfer contains the state that an element has to exchange with its neighbor so that they can calculate nominal flow rates.
 class StateTransfer
 {
@@ -273,12 +351,12 @@ class NeighborProxy
 public:
     
     // Default constructor.  Only needed for pup_stl.h code.
-    inline NeighborProxy() : neighborRegion(0), nominalFlowRate(0.0), expirationTime(0.0), inflowCumulativeShortTerm(0.0), inflowCumulativeLongTerm(0.0),
-                             outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(0.0), incomingWater() {}
+    inline NeighborProxy() : neighborRegion(0), attributes(0), attributesInitialized(false), nominalFlowRate(0.0), expirationTime(0.0), inflowCumulativeShortTerm(0.0),
+                             inflowCumulativeLongTerm(0.0), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(0.0), incomingWater() {}
     
     // Constructor.  All parameters directly initialize member variables.
     inline NeighborProxy(size_t neighborRegion, double nominalFlowRate, double expirationTime, double inflowCumulative, double outflowCumulative) :
-        neighborRegion(neighborRegion), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
+        neighborRegion(neighborRegion), attributes(0), attributesInitialized(false), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
         inflowCumulativeLongTerm(inflowCumulative), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -298,6 +376,8 @@ public:
     inline void pup(PUP::er &p)
     {
         p | neighborRegion;
+        p | attributes;
+        p | attributesInitialized;
         p | nominalFlowRate;
         p | expirationTime;
         p | inflowCumulativeShortTerm;
@@ -307,14 +387,36 @@ public:
         p | incomingWater;
     }
     
-    // Check invariant conditions on data.  Does not check that neighbor values are the same as the values stored at the neighbor.  That is done elsewhere with messages.
+    // Check invariant conditions on data.  Does not check that values are the same as corresponding values stored at the neighbor.  That is done elsewhere with messages.
     //
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Send a message to the remote neighbor with the immutable attributes of the local element that the remote neighbor needs to calculate nominal flow rates.
+    // If this is a boundary condition with no remote neighbor no message is sent and attributesInitialized is marked true.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
+    // message          - The attributes to send.
+    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, const NeighborMessage& message);
+    
+    // Store the received immutable attributes of the remote neighbor and mark neighborAttributesInitialized true.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // remoteAttributes - The attributes that are being received.
+    bool receiveNeighborAttributes(const NeighborAttributes& remoteAttributes);
+    
     // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same region, or a boundary condition where there is no neighbor.
     // If expirationTime is already past currentTime then nominalFlowRate hasn't expired so do nothing.
+    //
+    // FIXME this will actually require the local state to send as a parameter.  Pass a StateMessage instead of a NeighborConnection.
     //
     // Returns: true if there is an error, false otherwise.
     //
@@ -326,6 +428,8 @@ public:
     bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime);
     
     // Receive a StateTransfer from the remote neighbor and finish recalculating nominalFlowRate.
+    //
+    // FIXME this will require the local state as well to do the calculation.  Pass two StateTransfers, localState and remoteState.
     //
     // Returns: true if there is an error, false otherwise.
     //
@@ -375,6 +479,12 @@ public:
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime);
     
+    // Returns: the value of attributesInitialized.
+    inline bool getAttributesInitialized() const
+    {
+        return attributesInitialized;
+    }
+    
     // Returns: the value of nominalFlowRate.
     inline double getNominalFlowRate() const
     {
@@ -393,7 +503,8 @@ private:
     size_t neighborRegion; // Where to send messages to contact the remote neighbor.
     
     // Immutable attributes of the remote neighbor.
-    // FIXME implement, also constructor, pup, and invariant, and figure out how to initialize
+    NeighborAttributes attributes;            // Immutable attributes of the remote neighbor needed to calculate nominal flow rates.
+    bool               attributesInitialized; // If true, attributes have been received from the neighbor.
     
     // Mutable state of the current flow between the neighbors.
     double nominalFlowRate; // (m^3/s) Positive means flow out of the local element into the remote element.  Negative means flow into the local element out of the remote element.
@@ -415,6 +526,15 @@ private:
     // The list can only be non-empty when nominalFlowRate is an inflow (negative).  All transfers in the list must have non-overlapping time ranges.  The list is maintained sorted with the earliest transfers at the front.
     // All transfers must end no later than expirationTime.  When there are no time gaps in the list all inflows have arrived.
     std::list<WaterTransfer> incomingWater;
+};
+
+// An Element is an abstract interface that both MehsElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
+class Element
+{
+public:
+    virtual bool receiveNeighborAttributes(const NeighborMessage& message) = 0;
+    virtual bool receiveState(const StateMessage& state) = 0;
+    virtual bool receiveWater(const WaterMessage& water) = 0;
 };
 
 #endif // __NEIGHBOR_PROXY_H__

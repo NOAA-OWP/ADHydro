@@ -118,7 +118,8 @@ bool MeshElement::checkInvariant() const
             
             if (!(elementZ - soilThickness() <= aquiferHead && aquiferHead <= elementZ))
             {
-                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is SATURATED_AQUIFER then aquiferHead must be greater than or equal to the top of the aquifer and less than or equal to the land surface.\n", elementNumber);
+                CkError("ERROR in MeshElement::checkInvariant, element %lu: if groundwaterMode is SATURATED_AQUIFER then aquiferHead must be greater than or equal to the top of the aquifer "
+                        "and less than or equal to the land surface.\n", elementNumber);
                 error = true;
             }
             break;
@@ -323,6 +324,58 @@ bool MeshElement::checkInvariant() const
                 error = true;
             }
         }
+    }
+    
+    return error;
+}
+
+bool MeshElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages)
+{
+    bool                                                  error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
+    
+    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
+    {
+        error = it->second.sendNeighborAttributes(outgoingMessages, NeighborMessage(NeighborAttributes(0), it->first));
+    }
+    
+    return error;
+}
+
+bool MeshElement::allNeighborAttributesInitialized()
+{
+    bool                                                  initialized = true; // Return value flag gets set to false when we find one that has not been initialized.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;                 // Loop iterator.
+    
+    for (it = neighbors.begin(); initialized && it != neighbors.end(); ++it)
+    {
+        initialized = it->second.getAttributesInitialized();
+    }
+    
+    return initialized;
+}
+
+bool MeshElement::receiveNeighborAttributes(const NeighborMessage& message)
+{
+    bool                                                  error = false;                               // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(message.destination); // Iterator for finding correct NeighborProxy.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = message.checkInvariant();
+        
+        if (!(neighbors.end() != it))
+        {
+            CkError("ERROR in MeshElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+    }
+    
+    if (!error)
+    {
+        error = it->second.receiveNeighborAttributes(message.attributes);
     }
     
     return error;
@@ -687,7 +740,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
-                        CkAssert(false); // These endpoints are invalid here.
+                        CkAssert(false); // All other endpoints are invalid here.
                     }
                     break;
             }
@@ -775,7 +828,7 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
             default:
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                 {
-                    CkAssert(false); // These endpoints are invalid here.
+                    CkAssert(false); // All other endpoints are invalid here.
                 }
                 break;
         }
@@ -881,7 +934,7 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
                 default:
                     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                     {
-                        CkAssert(false); // These endpoints are invalid here.
+                        CkAssert(false); // All other endpoints are invalid here.
                     }
                     break;
             }

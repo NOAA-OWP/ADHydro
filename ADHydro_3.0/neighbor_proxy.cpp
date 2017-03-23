@@ -239,6 +239,13 @@ bool NeighborConnection::operator<(const NeighborConnection& other) const
     return lessThan;
 }
 
+bool NeighborAttributes::checkInvariant() const
+{
+    bool error = false; // Error flag.
+    
+    return error;
+}
+
 bool StateTransfer::checkInvariant() const
 {
     bool error = false; // Error flag.
@@ -276,6 +283,8 @@ bool NeighborProxy::checkInvariant() const
         CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than numberOfRegions.\n");
         error = true;
     }
+    
+    error = attributes.checkInvariant() || error;
     
     if (!(0.0 >= inflowCumulativeShortTerm))
     {
@@ -340,6 +349,47 @@ bool NeighborProxy::checkInvariant() const
     return error;
 }
 
+bool NeighborProxy::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, const NeighborMessage& message)
+{
+    bool error = false; // Error flag.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = message.checkInvariant();
+    }
+    
+    if (BOUNDARY_INFLOW      == message.destination.remoteEndpoint || BOUNDARY_OUTFLOW     == message.destination.remoteEndpoint ||
+        TRANSBASIN_INFLOW    == message.destination.remoteEndpoint || TRANSBASIN_OUTFLOW   == message.destination.remoteEndpoint ||
+        RESERVOIR_RELEASE    == message.destination.remoteEndpoint || RESERVOIR_RECIPIENT  == message.destination.remoteEndpoint ||
+        IRRIGATION_DIVERSION == message.destination.remoteEndpoint || IRRIGATION_RECIPIENT == message.destination.remoteEndpoint)
+    {
+        // There is no remote neighbor.  Don't send the message and mark attributes as initialized.
+        attributesInitialized = true;
+    }
+    else
+    {
+        // Send the message.
+        outgoingMessages[neighborRegion].push_back(message);
+    }
+    
+    return error;
+}
+
+bool NeighborProxy::receiveNeighborAttributes(const NeighborAttributes& remoteAttributes)
+{
+    bool error = false; // Error flag.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = remoteAttributes.checkInvariant();
+    }
+    
+    attributes            = remoteAttributes;
+    attributesInitialized = true;
+    
+    return error;
+}
+
 bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime)
 {
     bool error   = false; // Error flag.
@@ -348,16 +398,13 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
+        error = connection.checkInvariant();
+        
         if (!(currentTime <= expirationTime))
         {
             CkError("ERROR in NeighborProxy::calculateNominalFlowRate: currentTime must be less than or equal to expirationTime.\n");
             error = true;
         }
-    }
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-    {
-        error = connection.checkInvariant() || error;
     }
     
     // Only recalculate nominalFlowRate if it has expired.
@@ -429,7 +476,7 @@ bool NeighborProxy::receiveStateTransfer(const NeighborConnection& connection, c
 {
     bool error = false; // Error flag.
     
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = connection.checkInvariant();
         error = state.checkInvariant() || error;
@@ -444,7 +491,7 @@ bool NeighborProxy::sendWater(std::map<size_t, std::vector<WaterMessage> >& outg
 {
     bool error = false; // Error flag.
     
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = water.checkInvariant();
         
@@ -500,6 +547,17 @@ bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, dou
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
+        if (connection.checkInvariant())
+        {
+            CkExit();
+        }
+        
+        if (!(0.0 > nominalFlowRate))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: when calling allWaterHasArrived nominalFlowRate must be an inflow.\n");
+            CkExit();
+        }
+        
         if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
         {
             CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
@@ -509,20 +567,6 @@ bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, dou
         if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
         {
             CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
-            CkExit();
-        }
-    }
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-    {
-        if (connection.checkInvariant())
-        {
-            CkExit();
-        }
-        
-        if (!(0.0 > nominalFlowRate))
-        {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: when calling allWaterHasArrived nominalFlowRate must be an inflow.\n");
             CkExit();
         }
     }
@@ -549,7 +593,7 @@ bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
     bool                                       error = false;                  // Error flag.
     std::list<WaterTransfer>::reverse_iterator it    = incomingWater.rbegin(); // Loop iterator.
     
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = water.checkInvariant();
         
@@ -580,7 +624,7 @@ bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
             ++it;
         }
         
-        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
             // Check that the next one in the list does not overlap the new element.
             if (it.base() != incomingWater.end())
@@ -609,6 +653,17 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
+        if (connection.checkInvariant())
+        {
+            CkExit();
+        }
+        
+        if (!(0.0 > nominalFlowRate))
+        {
+            CkError("ERROR in NeighborProxy::receiveWater: when calling receiveWater nominalFlowRate must be an inflow.\n");
+            CkExit();
+        }
+        
         if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
         {
             CkError("ERROR in NeighborProxy::receiveWater: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
@@ -624,17 +679,6 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
     {
-        if (connection.checkInvariant())
-        {
-            CkExit();
-        }
-        
-        if (!(0.0 > nominalFlowRate))
-        {
-            CkError("ERROR in NeighborProxy::receiveWater: when calling receiveWater nominalFlowRate must be an inflow.\n");
-            CkExit();
-        }
-        
         if (!allWaterHasArrived(connection, currentTime, timestepEndTime))
         {
             CkError("ERROR in NeighborProxy::receiveWater: It is an error to call receiveWater when allWaterHasArrived is false.\n");
@@ -663,7 +707,7 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
                 // Get part of this transfer up to timestepEndTime.
                 partialQuantity = incomingWater.front().water * (timestepEndTime - incomingWater.front().startTime) / (incomingWater.front().endTime - incomingWater.front().startTime);
                 
-                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                 {
                     CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.front().water);
                 }

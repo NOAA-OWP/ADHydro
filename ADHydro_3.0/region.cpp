@@ -19,15 +19,65 @@ bool Region::checkInvariant() const
     
     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
     {
+        if (!(itMesh->second.getElementNumber() == itMesh->first))
+        {
+            CkError("ERROR in Region::checkInvariant: mesh element %lu stored at map key %lu.\n", itMesh->second.getElementNumber(), itMesh->first);
+            error = true;
+        }
+        
         error = itMesh->second.checkInvariant() || error;
     }
     
     for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
     {
+        if (!(itChannel->second.getElementNumber() == itChannel->first))
+        {
+            CkError("ERROR in Region::checkInvariant: channel element %lu stored at map key %lu.\n", itChannel->second.getElementNumber(), itChannel->first);
+            error = true;
+        }
+        
         error = itChannel->second.checkInvariant() || error;
     }
     
     return error;
+}
+
+bool Region::allNeighborAttributesInitialized()
+{
+    bool                                       initialized = true; // Return value flag will be set to false when one is found that has not arrived.
+    std::map<size_t,    MeshElement>::iterator itMesh;             // Loop iterator.
+    std::map<size_t, ChannelElement>::iterator itChannel;          // Loop iterator.
+    
+    // FIXME This could be done more efficiently by having counters that get incremented each time a NeighborProxy gets initialized rather than iterating over all NeighborProxies each time.
+    
+    for (itMesh = meshElements.begin(); initialized && itMesh != meshElements.end(); ++itMesh)
+    {
+        initialized = itMesh->second.allNeighborAttributesInitialized();
+    }
+    
+    for (itChannel = channelElements.begin(); initialized && itChannel != channelElements.end(); ++itChannel)
+    {
+        initialized = itChannel->second.allNeighborAttributesInitialized();
+    }
+    
+    return initialized;
+}
+
+void Region::receiveNeighborAttributes(std::vector<NeighborMessage>& messages)
+{
+    std::vector<NeighborMessage>::iterator it; // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to MeshElement::receiveNeighborAttributes or ChannelElement::receiveNeighborAttributes and it will be checked inside that method.
+    
+    // Loop over messages passing the NeighborMessage objects to elements.
+    for (it = messages.begin(); it != messages.end(); ++it)
+    {
+        // Now that the message has arrived at its destination the old remote neighbor is now the local neighbor and the old local neighbor is now the remote neighbor.
+        it->destination.reverse();
+        
+        // Pass the StateMessage to the appropriate element.
+        findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveNeighborAttributes(*it);
+    }
 }
 
 bool Region::allNominalFlowRatesCalculated()
@@ -47,9 +97,7 @@ bool Region::allNominalFlowRatesCalculated()
 
 void Region::receiveState(std::vector<StateMessage>& messages)
 {
-    std::vector<StateMessage>::iterator        it;        // Loop iterator.
-    std::map<size_t,    MeshElement>::iterator itMesh;    // Iterator for finding correct MeshElement.
-    std::map<size_t, ChannelElement>::iterator itChannel; // Iterator for finding correct ChannelElement.
+    std::vector<StateMessage>::iterator it; // Loop iterator.
     
     // Don't error check parameters because it's a simple pass-through to MeshElement::receiveState or ChannelElement::receiveState and it will be checked inside that method.
     
@@ -60,50 +108,7 @@ void Region::receiveState(std::vector<StateMessage>& messages)
         it->destination.reverse();
         
         // Pass the StateMessage to the appropriate element.
-        switch (it->destination.localEndpoint)
-        {
-            case MESH_SURFACE:
-            case MESH_SOIL:
-            case MESH_AQUIFER:
-                itMesh = meshElements.find(it->destination.localElementNumber);
-                
-                if (meshElements.end() != itMesh)
-                {
-                    if (itMesh->second.receiveState(*it))
-                    {
-                        CkExit();
-                    }
-                }
-                else if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveState: received a state message for mesh element %lu that I do not have.\n", it->destination.localElementNumber);
-                    CkExit();
-                }
-                break;
-            case CHANNEL_SURFACE:
-                itChannel = channelElements.find(it->destination.localElementNumber);
-                
-                if (channelElements.end() != itChannel)
-                {
-                    if (itChannel->second.receiveState(*it))
-                    {
-                        CkExit();
-                    }
-                }
-                else if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveState: received a state message for channel element %lu that I do not have.\n", it->destination.localElementNumber);
-                    CkExit();
-                }
-                break;
-            default:
-                if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveState: invalid localEndpoint %d.\n", it->destination.localEndpoint);
-                    CkExit();
-                }
-                break;
-        }
+        findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveState(*it);
     }
 }
 
@@ -150,9 +155,7 @@ bool Region::allInflowsHaveArrived()
 
 void Region::receiveWater(std::vector<WaterMessage>& messages)
 {
-    std::vector<WaterMessage>::iterator        it;        // Loop iterator.
-    std::map<size_t,    MeshElement>::iterator itMesh;    // Iterator for finding correct MeshElement.
-    std::map<size_t, ChannelElement>::iterator itChannel; // Iterator for finding correct ChannelElement.
+    std::vector<WaterMessage>::iterator it; // Loop iterator.
     
     // Don't error check parameters because it's a simple pass-through to MeshElement::receiveWater or ChannelElement::receiveWater and it will be checked inside that method.
     
@@ -163,49 +166,59 @@ void Region::receiveWater(std::vector<WaterMessage>& messages)
         it->destination.reverse();
         
         // Pass the WaterMessage to the appropriate element.
-        switch (it->destination.localEndpoint)
-        {
-            case MESH_SURFACE:
-            case MESH_SOIL:
-            case MESH_AQUIFER:
-                itMesh = meshElements.find(it->destination.localElementNumber);
-                
-                if (meshElements.end() != itMesh)
+        findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveWater(*it);
+    }
+}
+
+Element& Region::findElement(NeighborEndpointEnum localEndpoint, size_t localElementNumber)
+{
+    std::map<size_t,    MeshElement>::iterator itMesh;    // Iterator for finding correct MeshElement.
+    std::map<size_t, ChannelElement>::iterator itChannel; // Iterator for finding correct ChannelElement.
+    
+    switch (localEndpoint)
+    {
+        case MESH_SURFACE:
+        case MESH_SOIL:
+        case MESH_AQUIFER:
+        case IRRIGATION_RECIPIENT:
+            itMesh = meshElements.find(localElementNumber);
+            
+            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+            {
+                if (!(meshElements.end() != itMesh))
                 {
-                    if (itMesh->second.receiveWater(*it))
-                    {
-                        CkExit();
-                    }
-                }
-                else if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveWater: received a water message for mesh element %lu that I do not have.\n", it->destination.localElementNumber);
+                    CkError("ERROR in Region::findElement: trying to find mesh element %lu that I do not have.\n", localElementNumber);
                     CkExit();
                 }
-                break;
-            case CHANNEL_SURFACE:
-                itChannel = channelElements.find(it->destination.localElementNumber);
-                
-                if (channelElements.end() != itChannel)
+            }
+            
+            return itMesh->second;
+            break;
+        case CHANNEL_SURFACE:
+        case RESERVOIR_RELEASE:
+        case RESERVOIR_RECIPIENT:
+        case IRRIGATION_DIVERSION:
+            itChannel = channelElements.find(localElementNumber);
+            
+            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+            {
+                if (!(channelElements.end() != itChannel))
                 {
-                    if (itChannel->second.receiveWater(*it))
-                    {
-                        CkExit();
-                    }
-                }
-                else if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveWater: received a water message for channel element %lu that I do not have.\n", it->destination.localElementNumber);
+                    CkError("ERROR in Region::findElement: trying to find channel element %lu that I do not have.\n", localElementNumber);
                     CkExit();
                 }
-                break;
-            default:
-                if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-                {
-                    CkError("ERROR in Region::receiveWater: invalid localEndpoint %d.\n", it->destination.localEndpoint);
-                    CkExit();
-                }
-                break;
-        }
+            }
+            
+            return itChannel->second;
+            break;
+        default:
+            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+            {
+                CkError("ERROR in Region::findElement: invalid localEndpoint %d.\n", localEndpoint);
+                CkExit();
+            }
+            
+            return meshElements.begin()->second; // This is wrong, but it's just here to avoid a control reaches end of non-void function warning.
+            break;
     }
 }

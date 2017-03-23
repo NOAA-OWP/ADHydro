@@ -117,6 +117,10 @@ ADHydro::ADHydro(CkArgMsg* msg)
     
     if (!error)
     {
+        // FIXME do this in the initialization manager
+        // Create the chare array of regions.
+        ADHydro::regionProxy = CProxy_Region::ckNew(2);
+        
         /*
         // Create output manager.
         outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);

@@ -6,7 +6,7 @@
 
 // A ChannelElement is a length of stream, a waterbody, or a glacier in the channel network.  It is modeled as a linear element.
 // It simulates surfacewater state only.  Groundwater underneath the channel is simulated by neighboring mesh elements.
-class ChannelElement
+class ChannelElement : public Element
 {
 public:
     
@@ -16,15 +16,16 @@ public:
                               surfaceWater(0.0), surfaceWaterCreated(0.0), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(0.0),
                               evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), neighbors() {}
     
-    // Constructor.  All parameters directly initialize member variables.  FIXME initialize neighbors somehow.
+    // Constructor.  All parameters directly initialize member variables.
     inline ChannelElement(size_t elementNumber, ChannelTypeEnum channelType, long long reachCode, double elementX, double elementY, double elementZBank, double elementZBed, double elementLength,
                           double latitude, double longitude, double baseWidth, double sideSlope, double manningsN, double bedThickness, double bedConductivity,
-                          const EvapoTranspirationStateStruct& evapoTranspirationState, double surfaceWater, double surfaceWaterCreated, double precipitationCumulative, double evaporationCumulative) :
+                          const EvapoTranspirationStateStruct& evapoTranspirationState, double surfaceWater, double surfaceWaterCreated, double precipitationCumulative, double evaporationCumulative,
+                          std::map<NeighborConnection, NeighborProxy> neighbors) :
         elementNumber(elementNumber), channelType(channelType), reachCode(reachCode), elementX(elementX), elementY(elementY), elementZBank(elementZBank), elementZBed(elementZBed),
         elementLength(elementLength), latitude(latitude), longitude(longitude), baseWidth(baseWidth), sideSlope(sideSlope), manningsN(manningsN), bedThickness(bedThickness),
         bedConductivity(bedConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
         surfaceWaterCreated(surfaceWaterCreated), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative),
-        evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative), neighbors()
+        evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative), neighbors(neighbors)
     {
         // Values for evapoTranspirationForcing are going to be received before we start simulating.  For now, just fill in values that will pass the invariant.
         evapoTranspirationForcing.dz8w   = 20.0f;
@@ -90,6 +91,27 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Call sendNeighborAttributes on all NeighborProxies.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages);
+    
+    // Returns: true if attributesInitialized is true for all NeighborProxies, false otherwise.
+    bool allNeighborAttributesInitialized();
+    
+    // Pass the received NeighborMessage to the correct NeighborProxy so that it can save the NeighborAttributes.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // message - The received message.
+    bool receiveNeighborAttributes(const NeighborMessage& message);
+    
     // Call calculateNominalFlowRate on all NeighborProxies.
     //
     // Returns: true if there is an error, false otherwise.
@@ -149,6 +171,12 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool receiveInflowsAndUpdateState(double currentTime, double timestepEndTime);
+    
+    // Returns: the value of elementNumber.
+    inline double getElementNumber() const
+    {
+        return elementNumber;
+    }
     
 private:
     
