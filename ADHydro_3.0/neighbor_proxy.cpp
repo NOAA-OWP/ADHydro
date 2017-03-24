@@ -486,14 +486,13 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
     return error;
 }
 
-bool NeighborProxy::receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state)
+bool NeighborProxy::receiveStateTransfer(const StateMessage& state)
 {
     bool error = false; // Error flag.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        error = connection.checkInvariant();
-        error = state.checkInvariant() || error;
+        error = state.checkInvariant();
     }
     
     // FIXME implement

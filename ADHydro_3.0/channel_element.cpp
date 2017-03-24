@@ -250,7 +250,7 @@ bool ChannelElement::receiveState(const StateMessage& state)
     
     if (!error)
     {
-        error = it->second.receiveStateTransfer(it->first, state.state);
+        error = it->second.receiveStateTransfer(state);
     }
     
     return error;

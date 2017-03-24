@@ -205,6 +205,7 @@ bool MeshElement::checkInvariant() const
     
     error = soilWater.checkInvariant() || error;
     
+    // soilRecharge can change within a timestep, but must always return to zero at the end of a timestep, and checkInvariant can only be called between timesteps.
     if (!(0.0 == soilRecharge))
     {
         CkError("ERROR in MeshElement::checkInvariant, element %lu: soilRecharge must be zero at the time the invariant is checked.\n", elementNumber);
@@ -213,6 +214,7 @@ bool MeshElement::checkInvariant() const
     
     error = aquiferWater.checkInvariant() || error;
     
+    // aquiferRecharge can change within a timestep, but must always return to zero at the end of a timestep, and checkInvariant can only be called between timesteps.
     if (!(0.0 == aquiferRecharge))
     {
         CkError("ERROR in MeshElement::checkInvariant, element %lu: aquiferRecharge must be zero at the time the invariant is checked.\n", elementNumber);
@@ -414,7 +416,7 @@ bool MeshElement::receiveState(const StateMessage& state)
     
     if (!error)
     {
-        error = it->second.receiveStateTransfer(it->first, state.state);
+        error = it->second.receiveStateTransfer(state);
     }
     
     return error;
@@ -1182,7 +1184,7 @@ void MeshElement::resolveSoilRechargePerchedWaterTable()
 {
     if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     {
-        CkAssert(PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode);
+        CkAssert(PERCHED_WATER_TABLE == groundwaterMode || (NO_MULTILAYER == groundwaterMode && soilExists));
     }
     
     updateHead(perchedHead, soilRecharge, elementZ);
@@ -1194,8 +1196,7 @@ void MeshElement::resolveSoilRechargePerchedWaterTable()
         surfaceWater += soilRecharge;
         soilRecharge  = 0.0;
     }
-    
-    if (perchedHead <= aquiferHead)
+    else if (perchedHead <= aquiferHead)
     {
         groundwaterMode = UNSATURATED_AQUIFER;
     }

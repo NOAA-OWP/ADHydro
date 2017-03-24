@@ -434,7 +434,7 @@ public:
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same region, or a boundary condition where there is no neighbor.
     // If expirationTime is already past currentTime then nominalFlowRate hasn't expired so do nothing.
     //
-    // FIXME this will actually require the local state to send as a parameter.  Pass a StateMessage instead of a NeighborConnection.
+    // FIXME this will actually require the local state to send in the StateMessage.
     //
     // Returns: true if there is an error, false otherwise.
     //
@@ -447,15 +447,14 @@ public:
     
     // Receive a StateTransfer from the remote neighbor and finish recalculating nominalFlowRate.
     //
-    // FIXME this will require the local state as well to do the calculation.  Pass two StateTransfers, localState and remoteState.
+    // FIXME this will require the local state as well to do the calculation.
     //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
-    // connection - How the local and remote neighbors are connected.
-    // state      - The state that is being received.
-    bool receiveStateTransfer(const NeighborConnection& connection, const StateTransfer& state);
+    // state - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
+    bool receiveStateTransfer(const StateMessage& state);
     
     // Send a WaterTransfer to the remote neighbor.  The water has already been removed from the local element.
     //
@@ -548,7 +547,7 @@ private:
     std::set<WaterTransfer> incomingWater;
 };
 
-// An Element is an abstract interface that both MehsElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
+// An Element is an abstract interface that both MeshElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
 class Element
 {
 public:
