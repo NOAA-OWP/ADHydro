@@ -121,6 +121,12 @@ bool NeighborConnection::checkInvariant() const
                     CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
                     error = true;
                 }
+                
+                if (!(localElementNumber != remoteElementNumber))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: invalid self-neighbor in channel element %d RESERVOIR_RELEASE.\n", localElementNumber);
+                    error = true;
+                }
             }
             break;
         case RESERVOIR_RECIPIENT:
@@ -140,6 +146,12 @@ bool NeighborConnection::checkInvariant() const
                 if (!(remoteElementNumber < numberOfChannelElements))
                 {
                     CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    error = true;
+                }
+                
+                if (!(localElementNumber != remoteElementNumber))
+                {
+                    CkError("ERROR in NeighborConnection::checkInvariant: invalid self-neighbor in channel element %d RESERVOIR_RECIPIENT.\n", localElementNumber);
                     error = true;
                 }
             }
@@ -274,9 +286,9 @@ bool WaterTransfer::checkInvariant() const
 
 bool NeighborProxy::checkInvariant() const
 {
-    bool                                     error = false;   // Error flag.
-    std::list<WaterTransfer>::const_iterator it;              // Loop iterator.
-    double                                   previousEndTime; // To check that the elements of incomingWater are sorted and non-overlapping.
+    bool                                    error = false; // Error flag.
+    std::set<WaterTransfer>::const_iterator it;            // Loop iterator.
+    // FIXME std::list code double previousEndTime; // To check that the elements of incomingWater are sorted and non-overlapping.
     
     if (!(neighborRegion < numberOfRegions))
     {
@@ -318,13 +330,14 @@ bool NeighborProxy::checkInvariant() const
             error = true;
         }
         
-        if (!(incomingWater.back().endTime <= expirationTime))
+        if (!(incomingWater.rbegin()->endTime <= expirationTime))
+        // FIXME std::list code if (!(incomingWater.back().endTime <= expirationTime))
         {
             CkError("ERROR in NeighborProxy::checkInvariant: the last endTime in incomingWater must be less than or equal to expirationTime.\n");
             error = true;
         }
         
-        previousEndTime = incomingWater.front().startTime;
+        // FIXME std::list code previousEndTime = incomingWater.front().startTime;
         
         for (it = incomingWater.begin(); it != incomingWater.end(); ++it)
         {
@@ -336,13 +349,14 @@ bool NeighborProxy::checkInvariant() const
                 error = true;
             }
             
-            if (!(previousEndTime <= it->startTime))
-            {
-                CkError("ERROR in NeighborProxy::checkInvariant: elements of incomingWater must be sorted and non-overlapping.\n");
-                error = true;
-            }
-            
-            previousEndTime = it->endTime;
+            // FIXME std::list code
+            //if (!(previousEndTime <= it->startTime))
+            //{
+            //    CkError("ERROR in NeighborProxy::checkInvariant: elements of incomingWater must be sorted and non-overlapping.\n");
+            //    error = true;
+            //}
+            //
+            //previousEndTime = it->endTime;
         }
     }
     
@@ -529,7 +543,6 @@ bool NeighborProxy::sendWater(std::map<size_t, std::vector<WaterMessage> >& outg
             outflowCumulativeShortTerm += water.water.water;
         }
         
-        
         // Send the water.  If the remote endpoint is a boundary or transbasin outflow there is no recipient element so don't send a message.
         if (BOUNDARY_OUTFLOW != water.destination.remoteEndpoint && TRANSBASIN_OUTFLOW != water.destination.remoteEndpoint)
         {
@@ -542,8 +555,8 @@ bool NeighborProxy::sendWater(std::map<size_t, std::vector<WaterMessage> >& outg
 
 bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime)
 {
-    std::list<WaterTransfer>::iterator it;                        // Loop iterator.
-    double                             lastEndTime = currentTime; // The last endTime for which water has arrived.
+    std::set<WaterTransfer>::iterator it;                        // Loop iterator.
+    double                            lastEndTime = currentTime; // The last endTime for which water has arrived.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -564,7 +577,8 @@ bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, dou
             CkExit();
         }
         
-        if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
+        if (!(incomingWater.empty() || currentTime <= incomingWater.begin()->startTime))
+        // FIXME std::list code if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
         {
             CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
             CkExit();
@@ -590,8 +604,9 @@ bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, dou
 
 bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
 {
-    bool                                       error = false;                  // Error flag.
-    std::list<WaterTransfer>::reverse_iterator it    = incomingWater.rbegin(); // Loop iterator.
+    bool error = false; // Error flag.
+    bool waterInserted; // Flag to indicate if water was correctly inserted.  It might not be if there was already an overlapping time range in incomingWater.  Unneeded if we use std::list instead.
+    // FIXME std::list code std::list<WaterTransfer>::reverse_iterator it    = incomingWater.rbegin(); // Loop iterator.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -616,40 +631,54 @@ bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
         }
     }
     
-    if (!error)
+    waterInserted = incomingWater.insert(water).second;
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        // Find the last element in the list that ends no later than when this new element starts.
-        while (it != incomingWater.rend() && it->endTime > water.startTime)
+        if (!waterInserted)
         {
-            ++it;
-        }
-        
-        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-        {
-            // Check that the next one in the list does not overlap the new element.
-            if (it.base() != incomingWater.end())
-            {
-                if (!(water.endTime <= it.base()->startTime))
-                {
-                    CkError("ERROR in NeighborProxy::receiveWaterTransfer: elements of incomingWater must be non-overlapping.\n");
-                    error = true;
-                }
-            }
+            CkError("ERROR in NeighborProxy::receiveWaterTransfer: elements of incomingWater must be non-overlapping.\n");
+            error = true;
         }
     }
     
-    if (!error)
-    {
-        incomingWater.insert(it.base(), water);
-    }
+    // FIXME std::list code
+    //if (!error)
+    //{
+    //    // Find the last element in the list that ends no later than when this new element starts.
+    //    while (it != incomingWater.rend() && it->endTime > water.startTime)
+    //    {
+    //        ++it;
+    //    }
+    //    
+    //    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    //    {
+    //        // Check that the next one in the list does not overlap the new element.
+    //        if (it.base() != incomingWater.end())
+    //        {
+    //            if (!(water.endTime <= it.base()->startTime))
+    //            {
+    //                CkError("ERROR in NeighborProxy::receiveWaterTransfer: elements of incomingWater must be non-overlapping.\n");
+    //                error = true;
+    //            }
+    //        }
+    //    }
+    //}
+    //
+    //if (!error)
+    //{
+    //    incomingWater.insert(it.base(), water);
+    //}
     
     return error;
 }
 
 double NeighborProxy::receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime)
 {
-    double water = 0.0;     // (m^3) Return value.
-    double partialQuantity; // (m^3) Part of a WaterTransfer that will be received.
+    double        water = 0.0;      // (m^3) Return value.
+    double        partialQuantity;  // (m^3) Part of a WaterTransfer that will be received.
+    WaterTransfer newWater;         // Used to modify an element in incomingWater by erasing and re-inserting with different values.  Unneeded if we use std::list instead.
+    bool          newWaterInserted; // Flag to indicate if newWater was correctly inserted.  It might not be if there was already an overlapping time range in incomingWater.  Unneeded if we use std::list instead.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -670,9 +699,10 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
             CkExit();
         }
         
-        if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
+        if (!(incomingWater.empty() || currentTime == incomingWater.begin()->startTime))
+        // FIXME std::list code if (!(incomingWater.empty() || currentTime == incomingWater.front().startTime))
         {
-            CkError("ERROR in NeighborProxy::receiveWater: currentTime must be less than or equal to the first startTime in incomingWater.\n");
+            CkError("ERROR in NeighborProxy::receiveWater: currentTime must be equal to the first startTime in incomingWater.\n");
             CkExit();
         }
     }
@@ -694,27 +724,45 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
     else
     {
         // Get all of the WaterTransfers in incomingWater up to timestepEndTime.
-        while (!incomingWater.empty() && incomingWater.front().startTime < timestepEndTime)
+        while (!incomingWater.empty() && incomingWater.begin()->startTime < timestepEndTime)
+        // FIXME std::list code while (!incomingWater.empty() && incomingWater.front().startTime < timestepEndTime)
         {
-            if (incomingWater.front().endTime <= timestepEndTime)
+            if (incomingWater.begin()->endTime <= timestepEndTime)
+            // FIXME std::list code if (incomingWater.front().endTime <= timestepEndTime)
             {
                 // Get this entire WaterTransfer.
-                water += incomingWater.front().water;
-                incomingWater.pop_front();
+                water += incomingWater.begin()->water;
+                incomingWater.erase(incomingWater.begin());
+                // FIXME std::list code water += incomingWater.front().water;
+                // FIXME std::list code incomingWater.pop_front();
             }
             else
             {
                 // Get part of this transfer up to timestepEndTime.
-                partialQuantity = incomingWater.front().water * (timestepEndTime - incomingWater.front().startTime) / (incomingWater.front().endTime - incomingWater.front().startTime);
+                partialQuantity = incomingWater.begin()->water * (timestepEndTime - incomingWater.begin()->startTime) / (incomingWater.begin()->endTime - incomingWater.begin()->startTime);
+                // FIXME std::list code partialQuantity = incomingWater.front().water * (timestepEndTime - incomingWater.front().startTime) / (incomingWater.front().endTime - incomingWater.front().startTime);
                 
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                 {
-                    CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.front().water);
+                    CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.begin()->water);
+                    // FIXME std::list code CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.front().water);
                 }
                 
-                water                          += partialQuantity;
-                incomingWater.front().water    -= partialQuantity;
-                incomingWater.front().startTime = timestepEndTime;
+                water             += partialQuantity;
+                newWater.water     = incomingWater.begin()->water - partialQuantity;
+                newWater.startTime = timestepEndTime;
+                newWater.endTime   = incomingWater.begin()->endTime;
+                incomingWater.erase(incomingWater.begin());
+                newWaterInserted   = incomingWater.insert(newWater).second;
+                
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                {
+                    CkAssert(!newWater.checkInvariant());
+                    CkAssert(newWaterInserted);
+                }
+                
+                // FIXME std::list code incomingWater.front().water    -= partialQuantity;
+                // FIXME std::list code incomingWater.front().startTime = timestepEndTime;
             }
         }
     }

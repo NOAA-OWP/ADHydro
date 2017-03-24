@@ -79,7 +79,7 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
-    // Comparison operator to provide strict ordering so that NeighborConnection can be used as a Map key.
+    // Comparison operator to provide strict ordering so that NeighborConnection can be used as a std::map key.
     //
     // Returns: true if this is less than other, false otherwise.
     //
@@ -100,6 +100,9 @@ public:
     NeighborEndpointEnum remoteEndpoint;      // How the connection is connected at the other end.
     size_t               remoteElementNumber; // The number of the mesh or channel element at the other end of the connection.
 };
+
+// Following are multiple classes for several types of messages that are very similar.  We could use inheritance or templates here.
+// I basically avoided doing that for the sake of non-C++ people on the project.  This is something that could be changed in a later version.
 
 // A NeighborAttributes contains the immutable attributes an element needs to know about its remote neighbor in order to calculate nominal flow rates.
 class NeighborAttributes
@@ -294,6 +297,21 @@ public:
     //
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
+    
+    // Comparison operator to provide strict ordering so that NeighborConnection can be used as a std::set key.
+    // Objects are ordered by time range, and overlapping time ranges are considered equal.
+    // std::set can never store two equal keys at the same time so this guarantees time ranges will be non-overlapping.
+    // FIXME This method is unneeded if we use std::list instead.
+    //
+    // Returns: true if this is less than other, false otherwise.
+    //
+    // Parameters:
+    //
+    // other - The other NeighborConnection to compare to.
+    inline bool operator<(const WaterTransfer& other) const
+    {
+        return (endTime <= other.startTime);
+    }
     
     double water;     // (m^3) A quantity of water being transferred from one element to another.
     double startTime; // (s) Simulation time when the transfer starts specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
@@ -525,7 +543,9 @@ private:
     // When a message containing a WaterTransfer is received it is initially put in this list.  Later, when the local element is ready to advance time the water is formally received into to state variables of the element.
     // The list can only be non-empty when nominalFlowRate is an inflow (negative).  All transfers in the list must have non-overlapping time ranges.  The list is maintained sorted with the earliest transfers at the front.
     // All transfers must end no later than expirationTime.  When there are no time gaps in the list all inflows have arrived.
-    std::list<WaterTransfer> incomingWater;
+    // FIXME we are undecided whether to use a std::list or std::set to implement this container for non-overlapping sorted time ranges.  It is currently implemented as a std::set with the std::list code commented out.
+    //std::list<WaterTransfer> incomingWater;
+    std::set<WaterTransfer> incomingWater;
 };
 
 // An Element is an abstract interface that both MehsElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
