@@ -14,7 +14,7 @@ public:
     inline ChannelElement() : elementNumber(0), channelType(STREAM), reachCode(0), elementX(0.0), elementY(0.0), elementZBank(0.0), elementZBed(0.0), elementLength(1.0), latitude(0.0),
                               longitude(0.0), baseWidth(1.0), sideSlope(1.0), manningsN(1.0), bedThickness(1.0), bedConductivity(0.0), evapoTranspirationForcing(), evapoTranspirationState(),
                               surfaceWater(0.0), surfaceWaterCreated(0.0), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(0.0),
-                              evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), neighbors() {}
+                              evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), neighbors(), neighborsFinished(0) {}
     
     // Constructor.  All parameters directly initialize member variables.
     inline ChannelElement(size_t elementNumber, ChannelTypeEnum channelType, long long reachCode, double elementX, double elementY, double elementZBank, double elementZBed, double elementLength,
@@ -25,7 +25,7 @@ public:
         elementLength(elementLength), latitude(latitude), longitude(longitude), baseWidth(baseWidth), sideSlope(sideSlope), manningsN(manningsN), bedThickness(bedThickness),
         bedConductivity(bedConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
         surfaceWaterCreated(surfaceWaterCreated), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative),
-        evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative), neighbors(neighbors)
+        evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative), neighbors(neighbors), neighborsFinished(0)
     {
         // Values for evapoTranspirationForcing are going to be received before we start simulating.  For now, just fill in values that will pass the invariant.
         evapoTranspirationForcing.dz8w   = 20.0f;
@@ -84,6 +84,7 @@ public:
         p | evaporationCumulativeShortTerm;
         p | evaporationCumulativeLongTerm;
         p | neighbors;
+        p | neighborsFinished;
     }
     
     // Check invariant conditions on data.
@@ -97,11 +98,9 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
-    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages);
-    
-    // Returns: true if attributesInitialized is true for all NeighborProxies, false otherwise.
-    bool allNeighborAttributesInitialized();
+    // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
+    // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
+    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished);
     
     // Pass the received NeighborMessage to the correct NeighborProxy so that it can save the NeighborAttributes.
     //
@@ -109,8 +108,9 @@ public:
     //
     // Parameters:
     //
-    // message - The received message.
-    bool receiveNeighborAttributes(const NeighborMessage& message);
+    // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
+    // message          - The received message.
+    bool receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message);
     
     // Call calculateNominalFlowRate on all NeighborProxies.
     //
@@ -118,9 +118,10 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
+    // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime);
+    bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime);
     
     // Pass the received StateMessage to the correct NeighborProxy so that it can calculate its nominalFlowRate.
     //
@@ -128,8 +129,10 @@ public:
     //
     // Parameters:
     //
-    // state - The received message.
-    bool receiveState(const StateMessage& state);
+    // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
+    // state            - The received message.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime);
     
     // Returns: The minimum value of expirationTime for all NeighborProxies.
     double minimumExpirationTime();
@@ -140,18 +143,11 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+    // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
+    // elementsFinished - Number of elements in the current Region finished in the receive water phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, double currentTime, double timestepEndTime);
-    
-    // Returns: true if allWaterHasArrived is true for all NeighborProxies that are inflows, false otherwise.  Exit on error.
-    //
-    // Parameters:
-    //
-    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool allInflowsHaveArrived(double currentTime, double timestepEndTime);
+    bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime);
     
     // Pass the received WaterMessage to the correct NeighborProxy so that it can add it to its incomingWater.
     //
@@ -159,8 +155,11 @@ public:
     //
     // Parameters:
     //
-    // water - The received message.
-    bool receiveWater(const WaterMessage& water);
+    // elementsFinished - Number of elements in the current Region finished in the receive water phase.  May be incremented if this call causes this element to be finished.
+    // water            - The received message.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime);
     
     // Recieve lateral inflows, move water through impedance layer, run aquifer capillary fringe solver, update water table heads, and resolve recharge.
     //
@@ -226,8 +225,11 @@ private:
     double evaporationCumulativeShortTerm;   // (m^3) Positive means water evaporated from the element.  Negative means water condensed on to the element.
     double evaporationCumulativeLongTerm;    // (m^3) Positive means water evaporated from the element.  Negative means water condensed on to the element.
     
-    // A map of NeighborProxies allowing the element to find a specific neighor or iterate over all neighbors.  Keys are NeighborConnection objects that uniquely identify each connection.
-    std::map<NeighborConnection, NeighborProxy> neighbors;
+    // Neighbors of the element.
+    std::map<NeighborConnection, NeighborProxy> neighbors;         // A map of NeighborProxies allowing the element to find a specific neighor or iterate over all neighbors.
+                                                                   // Keys are NeighborConnection objects that uniquely identify each connection.
+    size_t                                      neighborsFinished; // Number of neighbors finished in the current phase such as initialization, invariant check, receive state, or receive water.
+                                                                   // This element is finished when neighborsFinished equals neighbors.size().
 };
 
 #endif // __CHANNEL_ELEMENT_H__

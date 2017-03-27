@@ -328,38 +328,39 @@ bool MeshElement::checkInvariant() const
         }
     }
     
+    if (!(neighbors.size() >= neighborsFinished))
+    {
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: neighborsFinished must be less than or equal to neighbors.size().\n", elementNumber);
+        error = true;
+    }
+    
     return error;
 }
 
-bool MeshElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages)
+bool MeshElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished)
 {
     bool                                                  error = false; // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
     
     // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
     
+    neighborsFinished = 0;
+    
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.sendNeighborAttributes(outgoingMessages, NeighborMessage(NeighborAttributes(0), it->first));
+        error = it->second.sendNeighborAttributes(outgoingMessages, neighborsFinished, NeighborMessage(NeighborAttributes(0), it->first));
+    }
+    
+    // Check if this element is finished.
+    if (!error && neighbors.size() == neighborsFinished)
+    {
+        ++elementsFinished;
     }
     
     return error;
 }
 
-bool MeshElement::allNeighborAttributesInitialized()
-{
-    bool                                                  initialized = true; // Return value flag gets set to false when we find one that has not been initialized.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;                 // Loop iterator.
-    
-    for (it = neighbors.begin(); initialized && it != neighbors.end(); ++it)
-    {
-        initialized = it->second.getAttributesInitialized();
-    }
-    
-    return initialized;
-}
-
-bool MeshElement::receiveNeighborAttributes(const NeighborMessage& message)
+bool MeshElement::receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message)
 {
     bool                                                  error = false;                               // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(message.destination); // Iterator for finding correct NeighborProxy.
@@ -380,25 +381,39 @@ bool MeshElement::receiveNeighborAttributes(const NeighborMessage& message)
         error = it->second.receiveNeighborAttributes(message.attributes);
     }
     
+    // When a neighbor proxy receives attributes it always finishes initialization.
+    if (!error && neighbors.size() == ++neighborsFinished)
+    {
+        ++elementsFinished;
+    }
+    
     return error;
 }
 
-bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, double currentTime)
+bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime)
 {
     bool                                                  error = false; // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
     
     // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
     
+    neighborsFinished = 0;
+    
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.calculateNominalFlowRate(outgoingMessages, it->first, currentTime);
+        error = it->second.calculateNominalFlowRate(outgoingMessages, neighborsFinished, it->first, currentTime);
+    }
+    
+    // Check if this element is finished.
+    if (!error && neighbors.size() == neighborsFinished)
+    {
+        ++elementsFinished;
     }
     
     return error;
 }
 
-bool MeshElement::receiveState(const StateMessage& state)
+bool MeshElement::receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime)
 {
     bool                                                  error = false;                             // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(state.destination); // Iterator for finding correct NeighborProxy.
@@ -416,7 +431,13 @@ bool MeshElement::receiveState(const StateMessage& state)
     
     if (!error)
     {
-        error = it->second.receiveStateTransfer(state);
+        error = it->second.receiveStateTransfer(state, currentTime);
+    }
+    
+    // When a neighbor proxy receives state it always finishes calculating nominal flow rates.
+    if (!error && neighbors.size() == ++neighborsFinished)
+    {
+        ++elementsFinished;
     }
     
     return error;
@@ -435,7 +456,7 @@ double MeshElement::minimumExpirationTime()
     return minimumTime;
 }
 
-bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, double currentTime, double timestepEndTime)
+bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime)
 {
     bool   error                = false;                                 // Error flag.
     double localSolarDateTime   = Readonly::referenceDate + (currentTime / (24.0 * 60.0 * 60.0)) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
@@ -799,11 +820,19 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
         {
             aquiferOutflowFraction = 0.0;
         }
+    
+        neighborsFinished = 0;
     }
     
-    // Send lateral outflow water.  Even if actual flow is zero a message must be sent to let the receiver know what the actual flow is.
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
+        // Count up the neighbors that don't need to receive any water messages.
+        if (0.0 <= it->second.getNominalFlowRate() || it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime))
+        {
+            ++neighborsFinished;
+        }
+        
+        // Send lateral outflow water.  Even if actual flow is zero a message must be sent to let the receiver know what the actual flow is.
         switch(it->first.localEndpoint)
         {
             case MESH_SURFACE:
@@ -836,31 +865,20 @@ bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<W
         }
     }
     
+    // Check if this element is finished.
+    if (!error && neighbors.size() == neighborsFinished)
+    {
+        ++elementsFinished;
+    }
+    
     return error;
 }
 
-bool MeshElement::allInflowsHaveArrived(double currentTime, double timestepEndTime)
-{
-    bool                                                  arrived = true; // Flag will be set to false when one is found that has not arrived.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;             // Loop iterator.
-    
-    // Don't error check parameters because it's a simple pass-through to NeighborProxy::allWaterHasArrived and they will be checked inside that method.
-    
-    for (it = neighbors.begin(); arrived && it != neighbors.end(); ++it)
-    {
-        if (0.0 > it->second.getNominalFlowRate())
-        {
-            arrived = it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime);
-        }
-    }
-    
-    return arrived;
-}
-
-bool MeshElement::receiveWater(const WaterMessage& water)
+bool MeshElement::receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime)
 {
     bool                                                  error = false;                             // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(water.destination); // Iterator for finding correct NeighborProxy.
+    bool                                                  alreadyFinished;                           // Flag to indicate that allWaterHasArrived was true before this message arrived.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -875,7 +893,16 @@ bool MeshElement::receiveWater(const WaterMessage& water)
     
     if (!error)
     {
-        error = it->second.receiveWaterTransfer(water.water);
+        // It's possible for a neighbor proxy to already have all of its water up through timestepEndTime and then receive another water message for after timestepEndTime.
+        // In this case we don't want to increment neighborsFinished when allWaterHasArrived is true at the end.
+        alreadyFinished = it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime);
+        error           = it->second.receiveWaterTransfer(water.water);
+    }
+    
+    // When a neighbor proxy receives water it has to check if it is finished.
+    if (!error && !alreadyFinished && it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime) && neighbors.size() == ++neighborsFinished)
+    {
+        ++elementsFinished;
     }
     
     return error;
@@ -896,13 +923,10 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
             CkError("ERROR in MeshElement::receiveInflowsAndUpdateState: currentTime must be less than timestepEndTime.\n");
             error = true;
         }
-    }
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_INVARIANTS)
-    {
-        if (!allInflowsHaveArrived(currentTime, timestepEndTime))
+        
+        if (!(neighbors.size() == neighborsFinished))
         {
-            CkError("ERROR in MeshElement::receiveInflowsAndUpdateState: It is an error to call receiveInflowsAndUpdateState when allInflowsHaveArrived is false.\n");
+            CkError("ERROR in MeshElement::receiveInflowsAndUpdateState: It is an error to call receiveInflowsAndUpdateState when not all NeighborProxies are finished receiveing water.\n");
             error = true;
         }
     }

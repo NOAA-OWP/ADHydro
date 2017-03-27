@@ -417,9 +417,10 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
-    // message          - The attributes to send.
-    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, const NeighborMessage& message);
+    // outgoingMessages  - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // message           - The attributes to send.
+    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborMessage& message);
     
     // Store the received immutable attributes of the remote neighbor and mark neighborAttributesInitialized true.
     //
@@ -431,7 +432,7 @@ public:
     bool receiveNeighborAttributes(const NeighborAttributes& remoteAttributes);
     
     // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
-    // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same region, or a boundary condition where there is no neighbor.
+    // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same Region, or a boundary condition where there is no neighbor.
     // If expirationTime is already past currentTime then nominalFlowRate hasn't expired so do nothing.
     //
     // FIXME this will actually require the local state to send in the StateMessage.
@@ -440,10 +441,11 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
-    // connection       - How the local and remote neighbors are connected.
-    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime);
+    // outgoingMessages  - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // connection        - How the local and remote neighbors are connected.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& connection, double currentTime);
     
     // Receive a StateTransfer from the remote neighbor and finish recalculating nominalFlowRate.
     //
@@ -453,8 +455,9 @@ public:
     //
     // Parameters:
     //
-    // state - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
-    bool receiveStateTransfer(const StateMessage& state);
+    // state       - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
+    // currentTime - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool receiveStateTransfer(const StateMessage& state, double currentTime);
     
     // Send a WaterTransfer to the remote neighbor.  The water has already been removed from the local element.
     //
@@ -462,18 +465,9 @@ public:
     //
     // Parameters:
     //
-    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is region ID number of message destination.
+    // outgoingMessages - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
     // water            - The water to send.
     bool sendWater(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, const WaterMessage& water);
-    
-    // Returns: true if there are no time gaps in incomingWater between currentTime and timestepEndTime, which implies all WaterTransfers have arrived, false otherwise.  Exit on error.
-    //
-    // Parameters:
-    //
-    // connection      - How the local and remote neighbors are connected.
-    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime);
     
     // Receive a WaterTransfer from the remote neighbor.  The WaterTransfer will be placed in incomingWater to wait until the local element is ready to advance time.
     // This keeps the list sorted and checks that the time range of the newly inserted WaterTransfer is non-overlapping.
@@ -485,6 +479,15 @@ public:
     // water - The water that is being received.
     bool receiveWaterTransfer(const WaterTransfer& water);
     
+    // Returns: true if there are no time gaps in incomingWater between currentTime and timestepEndTime, which implies all WaterTransfers have arrived, false otherwise.  Exit on error.
+    //
+    // Parameters:
+    //
+    // connection      - How the local and remote neighbors are connected.
+    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime);
+    
     // Remove all water in incomingWater up to timestepEndTime and return that water to the local element to formally receive the water into the state variables of the element.
     //
     // Returns: (m^3) the water that has been received up to timestepEndTime.
@@ -495,12 +498,6 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime);
-    
-    // Returns: the value of attributesInitialized.
-    inline bool getAttributesInitialized() const
-    {
-        return attributesInitialized;
-    }
     
     // Returns: the value of nominalFlowRate.
     inline double getNominalFlowRate() const
@@ -551,9 +548,9 @@ private:
 class Element
 {
 public:
-    virtual bool receiveNeighborAttributes(const NeighborMessage& message) = 0;
-    virtual bool receiveState(const StateMessage& state) = 0;
-    virtual bool receiveWater(const WaterMessage& water) = 0;
+    virtual bool receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message) = 0;
+    virtual bool receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime) = 0;
+    virtual bool receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime) = 0;
 };
 
 #endif // __NEIGHBOR_PROXY_H__

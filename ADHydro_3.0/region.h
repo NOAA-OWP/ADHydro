@@ -41,8 +41,12 @@ class Region : public CBase_Region
     
 public:
     
-    // Constructor.  FIXME initialize elements somehow.
-    inline Region() : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), meshElements(), channelElements()
+    // Charm++ migration constructor and default constructor.
+    //
+    // Parameters:
+    //
+    // msg - Unused migration message.
+    inline Region(CkMigrateMessage* msg = NULL) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), meshElements(), channelElements(), elementsFinished(0)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -54,13 +58,6 @@ public:
         
         thisProxy[thisIndex].runUntilSimulationEnd();
     }
-    
-    // Charm++ migration constructor.
-    //
-    // Parameters:
-    //
-    // msg - Migration message.
-    inline Region(CkMigrateMessage* msg) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), meshElements(), channelElements() {}
     
     // Charm++ pack/unpack method.
     //
@@ -76,15 +73,13 @@ public:
         p | timestepEndTime;
         p | meshElements;
         p | channelElements;
+        p | elementsFinished;
     }
     
     // Check invariant conditions on data.
     //
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
-    
-    // Returns: true if allNeighborAttributesInitialized is true for all elements, false otherwise.
-    bool allNeighborAttributesInitialized();
     
     // Pass received NeighborMessages down to the appropriate element.  Exit on error.
     //
@@ -93,21 +88,12 @@ public:
     // messages - The received messages.
     void receiveNeighborAttributes(std::vector<NeighborMessage>& messages);
     
-    // Returns: true if minimumExpirationTime is greater than currentTime for all elements, false otherwise.
-    bool allNominalFlowRatesCalculated();
-    
     // Pass received StateMessages down to the appropriate element.  Exit on error.
     //
     // Parameters:
     //
     // messages - The received messages.
     void receiveState(std::vector<StateMessage>& messages);
-    
-    // Set timestepEndTime to be no later than minimumExpirationTime of any element, and no later than various other times we cannot exceed such as forcing data updates, output times, or the simulation end time.
-    void selectTimestep();
-    
-    // Returns: true if allInflowsHaveArrived is true for all elements, false otherwise.  Exit on error.
-    bool allInflowsHaveArrived();
     
     // Pass received WaterMessages down to the appropriate element.  Exit on error.
     //
@@ -133,9 +119,11 @@ private:
     // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.
     const double simulationEndTime = Readonly::simulationStartTime + Readonly::simulationDuration;
     
-    // Maps of mesh and channel elements allowing the region to find a specific element or iterate over all elements.  Keys are element ID numbers.
-    std::map<size_t,    MeshElement> meshElements;
-    std::map<size_t, ChannelElement> channelElements;
+    // Elements in the Region.
+    std::map<size_t,    MeshElement> meshElements;     // A map of MeshElements    allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
+    std::map<size_t, ChannelElement> channelElements;  // A map of channelElements allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
+    size_t                           elementsFinished; // Number of elements finished in the current phase such as initialization, invariant check, receive state, or receive water.
+                                                       // This Region is finished when elementsFinished equals meshElements.size() plus channelElements.size().
 };
 
 #endif // __REGION_H__

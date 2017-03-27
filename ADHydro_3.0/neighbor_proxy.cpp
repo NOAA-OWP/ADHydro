@@ -363,7 +363,7 @@ bool NeighborProxy::checkInvariant() const
     return error;
 }
 
-bool NeighborProxy::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, const NeighborMessage& message)
+bool NeighborProxy::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborMessage& message)
 {
     bool error = false; // Error flag.
     
@@ -379,6 +379,7 @@ bool NeighborProxy::sendNeighborAttributes(std::map<size_t, std::vector<Neighbor
     {
         // There is no remote neighbor.  Don't send the message and mark attributes as initialized.
         attributesInitialized = true;
+        ++neighborsFinished;
     }
     else
     {
@@ -396,6 +397,12 @@ bool NeighborProxy::receiveNeighborAttributes(const NeighborAttributes& remoteAt
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = remoteAttributes.checkInvariant();
+        
+        if (!(!attributesInitialized))
+        {
+            CkError("ERROR in NeighborProxy::receiveNeighborAttributes: received attributes after attributes was already initialized.\n");
+            error = true;
+        }
     }
     
     attributes            = remoteAttributes;
@@ -404,7 +411,7 @@ bool NeighborProxy::receiveNeighborAttributes(const NeighborAttributes& remoteAt
     return error;
 }
 
-bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, const NeighborConnection& connection, double currentTime)
+bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& connection, double currentTime)
 {
     bool error   = false; // Error flag.
     bool inflow  = false; // Flag for whether the flow is an inflow.
@@ -481,18 +488,27 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
             nominalFlowRate = -0.1;
             expirationTime  = currentTime + 1.0;
         }
+        
+        // FIXME If you need to wait for a message, don't increment neighborsFinished.
+        ++neighborsFinished;
     }
     
     return error;
 }
 
-bool NeighborProxy::receiveStateTransfer(const StateMessage& state)
+bool NeighborProxy::receiveStateTransfer(const StateMessage& state, double currentTime)
 {
     bool error = false; // Error flag.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = state.checkInvariant();
+        
+        if (!(currentTime < expirationTime))
+        {
+            CkError("ERROR in NeighborProxy::receiveStateTransfer: received state when I do not need to recalculate nominalFlowRate.\n");
+            error = true;
+        }
     }
     
     // FIXME implement
@@ -550,55 +566,6 @@ bool NeighborProxy::sendWater(std::map<size_t, std::vector<WaterMessage> >& outg
     }
     
     return error;
-}
-
-bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime)
-{
-    std::set<WaterTransfer>::iterator it;                        // Loop iterator.
-    double                            lastEndTime = currentTime; // The last endTime for which water has arrived.
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-    {
-        if (connection.checkInvariant())
-        {
-            CkExit();
-        }
-        
-        if (!(0.0 > nominalFlowRate))
-        {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: when calling allWaterHasArrived nominalFlowRate must be an inflow.\n");
-            CkExit();
-        }
-        
-        if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
-        {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
-            CkExit();
-        }
-        
-        if (!(incomingWater.empty() || currentTime <= incomingWater.begin()->startTime))
-        // FIXME std::list code if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
-        {
-            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
-            CkExit();
-        }
-    }
-    
-    // If the remote endpoint is a boundary or transbasin inflow then water is always available.
-    if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
-    {
-        lastEndTime = timestepEndTime;
-    }
-    else
-    {
-        // Check that there are no time gaps in incomingWater.
-        for (it = incomingWater.begin(); it != incomingWater.end() && lastEndTime < timestepEndTime && lastEndTime == it->startTime; ++it)
-        {
-            lastEndTime = it->endTime;
-        }
-    }
-    
-    return (lastEndTime >= timestepEndTime);
 }
 
 bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
@@ -670,6 +637,55 @@ bool NeighborProxy::receiveWaterTransfer(const WaterTransfer& water)
     //}
     
     return error;
+}
+
+bool NeighborProxy::allWaterHasArrived(const NeighborConnection& connection, double currentTime, double timestepEndTime)
+{
+    std::set<WaterTransfer>::iterator it;                        // Loop iterator.
+    double                            lastEndTime = currentTime; // The last endTime for which water has arrived.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (connection.checkInvariant())
+        {
+            CkExit();
+        }
+        
+        if (!(0.0 > nominalFlowRate))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: when calling allWaterHasArrived nominalFlowRate must be an inflow.\n");
+            CkExit();
+        }
+        
+        if (!(currentTime < timestepEndTime && timestepEndTime <= expirationTime))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than timestepEndTime, which must be less than or equal to expirationTime.\n");
+            CkExit();
+        }
+        
+        if (!(incomingWater.empty() || currentTime <= incomingWater.begin()->startTime))
+        // FIXME std::list code if (!(incomingWater.empty() || currentTime <= incomingWater.front().startTime))
+        {
+            CkError("ERROR in NeighborProxy::allWaterHasArrived: currentTime must be less than or equal to the first startTime in incomingWater.\n");
+            CkExit();
+        }
+    }
+    
+    // If the remote endpoint is a boundary or transbasin inflow then water is always available.
+    if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
+    {
+        lastEndTime = timestepEndTime;
+    }
+    else
+    {
+        // Check that there are no time gaps in incomingWater.
+        for (it = incomingWater.begin(); it != incomingWater.end() && lastEndTime < timestepEndTime && lastEndTime == it->startTime; ++it)
+        {
+            lastEndTime = it->endTime;
+        }
+    }
+    
+    return (lastEndTime >= timestepEndTime);
 }
 
 double NeighborProxy::receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime)

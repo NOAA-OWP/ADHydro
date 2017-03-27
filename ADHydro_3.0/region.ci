@@ -33,7 +33,10 @@ module region
                             meshElements.insert(std::pair<size_t, MeshElement>(element.getElementNumber(), element));
                             
                             // Send messages to initialize NeighborProxy remote neighbor attributes.
-                            meshElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages);
+                            if (meshElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages, elementsFinished))
+                            {
+                                CkExit();
+                            }
                             
                             for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
                             {
@@ -71,7 +74,10 @@ module region
                             channelElements.insert(std::pair<size_t, ChannelElement>(element.getElementNumber(), element));
                             
                             // Send messages to initialize NeighborProxy remote neighbor attributes.
-                            channelElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages);
+                            if (channelElements[element.getElementNumber()].sendNeighborAttributes(outgoingMessages, elementsFinished))
+                            {
+                                CkExit();
+                            }
                             
                             for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
                             {
@@ -93,7 +99,7 @@ module region
             }
             
             // Receive until all NeighborProxies are initialized.
-            while (!allNeighborAttributesInitialized())
+            while (meshElements.size() + channelElements.size() > elementsFinished)
             {
                 when sendNeighborAttributes(const std::vector<NeighborMessage>& messages)
                 {
@@ -115,13 +121,15 @@ module region
                     std::map<size_t, std::vector<StateMessage> >           outgoingMessages; // Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
                     // FIXME outgoingMessages could be made a member variable of Region to avoid repeated construction/destruction of vectors.
                     
+                    elementsFinished = 0;
+                    
                     // Loop over all elements, who will loop over all of their NeighborProxies telling them to calculate their nominal flow rate if it has expired.
                     // FIXME it could be more efficient to have two loops, the first sends all messages, and the second does all calculation that doesn't require messages.
                     // This would provide more time for overlapping computation and communication.
                     // FIXME For internal neighbors, I could always calculate a new nominal flow rate each timestep.  It may be inexpensive since it won't require a message.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                     {
-                        if (itMesh->second.calculateNominalFlowRates(outgoingMessages, currentTime))
+                        if (itMesh->second.calculateNominalFlowRates(outgoingMessages, elementsFinished, currentTime))
                         {
                             CkExit();
                         }
@@ -129,7 +137,7 @@ module region
                     
                     for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
                     {
-                        if (itChannel->second.calculateNominalFlowRates(outgoingMessages, currentTime))
+                        if (itChannel->second.calculateNominalFlowRates(outgoingMessages, elementsFinished, currentTime))
                         {
                             CkExit();
                         }
@@ -153,7 +161,7 @@ module region
                 }
                 
                 // Finish step 1 for any NeighborProxies that need to receive a message before calculating their nominal flow rate.
-                while (!allNominalFlowRatesCalculated())
+                while (meshElements.size() + channelElements.size() > elementsFinished)
                 {
                     when sendState(const std::vector<StateMessage>& messages, double messageTime)
                     {
@@ -191,12 +199,26 @@ module region
                     std::map<size_t, std::vector<WaterMessage> >           outgoingMessages; // Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
                     // FIXME outgoingMessages could be made a member variable of Region to prevent repeated construction/destruction of vectors.
                     
-                    selectTimestep();
+                    // Initially set timestepEndTime to be a time that we know we cannot exceed, either the next forcing read, checkpoint write, or simulationEndTime.
+                    timestepEndTime = simulationEndTime; // FIXME forcing read or checkpoint write.
+                    
+                    // Set timestepEndTime to be no later than any expirationTime.
+                    for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+                    {
+                        timestepEndTime = std::min(timestepEndTime, itMesh->second.minimumExpirationTime());
+                    }
+                    
+                    for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+                    {
+                        timestepEndTime = std::min(timestepEndTime, itChannel->second.minimumExpirationTime());
+                    }
+                    
+                    elementsFinished = 0;
                     
                     // Loop over all elements updating state for point processes and sending outflows.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                     {
-                        if (itMesh->second.doPointProcessesAndSendOutflows(outgoingMessages, currentTime, timestepEndTime))
+                        if (itMesh->second.doPointProcessesAndSendOutflows(outgoingMessages, elementsFinished, currentTime, timestepEndTime))
                         {
                             CkExit();
                         }
@@ -204,7 +226,7 @@ module region
                     
                     for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
                     {
-                        if (itChannel->second.doPointProcessesAndSendOutflows(outgoingMessages, currentTime, timestepEndTime))
+                        if (itChannel->second.doPointProcessesAndSendOutflows(outgoingMessages, elementsFinished, currentTime, timestepEndTime))
                         {
                             CkExit();
                         }
@@ -228,7 +250,7 @@ module region
                 }
                 
                 // Step 4: Receive inflows of water from neighbors.
-                while (!allInflowsHaveArrived())
+                while (meshElements.size() + channelElements.size() > elementsFinished)
                 {
                     when sendWater(const std::vector<WaterMessage>& messages)
                     {
