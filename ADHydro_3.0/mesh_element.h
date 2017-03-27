@@ -21,20 +21,14 @@ class MeshElement : public Element
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline MeshElement() : elementNumber(0), catchment(0), elementX(0.0), elementY(0.0), elementZ(0.0), elementArea(1.0), latitude(0.0), longitude(0.0), vegetationType(1), groundType(1), manningsN(1.0),
-                           soilExists(false), impedanceConductivity(0.0), aquiferExists(false), deepConductivity(0.0), evapoTranspirationForcing(), evapoTranspirationState(), surfaceWater(0.0),
-                           surfaceWaterCreated(0.0), groundwaterMode(NO_MULTILAYER), perchedHead(0.0), soilWater(1.0, 1.0, 1.0, 0.0, 0.0), soilWaterCreated(0.0), soilRecharge(0.0), aquiferHead(0.0),
-                           aquiferWater(1.0, 1.0, 1.0, 0.0, 0.0), aquiferWaterCreated(0.0), aquiferRecharge(0.0), deepGroundwater(0.0), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0),
-                           precipitationCumulativeLongTerm(0.0), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), transpirationRate(0.0),
-                           transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(0.0), neighbors(), neighborsFinished(0) {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline MeshElement(size_t elementNumber, size_t catchment, double elementX, double elementY, double elementZ, double elementArea, double latitude, double longitude, int vegetationType, int groundType,
-                       double manningsN, bool soilExists, double impedanceConductivity, bool aquiferExists, double deepConductivity, const EvapoTranspirationStateStruct& evapoTranspirationState,
-                       double surfaceWater, double surfaceWaterCreated, GroundwaterModeEnum groundwaterMode, double perchedHead, const SimpleGroundwater& soilWater, double soilWaterCreated, double aquiferHead,
-                       const SimpleGroundwater& aquiferWater, double aquiferWaterCreated, double deepGroundwater, double precipitationCumulative, double evaporationCumulative, double transpirationCumulative,
-                       const std::map<NeighborConnection, NeighborProxy>& neighbors) :
+    inline MeshElement(size_t elementNumber = 0, size_t catchment = 0, double elementX = 0.0, double elementY = 0.0, double elementZ = 0.0, double elementArea = 1.0, double latitude = 0.0,
+                       double longitude = 0.0, int vegetationType = 1, int groundType = 1, double manningsN = 1.0, bool soilExists = false, double impedanceConductivity = 0.0,
+                       bool aquiferExists = false, double deepConductivity = 0.0, const EvapoTranspirationStateStruct& evapoTranspirationState = EvapoTranspirationStateStruct(),
+                       double surfaceWater = 0.0, double surfaceWaterCreated = 0.0, GroundwaterModeEnum groundwaterMode = NO_MULTILAYER, double perchedHead = 0.0,
+                       const SimpleGroundwater& soilWater = SimpleGroundwater(), double soilWaterCreated = 0.0, double aquiferHead = 0.0,const SimpleGroundwater& aquiferWater = SimpleGroundwater(),
+                       double aquiferWaterCreated = 0.0, double deepGroundwater = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0,
+                       double transpirationCumulative = 0.0, const std::map<NeighborConnection, NeighborProxy>& neighbors = std::map<NeighborConnection, NeighborProxy>()) :
         elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude),
         vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
         deepConductivity(deepConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
@@ -122,6 +116,18 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Receive any type of message and pass it on to the appropriate NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // message          - The received message.
+    // elementsFinished - Number of elements in the current Region finished in the current phase.  May be incremented if this call causes this element to be finished.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
+    
     // Call sendNeighborAttributes on all NeighborProxies.
     //
     // Returns: true if there is an error, false otherwise.
@@ -131,16 +137,6 @@ public:
     // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
     // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
     bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished);
-    
-    // Pass the received NeighborMessage to the correct NeighborProxy so that it can save the NeighborAttributes.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
-    // message          - The received message.
-    bool receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message);
     
     // Call calculateNominalFlowRate on all NeighborProxies.
     //
@@ -152,17 +148,6 @@ public:
     // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime);
-    
-    // Pass the received StateMessage to the correct NeighborProxy so that it can calculate its nominalFlowRate.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
-    // state            - The received message.
-    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime);
     
     // Returns: The minimum value of expirationTime for all NeighborProxies.
     double minimumExpirationTime();
@@ -178,18 +163,6 @@ public:
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime);
-    
-    // Pass the received WaterMessage to the correct NeighborProxy so that it can add it to its incomingWater.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the receive water phase.  May be incremented if this call causes this element to be finished.
-    // water            - The received message.
-    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime);
     
     // Recieve lateral inflows, move water through impedance layer, run aquifer capillary fringe solver, update water table heads, and resolve recharge.
     //

@@ -45,11 +45,8 @@ class NeighborConnection
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline NeighborConnection() : localEndpoint(MESH_SURFACE), localElementNumber(0), remoteEndpoint(CHANNEL_SURFACE), remoteElementNumber(0) {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborConnection(NeighborEndpointEnum localEndpoint, size_t localElementNumber, NeighborEndpointEnum remoteEndpoint, size_t remoteElementNumber) :
+    inline NeighborConnection(NeighborEndpointEnum localEndpoint = MESH_SURFACE, size_t localElementNumber = 0, NeighborEndpointEnum remoteEndpoint = CHANNEL_SURFACE, size_t remoteElementNumber = 0) :
         localEndpoint(localEndpoint), localElementNumber(localElementNumber), remoteEndpoint(remoteEndpoint), remoteElementNumber(remoteElementNumber)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -101,16 +98,13 @@ public:
     size_t               remoteElementNumber; // The number of the mesh or channel element at the other end of the connection.
 };
 
-// Following are multiple classes for several types of messages that are very similar.  We could use inheritance or templates here.
-// I basically avoided doing that for the sake of non-C++ people on the project.  This is something that could be changed in a later version.
-
 // A NeighborAttributes contains the immutable attributes an element needs to know about its remote neighbor in order to calculate nominal flow rates.
 class NeighborAttributes
 {
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborAttributes(int payload) : payload(payload)
+    inline NeighborAttributes(int payload = 0) : payload(payload)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -137,49 +131,6 @@ public:
     bool checkInvariant() const;
     
     int payload; // FIXME this is a placeholder.
-};
-
-// A NeighborMessage contains a NeighborAttributes that is being sent and a NeighborConnection to specify the destination.
-class NeighborMessage
-{
-public:
-    
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline NeighborMessage() : attributes(0), destination() {}
-    
-    // Constructor.  All parameters directly initialize member variables.
-    inline NeighborMessage(const NeighborAttributes& attributes, const NeighborConnection& destination) : attributes(attributes), destination(destination)
-    {
-        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-        {
-            if (checkInvariant())
-            {
-                CkExit();
-            }
-        }
-    }
-    
-    // Charm++ pack/unpack method.
-    //
-    // Parameters:
-    //
-    // p - Pack/unpack processing object.
-    inline void pup(PUP::er &p)
-    {
-        p | attributes;
-        p | destination;
-    }
-    
-    // Check invariant conditions on data.
-    //
-    // Returns: true if the invariant is violated, false otherwise.
-    inline bool checkInvariant() const
-    {
-        return attributes.checkInvariant() || destination.checkInvariant();
-    }
-    
-    NeighborAttributes attributes;  // The attributes that are being sent.
-    NeighborConnection destination; // The remote neighbor is the destination of this message.
 };
 
 // A StateTransfer contains the state that an element has to exchange with its neighbor so that they can calculate nominal flow rates.
@@ -188,7 +139,7 @@ class StateTransfer
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline StateTransfer(int payload) : payload(payload)
+    inline StateTransfer(int payload = 0) : payload(payload)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -217,60 +168,14 @@ public:
     int payload; // FIXME this is a placeholder.
 };
 
-// A StateMessage contains a StateTransfer that is being sent and a NeighborConnection to specify the destination.
-class StateMessage
-{
-public:
-    
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline StateMessage() : state(0), destination() {}
-    
-    // Constructor.  All parameters directly initialize member variables.
-    inline StateMessage(const StateTransfer& state, const NeighborConnection& destination) : state(state), destination(destination)
-    {
-        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-        {
-            if (checkInvariant())
-            {
-                CkExit();
-            }
-        }
-    }
-    
-    // Charm++ pack/unpack method.
-    //
-    // Parameters:
-    //
-    // p - Pack/unpack processing object.
-    inline void pup(PUP::er &p)
-    {
-        p | state;
-        p | destination;
-    }
-    
-    // Check invariant conditions on data.
-    //
-    // Returns: true if the invariant is violated, false otherwise.
-    inline bool checkInvariant() const
-    {
-        return state.checkInvariant() || destination.checkInvariant();
-    }
-    
-    StateTransfer      state;       // The state that is being sent.
-    NeighborConnection destination; // The remote neighbor is the destination of this message.
-};
-
 // A WaterTransfer represents some water that has been sent by one element and not yet received by another element.
 // If the transfer needs to be split across multiple timesteps at the recipient, it is assumed to be a constant flow rate.
 class WaterTransfer
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline WaterTransfer() : water(0.0), startTime(0.0), endTime(1.0) {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline WaterTransfer(double water, double startTime, double endTime) : water(water), startTime(startTime), endTime(endTime)
+    inline WaterTransfer(double water = 0.0, double startTime = 0.0, double endTime = 1.0) : water(water), startTime(startTime), endTime(endTime)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -301,7 +206,6 @@ public:
     // Comparison operator to provide strict ordering so that NeighborConnection can be used as a std::set key.
     // Objects are ordered by time range, and overlapping time ranges are considered equal.
     // std::set can never store two equal keys at the same time so this guarantees time ranges will be non-overlapping.
-    // FIXME This method is unneeded if we use std::list instead.
     //
     // Returns: true if this is less than other, false otherwise.
     //
@@ -318,16 +222,15 @@ public:
     double endTime;   // (s) Simulation time when the transfer ends   specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
 };
 
-// A WaterMessage contains a WaterTransfer that is being sent and a NeighborConnection to specify the destination.
-class WaterMessage
+class NeighborProxy; // This forward declaration is needed for Message::receive.
+
+// A Message is a superclass for all the different types of messages we send.
+class Message
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline WaterMessage() : water(), destination() {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline WaterMessage(const WaterTransfer& water, const NeighborConnection& destination) : water(water), destination(destination)
+    inline Message(const NeighborConnection& destination = NeighborConnection()) : destination(destination)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -343,22 +246,188 @@ public:
     // Parameters:
     //
     // p - Pack/unpack processing object.
-    inline void pup(PUP::er &p)
+    inline virtual void pup(PUP::er &p)
     {
-        p | water;
         p | destination;
     }
     
     // Check invariant conditions on data.
     //
     // Returns: true if the invariant is violated, false otherwise.
-    inline bool checkInvariant() const
+    inline virtual bool checkInvariant() const
     {
-        return water.checkInvariant() || destination.checkInvariant();
+        return destination.checkInvariant();
     }
     
-    WaterTransfer      water;       // The water that is being sent.
+    // Pass this message on to the right member function of a NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // proxy             - The NeighborProxy to pass this message to.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the current phase.  May be incremented if this call causes proxy to be finished.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const = 0;
+    
     NeighborConnection destination; // The remote neighbor is the destination of this message.
+};
+
+// A NeighborMessage is a Message containing a NeighborAttributes.
+class NeighborMessage : public Message
+{
+public:
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline NeighborMessage(const NeighborConnection& destination = NeighborConnection(), const NeighborAttributes& attributes = NeighborAttributes()) : Message(destination), attributes(attributes)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline virtual void pup(PUP::er &p)
+    {
+        Message::pup(p);
+        
+        p | attributes;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline virtual bool checkInvariant() const
+    {
+        return Message::checkInvariant() || attributes.checkInvariant();
+    }
+    
+    // Pass this message on to the right member function of a NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // proxy             - The NeighborProxy to pass this message to.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes proxy to be finished.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    
+    NeighborAttributes attributes; // The attributes that are being sent.
+};
+
+// A StateMessage is a Message containing a StateTransfer.
+class StateMessage : public Message
+{
+public:
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline StateMessage(const NeighborConnection& destination = NeighborConnection(), const StateTransfer& state = StateTransfer()) : Message(destination), state(state)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline virtual void pup(PUP::er &p)
+    {
+        Message::pup(p);
+        
+        p | state;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline virtual bool checkInvariant() const
+    {
+        return Message::checkInvariant() || state.checkInvariant();
+    }
+    
+    // Pass this message on to the right member function of a NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // proxy             - The NeighborProxy to pass this message to.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes proxy to be finished.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    
+    StateTransfer state; // The state that is being sent.
+};
+
+// A WaterMessage is a Message containing a WaterTransfer.
+class WaterMessage : public Message
+{
+public:
+    
+    // Constructor.  All parameters directly initialize member variables.
+    inline WaterMessage(const NeighborConnection& destination = NeighborConnection(), const WaterTransfer& water = WaterTransfer()) : Message(destination), water(water)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+        {
+            if (checkInvariant())
+            {
+                CkExit();
+            }
+        }
+    }
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline virtual void pup(PUP::er &p)
+    {
+        Message::pup(p);
+        
+        p | water;
+    }
+    
+    // Check invariant conditions on data.
+    //
+    // Returns: true if the invariant is violated, false otherwise.
+    inline virtual bool checkInvariant() const
+    {
+        return Message::checkInvariant() || water.checkInvariant();
+    }
+    
+    // Pass this message on to the right member function of a NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // proxy             - The NeighborProxy to pass this message to.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the receive water phase.  May be incremented if this call causes proxy to be finished.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    
+    WaterTransfer water; // The water that is being sent.
 };
 
 // A NeighborProxy is how elements store their neighbor connections with other elements.  For each neighbor connection, two NeighborProxies are stored, one at each element.
@@ -368,12 +437,8 @@ class NeighborProxy
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline NeighborProxy() : neighborRegion(0), attributes(0), attributesInitialized(false), nominalFlowRate(0.0), expirationTime(0.0), inflowCumulativeShortTerm(0.0),
-                             inflowCumulativeLongTerm(0.0), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(0.0), incomingWater() {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborProxy(size_t neighborRegion, double nominalFlowRate, double expirationTime, double inflowCumulative, double outflowCumulative) :
+    inline NeighborProxy(size_t neighborRegion = 0, double nominalFlowRate = 0.0, double expirationTime = 0.0, double inflowCumulative = 0.0, double outflowCumulative = 0.0) :
         neighborRegion(neighborRegion), attributes(0), attributesInitialized(false), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
         inflowCumulativeLongTerm(inflowCumulative), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
     {
@@ -419,17 +484,18 @@ public:
     //
     // outgoingMessages  - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
-    // message           - The attributes to send.
-    bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborMessage& message);
+    // message           - The message to send.
+    bool sendNeighborMessage(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborMessage& message);
     
-    // Store the received immutable attributes of the remote neighbor and mark neighborAttributesInitialized true.
+    // Store the received immutable attributes of the remote neighbor and mark attributesInitialized true.
     //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
-    // remoteAttributes - The attributes that are being received.
-    bool receiveNeighborAttributes(const NeighborAttributes& remoteAttributes);
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // remoteAttributes  - The attributes that are being received.
+    bool receiveNeighborAttributes(size_t& neighborsFinished, const NeighborAttributes& remoteAttributes);
     
     // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same Region, or a boundary condition where there is no neighbor.
@@ -447,7 +513,7 @@ public:
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& connection, double currentTime);
     
-    // Receive a StateTransfer from the remote neighbor and finish recalculating nominalFlowRate.
+    // Receive a StateMessage from the remote neighbor and finish recalculating nominalFlowRate.
     //
     // FIXME this will require the local state as well to do the calculation.
     //
@@ -455,9 +521,10 @@ public:
     //
     // Parameters:
     //
-    // state       - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
-    // currentTime - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveStateTransfer(const StateMessage& state, double currentTime);
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // state             - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool receiveStateMessage(size_t& neighborsFinished, const StateMessage& state, double currentTime);
     
     // Send a WaterTransfer to the remote neighbor.  The water has already been removed from the local element.
     //
@@ -469,15 +536,17 @@ public:
     // water            - The water to send.
     bool sendWater(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, const WaterMessage& water);
     
-    // Receive a WaterTransfer from the remote neighbor.  The WaterTransfer will be placed in incomingWater to wait until the local element is ready to advance time.
-    // This keeps the list sorted and checks that the time range of the newly inserted WaterTransfer is non-overlapping.
+    // Receive a WaterMessage from the remote neighbor.  The WaterTransfer will be placed in incomingWater to wait until the local element is ready to advance time.
     //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
-    // water - The water that is being received.
-    bool receiveWaterTransfer(const WaterTransfer& water);
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the receive water phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // water             - The water that is being received.  It is the entire WaterMessage, not just the WaterTransfer because the function needs the NeighborConnection as well.
+    // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool receiveWaterMessage(size_t& neighborsFinished, const WaterMessage& water, double currentTime, double timestepEndTime);
     
     // Returns: true if there are no time gaps in incomingWater between currentTime and timestepEndTime, which implies all WaterTransfers have arrived, false otherwise.  Exit on error.
     //
@@ -514,10 +583,10 @@ public:
 private:
     
     // Destination information needed to communicate with the remote neighbor.
-    size_t neighborRegion; // Where to send messages to contact the remote neighbor.
+    size_t neighborRegion;
     
     // Immutable attributes of the remote neighbor.
-    NeighborAttributes attributes;            // Immutable attributes of the remote neighbor needed to calculate nominal flow rates.
+    NeighborAttributes attributes;
     bool               attributesInitialized; // If true, attributes have been received from the neighbor.
     
     // Mutable state of the current flow between the neighbors.
@@ -536,21 +605,18 @@ private:
     double outflowCumulativeShortTerm; // (m^3) Positive means water flowed out of the local element into   the remote element.  Must be non-negative.
     double outflowCumulativeLongTerm;  // (m^3) Positive means water flowed out of the local element into   the remote element.  Must be non-negative.
     
-    // When a message containing a WaterTransfer is received it is initially put in this list.  Later, when the local element is ready to advance time the water is formally received into to state variables of the element.
-    // The list can only be non-empty when nominalFlowRate is an inflow (negative).  All transfers in the list must have non-overlapping time ranges.  The list is maintained sorted with the earliest transfers at the front.
-    // All transfers must end no later than expirationTime.  When there are no time gaps in the list all inflows have arrived.
-    // FIXME we are undecided whether to use a std::list or std::set to implement this container for non-overlapping sorted time ranges.  It is currently implemented as a std::set with the std::list code commented out.
-    //std::list<WaterTransfer> incomingWater;
+    // incomingWater implements a sorted list of WaterTransfers with non-overlapping time ranges.  WaterTransfers are sorted by time with overlapping time ranges considered equal so no two overlapping ranges can be put in the set.
+    // When a message containing a WaterTransfer is received it is initially put in incomingWater.  Later, when the local element is ready to advance time the water is formally received into the state variables of the element.
+    // incomingWater can only be non-empty when nominalFlowRate is an inflow (negative).  All transfers must end no later than expirationTime.  When there are no time gaps all inflows have arrived.
     std::set<WaterTransfer> incomingWater;
 };
 
 // An Element is an abstract interface that both MeshElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
+// FIXME should I make this more than an abstract interface and put some of the common stuff from MeshElement and ChannelElement here?
 class Element
 {
 public:
-    virtual bool receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message) = 0;
-    virtual bool receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime) = 0;
-    virtual bool receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime) = 0;
+    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime) = 0;
 };
 
 #endif // __NEIGHBOR_PROXY_H__

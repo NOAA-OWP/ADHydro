@@ -171,30 +171,7 @@ bool ChannelElement::checkInvariant() const
     return error;
 }
 
-bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished)
-{
-    bool                                                  error = false; // Error flag.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
-    
-    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
-    
-    neighborsFinished = 0;
-    
-    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
-    {
-        error = it->second.sendNeighborAttributes(outgoingMessages, neighborsFinished, NeighborMessage(NeighborAttributes(0), it->first));
-    }
-    
-    // Check if this element is finished.
-    if (!error && neighbors.size() == neighborsFinished)
-    {
-        ++elementsFinished;
-    }
-    
-    return error;
-}
-
-bool ChannelElement::receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message)
+bool ChannelElement::receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime)
 {
     bool                                                  error = false;                               // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(message.destination); // Iterator for finding correct NeighborProxy.
@@ -212,11 +189,34 @@ bool ChannelElement::receiveNeighborAttributes(size_t& elementsFinished, const N
     
     if (!error)
     {
-        error = it->second.receiveNeighborAttributes(message.attributes);
+        error = message.receive(it->second, neighborsFinished, currentTime, timestepEndTime);
     }
     
-    // When a neighbor proxy receives attributes it always finishes initialization.
-    if (!error && neighbors.size() == ++neighborsFinished)
+    // Check if this element is finished
+    if (!error && neighbors.size() == neighborsFinished)
+    {
+        ++elementsFinished;
+    }
+    
+    return error;
+}
+
+bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished)
+{
+    bool                                                  error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
+    
+    neighborsFinished = 0;
+    
+    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
+    {
+        error = it->second.sendNeighborMessage(outgoingMessages, neighborsFinished, NeighborMessage(it->first, NeighborAttributes(0)));
+    }
+    
+    // Check if this element is finished.
+    if (!error && neighbors.size() == neighborsFinished)
     {
         ++elementsFinished;
     }
@@ -240,36 +240,6 @@ bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<Stat
     
     // Check if this element is finished.
     if (!error && neighbors.size() == neighborsFinished)
-    {
-        ++elementsFinished;
-    }
-    
-    return error;
-}
-
-bool ChannelElement::receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime)
-{
-    bool                                                  error = false;                             // Error flag.
-    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(state.destination); // Iterator for finding correct NeighborProxy.
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-    {
-        error = state.checkInvariant();
-        
-        if (!(neighbors.end() != it))
-        {
-            CkError("ERROR in ChannelElement::receiveState: received a StateMessage with a NeighborConnection that I do not have.\n");
-            error = true;
-        }
-    }
-    
-    if (!error)
-    {
-        error = it->second.receiveStateTransfer(state, currentTime);
-    }
-    
-    // When a neighbor proxy receives state it always finishes calculating nominal flow rates.
-    if (!error && neighbors.size() == ++neighborsFinished)
     {
         ++elementsFinished;
     }
@@ -534,7 +504,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
             case IRRIGATION_DIVERSION:
                 if (0.0 < it->second.getNominalFlowRate())
                 {
-                    error = it->second.sendWater(outgoingMessages, WaterMessage(WaterTransfer(it->second.getNominalFlowRate() * dt * surfaceOutflowFraction, currentTime, timestepEndTime), it->first));
+                    error = it->second.sendWater(outgoingMessages, WaterMessage(it->first, WaterTransfer(it->second.getNominalFlowRate() * dt * surfaceOutflowFraction, currentTime, timestepEndTime)));
                 }
                 break;
             case RESERVOIR_RECIPIENT:
@@ -551,40 +521,6 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
     
     // Check if this element is finished.
     if (!error && neighbors.size() == neighborsFinished)
-    {
-        ++elementsFinished;
-    }
-    
-    return error;
-}
-
-bool ChannelElement::receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime)
-{
-    bool                                                  error = false;                             // Error flag.
-    std::map<NeighborConnection, NeighborProxy>::iterator it    = neighbors.find(water.destination); // Iterator for finding correct NeighborProxy.
-    bool                                                  alreadyFinished;                           // Flag to indicate that allWaterHasArrived was true before this message arrived.
-    
-    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-    {
-        error = water.checkInvariant();
-        
-        if (!(neighbors.end() != it))
-        {
-            CkError("ERROR in ChannelElement::receiveWater: received a WaterMessage with a NeighborConnection that I do not have.\n");
-            error = true;
-        }
-    }
-    
-    if (!error)
-    {
-        // It's possible for a neighbor proxy to already have all of its water up through timestepEndTime and then receive another water message for after timestepEndTime.
-        // In this case we don't want to increment neighborsFinished when allWaterHasArrived is true at the end.
-        alreadyFinished = it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime);
-        error           = it->second.receiveWaterTransfer(water.water);
-    }
-    
-    // When a neighbor proxy receives water it has to check if it is finished.
-    if (!error && !alreadyFinished && it->second.allWaterHasArrived(it->first, currentTime, timestepEndTime) && neighbors.size() == ++neighborsFinished)
     {
         ++elementsFinished;
     }

@@ -10,17 +10,12 @@ class ChannelElement : public Element
 {
 public:
     
-    // Default constructor.  Only needed for pup_stl.h code.
-    inline ChannelElement() : elementNumber(0), channelType(STREAM), reachCode(0), elementX(0.0), elementY(0.0), elementZBank(0.0), elementZBed(0.0), elementLength(1.0), latitude(0.0),
-                              longitude(0.0), baseWidth(1.0), sideSlope(1.0), manningsN(1.0), bedThickness(1.0), bedConductivity(0.0), evapoTranspirationForcing(), evapoTranspirationState(),
-                              surfaceWater(0.0), surfaceWaterCreated(0.0), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(0.0),
-                              evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(0.0), neighbors(), neighborsFinished(0) {}
-    
     // Constructor.  All parameters directly initialize member variables.
-    inline ChannelElement(size_t elementNumber, ChannelTypeEnum channelType, long long reachCode, double elementX, double elementY, double elementZBank, double elementZBed, double elementLength,
-                          double latitude, double longitude, double baseWidth, double sideSlope, double manningsN, double bedThickness, double bedConductivity,
-                          const EvapoTranspirationStateStruct& evapoTranspirationState, double surfaceWater, double surfaceWaterCreated, double precipitationCumulative, double evaporationCumulative,
-                          std::map<NeighborConnection, NeighborProxy> neighbors) :
+    inline ChannelElement(size_t elementNumber = 0, ChannelTypeEnum channelType = STREAM, long long reachCode = 0, double elementX = 0.0, double elementY = 0.0, double elementZBank = 0.0,
+                          double elementZBed = 0.0, double elementLength = 1.0, double latitude = 0.0, double longitude = 0.0, double baseWidth = 1.0, double sideSlope = 1.0, double manningsN = 1.0,
+                          double bedThickness = 1.0, double bedConductivity = 0.0, const EvapoTranspirationStateStruct& evapoTranspirationState = EvapoTranspirationStateStruct(),
+                          double surfaceWater = 0.0, double surfaceWaterCreated = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0,
+                          std::map<NeighborConnection, NeighborProxy> neighbors = std::map<NeighborConnection, NeighborProxy>()) :
         elementNumber(elementNumber), channelType(channelType), reachCode(reachCode), elementX(elementX), elementY(elementY), elementZBank(elementZBank), elementZBed(elementZBed),
         elementLength(elementLength), latitude(latitude), longitude(longitude), baseWidth(baseWidth), sideSlope(sideSlope), manningsN(manningsN), bedThickness(bedThickness),
         bedConductivity(bedConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
@@ -92,6 +87,18 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
+    // Receive any type of message and pass it on to the appropriate NeighborProxy.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // message          - The received message.
+    // elementsFinished - Number of elements in the current Region finished in the current phase.  May be incremented if this call causes this element to be finished.
+    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
+    
     // Call sendNeighborAttributes on all NeighborProxies.
     //
     // Returns: true if there is an error, false otherwise.
@@ -101,16 +108,6 @@ public:
     // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
     // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
     bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished);
-    
-    // Pass the received NeighborMessage to the correct NeighborProxy so that it can save the NeighborAttributes.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
-    // message          - The received message.
-    bool receiveNeighborAttributes(size_t& elementsFinished, const NeighborMessage& message);
     
     // Call calculateNominalFlowRate on all NeighborProxies.
     //
@@ -122,17 +119,6 @@ public:
     // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime);
-    
-    // Pass the received StateMessage to the correct NeighborProxy so that it can calculate its nominalFlowRate.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the receive state phase.  May be incremented if this call causes this element to be finished.
-    // state            - The received message.
-    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveState(size_t& elementsFinished, const StateMessage& state, double currentTime);
     
     // Returns: The minimum value of expirationTime for all NeighborProxies.
     double minimumExpirationTime();
@@ -148,18 +134,6 @@ public:
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime);
-    
-    // Pass the received WaterMessage to the correct NeighborProxy so that it can add it to its incomingWater.
-    //
-    // Returns: true if there is an error, false otherwise.
-    //
-    // Parameters:
-    //
-    // elementsFinished - Number of elements in the current Region finished in the receive water phase.  May be incremented if this call causes this element to be finished.
-    // water            - The received message.
-    // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveWater(size_t& elementsFinished, const WaterMessage& water, double currentTime, double timestepEndTime);
     
     // Recieve lateral inflows, move water through impedance layer, run aquifer capillary fringe solver, update water table heads, and resolve recharge.
     //

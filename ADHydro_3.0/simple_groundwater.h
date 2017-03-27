@@ -57,7 +57,7 @@ public:
     //
     // saturationDepth - (m) If this value is not NAN and is greater than or equal to zero, the water parameter is ignored, and the water member variable is initialized from this saturation depth.
     //                   Otherwise, this parameter is ignored and the water member variable is initialized to the water parameter.
-    inline SimpleGroundwater(double thickness, double conductivity, double porosity, double psiB, double water, double saturationDepth = NAN) :
+    inline SimpleGroundwater(double thickness = 1.0, double conductivity = 1.0, double porosity = 1.0, double psiB = 0.0, double water = 0.0, double saturationDepth = NAN) :
         thickness(thickness), conductivity(conductivity), porosity(porosity), psiB(psiB), water((0.0 <= saturationDepth) ? waterFromSaturationDepth(saturationDepth) : water)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

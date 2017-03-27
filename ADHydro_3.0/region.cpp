@@ -61,7 +61,7 @@ void Region::receiveNeighborAttributes(std::vector<NeighborMessage>& messages)
         it->destination.reverse();
         
         // Pass the StateMessage to the appropriate element.
-        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveNeighborAttributes(elementsFinished, *it))
+        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveMessage(*it, elementsFinished, currentTime, timestepEndTime))
         {
             CkExit();
         }
@@ -81,7 +81,7 @@ void Region::receiveState(std::vector<StateMessage>& messages)
         it->destination.reverse();
         
         // Pass the StateMessage to the appropriate element.
-        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveState(elementsFinished, *it, currentTime))
+        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveMessage(*it, elementsFinished, currentTime, timestepEndTime))
         {
             CkExit();
         }
@@ -101,7 +101,7 @@ void Region::receiveWater(std::vector<WaterMessage>& messages)
         it->destination.reverse();
         
         // Pass the WaterMessage to the appropriate element.
-        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveWater(elementsFinished, *it, currentTime, timestepEndTime))
+        if (findElement(it->destination.localEndpoint, it->destination.localElementNumber).receiveMessage(*it, elementsFinished, currentTime, timestepEndTime))
         {
             CkExit();
         }
