@@ -611,12 +611,4 @@ private:
     std::set<WaterTransfer> incomingWater;
 };
 
-// An Element is an abstract interface that both MeshElement and ChannelElement implement.  It is used to eliminate some duplicate code in Region.
-// FIXME should I make this more than an abstract interface and put some of the common stuff from MeshElement and ChannelElement here?
-class Element
-{
-public:
-    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime) = 0;
-};
-
 #endif // __NEIGHBOR_PROXY_H__

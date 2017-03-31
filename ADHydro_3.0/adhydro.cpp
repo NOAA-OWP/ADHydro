@@ -121,33 +121,100 @@ ADHydro::ADHydro(CkArgMsg* msg)
         // Create the chare array of regions.
         ADHydro::regionProxy = CProxy_Region::ckNew(2);
         
-        /*
-        // Create output manager.
-        outputManagerProxy = CProxy_OutputManagerCharm::ckNew(FILE_MANAGER_NETCDF);
+        // FIXME initialize for real
+        EvapoTranspirationStateStruct evapoTranspirationState;
         
-        // FIXME call this after referenceDate and simulationStartTime are possibly loaded from file.
-        outputManagerProxy.sendInitialize();
+        evapoTranspirationState.fIceOld[0] = 0;
+        evapoTranspirationState.fIceOld[1] = 0;
+        evapoTranspirationState.fIceOld[2] = 0;
+        evapoTranspirationState.albOld     = 1;
+        evapoTranspirationState.snEqvO     = 0;
+        evapoTranspirationState.stc[0]     = 0;
+        evapoTranspirationState.stc[1]     = 0;
+        evapoTranspirationState.stc[2]     = 0;
+        evapoTranspirationState.stc[3]     = 300;
+        evapoTranspirationState.stc[4]     = 300;
+        evapoTranspirationState.stc[5]     = 300;
+        evapoTranspirationState.stc[6]     = 300;
+        evapoTranspirationState.tah        = 300;
+        evapoTranspirationState.eah        = 2000;
+        evapoTranspirationState.fWet       = 0;
+        evapoTranspirationState.canLiq     = 0;
+        evapoTranspirationState.canIce     = 0;
+        evapoTranspirationState.tv         = 300;
+        evapoTranspirationState.tg         = 300;
+        evapoTranspirationState.iSnow      = 0;
+        evapoTranspirationState.zSnso[0]   = 0;
+        evapoTranspirationState.zSnso[1]   = 0;
+        evapoTranspirationState.zSnso[2]   = 0;
+        evapoTranspirationState.zSnso[3]   = -.05;
+        evapoTranspirationState.zSnso[4]   = -.2;
+        evapoTranspirationState.zSnso[5]   = -.5;
+        evapoTranspirationState.zSnso[6]   = -1;
+        evapoTranspirationState.snowH      = 0;
+        evapoTranspirationState.snEqv      = 0;
+        evapoTranspirationState.snIce[0]   = 0;
+        evapoTranspirationState.snIce[1]   = 0;
+        evapoTranspirationState.snIce[2]   = 0;
+        evapoTranspirationState.snLiq[0]   = 0;
+        evapoTranspirationState.snLiq[1]   = 0;
+        evapoTranspirationState.snLiq[2]   = 0;
+        evapoTranspirationState.lfMass     = 100000;
+        evapoTranspirationState.rtMass     = 100000;
+        evapoTranspirationState.stMass     = 100000;
+        evapoTranspirationState.wood       = 200000;
+        evapoTranspirationState.stblCp     = 200000;
+        evapoTranspirationState.fastCp     = 200000;
+        evapoTranspirationState.lai        = 4.6;
+        evapoTranspirationState.sai        = 0.6;
+        evapoTranspirationState.cm         = 0.002;
+        evapoTranspirationState.ch         = 0.002;
+        evapoTranspirationState.tauss      = 0;
+        evapoTranspirationState.deepRech   = 0;
+        evapoTranspirationState.rech       = 0;
         
-        // FIXME remove
-        MeshElementStateCharm meshState(0, 1, 0, 0);
-        outputManagerProxy[0].sendMeshElementState(meshState);
-        meshState.elementNumber = 1;
-        outputManagerProxy[0].sendMeshElementState(meshState);
-        meshState.elementNumber = 2;
-        outputManagerProxy[0].sendMeshElementState(meshState);
-        meshState.elementNumber = 3;
-        outputManagerProxy[1 % CkNumPes()].sendMeshElementState(meshState);
-        meshState.elementNumber = 4;
-        outputManagerProxy[1 % CkNumPes()].sendMeshElementState(meshState);
-        ChannelElementStateCharm channelState(0, 1, 0);
-        outputManagerProxy[0].sendChannelElementState(channelState);
-        channelState.elementNumber = 1;
-        outputManagerProxy[0].sendChannelElementState(channelState);
-        channelState.elementNumber = 2;
-        outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
-        channelState.elementNumber = 3;
-        outputManagerProxy[1 % CkNumPes()].sendChannelElementState(channelState);
-        */
+        std::map<NeighborConnection, NeighborProxy> neighbors;
+        
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, MESH_SURFACE,    1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    0, MESH_SOIL,       1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, MESH_AQUIFER,    1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        
+        ADHydro::regionProxy[0].sendInitializeMeshElement(MeshElement(0, 0, 0.0, 0.0, 0.0, 100, 0.0, 0.0, 11, 2, 0.16, true, 3.38E-6, true, 9.74E-7, &evapoTranspirationState, 0.0, 0.0, UNSATURATED_AQUIFER, 0.0,
+                                                                      SimpleGroundwater(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -0.9, SimpleGroundwater(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
+        
+        neighbors.clear();
+        
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SURFACE,     0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SOIL   ,     0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_AQUIFER,     0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, CHANNEL_SURFACE,  1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, BOUNDARY_OUTFLOW, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        
+        ADHydro::regionProxy[0].sendInitializeChannelElement(ChannelElement(0, STREAM, 0, 0.0, 0.0, 0.0, -1.0, 10.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, &evapoTranspirationState, 0.0, 0.0, 0.0, 0.0, neighbors));
+        
+        neighbors.clear();
+        
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, MESH_SURFACE,    0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    1, MESH_SOIL,       0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, MESH_AQUIFER,    0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        
+        ADHydro::regionProxy[1].sendInitializeMeshElement(MeshElement(1, 1, 0.0, 0.0, 0.0, 100, 0.0, 0.0, 11, 2, 0.16, true, 3.38E-6, true, 9.74E-7, &evapoTranspirationState, 0.0, 0.0, UNSATURATED_AQUIFER, 0.0,
+                                                                      SimpleGroundwater(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -0.9, SimpleGroundwater(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
+        
+        neighbors.clear();
+        
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SURFACE,    1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SOIL   ,    1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_AQUIFER,    1), NeighborProxy(1, 0.0, 0.0, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, CHANNEL_SURFACE, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
+        
+        ADHydro::regionProxy[1].sendInitializeChannelElement(ChannelElement(1, STREAM, 1, 0.0, 0.0, 0.0, -1.0, 10.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, &evapoTranspirationState, 0.0, 0.0, 0.0, 0.0, neighbors));
     }
     
     if (error)

@@ -2,7 +2,7 @@
 #include "readonly.h"
 
 // FIXME stubs
-static size_t numberOfChannelElements;
+static size_t numberOfChannelElements = 2;
 // FIXME end stubs
 
 bool ChannelElement::checkInvariant() const
@@ -285,7 +285,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
     float  noahMPWaterCreated;                                   // (mm) Water that was created or destroyed by Noah-MP.  Positive means water was created.  Negative means water was destroyed.
     double topWidth             = baseWidth + 2.0 * sideSlope * surfaceWater; // (m) Width of the water top surface.
     double topArea              = topWidth * elementLength;      // (m^2) Surface area of the water top surface.
-    double crossSectionalArea   = (baseWidth + sideSlope * surfaceWater) * surfaceWater; // (m^2) Wetted cross sectional area of the channel.
+    double crossSectionalArea   = crossSectionalAreaFromSurfaceWaterDepth(surfaceWater); // (m^2) Wetted cross sectional area of the channel.
     double precipitation;                                        // (m) Total quantity of water precipitated this timestep.
     double evaporation;                                          // (m) Total quantity of water evaporated   this timestep.
     double unsatisfiedEvaporation;                               // (m) Remaining quantity of water needing to be evaporated.
@@ -483,7 +483,7 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
         }
         
         // Convert cross sectional area back to water depth.
-        calculateSurfaceWaterDepthFromCrossSectionalArea(crossSectionalArea);
+        surfaceWater = surfaceWaterDepthFromCrossSectionalArea(crossSectionalArea);
     
         neighborsFinished = 0;
     }
@@ -530,9 +530,10 @@ bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vecto
 
 bool ChannelElement::receiveInflowsAndUpdateState(double currentTime, double timestepEndTime)
 {
-    bool                                                  error              = false;                                                 // Error flag.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;                                                                         // Iterator over neighbor proxies.
-    double                                                crossSectionalArea = (baseWidth + sideSlope * surfaceWater) * surfaceWater; // (m^2) Wetted cross sectional area of the channel.
+    bool                                                  error              = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;                         // Iterator over neighbor proxies.
+    double                                                crossSectionalArea = 0.0;   // (m^2) Water expressed as wetted cross sectional area of the channel.
+                                                                                      // Used for both received water and thrown away water in drainDownMode.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -576,22 +577,27 @@ bool ChannelElement::receiveInflowsAndUpdateState(double currentTime, double tim
             }
         }
         
-        // Convert cross sectional area back to water depth.
-        calculateSurfaceWaterDepthFromCrossSectionalArea(crossSectionalArea);
+        // Convert cross sectional area to water depth.
+        if (0.0 != crossSectionalArea)
+        {
+            surfaceWater = surfaceWaterDepthFromCrossSectionalArea(crossSectionalAreaFromSurfaceWaterDepth(surfaceWater) + crossSectionalArea);
+        }
         
         // If in drainDownMode cut off surface water to channel bank depth.
         if (Readonly::drainDownMode && surfaceWater > elementZBank - elementZBed)
         {
+            crossSectionalArea   = crossSectionalAreaFromSurfaceWaterDepth(surfaceWater);
             surfaceWater         = elementZBank - elementZBed;
-            surfaceWaterCreated -= (crossSectionalArea - ((baseWidth + sideSlope * surfaceWater) * surfaceWater)) * elementLength;
+            surfaceWaterCreated -= (crossSectionalArea - crossSectionalAreaFromSurfaceWaterDepth(surfaceWater)) * elementLength;
         }
     }
     
     return error;
 }
 
-void ChannelElement::calculateSurfaceWaterDepthFromCrossSectionalArea(double crossSectionalArea)
+double ChannelElement::surfaceWaterDepthFromCrossSectionalArea(double crossSectionalArea)
 {
+    double depth;     // Return value.
     double bOverTwoS; // Temporary value reused in computation.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
@@ -604,23 +610,25 @@ void ChannelElement::calculateSurfaceWaterDepthFromCrossSectionalArea(double cro
         // Trapezoidal or triangular channel.
         bOverTwoS = baseWidth / (2.0 * sideSlope);
         
-        surfaceWater = sqrt(crossSectionalArea / sideSlope + bOverTwoS * bOverTwoS) - bOverTwoS;
+        depth = sqrt(crossSectionalArea / sideSlope + bOverTwoS * bOverTwoS) - bOverTwoS;
         
-        // For very small areas I wonder if surfaceWater might be able to come out negative due to roundoff error.  I wasn't able to convince myself that it couldn't possibly happen so I'm leaving this in.
+        // For very small areas I wonder if depth might be able to come out negative due to roundoff error.  I wasn't able to convince myself that it couldn't possibly happen so I'm leaving this in.
         // I don't add anything to surfaceWaterCreated because I already know that crossSectionalArea wasn't negative so it's not really missing water.
-        if (0.0 > surfaceWater)
+        if (0.0 > depth)
         {
             if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
             {
-                CkAssert(epsilonEqual(0.0, surfaceWater));
+                CkAssert(epsilonEqual(0.0, depth));
             }
             
-            surfaceWater = 0.0;
+            depth = 0.0;
         }
     }
     else
     {
         // Rectangular channel.  By invariant baseWidth and sideSlope can't both be zero.
-        surfaceWater = crossSectionalArea / baseWidth;
+        depth = crossSectionalArea / baseWidth;
     }
+    
+    return depth;
 }

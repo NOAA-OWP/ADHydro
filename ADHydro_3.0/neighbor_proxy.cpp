@@ -1,9 +1,9 @@
 #include "neighbor_proxy.h"
 
 // FIXME stubs
-static size_t numberOfMeshElements;
-static size_t numberOfChannelElements;
-static size_t numberOfRegions;
+static size_t numberOfMeshElements = 2;
+static size_t numberOfChannelElements = 2;
+static size_t numberOfRegions = 2;
 // FIXME end stubs
 
 bool NeighborConnection::checkInvariant() const
@@ -448,16 +448,14 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
         // The flow rate is always 0.1 m^3/s and the expiration time is always 1 s.
         switch (connection.localEndpoint)
         {
-            case RESERVOIR_RELEASE:
-            case IRRIGATION_DIVERSION:
-                outflow = true;
-                break;
-            case CHANNEL_SURFACE:
+            case MESH_SURFACE:
+            case MESH_SOIL:
+            case MESH_AQUIFER:
                 if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
                 {
                     inflow = true;
                 }
-                else if (CHANNEL_SURFACE == connection.remoteEndpoint && connection.localElementNumber < connection.remoteElementNumber)
+                else if ((MESH_SURFACE == connection.remoteEndpoint || MESH_SOIL == connection.remoteEndpoint || MESH_AQUIFER == connection.remoteEndpoint) && connection.localElementNumber < connection.remoteElementNumber)
                 {
                     inflow = true;
                 }
@@ -466,14 +464,12 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
                     outflow = true;
                 }
                 break;
-            case MESH_SURFACE:
-            case MESH_SOIL:
-            case MESH_AQUIFER:
+            case CHANNEL_SURFACE:
                 if (BOUNDARY_OUTFLOW == connection.remoteEndpoint || TRANSBASIN_OUTFLOW == connection.remoteEndpoint)
                 {
                     outflow = true;
                 }
-                else if ((MESH_SURFACE == connection.remoteEndpoint || MESH_SOIL == connection.remoteEndpoint || MESH_AQUIFER == connection.remoteEndpoint) && connection.localElementNumber > connection.remoteElementNumber)
+                else if (CHANNEL_SURFACE == connection.remoteEndpoint && connection.localElementNumber > connection.remoteElementNumber)
                 {
                     outflow = true;
                 }
@@ -481,6 +477,10 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
                 {
                     inflow = true;
                 }
+                break;
+            case RESERVOIR_RELEASE:
+            case IRRIGATION_DIVERSION:
+                outflow = true;
                 break;
             default:
                 // For IRRIGATION_RECIPIENT and RESERVOIR_RECIPIENT never recalculate nominalFlowRate and expirationTime.

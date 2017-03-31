@@ -2,7 +2,7 @@
 #include "readonly.h"
 
 // FIXME stubs
-static size_t numberOfMeshElements;
+static size_t numberOfMeshElements = 2;
 // FIXME end stubs
 
 bool MeshElement::checkInvariant() const

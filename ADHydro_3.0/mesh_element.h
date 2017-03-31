@@ -17,26 +17,25 @@ enum GroundwaterModeEnum
 PUPbytes(GroundwaterModeEnum);
 
 // A MeshElement is a triangular element in the mesh.  It simulates overland (non-channel) surfacewater state as well as groundwater and vadose zone state.
-class MeshElement : public Element
+class MeshElement
 {
 public:
     
     // Constructor.  All parameters directly initialize member variables.
     inline MeshElement(size_t elementNumber = 0, size_t catchment = 0, double elementX = 0.0, double elementY = 0.0, double elementZ = 0.0, double elementArea = 1.0, double latitude = 0.0,
                        double longitude = 0.0, int vegetationType = 1, int groundType = 1, double manningsN = 1.0, bool soilExists = false, double impedanceConductivity = 0.0,
-                       bool aquiferExists = false, double deepConductivity = 0.0, const EvapoTranspirationStateStruct& evapoTranspirationState = EvapoTranspirationStateStruct(),
-                       double surfaceWater = 0.0, double surfaceWaterCreated = 0.0, GroundwaterModeEnum groundwaterMode = NO_MULTILAYER, double perchedHead = 0.0,
-                       const SimpleGroundwater& soilWater = SimpleGroundwater(), double soilWaterCreated = 0.0, double aquiferHead = 0.0,const SimpleGroundwater& aquiferWater = SimpleGroundwater(),
-                       double aquiferWaterCreated = 0.0, double deepGroundwater = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0,
-                       double transpirationCumulative = 0.0, const std::map<NeighborConnection, NeighborProxy>& neighbors = std::map<NeighborConnection, NeighborProxy>()) :
+                       bool aquiferExists = false, double deepConductivity = 0.0, const EvapoTranspirationStateStruct* evapoTranspirationStateInit = NULL, double surfaceWater = 0.0,
+                       double surfaceWaterCreated = 0.0, GroundwaterModeEnum groundwaterMode = NO_MULTILAYER, double perchedHead = 0.0, const SimpleGroundwater& soilWater = SimpleGroundwater(),
+                       double soilWaterCreated = 0.0, double aquiferHead = 0.0, const SimpleGroundwater& aquiferWater = SimpleGroundwater(), double aquiferWaterCreated = 0.0,
+                       double deepGroundwater = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0, double transpirationCumulative = 0.0,
+                       const std::map<NeighborConnection, NeighborProxy>& neighbors = std::map<NeighborConnection, NeighborProxy>()) :
         elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude),
         vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
-        deepConductivity(deepConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
-        surfaceWaterCreated(surfaceWaterCreated), groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated), soilRecharge(0.0),
-        aquiferHead(aquiferHead), aquiferWater(aquiferWater), aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater), precipitationRate(0.0),
-        precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0),
-        evaporationCumulativeLongTerm(evaporationCumulative), transpirationRate(0.0), transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(transpirationCumulative),
-        neighbors(neighbors), neighborsFinished(0)
+        deepConductivity(deepConductivity), /* evapoTranspirationForcing and evapoTranspirationState initialized below. */ surfaceWater(surfaceWater), surfaceWaterCreated(surfaceWaterCreated),
+        groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated), soilRecharge(0.0), aquiferHead(aquiferHead), aquiferWater(aquiferWater),
+        aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0),
+        precipitationCumulativeLongTerm(precipitationCumulative), evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative),
+        transpirationRate(0.0), transpirationCumulativeShortTerm(0.0), transpirationCumulativeLongTerm(transpirationCumulative), neighbors(neighbors), neighborsFinished(0)
     {
         // Values for evapoTranspirationForcing are going to be received before we start simulating.  For now, just fill in values that will pass the invariant.
         evapoTranspirationForcing.dz8w   = 20.0f;
@@ -52,6 +51,69 @@ public:
         evapoTranspirationForcing.prcp   = 0.0f;
         evapoTranspirationForcing.tBot   = 300.0f;
         evapoTranspirationForcing.pblh   = 0.0f;
+        
+        // FIXME remove
+        if (1 == elementNumber)
+        {
+            evapoTranspirationForcing.prcp = 10.0f;
+        }
+        
+        // It was necessary to do things this way to combine the regular constructor with the no-argument constructor while initializing evapoTranspirationState to values that pass the invariant in the no-argument case.
+        if (NULL != evapoTranspirationStateInit)
+        {
+            evapoTranspirationState = *evapoTranspirationStateInit;
+        }
+        else
+        {
+            evapoTranspirationState.fIceOld[0] = 0;
+            evapoTranspirationState.fIceOld[1] = 0;
+            evapoTranspirationState.fIceOld[2] = 0;
+            evapoTranspirationState.albOld     = 1;
+            evapoTranspirationState.snEqvO     = 0;
+            evapoTranspirationState.stc[0]     = 0;
+            evapoTranspirationState.stc[1]     = 0;
+            evapoTranspirationState.stc[2]     = 0;
+            evapoTranspirationState.stc[3]     = 300;
+            evapoTranspirationState.stc[4]     = 300;
+            evapoTranspirationState.stc[5]     = 300;
+            evapoTranspirationState.stc[6]     = 300;
+            evapoTranspirationState.tah        = 300;
+            evapoTranspirationState.eah        = 2000;
+            evapoTranspirationState.fWet       = 0;
+            evapoTranspirationState.canLiq     = 0;
+            evapoTranspirationState.canIce     = 0;
+            evapoTranspirationState.tv         = 300;
+            evapoTranspirationState.tg         = 300;
+            evapoTranspirationState.iSnow      = 0;
+            evapoTranspirationState.zSnso[0]   = 0;
+            evapoTranspirationState.zSnso[1]   = 0;
+            evapoTranspirationState.zSnso[2]   = 0;
+            evapoTranspirationState.zSnso[3]   = -.05;
+            evapoTranspirationState.zSnso[4]   = -.2;
+            evapoTranspirationState.zSnso[5]   = -.5;
+            evapoTranspirationState.zSnso[6]   = -1;
+            evapoTranspirationState.snowH      = 0;
+            evapoTranspirationState.snEqv      = 0;
+            evapoTranspirationState.snIce[0]   = 0;
+            evapoTranspirationState.snIce[1]   = 0;
+            evapoTranspirationState.snIce[2]   = 0;
+            evapoTranspirationState.snLiq[0]   = 0;
+            evapoTranspirationState.snLiq[1]   = 0;
+            evapoTranspirationState.snLiq[2]   = 0;
+            evapoTranspirationState.lfMass     = 100000;
+            evapoTranspirationState.rtMass     = 100000;
+            evapoTranspirationState.stMass     = 100000;
+            evapoTranspirationState.wood       = 200000;
+            evapoTranspirationState.stblCp     = 200000;
+            evapoTranspirationState.fastCp     = 200000;
+            evapoTranspirationState.lai        = 4.6;
+            evapoTranspirationState.sai        = 0.6;
+            evapoTranspirationState.cm         = 0.002;
+            evapoTranspirationState.ch         = 0.002;
+            evapoTranspirationState.tauss      = 0;
+            evapoTranspirationState.deepRech   = 0;
+            evapoTranspirationState.rech       = 0;
+        }
         
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {

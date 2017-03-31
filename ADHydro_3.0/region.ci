@@ -40,17 +40,10 @@ module region
                             
                             for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
                             {
-                                if (itMessage->first == thisIndex)
-                                {
-                                    // Don't need to send a message to myself.  Just receive the message immediately.
-                                    // FIXME will I send messages at all?
-                                    receiveNeighborAttributes(itMessage->second);
-                                }
-                                else
-                                {
-                                    // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
-                                    thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
-                                }
+                                // Here I can't shortcut and pass NeighborMessages directly to a recipient who is on the same PE.  This applies even if the recipient is me.
+                                // I have to wait until the recipient has received initialize messages for all of its elements so that they are inserted in the appropriate maps.
+                                // The easiest way to do this is to hand the message to Charm++ and let the SDAG state machine handle it.
+                                thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
                             }
                         }
                     }
@@ -81,17 +74,10 @@ module region
                             
                             for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
                             {
-                                if (itMessage->first == thisIndex)
-                                {
-                                    // Don't need to send a message to myself.  Just receive the message immediately.
-                                    // FIXME will I send messages at all?
-                                    receiveNeighborAttributes(itMessage->second);
-                                }
-                                else
-                                {
-                                    // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
-                                    thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
-                                }
+                                // Here I can't shortcut and pass NeighborMessages directly to a recipient who is on the same PE.  This applies even if the recipient is me.
+                                // I have to wait until the recipient has received initialize messages for all of its elements so that they are inserted in the appropriate maps.
+                                // The easiest way to do this is to hand the message to Charm++ and let the SDAG state machine handle it.
+                                thisProxy[itMessage->first].sendNeighborAttributes(itMessage->second);
                             }
                         }
                     }
@@ -105,7 +91,7 @@ module region
                 {
                     serial
                     {
-                        receiveNeighborAttributes(messages);
+                        receiveMessages(messages);
                     }
                 }
             }
@@ -150,7 +136,7 @@ module region
                         {
                             // Don't need to send a message to myself.  Just receive the message immediately.
                             // FIXME will I send messages at all?
-                            receiveState(itMessage->second);
+                            receiveMessages(itMessage->second);
                         }
                         else
                         {
@@ -183,7 +169,7 @@ module region
                                     }
                                 }
                                 
-                                receiveState(messages);
+                                receiveMessages(messages);
                             }
                         }
                     }
@@ -239,7 +225,7 @@ module region
                         {
                             // Don't need to send a message to myself.  Just receive the message immediately.
                             // FIXME will I send messages at all?
-                            receiveWater(itMessage->second);
+                            receiveMessages(itMessage->second);
                         }
                         else
                         {
@@ -256,7 +242,7 @@ module region
                     {
                         serial
                         {
-                            receiveWater(messages);
+                            receiveMessages(messages);
                         }
                     }
                 }

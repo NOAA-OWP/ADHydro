@@ -7,8 +7,7 @@
 #include "region.decl.h"
 
 // A Region is a Charm++ chare object that holds multiple mesh and channel elements and implements some of our basic simulation architecture.
-// The architecture is a first-order simulation of moving water between various containers such as: groundwater, surfacewater, streams, lakes, etc.
-// The simulation is called first-order because it uses only the first derivative to determine how much water to move between containers.
+// The architecture is an explicit first-order simulation of moving water between various containers such as: groundwater, surfacewater, streams, lakes, etc.
 // Each pair of neighboring containers calculate a simple linear flow rate, cubic meters per second, and an expiration time for how long this flow rate is valid.
 // Then the amount of water equal to the flow rate times the timestep is removed from one container and added to the other container.
 // Then new flow rates are calculated, etc.
@@ -81,43 +80,38 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
-    // Pass received NeighborMessages down to the appropriate element.  Exit on error.
+    // Loop over a vector of Messages calling receiveMessage on each one.
+    // This function is necessary because you can't pass a std::vector<SubClass> as a reference to std::vector<SuperClass>
+    // the same way you can pass an individual SubClass as a reverence to SuperClass.
     //
     // Parameters:
     //
     // messages - The received messages.
-    void receiveNeighborAttributes(std::vector<NeighborMessage>& messages);
+    template <typename T> inline void receiveMessages(std::vector<T>& messages)
+    {
+        typename std::vector<T>::iterator it; // Loop iterator.
+        
+        // Loop over messages calling receiveMessage for each one.
+        for (it = messages.begin(); it != messages.end(); ++it)
+        {
+            receiveMessage(*it);
+        }
+    }
     
-    // Pass received StateMessages down to the appropriate element.  Exit on error.
+    // Pass a received Message down to the appropriate element.  Exit on error.
     //
     // Parameters:
     //
-    // messages - The received messages.
-    void receiveState(std::vector<StateMessage>& messages);
-    
-    // Pass received WaterMessages down to the appropriate element.  Exit on error.
-    //
-    // Parameters:
-    //
-    // messages - The received messages.
-    void receiveWater(std::vector<WaterMessage>& messages);
+    // message - The received message.
+    void receiveMessage(Message& message);
     
 private:
     
-    // Returns: A reference to the indicated Element, which could be a MeshElement or ChannelElement.  Exit on error.
-    //
-    // Parameters:
-    //
-    // localEndpoint      - What kind of element.
-    // localElementNumber - Which element of that kind.
-    Element& findElement(NeighborEndpointEnum localEndpoint, size_t localElementNumber);
-    
     // Simulation time.
-    double currentTime;     // (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    double timestepEndTime; // (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    
-    // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.
+    double       currentTime;     // (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    double       timestepEndTime; // (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     const double simulationEndTime = Readonly::simulationStartTime + Readonly::simulationDuration;
+                                  // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.
     
     // Elements in the Region.
     std::map<size_t,    MeshElement> meshElements;     // A map of MeshElements    allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.

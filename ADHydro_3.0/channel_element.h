@@ -6,19 +6,19 @@
 
 // A ChannelElement is a length of stream, a waterbody, or a glacier in the channel network.  It is modeled as a linear element.
 // It simulates surfacewater state only.  Groundwater underneath the channel is simulated by neighboring mesh elements.
-class ChannelElement : public Element
+class ChannelElement
 {
 public:
     
     // Constructor.  All parameters directly initialize member variables.
     inline ChannelElement(size_t elementNumber = 0, ChannelTypeEnum channelType = STREAM, long long reachCode = 0, double elementX = 0.0, double elementY = 0.0, double elementZBank = 0.0,
-                          double elementZBed = 0.0, double elementLength = 1.0, double latitude = 0.0, double longitude = 0.0, double baseWidth = 1.0, double sideSlope = 1.0, double manningsN = 1.0,
-                          double bedThickness = 1.0, double bedConductivity = 0.0, const EvapoTranspirationStateStruct& evapoTranspirationState = EvapoTranspirationStateStruct(),
+                          double elementZBed = 0.0, double elementLength = 1.0, double latitude = 0.0, double longitude = 0.0, double baseWidth = 1.0, double sideSlope = 1.0,
+                          double manningsN = 1.0, double bedThickness = 1.0, double bedConductivity = 0.0, const EvapoTranspirationStateStruct* evapoTranspirationStateInit = NULL,
                           double surfaceWater = 0.0, double surfaceWaterCreated = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0,
                           std::map<NeighborConnection, NeighborProxy> neighbors = std::map<NeighborConnection, NeighborProxy>()) :
-        elementNumber(elementNumber), channelType(channelType), reachCode(reachCode), elementX(elementX), elementY(elementY), elementZBank(elementZBank), elementZBed(elementZBed),
-        elementLength(elementLength), latitude(latitude), longitude(longitude), baseWidth(baseWidth), sideSlope(sideSlope), manningsN(manningsN), bedThickness(bedThickness),
-        bedConductivity(bedConductivity), /* evapoTranspirationForcing initialized below. */ evapoTranspirationState(evapoTranspirationState), surfaceWater(surfaceWater),
+        elementNumber(elementNumber), channelType(channelType), reachCode(reachCode), elementX(elementX), elementY(elementY), elementZBank(elementZBank),
+        elementZBed(elementZBed), elementLength(elementLength), latitude(latitude), longitude(longitude), baseWidth(baseWidth), sideSlope(sideSlope), manningsN(manningsN),
+        bedThickness(bedThickness), bedConductivity(bedConductivity), /* evapoTranspirationForcing and evapoTranspirationState initialized below. */ surfaceWater(surfaceWater),
         surfaceWaterCreated(surfaceWaterCreated), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0), precipitationCumulativeLongTerm(precipitationCumulative),
         evaporationRate(0.0), evaporationCumulativeShortTerm(0.0), evaporationCumulativeLongTerm(evaporationCumulative), neighbors(neighbors), neighborsFinished(0)
     {
@@ -36,6 +36,63 @@ public:
         evapoTranspirationForcing.prcp   = 0.0f;
         evapoTranspirationForcing.tBot   = 300.0f;
         evapoTranspirationForcing.pblh   = 0.0f;
+        
+        // It was necessary to do things this way to combine the regular constructor with the no-argument constructor while initializing evapoTranspirationState to values that pass the invariant in the no-argument case.
+        if (NULL != evapoTranspirationStateInit)
+        {
+            evapoTranspirationState = *evapoTranspirationStateInit;
+        }
+        else
+        {
+            evapoTranspirationState.fIceOld[0] = 0;
+            evapoTranspirationState.fIceOld[1] = 0;
+            evapoTranspirationState.fIceOld[2] = 0;
+            evapoTranspirationState.albOld     = 1;
+            evapoTranspirationState.snEqvO     = 0;
+            evapoTranspirationState.stc[0]     = 0;
+            evapoTranspirationState.stc[1]     = 0;
+            evapoTranspirationState.stc[2]     = 0;
+            evapoTranspirationState.stc[3]     = 300;
+            evapoTranspirationState.stc[4]     = 300;
+            evapoTranspirationState.stc[5]     = 300;
+            evapoTranspirationState.stc[6]     = 300;
+            evapoTranspirationState.tah        = 300;
+            evapoTranspirationState.eah        = 2000;
+            evapoTranspirationState.fWet       = 0;
+            evapoTranspirationState.canLiq     = 0;
+            evapoTranspirationState.canIce     = 0;
+            evapoTranspirationState.tv         = 300;
+            evapoTranspirationState.tg         = 300;
+            evapoTranspirationState.iSnow      = 0;
+            evapoTranspirationState.zSnso[0]   = 0;
+            evapoTranspirationState.zSnso[1]   = 0;
+            evapoTranspirationState.zSnso[2]   = 0;
+            evapoTranspirationState.zSnso[3]   = -.05;
+            evapoTranspirationState.zSnso[4]   = -.2;
+            evapoTranspirationState.zSnso[5]   = -.5;
+            evapoTranspirationState.zSnso[6]   = -1;
+            evapoTranspirationState.snowH      = 0;
+            evapoTranspirationState.snEqv      = 0;
+            evapoTranspirationState.snIce[0]   = 0;
+            evapoTranspirationState.snIce[1]   = 0;
+            evapoTranspirationState.snIce[2]   = 0;
+            evapoTranspirationState.snLiq[0]   = 0;
+            evapoTranspirationState.snLiq[1]   = 0;
+            evapoTranspirationState.snLiq[2]   = 0;
+            evapoTranspirationState.lfMass     = 100000;
+            evapoTranspirationState.rtMass     = 100000;
+            evapoTranspirationState.stMass     = 100000;
+            evapoTranspirationState.wood       = 200000;
+            evapoTranspirationState.stblCp     = 200000;
+            evapoTranspirationState.fastCp     = 200000;
+            evapoTranspirationState.lai        = 4.6;
+            evapoTranspirationState.sai        = 0.6;
+            evapoTranspirationState.cm         = 0.002;
+            evapoTranspirationState.ch         = 0.002;
+            evapoTranspirationState.tauss      = 0;
+            evapoTranspirationState.deepRech   = 0;
+            evapoTranspirationState.rech       = 0;
+        }
         
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -153,12 +210,27 @@ public:
     
 private:
     
-    // Calculate the surface water depth in meters of a trapeziodal channel from the wetted cross sectional area.  Calculated value is stored in member variable surfaceWater.
+    // Returns: (m) the surface water depth of a trapeziodal channel from the wetted cross sectional area.
     //
     // Parameters:
     //
     // crossSectionalArea - (m^2) Wetted cross sectional area of the channel.
-    void calculateSurfaceWaterDepthFromCrossSectionalArea(double crossSectionalArea);
+    double surfaceWaterDepthFromCrossSectionalArea(double crossSectionalArea);
+    
+    // Returns: (m^2) the wetted cross sectional area of a trapeziodal channel from the surface water depth.
+    //
+    // Parameters:
+    //
+    // depth - (m) Surface water depth of the channel.
+    inline double crossSectionalAreaFromSurfaceWaterDepth(double depth)
+    {
+        if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+        {
+            CkAssert(0.0 <= depth);
+        }
+        
+        return (baseWidth + sideSlope * depth) * depth;
+    }
     
     // Immutable attributes of the element.
     size_t          elementNumber;   // ID number of this element.
