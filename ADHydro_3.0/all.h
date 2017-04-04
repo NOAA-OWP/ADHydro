@@ -10,10 +10,10 @@
 
 // These macros are used to accomodate the fact that all.h will sometimes be used for non-Charm++ programs.
 // If you know whether some particular code uses Charm++ or not you do not need to use these macros.
-#define ADHYDRO_ASSERT CkAssert
-#define ADHYDRO_PRINTF CkPrintf
-#define ADHYDRO_ERROR  CkError
-#define ADHYDRO_EXIT   CkExit()
+#define ADHYDRO_ASSERT           CkAssert
+#define ADHYDRO_PRINTF           CkPrintf
+#define ADHYDRO_ERROR            CkError
+#define ADHYDRO_EXIT(error_code) CkExit() // CkExit does not take an error code.
 
 #else // !__CHARMC__
 
@@ -22,10 +22,10 @@
 #include <algorithm>
 #include <cassert>
 
-#define ADHYDRO_ASSERT assert
-#define ADHYDRO_PRINTF printf
-#define ADHYDRO_ERROR  printf
-#define ADHYDRO_EXIT   exit(-1)
+#define ADHYDRO_ASSERT           assert
+#define ADHYDRO_PRINTF           printf
+#define ADHYDRO_ERROR            printf
+#define ADHYDRO_EXIT(error_code) exit(error_code)
 
 #endif // __CHARMC__
 
@@ -39,9 +39,9 @@
 // 
 // Assertions check within the code for things that the code can guarantee to
 // be true.  By definition, bug free code will never fire an assertion on any
-// input.  This code does not satisfy that condition if any error checking is
-// turned off.  Assertions are only needed for finding bugs and can be compiled
-// out of production code.
+// input.  In general, code will not satisfy that condition if any error
+// checking is turned off.  Assertions are only needed for finding bugs and can
+// be compiled out of production code.
 // 
 // Invariants are conditions that should always be true.  Invariants are
 // usually written on complex data structures like a mesh or chanel network.
@@ -84,10 +84,10 @@
 #define DEBUG_LEVEL (DEBUG_LEVEL_DEVELOPMENT)
 
 // Constants.
-#define GRAVITY               (9.81)      // Meters per second squared.
-#define POLAR_RADIUS_OF_EARTH (6356752.3) // Meters.
-#define ZERO_C_IN_KELVIN      (273.15)    // Kelvin.
-#define PONDED_DEPTH          (0.001)     // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
+#define GRAVITY               (9.81)      // (m/s^2)
+#define POLAR_RADIUS_OF_EARTH (6356752.3) // (m)
+#define ZERO_C_IN_KELVIN      (273.15)    // (K)
+#define PONDED_DEPTH          (0.001)     // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
@@ -117,11 +117,13 @@ enum ChannelTypeEnum
 PUPbytes(ChannelTypeEnum);
 #endif // __CHARMC__
 
+// FIXME double check if this is used in the final code.
 // Used for passing a Charm++ message with which type of file manager to use.
-// This could be replaced with pupping a base class pointer to a subclass object.
-// This is a little bit of a kludge, or at least putting it here is.
+// This could be replaced with pupping a base class pointer to a subclass
+// object.  This is a little bit of a kludge, or at least putting it here is.
 // Any time you create a new file manager type you need to add it here.
-// I don't want to put it in file_manager.h because then it would have to include charm++.h for the PUPbytes declaration.
+// I don't want to put it in file_manager.h because then it would have to
+// include charm++.h for the PUPbytes declaration.
 enum FileManagerEnum
 {
   FILE_MANAGER_NETCDF
@@ -154,8 +156,7 @@ inline bool epsilonLess(double a, double b)
   return a < b - epsilon(b);
 }
 
-// Returns: true if a is greater than and not epsilon-equal to b, false
-//          otherwise.
+// Returns: true if a is greater than and not epsilon-equal to b, false otherwise.
 inline bool epsilonGreater(double a, double b)
 {
   return a > b + epsilon(b);
@@ -194,8 +195,7 @@ inline bool epsilonLess(float a, float b)
   return a < b - epsilon(b);
 }
 
-// Returns: true if a is greater than and not epsilon-equal to b, false
-//          otherwise.
+// Returns: true if a is greater than and not epsilon-equal to b, false otherwise.
 inline bool epsilonGreater(float a, float b)
 {
   return a > b + epsilon(b);
@@ -242,7 +242,9 @@ inline bool epsilonEqual(float a, float b)
 // year   - Gregorian year.  You must include the full year number.  E.g. 14 is
 //          14 CE, not 2014 CE.  Must be positive.
 // month  - Gregorian month, 1 to 12.
-// day    - Gregorian day, 1 to 31.
+// day    - Gregorian day, 1 to 31.  If day doesn't exist in month it isn't an
+//          error.  Instead, it rolls over to the next month.  For example,
+//          month=4, day=31 is the same as month=5, day=1.
 // hour   - Gregorian hour, 0 to 23.
 // minute - Gregorian minute, 0 to 59.
 // second - Gregorian second including fractional second, 0 to 59.999999...
@@ -259,37 +261,37 @@ inline double gregorianToJulian(long year, long month, long day, long hour, long
       if (!(1L <= year))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: year must be greater than or equal to one.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(1L <= month && 12L >= month))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: month must be greater than or equal to one and less than or equal to twelve.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(1L <= day && 31L >= day))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: day must be greater than or equal to one and less than or equal to thirty one.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(0L <= hour && 23L >= hour))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: hour must be greater than or equal to zero and less than or equal to twenty three.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(0L <= minute && 59L >= minute))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: minute must be greater than or equal to zero and less than or equal to fifty nine.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(0.0 <= second && 60.0 > second))
         {
           ADHYDRO_ERROR("ERROR in gregorianToJulian: second must be greater than or equal to zero and less than or equal to sixty.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
     }
 
@@ -348,14 +350,10 @@ inline double gregorianToJulian(long year, long month, long day, long hour, long
 //
 // julian - Julian date.  Must be greater than or equal to 1721425.5.
 // year   - Scalar passed by reference will be filled in with Gregorian year.
-// month  - Scalar passed by reference will be filled in with Gregorian month,
-//          1 to 12.
-// day    - Scalar passed by reference will be filled in with Gregorian day,
-//          1 to 31.
-// hour   - Scalar passed by reference will be filled in with Gregorian hour,
-//          0 to 23.
-// minute - Scalar passed by reference will be filled in with Gregorian minute,
-//          0 to 59.
+// month  - Scalar passed by reference will be filled in with Gregorian month,  1 to 12.
+// day    - Scalar passed by reference will be filled in with Gregorian day,    1 to 31.
+// hour   - Scalar passed by reference will be filled in with Gregorian hour,   0 to 23.
+// minute - Scalar passed by reference will be filled in with Gregorian minute, 0 to 59.
 // second - Scalar passed by reference will be filled in with Gregorian second
 //          including fractional second, 0 to 59.999999...
 inline void julianToGregorian(double julian, long* year, long* month, long* day, long* hour, long* minute, double* second)
@@ -368,43 +366,43 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
       if (!(1721425.5 <= julian))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: julian must be on or after 1 CE (1721425.5).\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != year))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: year must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != month))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: month must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != day))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: day must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != hour))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: hour must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != minute))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: minute must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != second))
         {
           ADHYDRO_ERROR("ERROR in julianToGregorian: second must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
     }
 
@@ -467,42 +465,31 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
 // http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
 //
 // Modified by RCS 1/15 to change floats to doubles, make it inline, and add
-// comments, but didn't clean up other aspects that don't fit our coding
-// standards.
+// comments, but didn't clean up other aspects that don't fit our coding standards.
 // Modified by RCS 3/15 for coding standards.
 //
 // Returns: true if the line segments intersect, false otherwise.
 //
 // Parameters:
 //
-// segmentOneBeginX - The X coordinate of the begin endpoint of the first line
-//                    segment.
-// segmentOneBeginY - The Y coordinate of the begin endpoint of the first line
-//                    segment.
-// segmentOneEndX   - The X coordinate of the end endpoint of the first line
-//                    segment.
-// segmentOneEndY   - The Y coordinate of the end endpoint of the first line
-//                    segment.
-// segmentTwoBeginX - The X coordinate of the begin endpoint of the second line
-//                    segment.
-// segmentTwoBeginY - The Y coordinate of the begin endpoint of the second line
-//                    segment.
-// segmentTwoEndX   - The X coordinate of the end endpoint of the second line
-//                    segment.
-// segmentTwoEndY   - The Y coordinate of the end endpoint of the second line
-//                    segment.
-// intersectionX    - Scalar passed by reference.  If the line segments
-//                    intersect this will be filled in with the X coordinate of
-//                    the intersection point.  Otherwise it will be unmodified.
-//                    Or it can be passed in as NULL in which case it will be
-//                    ignored.
-// intersectionY    - Scalar passed by reference.  If the line segments
-//                    intersect this will be filled in with the Y coordinate of
-//                    the intersection point.  Otherwise it will be unmodified.
-//                    Or it can be passed in as NULL in which case it will be
-//                    ignored.
+// segmentOneBeginX - The X coordinate of the begin endpoint of the first  line segment.
+// segmentOneBeginY - The Y coordinate of the begin endpoint of the first  line segment.
+// segmentOneEndX   - The X coordinate of the end   endpoint of the first  line segment.
+// segmentOneEndY   - The Y coordinate of the end   endpoint of the first  line segment.
+// segmentTwoBeginX - The X coordinate of the begin endpoint of the second line segment.
+// segmentTwoBeginY - The Y coordinate of the begin endpoint of the second line segment.
+// segmentTwoEndX   - The X coordinate of the end   endpoint of the second line segment.
+// segmentTwoEndY   - The Y coordinate of the end   endpoint of the second line segment.
+// intersectionX    - Scalar passed by reference.  If the line segments intersect this
+//                    will be filled in with the X coordinate of the intersection point.
+//                    Otherwise it will be unmodified.  Or it can be passed in as NULL
+//                    in which case it will be ignored.
+// intersectionY    - Scalar passed by reference.  If the line segments intersect this
+//                    will be filled in with the Y coordinate of the intersection point.
+//                    Otherwise it will be unmodified.  Or it can be passed in as NULL
+//                    in which case it will be ignored.
 inline bool getLineIntersection(double segmentOneBeginX, double segmentOneBeginY, double segmentOneEndX, double segmentOneEndY, double segmentTwoBeginX,
-    double segmentTwoBeginY, double segmentTwoEndX, double segmentTwoEndY, double *intersectionX, double *intersectionY)
+                                double segmentTwoBeginY, double segmentTwoEndX, double segmentTwoEndY, double *intersectionX, double *intersectionY)
 {
   // Calculate the span of each line segment in the X and Y directions.
   double segmentOneSpanX = segmentOneEndX - segmentOneBeginX;
@@ -516,22 +503,22 @@ inline bool getLineIntersection(double segmentOneBeginX, double segmentOneBeginY
   // denominator is zero the lines are parallel.  In that case, segmentOneFraction and segmentTwoFraction will be infinite or not a number, and testing if they
   // are between zero and one will return the correct answer: false, there is no intersection.
   double segmentOneFraction = ( segmentTwoSpanX * (segmentOneBeginY - segmentTwoBeginY) - segmentTwoSpanY * (segmentOneBeginX - segmentTwoBeginX)) /
-      (-segmentTwoSpanX * segmentOneSpanY + segmentOneSpanX * segmentTwoSpanY);
+                              (-segmentTwoSpanX * segmentOneSpanY + segmentOneSpanX * segmentTwoSpanY);
   double segmentTwoFraction = (-segmentOneSpanY * (segmentOneBeginX - segmentTwoBeginX) + segmentOneSpanX * (segmentOneBeginY - segmentTwoBeginY)) /
-      (-segmentTwoSpanX * segmentOneSpanY + segmentOneSpanX * segmentTwoSpanY);
+                              (-segmentTwoSpanX * segmentOneSpanY + segmentOneSpanX * segmentTwoSpanY);
   bool   intersection       = false;
 
   if (0.0 <= segmentOneFraction && 1.0 >= segmentOneFraction && 0.0 <= segmentTwoFraction && 1.0 >= segmentTwoFraction)
     {
       intersection = true;
 
-      // intersection detected
-      if (intersectionX != NULL)
+      // Get coordinates of intersection point.
+      if (NULL != intersectionX)
         {
           *intersectionX = segmentOneBeginX + segmentOneSpanX * segmentOneFraction;
         }
 
-      if (intersectionY != NULL)
+      if (NULL != intersectionY)
         {
           *intersectionY = segmentOneBeginY + segmentOneSpanY * segmentOneFraction;
         }
@@ -572,19 +559,19 @@ inline double getAreaOfPolygon(double* xCoordinates, double* yCoordinates, int s
       if (!(NULL != xCoordinates))
         {
           ADHYDRO_ERROR("ERROR in getAreaOfPolygon: xCoordinates must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(NULL != yCoordinates))
         {
           ADHYDRO_ERROR("ERROR in getAreaOfPolygon: yCoordinates must not be NULL.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
 
       if (!(0 < size))
         {
           ADHYDRO_ERROR("ERROR in getAreaOfPolygon: size must be greater than zero.\n");
-          ADHYDRO_EXIT;
+          ADHYDRO_EXIT(-1);
         }
     }
 
