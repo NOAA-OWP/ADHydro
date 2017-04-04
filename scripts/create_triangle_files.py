@@ -19,6 +19,8 @@ app.initQgis()
 parser = argparse.ArgumentParser(description="Create Triangle input files from pre-processed mesh shapefiles.")
 parser.add_argument('ADHydroMapDir', help='The ADHydro map directory containing ArcGIS and TauDEM sub-directories.')
 parser.add_argument('-o', '--outputDir', help='Optional output directory. By default, output will be put in ADHydroMapDir/ASCII')
+parser.add_argument('-b', '--base', help='Optional base name to add to files, i.e. <base>_catchments.shp. Defaults to mesh')
+parser.add_argument('-r', '--resolution', help='Stream resolutions to read (i.e. <base>_streams_20_meter.shp). By default looks for <base>_streams.shp.')
 args = parser.parse_args()
 
 if not os.path.isdir(args.ADHydroMapDir):
@@ -32,11 +34,20 @@ if not os.path.isdir(meshPath):
 if not os.path.isdir(netPath):
     parser.error("Directory '{}' does not exist.".format(netPath))
 
-# modify these to point to your files
-input_catchment_file       = os.path.join(meshPath, "mesh_catchments.shp")
-input_waterbody_file       = os.path.join(meshPath, "mesh_waterbodies.shp")
-input_stream_file          = os.path.join(meshPath, "mesh_streams.shp")
-input_original_stream_file = os.path.join(netPath,  "projectednet.shp")
+if args.base:
+    input_catchment_file = os.path.join(meshPath, '{}_catchments.shp'.format(args.base))
+    input_waterbody_file = os.path.join(meshPath, '{}_waterbodies.shp'.format(args.base))
+    if args.resolution:
+        input_stream_file = os.path.join(meshPath, '{}_streams_{}_meter.shp'.format(args.base, args.resolution))
+    else:
+        input_stream_file = os.path.join(meshPath, '{}_streams.shp'.format(args.base))
+    input_original_stream_file = os.path.join(netPath, '{}_net.shp'.format(args.base))
+else:
+    # modify these to point to your files
+    input_catchment_file       = os.path.join(meshPath, "mesh_catchments.shp")
+    input_waterbody_file       = os.path.join(meshPath, "mesh_waterbodies.shp")
+    input_stream_file          = os.path.join(meshPath, "mesh_streams.shp")
+    input_original_stream_file = os.path.join(netPath,  "projectednet.shp")
 
 def fileNotFound(name):
     parser.error("Could not find required file '{}'".format(name))
