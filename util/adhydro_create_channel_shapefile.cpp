@@ -43,11 +43,20 @@ bool readNetCDFDimensionSize(int fileID, const char* dimensionName, size_t* dime
   return error;
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-  const char* geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
-  const char* shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
-
+  char* geometryFilename;
+  char* shpFileBasename;
+  if(argc == 3)
+  {
+    geometryFilename = argv[1];
+    shpFileBasename = argv[2];
+  }
+  else
+  {
+    geometryFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/geometry.nc";
+    shpFileBasename  = "/share/CI-WATER_Simulation_Data/small_green_mesh/channel_elements";
+  }
   bool       error            = false; // Error flag.
   size_t     ii;                       // Loop counter.
   int        geometryFileID;
