@@ -1,19 +1,32 @@
 mainmodule adhydro
 {
-  extern module output_manager_charm;
-  
-  mainchare ADHydro
-  {
-    // Global readonly variables.
-    readonly std::string               adhydroOutputDirectoryPath;
-    readonly double                    referenceDate;
-    readonly double                    simulationStartTime;
-    readonly double                    simulationDuration;
-    readonly double                    outputPeriod;
-    readonly size_t                    outputGroupSize;
-    readonly int                       verbosityLevel;
-    readonly CProxy_OutputManagerCharm outputManagerProxy;
+    extern module region;
+    // FIXME extern module output_manager_charm;
     
-    entry ADHydro(CkArgMsg* msg);
-  }; // End mainchare ADHydro.
+    mainchare ADHydro
+    {
+        // Constructor.  This is the mainchare constructor where the program starts.
+        entry ADHydro(CkArgMsg* msg);
+        
+        // Global readonly variables.
+        readonly CProxy_Region regionProxy;
+        // FIXME readonly CProxy_OutputManagerCharm outputManagerProxy;
+    }; // End mainchare ADHydro.
+    
+    // Global readonly variables.
+    readonly std::string Readonly::noahMPMpTableFilePath;
+    readonly std::string Readonly::noahMPVegParmFilePath;
+    readonly std::string Readonly::noahMPSoilParmFilePath;
+    readonly std::string Readonly::noahMPGenParmFilePath;
+    readonly double      Readonly::referenceDate;
+    readonly double      Readonly::simulationStartTime;
+    readonly double      Readonly::simulationDuration;
+    readonly double      Readonly::checkpointPeriod;
+    readonly size_t      Readonly::checkpointGroupSize;
+    readonly std::string Readonly::checkpointDirectoryPath;
+    readonly bool        Readonly::drainDownMode;
+    readonly bool        Readonly::zeroExpirationTime;
+    readonly bool        Readonly::zeroCumulativeFlow;
+    readonly bool        Readonly::zeroWaterCreated;
+    readonly size_t      Readonly::verbosityLevel;
 }; // End mainmodule adhydro.
