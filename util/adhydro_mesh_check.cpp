@@ -1,13 +1,24 @@
 #include "all.h"
 #include <cstdio>
+#include <string>
 
-int main(void)
+int main(int argc, char** argv)
 {
   // Locations of input files.  Edit these and recompile to change which files get read.
   // FIXME make these command line parameters.
-  const char* meshNodeFilename    = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node";
-  const char* meshElementFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele";
-  
+  std::string meshNodeFilename;
+  std::string meshElementFilename;
+  if(argc == 2)
+  {
+      meshNodeFilename = std::string(argv[1])+std::string("/mesh.1.node");
+      meshElementFilename = std::string(argv[1])+std::string("/mesh.1.ele");
+  }
+  else
+  {
+      meshNodeFilename    = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.node";
+      meshElementFilename = "/share/CI-WATER_Simulation_Data/small_green_mesh/mesh.1.ele";
+  }
+
   bool    error               = false; // Error flag.
   int     ii, jj;                      // Loop counters;
   FILE*   nodeFile;                    // Input file for mesh nodes.
@@ -37,19 +48,19 @@ int main(void)
   bool    tooClose;                    // Whether a problem triangle is too close to a previously reported smaller problem triangle.
   
   // Open the files.
-  nodeFile = fopen(meshNodeFilename, "r");
-  eleFile  = fopen(meshElementFilename, "r");
+  nodeFile = fopen(meshNodeFilename.c_str(), "r");
+  eleFile  = fopen(meshElementFilename.c_str(), "r");
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
   if (!(NULL != nodeFile))
     {
-      fprintf(stderr, "ERROR in main: Could not open mesh node file %s.\n", meshNodeFilename);
+      fprintf(stderr, "ERROR in main: Could not open mesh node file %s.\n", meshNodeFilename.c_str());
       error = true;
     }
   
   if (!(NULL != eleFile))
     {
-      fprintf(stderr, "ERROR in main: Could not open mesh element file %s.\n", meshElementFilename);
+      fprintf(stderr, "ERROR in main: Could not open mesh element file %s.\n", meshElementFilename.c_str());
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -62,7 +73,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(4 == numScanned))
         {
-          fprintf(stderr, "ERROR in main: Unable to read header from mesh node file %s.\n", meshNodeFilename);
+          fprintf(stderr, "ERROR in main: Unable to read header from mesh node file %s.\n", meshNodeFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -70,7 +81,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(0 < numberOfMeshNodes && 2 == dimension && 0 == numberOfAttributes && 1 == boundary))
         {
-          fprintf(stderr, "ERROR in main: Invalid header in mesh node file %s.\n", meshNodeFilename);
+          fprintf(stderr, "ERROR in main: Invalid header in mesh node file %s.\n", meshNodeFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -91,7 +102,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(3 == numScanned))
         {
-          fprintf(stderr, "ERROR in main: Unable to read entry %d from mesh node file %s.\n", ii, meshNodeFilename);
+          fprintf(stderr, "ERROR in main: Unable to read entry %d from mesh node file %s.\n", ii, meshNodeFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -99,7 +110,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(ii == meshNodeNumber))
         {
-          fprintf(stderr, "ERROR in main: Invalid node number in mesh node file %s.  %d should be %d.\n", meshNodeFilename, meshNodeNumber, ii);
+          fprintf(stderr, "ERROR in main: Invalid node number in mesh node file %s.  %d should be %d.\n", meshNodeFilename.c_str(), meshNodeNumber, ii);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -120,7 +131,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(3 == numScanned))
         {
-          fprintf(stderr, "ERROR in main: Unable to read header from mesh element file %s.\n", meshElementFilename);
+          fprintf(stderr, "ERROR in main: Unable to read header from mesh element file %s.\n", meshElementFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -128,7 +139,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(0 < numberOfMeshElements && 3 == dimension && 1 == numberOfAttributes))
         {
-          fprintf(stderr, "ERROR in main: Invalid header in mesh element file %s.\n", meshElementFilename);
+          fprintf(stderr, "ERROR in main: Invalid header in mesh element file %s.\n", meshElementFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
@@ -152,7 +163,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
       if (!(5 == numScanned))
         {
-          fprintf(stderr, "ERROR in main: Unable to read entry %d from mesh element file %s.\n", ii, meshElementFilename);
+          fprintf(stderr, "ERROR in main: Unable to read entry %d from mesh element file %s.\n", ii, meshElementFilename.c_str());
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
@@ -160,7 +171,7 @@ int main(void)
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(ii == meshElementNumber))
         {
-          fprintf(stderr, "ERROR in main: Invalid element number in mesh element file %s.  %d should be %d.\n", meshElementFilename, meshElementNumber, ii);
+          fprintf(stderr, "ERROR in main: Invalid element number in mesh element file %s.  %d should be %d.\n", meshElementFilename.c_str(), meshElementNumber, ii);
           error = true;
         }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
