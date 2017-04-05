@@ -10,6 +10,9 @@
 // NeighborEndpointEnum is used to disambiguate between multiple connections with the same neighbor.
 enum NeighborEndpointEnum
 {
+    // Special tag for no neighbor.
+    NO_NEIGHBOR          = -1, // Only used when writing/reading fixed sized arrays to/from file where the size of the array may be larger than the number of neighbors.
+    
     // Natural flows.
     MESH_SURFACE         = 0,
     MESH_SOIL            = 1,
@@ -430,6 +433,36 @@ public:
     WaterTransfer water; // The water that is being sent.
 };
 
+// A NeighborState is the information about a NeighborProxy that needs to be output to a state file.
+class NeighborState
+{
+public:
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | localEndpoint;
+        p | remoteEndpoint;
+        p | remoteElementNumber;
+        p | nominalFlowRate;
+        p | expirationTime;
+        p | inflowCumulative;
+        p | outflowCumulative;
+    }
+    
+    NeighborEndpointEnum localEndpoint;
+    NeighborEndpointEnum remoteEndpoint;
+    size_t               remoteElementNumber;
+    double               nominalFlowRate;
+    double               expirationTime;
+    double               inflowCumulative;
+    double               outflowCumulative;
+};
+
 // A NeighborProxy is how elements store their neighbor connections with other elements.  For each neighbor connection, two NeighborProxies are stored, one at each element.
 // The element where the NeighborProxy is stored is its local neighbor.  The other is its remote neighbor.  A NeighborProxy stores the destination information needed to
 // communicate with the remote neighbor, immutable attributes of the remote neighbor needed for local calculations, and information about water flows between the neighbors.
@@ -567,6 +600,23 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime);
+    
+    // Fill in this NeighborProxy's values into a NeighborState object.
+    //
+    // Parameters:
+    //
+    // state      - The NeighborState to fill in.
+    // connection - Some values come from the NeighborConnection that is not stored inside the NeighborProxy.
+    inline void fillInState(NeighborState& state, const NeighborConnection& connection)
+    {
+        state.localEndpoint       = connection.localEndpoint;
+        state.remoteEndpoint      = connection.remoteEndpoint;
+        state.remoteElementNumber = connection.remoteElementNumber;
+        state.nominalFlowRate     = nominalFlowRate;
+        state.expirationTime      = expirationTime;
+        state.inflowCumulative    = inflowCumulativeShortTerm + inflowCumulativeLongTerm;
+        state.outflowCumulative   = outflowCumulativeShortTerm + outflowCumulativeLongTerm;
+    }
     
     // Returns: the value of nominalFlowRate.
     inline double getNominalFlowRate() const

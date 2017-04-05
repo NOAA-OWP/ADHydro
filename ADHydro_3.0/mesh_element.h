@@ -16,6 +16,59 @@ enum GroundwaterModeEnum
 
 PUPbytes(GroundwaterModeEnum);
 
+class MeshState
+{
+public:
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | elementNumber;
+        p | evapoTranspirationState;
+        p | surfaceWater;
+        p | surfaceWaterCreated;
+        p | groundwaterMode;
+        p | perchedHead;
+        p | soilWater;
+        p | soilWaterCreated;
+        p | aquiferHead;
+        p | aquiferWater;
+        p | aquiferWaterCreated;
+        p | deepGroundwater;
+        p | precipitationRate;
+        p | precipitationCumulative;
+        p | evaporationRate;
+        p | evaporationCumulative;
+        p | transpirationRate;
+        p | transpirationCumulative;
+        p | neighbors;
+    }
+    
+    size_t                        elementNumber;
+    EvapoTranspirationStateStruct evapoTranspirationState;
+    double                        surfaceWater;
+    double                        surfaceWaterCreated;
+    GroundwaterModeEnum           groundwaterMode;
+    double                        perchedHead;
+    SimpleGroundwater             soilWater;
+    double                        soilWaterCreated;
+    double                        aquiferHead;
+    SimpleGroundwater             aquiferWater;
+    double                        aquiferWaterCreated;
+    double                        deepGroundwater;
+    double                        precipitationRate;
+    double                        precipitationCumulative;
+    double                        evaporationRate;
+    double                        evaporationCumulative;
+    double                        transpirationRate;
+    double                        transpirationCumulative;
+    std::vector<NeighborState>    neighbors;
+};
+
 // A MeshElement is a triangular element in the mesh.  It simulates overland (non-channel) surfacewater state as well as groundwater and vadose zone state.
 class MeshElement
 {
@@ -235,6 +288,49 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool receiveInflowsAndUpdateState(double currentTime, double timestepEndTime);
+    
+    // Fill in this MeshElement's values into a MeshState object.
+    //
+    // Parameters:
+    //
+    // state - The MeshState to fill in.
+    inline void fillInState(MeshState& state)
+    {
+        std::map<NeighborConnection, NeighborProxy>::iterator itProxy; // Loop iterator.
+        std::vector<NeighborState>::iterator                  itState; // Loop iterator.
+        
+        state.elementNumber           = elementNumber;
+        state.evapoTranspirationState = evapoTranspirationState;
+        state.surfaceWater            = surfaceWater;
+        state.surfaceWaterCreated     = surfaceWaterCreated;
+        state.groundwaterMode         = groundwaterMode;
+        state.perchedHead             = perchedHead;
+        state.soilWater               = soilWater;
+        state.soilWaterCreated        = soilWaterCreated;
+        state.aquiferHead             = aquiferHead;
+        state.aquiferWater            = aquiferWater;
+        state.aquiferWaterCreated     = aquiferWaterCreated;
+        state.deepGroundwater         = deepGroundwater;
+        state.precipitationRate       = precipitationRate;
+        state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
+        state.evaporationRate         = evaporationRate;
+        state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
+        state.transpirationRate       = transpirationRate;
+        state.transpirationCumulative = transpirationCumulativeShortTerm + transpirationCumulativeLongTerm;
+        
+        state.neighbors.resize(neighbors.size());
+        
+        for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
+        {
+            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            {
+                // Because we resized state.neighbors we shouldn't run out of elements in this loop.
+                CkAssert(itState != state.neighbors.end());
+            }
+            
+            itProxy->second.fillInState(*itState, itProxy->first);
+        }
+    }
     
     // Returns: the value of elementNumber.
     inline double getElementNumber() const

@@ -105,6 +105,35 @@ public:
     // message - The received message.
     void receiveMessage(Message& message);
     
+    // Send the current state of all elements in this Region to the appropriate OutputManagers.
+    inline void sendState()
+    {
+        std::map<size_t,                                                    MeshElement>::iterator itMesh;        // Loop iterator.
+        std::map<size_t,                                                 ChannelElement>::iterator itChannel;     // Loop iterator.
+        std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >::iterator itState;       // Loop iterator.
+        std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >           outgoingState; // State going to various OutputManagers.  Key is the destination PE.
+        size_t                                                                                     elementHome;   // The home PE of an element.
+        
+        for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+        {
+            elementHome = 0; // FIXME calculate home PE of element.
+            outgoingState[elementHome].first.resize(outgoingState[elementHome].first.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
+            itMesh->second.fillInState(outgoingState[elementHome].first.back());
+        }
+        
+        for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+        {
+            elementHome = 0; // FIXME calculate home PE of element.
+            outgoingState[elementHome].second.resize(outgoingState[elementHome].second.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
+            itChannel->second.fillInState(outgoingState[elementHome].second.back());
+        }
+        
+        for (itState = outgoingState.begin(); itState != outgoingState.end(); ++itState)
+        {
+            // outputManagerProxy[itState->first].sendState(currentTime, itState->second.first, itState->second.second);
+        }
+    }
+    
 private:
     
     // Simulation time.

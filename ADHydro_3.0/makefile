@@ -25,6 +25,8 @@ VPATH := ../HRLDAS-v3.6/Noah             \
 EXES := adhydro
 
 ADHYDRO_OBJS := adhydro.o             \
+                file_manager_NetCDF.o \
+                time_point_state.o    \
                 region.o              \
                 mesh_element.o        \
                 channel_element.o     \
@@ -74,6 +76,26 @@ adhydro.decl.h \
 adhydro.def.h: adhydro.ci \
                region.ci
 	$(CHARMC) $<
+
+file_manager_NetCDF.o: file_manager_NetCDF.cpp \
+                       file_manager_NetCDF.h   \
+                       time_point_state.h      \
+                       mesh_element.h          \
+                       neighbor_proxy.h        \
+                       simple_groundwater.h    \
+                       evapo_transpiration.h   \
+                       readonly.h              \
+                       all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+time_point_state.o: time_point_state.cpp  \
+                    time_point_state.h    \
+                    mesh_element.h        \
+                    neighbor_proxy.h      \
+                    simple_groundwater.h  \
+                    evapo_transpiration.h \
+                    all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 region.o: region.cpp            \
           region.h              \

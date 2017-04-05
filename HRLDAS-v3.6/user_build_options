@@ -49,12 +49,12 @@
  MODFLAG	=	-I
  LDFLAGS	=	-O3
  CPP		=	cpp
- CPPFLAGS	=	-C -P -traditional # -D_HRLDAS_URBAN_
+ CPPFLAGS	=	-P -traditional # -D_HRLDAS_URBAN_
  LIBS		=	
  LIBJASPER     =       -ljpeg -ljasper
  INCJASPER     =       
- NETCDFMOD	=	-I/opt/include
- NETCDFLIB	=	-L/opt/lib64 -Wl,--start-group -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -Wl,--end-group -lcurl
+ NETCDFMOD	=	
+ NETCDFLIB	=	-lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz -ldl -lcurl
  BZIP2		=       YES
  BZIP2_LIB	=       -lbz2
  BZIP2_INCLUDE	=       -I/usr/include
