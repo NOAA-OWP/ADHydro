@@ -147,6 +147,13 @@ public:
         return thickness;
     }
     
+    // Returns: the value of water.
+    // FIXME replace this with a function that returns the quantity of water in a depth range.
+    inline double getWater() const
+    {
+        return water;
+    }
+    
 private:
     
     // Returns: (m) The quantity of water the modeled layer would have if the saturation depth were the given value.

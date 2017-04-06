@@ -168,3 +168,144 @@ TimePointState::~TimePointState()
     delete[] channelNeighborInflowCumulative;
     delete[] channelNeighborOutflowCumulative;
 }
+
+bool TimePointState::receiveMeshState(const MeshState& state)
+{
+    bool                                       error      = false;                                       // Error flag.
+    int                                        ii;                                                       // Loop counter.
+    std::vector<NeighborState>::const_iterator it;                                                       // Loop iterator.
+    size_t                                     localIndex = state.elementNumber - localMeshElementStart; // The array index in the TimePointState for this data.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(localMeshElementStart <= state.elementNumber && state.elementNumber < localMeshElementStart + localNumberOfMeshElements))
+        {
+            CkError("ERROR in TimePointState::receiveMeshState: received state from a mesh element I do not own.\n");
+            error = true;
+        }
+        
+        if (!(state.neighbors.size() <= maximumNumberOfMeshNeighbors))
+        {
+            CkError("ERROR in TimePointState::receiveMeshState: received state from a mesh element with more neighbors than maximumNumberOfMeshNeighbors.\n");
+            error = true;
+        }
+    }
+    
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    if (!error)
+    {
+        if (!(!meshStateReceived[localIndex]))
+        {
+            CkError("ERROR in TimePointState::receiveMeshState: received duplicate state from a mesh element.\n");
+            error = true;
+        }
+        else
+        {
+            meshStateReceived[localIndex] = true;
+        }
+    }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    
+    if (!error)
+    {
+        elementsReceived++;
+        meshEvapoTranspirationState[localIndex].noahMPStateBlob            = state.evapoTranspirationState;
+        meshSurfaceWater[           localIndex]                            = state.surfaceWater;
+        meshSurfaceWaterCreated[    localIndex]                            = state.surfaceWaterCreated;
+        meshGroundwaterMode[        localIndex]                            = state.groundwaterMode;
+        meshPerchedHead[            localIndex]                            = state.perchedHead;
+        meshSoilWater[              localIndex].simpleGroundwaterStateBlob = state.soilWater;
+        meshSoilWaterCreated[       localIndex]                            = state.soilWaterCreated;
+        meshAquiferHead[            localIndex]                            = state.aquiferHead;
+        meshAquiferWater[           localIndex].simpleGroundwaterStateBlob = state.aquiferWater;
+        meshAquiferWaterCreated[    localIndex]                            = state.aquiferWaterCreated;
+        meshDeepGroundwater[        localIndex]                            = state.deepGroundwater;
+        meshPrecipitationRate[      localIndex]                            = state.precipitationRate;
+        meshPrecipitationCumulative[localIndex]                            = state.precipitationCumulative;
+        meshEvaporationRate[        localIndex]                            = state.evaporationRate;
+        meshEvaporationCumulative[  localIndex]                            = state.evaporationCumulative;
+        meshTranspirationRate[      localIndex]                            = state.transpirationRate;
+        meshTranspirationCumulative[localIndex]                            = state.transpirationCumulative;
+        meshCanopyWaterEquivalent[  localIndex]                            = (state.evapoTranspirationState.canLiq + state.evapoTranspirationState.canIce) / 1000.0; // Divide by 1000.0 to convert from millimeters to meters.
+        meshSnowWaterEquivalent[    localIndex]                            = state.evapoTranspirationState.snEqv / 1000.0;                                           // Divide by 1000.0 to convert from millimeters to meters.
+        meshRootZoneWater[          localIndex]                            = state.soilWater.getWater(); // FIXME define the root zone.
+        meshTotalGroundwater[       localIndex]                            = state.soilWater.getWater() + state.aquiferWater.getWater();
+        
+        for (it = state.neighbors.begin(), ii = 0; it != state.neighbors.end(); ++it, ++ii)
+        {
+            meshNeighborLocalEndpoint[      localIndex * maximumNumberOfMeshNeighbors + ii] = it->localEndpoint;
+            meshNeighborRemoteEndpoint[     localIndex * maximumNumberOfMeshNeighbors + ii] = it->remoteEndpoint;
+            meshNeighborRemoteElementNumber[localIndex * maximumNumberOfMeshNeighbors + ii] = it->remoteElementNumber;
+            meshNeighborNominalFlowRate[    localIndex * maximumNumberOfMeshNeighbors + ii] = it->nominalFlowRate;
+            meshNeighborExpirationTime[     localIndex * maximumNumberOfMeshNeighbors + ii] = it->expirationTime;
+            meshNeighborInflowCumulative[   localIndex * maximumNumberOfMeshNeighbors + ii] = it->inflowCumulative;
+            meshNeighborOutflowCumulative[  localIndex * maximumNumberOfMeshNeighbors + ii] = it->outflowCumulative;
+        }
+    }
+    
+    return error;
+}
+
+bool TimePointState::receiveChannelState(const ChannelState& state)
+{
+    bool                                       error      = false;                                       // Error flag.
+    int                                        ii;                                                       // Loop counter.
+    std::vector<NeighborState>::const_iterator it;                                                       // Loop iterator.
+    size_t                                     localIndex = state.elementNumber - localMeshElementStart; // The array index in the TimePointState for this data.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(localChannelElementStart <= state.elementNumber && state.elementNumber < localChannelElementStart + localNumberOfChannelElements))
+        {
+            CkError("ERROR in TimePointState::receiveChannelState: received state from a channel element I do not own.\n");
+            error = true;
+        }
+        
+        if (!(state.neighbors.size() <= maximumNumberOfChannelNeighbors))
+        {
+            CkError("ERROR in TimePointState::receiveChannelState: received state from a channel element with more neighbors than maximumNumberOfChannelNeighbors.\n");
+            error = true;
+        }
+    }
+    
+    #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    if (!error)
+    {
+        if (!(!channelStateReceived[localIndex]))
+        {
+            CkError("ERROR in TimePointState::receiveChannelState: received duplicate state from a channel element.\n");
+            error = true;
+        }
+        else
+        {
+            channelStateReceived[localIndex] = true;
+        }
+    }
+    #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    
+    if (!error)
+    {
+        elementsReceived++;
+        channelEvapoTranspirationState[localIndex].noahMPStateBlob = state.evapoTranspirationState;
+        channelSurfaceWater[           localIndex]                 = state.surfaceWater;
+        channelSurfaceWaterCreated[    localIndex]                 = state.surfaceWaterCreated;
+        channelPrecipitationRate[      localIndex]                 = state.precipitationRate;
+        channelPrecipitationCumulative[localIndex]                 = state.precipitationCumulative;
+        channelEvaporationRate[        localIndex]                 = state.evaporationRate;
+        channelEvaporationCumulative[  localIndex]                 = state.evaporationCumulative;
+        channelSnowWaterEquivalent[    localIndex]                 = state.evapoTranspirationState.snEqv / 1000.0; // Divide by 1000.0 to convert from millimeters to meters.
+        
+        for (it = state.neighbors.begin(), ii = 0; it != state.neighbors.end(); ++it, ++ii)
+        {
+            channelNeighborLocalEndpoint[      localIndex * maximumNumberOfChannelNeighbors + ii] = it->localEndpoint;
+            channelNeighborRemoteEndpoint[     localIndex * maximumNumberOfChannelNeighbors + ii] = it->remoteEndpoint;
+            channelNeighborRemoteElementNumber[localIndex * maximumNumberOfChannelNeighbors + ii] = it->remoteElementNumber;
+            channelNeighborNominalFlowRate[    localIndex * maximumNumberOfChannelNeighbors + ii] = it->nominalFlowRate;
+            channelNeighborExpirationTime[     localIndex * maximumNumberOfChannelNeighbors + ii] = it->expirationTime;
+            channelNeighborInflowCumulative[   localIndex * maximumNumberOfChannelNeighbors + ii] = it->inflowCumulative;
+            channelNeighborOutflowCumulative[  localIndex * maximumNumberOfChannelNeighbors + ii] = it->outflowCumulative;
+        }
+    }
+    
+    return error;
+}

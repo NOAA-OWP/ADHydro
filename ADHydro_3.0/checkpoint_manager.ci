@@ -1,0 +1,109 @@
+module checkpoint_manager
+{
+    group CheckpointManager
+    {
+        entry CheckpointManager();
+        
+        // Dummy function for structured dagger.
+        entry void runUntilSimulationEnd()
+        {
+            while (nextOutputIndex < checkpointData.size())
+            {
+                when sendState(size_t checkpointIndex, const std::vector<MeshState>& meshState, const std::vector<ChannelState>& channelState)
+                {
+                    serial
+                    {
+                        std::vector<   MeshState>::iterator itMesh;    // Loop iterator.
+                        std::vector<ChannelState>::iterator itChannel; // Loop iterator.
+                        size_t                              localNumberOfMeshElements;
+                        size_t                              localMeshElementStart;
+                        size_t                              localNumberOfChannelElements;
+                        size_t                              localChannelElementStart;
+                        
+                        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                        {
+                            if (!(nextOutputIndex <= checkpointIndex && checkpointIndex < checkpointData.size()))
+                            {
+                                CkError("ERROR in CheckpointManager::runUntilSimulationEnd: checkpointIndex must be greater than or equal to nextOutputIndex and less than checkpointData.size().\n");
+                                CkExit();
+                            }
+                        }
+                        
+                        // If this is the first state received for this time point create a new TimePointState to hold it.
+                        if (NULL == checkpointData[checkpointIndex])
+                        {
+                            // FIXME figure out how to really get these values.
+                            localStartAndNumber(localMeshElementStart, localNumberOfMeshElements, globalNumberOfMeshElements);
+                            localStartAndNumber(localChannelElementStart, localNumberOfChannelElements, globalNumberOfChannelElements);
+                            
+                            checkpointData[checkpointIndex] = new TimePointState(globalNumberOfMeshElements, localNumberOfMeshElements, localMeshElementStart, maximumNumberOfMeshNeighbors,
+                                                                                 globalNumberOfChannelElements, localNumberOfChannelElements, localChannelElementStart, maximumNumberOfChannelNeighbors);
+                        }
+                        
+                        // Record the data.
+                        for (itMesh = meshState.begin(); itMesh != meshState.end(); ++itMesh)
+                        {
+                            if (checkpointData[checkpointIndex]->receiveMeshState(*itMesh))
+                            {
+                                CkExit();
+                            }
+                        }
+                        
+                        for (itChannel = channelState.begin(); itChannel != channelState.end(); ++itChannel)
+                        {
+                            if (checkpointData[checkpointIndex]->receiveChannelState(*itChannel))
+                            {
+                                CkExit();
+                            }
+                        }
+                    }
+                }
+                
+                if (readyToOutput())
+                {
+                    // There is a potential deadlock problem that requires a barrier here.  Opening NetCDF files in parallel hits a barrier in the NetCDF library,
+                    // which waits for all other processors to hit the barrier.  Because Charm++ is single threaded on each PE, when a CheckpointManager
+                    // hits that barrier no further Charm++ operations can take place on that PE until all CheckpointManagers reach the NetCDF barrier.
+                    // But there may be another CheckpointManager that is waiting for state from an element that has migrated to the PE that is locked by the
+                    // CheckpointManager waiting at the NetCDF barrier.  The solution is to put a Charm++ barrier (implemented as a reduction) before the NetCDF barrier
+                    // because the Charm++ barrier is implemented in such a way that other Charm++ operations can continue while a CheckpointManager is waiting at the barrier.
+                    serial
+                    {
+                        contribute(CkCallback(CkReductionTarget(CheckpointManager, barrier), thisProxy));
+                        endOutputIndex = nextOutputIndex + Readonly::checkpointGroupSize;
+                    }
+                    
+                    when barrier() {}
+                    
+                    while (nextOutputIndex < endOutputIndex && nextOutputIndex < checkpointData.size())
+                    {
+                        serial
+                        {
+                            FileManagerNetCDF::writeState(calculateCheckpointTime(nextOutputIndex), *checkpointData[nextOutputIndex]);
+                            delete checkpointData[nextOutputIndex]; // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
+                            checkpointData[nextOutputIndex] = NULL;
+                            contribute(CkCallback(CkReductionTarget(CheckpointManager, barrier), thisProxy));
+                        }
+                        
+                        // We also put a barrier after writing each file for two reasons.  First, I don't know if it will cause a problem for the NetCDF library if one PE tries to parallel create
+                        // the next file before all PEs close the last one.  Second, I want to make sure that all PEs are done writing before I tell the user that we are finished writing the file.
+                        when barrier() {}
+                        
+                        serial
+                        {
+                            if (0 == CkMyPe() && 1 <= Readonly::verbosityLevel)
+                            {
+                                CkPrintf("Finished writing checkpoint file.\n");
+                            }
+                            
+                            ++nextOutputIndex;
+                        }
+                    }
+                }
+            } // End while (nextOutputIndex < checkpointData.size()).
+        }; // End entry void runUntilSimulationEnd().
+        
+        entry void sendState(size_t checkpointIndex, const std::vector<MeshState>& meshState, const std::vector<ChannelState>& channelState);
+        entry [reductiontarget] void barrier();
+    }; // End group CheckpointManager.
+}; // End module checkpoint_manager.

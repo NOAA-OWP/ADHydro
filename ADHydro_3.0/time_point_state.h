@@ -2,6 +2,7 @@
 #define __TIME_POINT_STATE_H__
 
 #include "mesh_element.h"
+#include "channel_element.h"
 
 // The state of the evapotranspiration and groundwater simulations are generally complex data structures.
 // We want ADHydro to support using third party modules for those simulations so we don't necessarily have control over the data structure,
@@ -43,6 +44,12 @@ private:
     TimePointState& operator=(const TimePointState& other);
     
 public:
+    
+    // FIXME comment
+    bool receiveMeshState(const MeshState& state);
+    
+    // FIXME comment
+    bool receiveChannelState(const ChannelState& state);
     
     // Dimension sizes.  These are stored with each TimePointState because mesh adaption may cause them to change over time.
     const size_t globalNumberOfMeshElements;

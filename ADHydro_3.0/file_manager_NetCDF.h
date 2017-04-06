@@ -16,9 +16,9 @@ public:
     //
     // Parameters:
     //
-    // outputTime     - (s) The value of currentTime at which the values in timePointState were saved.
+    // checkpointTime - (s) The value of currentTime at which the values in timePointState were saved.
     // timePointState - The state to write out to file.
-    static bool writeState(double outputTime, const TimePointState& timePointState);
+    static bool writeState(double checkpointTime, const TimePointState& timePointState);
     
 private:
     

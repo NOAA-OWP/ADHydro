@@ -117,22 +117,6 @@ enum ChannelTypeEnum
 PUPbytes(ChannelTypeEnum);
 #endif // __CHARMC__
 
-// FIXME double check if this is used in the final code.
-// Used for passing a Charm++ message with which type of file manager to use.
-// This could be replaced with pupping a base class pointer to a subclass
-// object.  This is a little bit of a kludge, or at least putting it here is.
-// Any time you create a new file manager type you need to add it here.
-// I don't want to put it in file_manager.h because then it would have to
-// include charm++.h for the PUPbytes declaration.
-enum FileManagerEnum
-{
-  FILE_MANAGER_NETCDF
-};
-
-#ifdef __CHARMC__
-PUPbytes(FileManagerEnum);
-#endif // __CHARMC__
-
 // Utility functions for epsilon-equality testing of doubles. Two doubles are
 // considered epsilon-equal if they are within epsilon.  Epsilon is the larger
 // of 10^-10 or ten orders of magnitude smaller than one of the two numbers

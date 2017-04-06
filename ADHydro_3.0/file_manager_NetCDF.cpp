@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <netcdf_par.h>
 
-bool FileManagerNetCDF::writeState(double outputTime, const TimePointState& timePointState)
+bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& timePointState)
 {
     bool               error    = false;              // Error flag.
     int                ncErrorCode;                   // Return value of NetCDF functions.
@@ -36,10 +36,15 @@ bool FileManagerNetCDF::writeState(double outputTime, const TimePointState& time
     // Build filename and create file.
     if (!error)
     {
-        julianToGregorian(Readonly::referenceDate + (outputTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
+        julianToGregorian(Readonly::referenceDate + (checkpointTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
         
         filename << Readonly::checkpointDirectoryPath << "/state_" << std::setfill('0') << std::setw(4) << year << std::setw(2) << month << std::setw(2) << day
                  << std::setw(2) << hour << std::setw(2) << minute << std::fixed << std::setprecision(0) << std::setw(2) << second << ".nc";
+        
+        if (0 == CkMyPe() && 1 <= Readonly::verbosityLevel)
+        {
+            CkPrintf("Writing checkpoint file: %s\n", filename.str().c_str());
+        }
         
         ncErrorCode = nc_create_par(filename.str().c_str(), NC_NETCDF4 | NC_MPIIO | NC_WRITE | NC_NOCLOBBER, MPI_COMM_WORLD, MPI_INFO_NULL, &fileID);
         
@@ -102,7 +107,7 @@ bool FileManagerNetCDF::writeState(double outputTime, const TimePointState& time
     
     if (!error)
     {
-        ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "currentTime", NC_DOUBLE, 1, &outputTime);
+        ncErrorCode = nc_put_att_double(fileID, NC_GLOBAL, "currentTime", NC_DOUBLE, 1, &checkpointTime);
         
         if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
