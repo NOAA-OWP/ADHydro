@@ -149,7 +149,7 @@ void SimpleGroundwater::addOrRemoveWater(double& recharge, double& waterCreated)
     }
 }
 
-double SimpleGroundwater::waterContentAtDepth(double depth)
+double SimpleGroundwater::waterContentAtDepth(double depth) const
 {
     double waterContent;                                      // (m^3/m^3) Return value.
     double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
@@ -176,7 +176,33 @@ double SimpleGroundwater::waterContentAtDepth(double depth)
     return waterContent;
 }
 
-double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth)
+double SimpleGroundwater::waterAboveDepth(double depth) const
+{
+    double waterAbove;                                        // (m) Return value.
+    double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(0.0 <= depth && depth <= thickness))
+        {
+            ADHYDRO_ERROR("ERROR in SimpleGroundwater::waterAboveDepth: depth must be greater than or equal to zero and less than or equal to thickness.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (depth >= saturationDepth)
+    {
+        waterAbove = water - (thickness - depth) * porosity;
+    }
+    else
+    {
+        waterAbove = 0.5 * waterContentAtDepth(depth) * depth;
+    }
+    
+    return waterAbove;
+}
+
+double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth) const
 {
     double waterQuantity; // (m) Return value.
     
@@ -198,7 +224,7 @@ double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth)
     return waterQuantity;
 }
 
-double SimpleGroundwater::saturationDepthFromWater(double waterQuantity)
+double SimpleGroundwater::saturationDepthFromWater(double waterQuantity) const
 {
     double saturationDepth; // (m) Return value.
     

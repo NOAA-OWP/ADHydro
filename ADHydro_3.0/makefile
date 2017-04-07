@@ -58,18 +58,21 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
 
-adhydro.o: adhydro.cpp           \
-           adhydro.h             \
-           adhydro.decl.h        \
-           adhydro.def.h         \
-           region.h              \
-           region.decl.h         \
-           mesh_element.h        \
-           channel_element.h     \
-           neighbor_proxy.h      \
-           simple_groundwater.h  \
-           evapo_transpiration.h \
-           readonly.h            \
+adhydro.o: adhydro.cpp               \
+           adhydro.h                 \
+           adhydro.decl.h            \
+           adhydro.def.h             \
+           checkpoint_manager.h      \
+           checkpoint_manager.decl.h \
+           time_point_state.h        \
+           region.h                  \
+           region.decl.h             \
+           mesh_element.h            \
+           channel_element.h         \
+           neighbor_proxy.h          \
+           simple_groundwater.h      \
+           evapo_transpiration.h     \
+           readonly.h                \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
@@ -119,16 +122,21 @@ time_point_state.o: time_point_state.cpp  \
                     all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
-region.o: region.cpp            \
-          region.h              \
-          region.decl.h         \
-          region.def.h          \
-          mesh_element.h        \
-          channel_element.h     \
-          neighbor_proxy.h      \
-          simple_groundwater.h  \
-          evapo_transpiration.h \
-          readonly.h            \
+region.o: region.cpp                \
+          region.h                  \
+          region.decl.h             \
+          region.def.h              \
+          adhydro.h                 \
+          adhydro.decl.h            \
+          checkpoint_manager.h      \
+          checkpoint_manager.decl.h \
+          time_point_state.h        \
+          mesh_element.h            \
+          channel_element.h         \
+          neighbor_proxy.h          \
+          simple_groundwater.h      \
+          evapo_transpiration.h     \
+          readonly.h                \
           all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
@@ -155,6 +163,7 @@ channel_element.o: channel_element.cpp   \
 
 neighbor_proxy.o: neighbor_proxy.cpp \
                   neighbor_proxy.h   \
+                  readonly.h         \
                   all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 

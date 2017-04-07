@@ -126,8 +126,8 @@ public:
     //
     // Parameters:
     //
-    // depth - (m) The depth from the top of the modeled layer expressed as a positive number to get the conductivity for.
-    inline double conductivityAtDepth(double depth)
+    // depth - (m) The depth from the top of the modeled layer expressed as a positive number.
+    inline double conductivityAtDepth(double depth) const
     {
         // Don't error check parameter because it's a simple pass-through to waterContentAtDepth and it will be checked inside that method.
         return conductivity * (waterContentAtDepth(depth) / porosity); // Grouping is designed to guarantee multiplication by a fraction less than or equal to one
@@ -138,20 +138,20 @@ public:
     //
     // Parameters:
     //
-    // depth - (m) The depth from the top of the modeled layer expressed as a positive number to get the water content for.
-    double waterContentAtDepth(double depth);
+    // depth - (m) The depth from the top of the modeled layer expressed as a positive number.
+    double waterContentAtDepth(double depth) const;
+    
+    // Returns: (m) The quantity of water above a given depth.  Exit on error.
+    //
+    // Parameters:
+    //
+    // depth - (m) The depth from the top of the modeled layer expressed as a positive number.
+    double waterAboveDepth(double depth) const;
     
     // Returns: the value of thickness.
     inline double getThickness() const
     {
         return thickness;
-    }
-    
-    // Returns: the value of water.
-    // FIXME replace this with a function that returns the quantity of water in a depth range.
-    inline double getWater() const
-    {
-        return water;
     }
     
 private:
@@ -161,14 +161,14 @@ private:
     // Parameters:
     //
     // saturationDepth - (m) The shallowest depth from the top of the modeled layer that is saturated expressed as a positive number.
-    double waterFromSaturationDepth(double saturationDepth);
+    double waterFromSaturationDepth(double saturationDepth) const;
     
     // Returns: (m) The saturation depth the modeled layer would have expressed as a positive number if the quantity of water were the given value.
     //
     // Parameters:
     //
     // waterQuantity - (m) The qunatity of water in the layer.
-    double saturationDepthFromWater(double waterQuantity);
+    double saturationDepthFromWater(double waterQuantity) const;
     
     // Immutable attributes of the layer.
     double thickness;    // (m) The thickness of the modeled layer.

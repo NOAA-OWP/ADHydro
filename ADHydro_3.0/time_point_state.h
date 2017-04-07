@@ -45,10 +45,22 @@ private:
     
 public:
     
-    // FIXME comment
+    // Put received state into the correct location in TimePointState variables.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // state - The received state.
     bool receiveMeshState(const MeshState& state);
     
-    // FIXME comment
+    // Put received state into the correct location in TimePointState variables.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // state - The received state.
     bool receiveChannelState(const ChannelState& state);
     
     // Dimension sizes.  These are stored with each TimePointState because mesh adaption may cause them to change over time.

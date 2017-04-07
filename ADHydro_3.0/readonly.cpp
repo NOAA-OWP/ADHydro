@@ -86,6 +86,12 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(0 < checkpointGroupSize))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: checkpointGroupSize must be greater than zero.\n");
+        error = true;
+    }
+    
     if (!(originalCheckpointGroupSize == checkpointGroupSize))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: checkpointGroupSize changed, which is not allowed for a readonly variable.\n");
@@ -128,7 +134,206 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(localMeshElementStart + localNumberOfMeshElements <= globalNumberOfMeshElements))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: localMeshElementStart plus localNumberOfMeshElements must be less than or equal to globalNumberOfMeshElements.\n");
+        error = true;
+    }
+    
+    if (!(localChannelElementStart + localNumberOfChannelElements <= globalNumberOfChannelElements))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: localChannelElementStart plus localNumberOfChannelElements must be less than or equal to globalNumberOfChannelElements.\n");
+        error = true;
+    }
+    
     return error;
+}
+
+size_t Readonly::home(size_t item, size_t globalNumberOfItems, size_t numPes)
+{
+    size_t numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of processors that own one extra item.
+    size_t itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each processor that owns one extra item.
+    size_t itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all processors that own one extra item.
+    size_t itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each processor that does not own one extra item.
+    size_t itemHome;                                                   // The number of the processor that owns item.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(item < globalNumberOfItems))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::home: item must be less than globalNumberOfItems.\n");
+            ADHYDRO_EXIT(-1);
+        }
+        
+        if (!(0 < numPes))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::home: numPes must be greater than zero.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (item < itemsInAllFatOwners)
+    {
+        // Item is owned by a fat owner.
+        itemHome = item / itemsPerFatOwner;
+    }
+    else
+    {
+        // Item is owned by a thin owner.
+        itemHome = (item - itemsInAllFatOwners) / itemsPerThinOwner + numberOfFatOwners;
+    }
+    
+    return itemHome;
+}
+
+void Readonly::localStartAndNumber(size_t& localItemStart, size_t& localNumberOfItems, size_t globalNumberOfItems, size_t numPes, size_t myPe)
+{
+    size_t numberOfFatOwners   = globalNumberOfItems % numPes;         // Number of processors that own one extra item.
+    size_t itemsPerFatOwner    = globalNumberOfItems / numPes + 1;     // Number of items in each processor that owns one extra item.
+    size_t itemsInAllFatOwners = numberOfFatOwners * itemsPerFatOwner; // Total number of items in all processors that own one extra item.
+    size_t itemsPerThinOwner   = globalNumberOfItems / numPes;         // Number of items in each processor that does not own one extra item.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(myPe < numPes))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::localStartAndNumber: myPe must be less than numPes.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (myPe < numberOfFatOwners)
+    {
+        // I am a fat owner.
+        localItemStart     = myPe * itemsPerFatOwner;
+        localNumberOfItems = itemsPerFatOwner;
+    }
+    else
+    {
+        // I am a thin owner.
+        localItemStart     = (myPe - numberOfFatOwners) * itemsPerThinOwner + itemsInAllFatOwners;
+        localNumberOfItems = itemsPerThinOwner;
+    }
+}
+
+double Readonly::newExpirationTime(double currentTime, double dtNew)
+{
+    int          ii;                             // Loop counter.
+    const int    numberOfDts               = 15; // Size of list in allowableDts.
+    const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 2.0 * 60.0, 3.0 * 60.0, 5.0 * 60.0, 10.0 * 60.0, 15.0 * 60.0, 30.0 * 60.0, 60.0 * 60.0}; // (s).
+    double       selectedDt;                     // (s) Selected value from allowableDts.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(0.0 < dtNew))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::newExpirationTime: dtNew must be greater than zero.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (dtNew < allowableDts[0])
+    {
+        selectedDt = allowableDts[0] * 0.5;
+        
+        while (dtNew < selectedDt)
+        {
+            selectedDt *= 0.5;
+        }
+    }
+    else
+    {
+        ii = 0;
+        
+        while (ii + 1 < numberOfDts && dtNew >= allowableDts[ii + 1])
+        {
+            ++ii;
+        }
+        
+        selectedDt = allowableDts[ii];
+    }
+    
+    ii = floor(currentTime / selectedDt) + 1;
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    {
+        ADHYDRO_ASSERT(ii * selectedDt <= currentTime + dtNew);
+    }
+    
+    while ((ii + 1) * selectedDt <= currentTime + dtNew)
+    {
+        ++ii;
+    }
+    
+    return ii * selectedDt;
+}
+
+void Readonly::getLatLongSinusoidal(double& latitude, double& longitude, double centralMeridian, double falseEasting, double falseNorthing, double x, double y)
+{
+    latitude  = (y - falseNorthing) / POLAR_RADIUS_OF_EARTH;
+    longitude = centralMeridian + (x - falseEasting) / (POLAR_RADIUS_OF_EARTH * cos(latitude));
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(-M_PI * 2.0 <= centralMeridian && M_PI * 2.0 >= centralMeridian))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::getLatLongSinusoidal: centralMeridian must be greater than or equal to negative two PI and less than or equal to two PI.\n");
+            ADHYDRO_EXIT(-1);
+        }
+        
+        if (!(-M_PI / 2.0 <= latitude && M_PI / 2.0 >= latitude))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::getLatLongSinusoidal: x and y must produce a latitude greater than or equal to negative PI over two and less than or equal to PI over two.\n");
+            ADHYDRO_EXIT(-1);
+        }
+        
+        if (!(-M_PI * 2.0 <= longitude && M_PI * 2.0 >= longitude))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::getLatLongSinusoidal: x and y must produce a longitude greater than or equal to negative two PI and less than or equal to two PI.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+}
+
+double Readonly::getCheckpointTime(size_t checkpointIndex)
+{
+    double checkpointTime; // Return value.
+    size_t numberOfCheckpoints = getNumberOfCheckpoints();
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(checkpointIndex <= numberOfCheckpoints))
+        {
+            ADHYDRO_ERROR("ERROR in Readonly::getCheckpointTime: checkpointIndex must be less than or equal to getNumberOfCheckpoints.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (checkpointIndex < numberOfCheckpoints)
+    {
+        checkpointTime = simulationStartTime + checkpointPeriod * checkpointIndex;
+    }
+    else
+    {
+        // For the last checkpoint use simulationDuration rather than a multiple of checkpointPeriod.
+        // simulationDuration might not be an exact multiple of checkpointPeriod, and even if it is, this avoids roundoff error.
+        checkpointTime = simulationStartTime + simulationDuration;
+    }
+    
+    return checkpointTime;
+}
+
+size_t Readonly::getNumberOfCheckpoints()
+{
+    size_t numberOfCheckpoints = std::ceil(simulationDuration / checkpointPeriod); // Return value.  Total number of checkpoints for the entire run.
+    
+    // If checkpointPeriod is infinity then numberOfCheckpoints will be zero.  In that case, we want to checkpoint once at the end of the simulation.
+    if (0 == numberOfCheckpoints)
+    {
+        numberOfCheckpoints = 1;
+    }
+    
+    return numberOfCheckpoints;
 }
 
 // Global readonly variables.
@@ -147,3 +352,14 @@ bool        Readonly::zeroExpirationTime;
 bool        Readonly::zeroCumulativeFlow;
 bool        Readonly::zeroWaterCreated;
 size_t      Readonly::verbosityLevel;
+
+// Variables for number of items.
+size_t Readonly::globalNumberOfMeshElements;
+size_t Readonly::localNumberOfMeshElements;
+size_t Readonly::localMeshElementStart;
+size_t Readonly::maximumNumberOfMeshNeighbors;
+size_t Readonly::globalNumberOfChannelElements;
+size_t Readonly::localNumberOfChannelElements;
+size_t Readonly::localChannelElementStart;
+size_t Readonly::maximumNumberOfChannelNeighbors;
+size_t Readonly::globalNumberOfRegions;

@@ -1,7 +1,7 @@
 mainmodule adhydro
 {
+    extern module checkpoint_manager;
     extern module region;
-    // FIXME extern module output_manager_charm;
     
     mainchare ADHydro
     {
@@ -9,8 +9,8 @@ mainmodule adhydro
         entry ADHydro(CkArgMsg* msg);
         
         // Global readonly variables.
-        readonly CProxy_Region regionProxy;
-        // FIXME readonly CProxy_OutputManagerCharm outputManagerProxy;
+        readonly CProxy_CheckpointManager checkpointManagerProxy;
+        readonly CProxy_Region            regionProxy;
     }; // End mainchare ADHydro.
     
     // Global readonly variables.

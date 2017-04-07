@@ -1,10 +1,5 @@
 #include "neighbor_proxy.h"
-
-// FIXME stubs
-static size_t numberOfMeshElements = 2;
-static size_t numberOfChannelElements = 2;
-static size_t numberOfRegions = 2;
-// FIXME end stubs
+#include "readonly.h"
 
 bool NeighborConnection::checkInvariant() const
 {
@@ -15,9 +10,9 @@ bool NeighborConnection::checkInvariant() const
         case MESH_SURFACE:
         case MESH_SOIL:
         case MESH_AQUIFER:
-            if (!(localElementNumber < numberOfMeshElements))
+            if (!(localElementNumber < Readonly::globalNumberOfMeshElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                 error = true;
             }
             
@@ -26,9 +21,9 @@ bool NeighborConnection::checkInvariant() const
                 case MESH_SURFACE:
                 case MESH_SOIL:
                 case MESH_AQUIFER:
-                    if (!(remoteElementNumber < numberOfMeshElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                         error = true;
                     }
                     
@@ -39,9 +34,9 @@ bool NeighborConnection::checkInvariant() const
                     }
                     break;
                 case CHANNEL_SURFACE:
-                    if (!(remoteElementNumber < numberOfChannelElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                         error = true;
                     }
                     break;
@@ -59,9 +54,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case CHANNEL_SURFACE:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -70,16 +65,16 @@ bool NeighborConnection::checkInvariant() const
                 case MESH_SURFACE:
                 case MESH_SOIL:
                 case MESH_AQUIFER:
-                    if (!(remoteElementNumber < numberOfMeshElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                         error = true;
                     }
                     break;
                 case CHANNEL_SURFACE:
-                    if (!(remoteElementNumber < numberOfChannelElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                         error = true;
                     }
                     
@@ -103,9 +98,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case RESERVOIR_RELEASE:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -116,9 +111,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
                 
@@ -130,9 +125,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case RESERVOIR_RECIPIENT:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -143,9 +138,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
                 
@@ -157,9 +152,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case IRRIGATION_DIVERSION:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -170,17 +165,17 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfMeshElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                     error = true;
                 }
             }
             break;
         case IRRIGATION_RECIPIENT:
-            if (!(localElementNumber < numberOfMeshElements))
+            if (!(localElementNumber < Readonly::globalNumberOfMeshElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                 error = true;
             }
             
@@ -191,9 +186,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
             }
@@ -304,9 +299,9 @@ bool NeighborProxy::checkInvariant() const
     bool                                    error = false; // Error flag.
     std::set<WaterTransfer>::const_iterator it;            // Loop iterator.
     
-    if (!(neighborRegion < numberOfRegions))
+    if (!(neighborRegion < Readonly::globalNumberOfRegions))
     {
-        CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than numberOfRegions.\n");
+        CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than Readonly::globalNumberOfRegions.\n");
         error = true;
     }
     

@@ -2,12 +2,13 @@ module checkpoint_manager
 {
     group CheckpointManager
     {
+        // Constructor.
         entry CheckpointManager();
         
         // Dummy function for structured dagger.
         entry void runUntilSimulationEnd()
         {
-            while (nextOutputIndex < checkpointData.size())
+            while (checkpointData.size() > nextCheckpointIndex)
             {
                 when sendState(size_t checkpointIndex, const std::vector<MeshState>& meshState, const std::vector<ChannelState>& channelState)
                 {
@@ -15,16 +16,12 @@ module checkpoint_manager
                     {
                         std::vector<   MeshState>::iterator itMesh;    // Loop iterator.
                         std::vector<ChannelState>::iterator itChannel; // Loop iterator.
-                        size_t                              localNumberOfMeshElements;
-                        size_t                              localMeshElementStart;
-                        size_t                              localNumberOfChannelElements;
-                        size_t                              localChannelElementStart;
                         
                         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
                         {
-                            if (!(nextOutputIndex <= checkpointIndex && checkpointIndex < checkpointData.size()))
+                            if (!(nextCheckpointIndex <= checkpointIndex && checkpointIndex < checkpointData.size()))
                             {
-                                CkError("ERROR in CheckpointManager::runUntilSimulationEnd: checkpointIndex must be greater than or equal to nextOutputIndex and less than checkpointData.size().\n");
+                                CkError("ERROR in CheckpointManager::runUntilSimulationEnd: checkpointIndex must be greater than or equal to nextCheckpointIndex and less than checkpointData.size().\n");
                                 CkExit();
                             }
                         }
@@ -32,12 +29,9 @@ module checkpoint_manager
                         // If this is the first state received for this time point create a new TimePointState to hold it.
                         if (NULL == checkpointData[checkpointIndex])
                         {
-                            // FIXME figure out how to really get these values.
-                            localStartAndNumber(localMeshElementStart, localNumberOfMeshElements, globalNumberOfMeshElements);
-                            localStartAndNumber(localChannelElementStart, localNumberOfChannelElements, globalNumberOfChannelElements);
-                            
-                            checkpointData[checkpointIndex] = new TimePointState(globalNumberOfMeshElements, localNumberOfMeshElements, localMeshElementStart, maximumNumberOfMeshNeighbors,
-                                                                                 globalNumberOfChannelElements, localNumberOfChannelElements, localChannelElementStart, maximumNumberOfChannelNeighbors);
+                            checkpointData[checkpointIndex] = new TimePointState(Readonly::globalNumberOfMeshElements, Readonly::localNumberOfMeshElements, Readonly::localMeshElementStart,
+                                                                                 Readonly::maximumNumberOfMeshNeighbors, Readonly::globalNumberOfChannelElements, Readonly::localNumberOfChannelElements,
+                                                                                 Readonly::localChannelElementStart, Readonly::maximumNumberOfChannelNeighbors);
                         }
                         
                         // Record the data.
@@ -70,18 +64,18 @@ module checkpoint_manager
                     serial
                     {
                         contribute(CkCallback(CkReductionTarget(CheckpointManager, barrier), thisProxy));
-                        endOutputIndex = nextOutputIndex + Readonly::checkpointGroupSize;
+                        endOutputIndex = nextCheckpointIndex + Readonly::checkpointGroupSize;
                     }
                     
                     when barrier() {}
                     
-                    while (nextOutputIndex < endOutputIndex && nextOutputIndex < checkpointData.size())
+                    while (nextCheckpointIndex < endOutputIndex && nextCheckpointIndex < checkpointData.size())
                     {
                         serial
                         {
-                            FileManagerNetCDF::writeState(calculateCheckpointTime(nextOutputIndex), *checkpointData[nextOutputIndex]);
-                            delete checkpointData[nextOutputIndex]; // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
-                            checkpointData[nextOutputIndex] = NULL;
+                            FileManagerNetCDF::writeState(Readonly::getCheckpointTime(nextCheckpointIndex), *checkpointData[nextCheckpointIndex]);
+                            delete checkpointData[nextCheckpointIndex]; // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
+                            checkpointData[nextCheckpointIndex] = NULL;
                             contribute(CkCallback(CkReductionTarget(CheckpointManager, barrier), thisProxy));
                         }
                         
@@ -96,11 +90,17 @@ module checkpoint_manager
                                 CkPrintf("Finished writing checkpoint file.\n");
                             }
                             
-                            ++nextOutputIndex;
+                            ++nextCheckpointIndex;
                         }
                     }
                 }
-            } // End while (nextOutputIndex < checkpointData.size()).
+            } // End while (nextCheckpointIndex < checkpointData.size()).
+            
+            // Wait until all checkpoints finish before exiting.
+            serial
+            {
+                contribute(CkCallback(CkCallback::ckExit));
+            }
         }; // End entry void runUntilSimulationEnd().
         
         entry void sendState(size_t checkpointIndex, const std::vector<MeshState>& meshState, const std::vector<ChannelState>& channelState);

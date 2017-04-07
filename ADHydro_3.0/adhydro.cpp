@@ -89,6 +89,11 @@ ADHydro::ADHydro(CkArgMsg* msg)
             Readonly::zeroExpirationTime = true;
         }
         
+        if (0 == Readonly::checkpointGroupSize)
+        {
+            Readonly::checkpointGroupSize = 1;
+        }
+        
         if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
         {
             // FIXME check that referenceDate and simulationStartTime are no earlier than 1 CE.  Our Julian to Gregorian conversion routines don't work before 1 CE.
@@ -110,16 +115,32 @@ ADHydro::ADHydro(CkArgMsg* msg)
     
     if (!error)
     {
-        // FIXME put this in a chare group so it gets done on every PE.
+        // FIXME create initialization manager
+        
+        checkpointManagerProxy = CProxy_CheckpointManager::ckNew();
+    }
+    
+    // FIXME do all of the following in the initialization manager so it gets done on every PE.
+    if (!error)
+    {
         // Initialize Noah-MP.
         error = evapoTranspirationInit(Readonly::noahMPMpTableFilePath.c_str(),  Readonly::noahMPVegParmFilePath.c_str(), Readonly::noahMPSoilParmFilePath.c_str(), Readonly::noahMPGenParmFilePath.c_str());
     }
     
     if (!error)
     {
-        // FIXME do this in the initialization manager
+        // Set number of items variables
+        Readonly::globalNumberOfMeshElements = 2;
+        Readonly::maximumNumberOfMeshNeighbors = 6;
+        Readonly::globalNumberOfChannelElements = 2;
+        Readonly::maximumNumberOfChannelNeighbors = 5;
+        Readonly::globalNumberOfRegions = 2;
+        
+        Readonly::localStartAndNumber(Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, Readonly::globalNumberOfMeshElements, CkNumPes(), CkMyPe());
+        Readonly::localStartAndNumber(Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, Readonly::globalNumberOfChannelElements, CkNumPes(), CkMyPe());
+        
         // Create the chare array of regions.
-        ADHydro::regionProxy = CProxy_Region::ckNew(2);
+        ADHydro::regionProxy = CProxy_Region::ckNew(Readonly::globalNumberOfRegions);
         
         // FIXME initialize for real
         EvapoTranspirationStateStruct evapoTranspirationState;
@@ -224,4 +245,5 @@ ADHydro::ADHydro(CkArgMsg* msg)
 }
 
 // Global readonly variables.
-CProxy_Region ADHydro::regionProxy;
+CProxy_CheckpointManager ADHydro::checkpointManagerProxy;
+CProxy_Region            ADHydro::regionProxy;

@@ -241,7 +241,7 @@ public:
     // elementsFinished - Number of elements in the current Region finished in the current phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
+    bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
     
     // Call sendNeighborAttributes on all NeighborProxies.
     //

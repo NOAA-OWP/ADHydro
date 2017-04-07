@@ -1,18 +1,14 @@
 #include "channel_element.h"
 #include "readonly.h"
 
-// FIXME stubs
-static size_t numberOfChannelElements = 2;
-// FIXME end stubs
-
 bool ChannelElement::checkInvariant() const
 {
     bool                                                        error = false; // Error flag.
     std::map<NeighborConnection, NeighborProxy>::const_iterator it;            // Loop iterator.
     
-    if (!(elementNumber < numberOfChannelElements))
+    if (!(elementNumber < Readonly::globalNumberOfChannelElements))
     {
-        CkError("ERROR in ChannelElement::checkInvariant, element %lu: elementNumber must be less than numberOfChannelElements.\n", elementNumber);
+        CkError("ERROR in ChannelElement::checkInvariant, element %lu: elementNumber must be less than Readonly::globalNumberOfChannelElements.\n", elementNumber);
         error = true;
     }
     
@@ -183,6 +179,12 @@ bool ChannelElement::receiveMessage(const Message& message, size_t& elementsFini
         if (!(neighbors.end() != it))
         {
             CkError("ERROR in ChannelElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+        
+        if (!(currentTime <= timestepEndTime))
+        {
+            CkError("ERROR in ChannelElement::receiveMessage: currentTime must be less than or equal to timestepEndTime.\n");
             error = true;
         }
     }

@@ -57,27 +57,15 @@ TimePointState::TimePointState(size_t globalNumberOfMeshElements, size_t localNu
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        if (!(localNumberOfMeshElements <= globalNumberOfMeshElements))
+        if (!(localMeshElementStart + localNumberOfMeshElements <= globalNumberOfMeshElements))
         {
-            CkError("ERROR in TimePointState::TimePointState: localNumberOfMeshElements must be less than or equal to globalNumberOfMeshElements.\n");
+            CkError("ERROR in TimePointState::TimePointState: localMeshElementStart plus localNumberOfMeshElements must be less than or equal to globalNumberOfMeshElements.\n");
             CkExit();
         }
         
-        if (!((0 != localNumberOfMeshElements && localMeshElementStart < globalNumberOfMeshElements) || (0 == localNumberOfMeshElements && 0 == localMeshElementStart)))
+        if (!(localChannelElementStart + localNumberOfChannelElements <= globalNumberOfChannelElements))
         {
-            CkError("ERROR in TimePointState::TimePointState: localMeshElementStart must be less than globalNumberOfMeshElements or zero if localNumberOfMeshElements is zero.\n");
-            CkExit();
-        }
-        
-        if (!(localNumberOfChannelElements <= globalNumberOfChannelElements))
-        {
-            CkError("ERROR in TimePointState::TimePointState: localNumberOfChannelElements must be less than or equal to globalNumberOfChannelElements.\n");
-            CkExit();
-        }
-        
-        if (!((0 != localNumberOfChannelElements && localChannelElementStart < globalNumberOfChannelElements) || (0 == localNumberOfChannelElements && 0 == localChannelElementStart)))
-        {
-            CkError("ERROR in TimePointState::TimePointState: localChannelElementStart must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.\n");
+            CkError("ERROR in TimePointState::TimePointState: localChannelElementStart plus localNumberOfChannelElements must be less than or equal to globalNumberOfChannelElements.\n");
             CkExit();
         }
     }
@@ -228,8 +216,8 @@ bool TimePointState::receiveMeshState(const MeshState& state)
         meshTranspirationCumulative[localIndex]                            = state.transpirationCumulative;
         meshCanopyWaterEquivalent[  localIndex]                            = (state.evapoTranspirationState.canLiq + state.evapoTranspirationState.canIce) / 1000.0; // Divide by 1000.0 to convert from millimeters to meters.
         meshSnowWaterEquivalent[    localIndex]                            = state.evapoTranspirationState.snEqv / 1000.0;                                           // Divide by 1000.0 to convert from millimeters to meters.
-        meshRootZoneWater[          localIndex]                            = state.soilWater.getWater(); // FIXME define the root zone.
-        meshTotalGroundwater[       localIndex]                            = state.soilWater.getWater() + state.aquiferWater.getWater();
+        meshRootZoneWater[          localIndex]                            = state.soilWater.waterAboveDepth(state.soilWater.getThickness()); // FIXME define the root zone.
+        meshTotalGroundwater[       localIndex]                            = state.soilWater.waterAboveDepth(state.soilWater.getThickness()) + state.aquiferWater.waterAboveDepth(state.aquiferWater.getThickness());
         
         for (it = state.neighbors.begin(), ii = 0; it != state.neighbors.end(); ++it, ++ii)
         {
