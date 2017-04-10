@@ -39,10 +39,9 @@ bool SimpleGroundwater::checkInvariant() const
 
 bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceWater, double waterTableDepth, double dt)
 {
-    bool   error = false;              // Error flag.
-    double newRecharge;                // (m) Water that will be added to or removed from groundwaterRecharge.
-    double equilibriumSaturationDepth; // (m) The shallowest depth that would be saturated if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
-    double equilibriumWater;           // (m) The quantity of water the layer would have if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
+    bool   error = false;    // Error flag.
+    double newRecharge;      // (m) Water that will be added to or removed from groundwaterRecharge.
+    double equilibriumWater; // (m) The quantity of water the layer would have if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -80,14 +79,7 @@ bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceW
         }
         
         // Do vadoseZone.
-        equilibriumSaturationDepth = waterTableDepth - psiB;
-        
-        if (0.0 > equilibriumSaturationDepth)
-        {
-            equilibriumSaturationDepth = 0.0;
-        }
-        
-        equilibriumWater = waterFromSaturationDepth(equilibriumSaturationDepth);
+        equilibriumWater = waterFromSaturationDepth(std::max(waterTableDepth - psiB, 0.0));
         
         if (water > equilibriumWater && water - equilibriumWater > conductivity * dt - newRecharge)
         {
