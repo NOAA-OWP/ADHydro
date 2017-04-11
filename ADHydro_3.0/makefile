@@ -24,16 +24,17 @@ VPATH := ../HRLDAS-v3.6/Noah             \
 
 EXES := adhydro
 
-ADHYDRO_OBJS := adhydro.o             \
-                checkpoint_manager.o  \
-                file_manager_NetCDF.o \
-                time_point_state.o    \
-                region.o              \
-                mesh_element.o        \
-                channel_element.o     \
-                neighbor_proxy.o      \
-                simple_groundwater.o  \
-                evapo_transpiration.o \
+ADHYDRO_OBJS := adhydro.o                \
+                initialization_manager.o \
+                checkpoint_manager.o     \
+                file_manager_NetCDF.o    \
+                time_point_state.o       \
+                region.o                 \
+                mesh_element.o           \
+                channel_element.o        \
+                neighbor_proxy.o         \
+                simple_groundwater.o     \
+                evapo_transpiration.o    \
                 readonly.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
@@ -58,27 +59,55 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
 
-adhydro.o: adhydro.cpp               \
-           adhydro.h                 \
-           adhydro.decl.h            \
-           adhydro.def.h             \
-           checkpoint_manager.h      \
-           checkpoint_manager.decl.h \
-           time_point_state.h        \
-           region.h                  \
-           region.decl.h             \
-           mesh_element.h            \
-           channel_element.h         \
-           neighbor_proxy.h          \
-           simple_groundwater.h      \
-           evapo_transpiration.h     \
-           readonly.h                \
+adhydro.o: adhydro.cpp                   \
+           adhydro.h                     \
+           adhydro.decl.h                \
+           adhydro.def.h                 \
+           initialization_manager.h      \
+           initialization_manager.decl.h \
+           checkpoint_manager.h          \
+           checkpoint_manager.decl.h     \
+           time_point_state.h            \
+           region.h                      \
+           region.decl.h                 \
+           mesh_element.h                \
+           channel_element.h             \
+           neighbor_proxy.h              \
+           simple_groundwater.h          \
+           evapo_transpiration.h         \
+           readonly.h                    \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 adhydro.decl.h \
-adhydro.def.h: adhydro.ci \
+adhydro.def.h: adhydro.ci                \
+               initialization_manager.ci \
+               checkpoint_manager.ci     \
                region.ci
+	$(CHARMC) $<
+
+initialization_manager.o: initialization_manager.cpp    \
+                          initialization_manager.h      \
+                          initialization_manager.decl.h \
+                          initialization_manager.def.h  \
+                          adhydro.h                     \
+                          adhydro.decl.h                \
+                          checkpoint_manager.h          \
+                          checkpoint_manager.decl.h     \
+                          time_point_state.h            \
+                          region.h                      \
+                          region.decl.h                 \
+                          mesh_element.h                \
+                          channel_element.h             \
+                          neighbor_proxy.h              \
+                          simple_groundwater.h          \
+                          evapo_transpiration.h         \
+                          readonly.h                    \
+                          all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+initialization_manager.decl.h \
+initialization_manager.def.h: initialization_manager.ci
 	$(CHARMC) $<
 
 checkpoint_manager.o: checkpoint_manager.cpp    \

@@ -50,7 +50,8 @@ public:
     // Parameters:
     //
     // msg - Unused migration message.
-    inline Region(CkMigrateMessage* msg = NULL) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), nextCheckpointIndex(1), meshElements(), channelElements(), elementsFinished(0)
+    inline Region(CkMigrateMessage* msg = NULL) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), nextCheckpointIndex(1),
+                                                  numberOfMeshElements(0), numberOfChannelElements(0), meshElements(), channelElements(), elementsFinished(0)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -76,6 +77,8 @@ public:
         p | currentTime;
         p | timestepEndTime;
         p | nextCheckpointIndex;
+        p | numberOfMeshElements;
+        p | numberOfChannelElements;
         p | meshElements;
         p | channelElements;
         p | elementsFinished;
@@ -121,10 +124,12 @@ private:
                                       // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.
     
     // Elements in the Region.
-    std::map<size_t,    MeshElement> meshElements;     // A map of MeshElements    allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
-    std::map<size_t, ChannelElement> channelElements;  // A map of channelElements allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
-    size_t                           elementsFinished; // Number of elements finished in the current phase such as initialization, invariant check, receive state, or receive water.
-                                                       // This Region is finished when elementsFinished equals meshElements.size() plus channelElements.size().
+    size_t                           numberOfMeshElements;    // For initialization, the Region will wait until it receives this many MeshElements.
+    size_t                           numberOfChannelElements; // For initialization, the Region will wait until it receives this many ChannelElements.
+    std::map<size_t,    MeshElement> meshElements;            // A map of MeshElements    allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
+    std::map<size_t, ChannelElement> channelElements;         // A map of channelElements allowing the Region to find a specific element or iterate over all elements.  Keys are element ID numbers.
+    size_t                           elementsFinished;        // Number of elements finished in the current phase such as initialization, invariant check, receive state, or receive water.
+                                                              // This Region is finished when elementsFinished equals meshElements.size() plus channelElements.size().
 };
 
 #endif // __REGION_H__

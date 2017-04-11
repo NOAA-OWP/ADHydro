@@ -8,9 +8,19 @@ module region
         // Dummy function for structured dagger.
         entry void runUntilSimulationEnd()
         {
-            // Do initialization.  First receive all elements.
+            // Do initialization.  First receive the number of elements you will be getting.
+            when sendNumberOfElements(size_t numberOfMeshElementsInThisRegion, size_t numberOfChannelElementsInThisRegion)
+            {
+                serial
+                {
+                    numberOfMeshElements    = numberOfMeshElementsInThisRegion;
+                    numberOfChannelElements = numberOfChannelElementsInThisRegion;
+                }
+            }
+            
+            // Then receive all elements.
             // FIXME performance optimization aggregate initialization messages.
-            while (meshElements.size() < 1 /* FIXME numberOfMeshElementsInThisRegion */ || channelElements.size() < 1 /* FIXME numberOfChannelElementsInThisRegion */)
+            while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements)
             {
                 case
                 {
@@ -96,6 +106,7 @@ module region
                 }
             }
             
+            // Run the simulation.
             while (currentTime < simulationEndTime)
             {
                 // Step 1: Calculate nominal flow rates with neighbors.
@@ -304,6 +315,7 @@ module region
             } // End while (currentTime < simulationEndTime).
         }; // End entry void runUntilSimulationEnd().
         
+        entry void sendNumberOfElements(size_t numberOfMeshElementsInThisRegion, size_t numberOfChannelElementsInThisRegion);
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
