@@ -3,6 +3,7 @@
 
 #include "initialization_manager.h"
 #include "checkpoint_manager.h"
+#include "forcing_manager.h"
 #include "adhydro.decl.h"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its constructor.
@@ -22,6 +23,7 @@ public:
     // Global readonly variables.
     static CProxy_InitializationManager initializationManagerProxy; // Charm++ proxy to the chare group for the initialization managers.
     static CProxy_CheckpointManager     checkpointManagerProxy;     // Charm++ proxy to the chare group for the checkpoint managers.
+    static CProxy_ForcingManager        forcingManagerProxy;        // Charm++ proxy to the chare group for the forcing managers.
     static CProxy_Region                regionProxy;                // Charm++ proxy to the chare array for the simulation regions.
 };
 

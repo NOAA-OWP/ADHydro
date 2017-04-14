@@ -50,8 +50,8 @@ public:
     // Parameters:
     //
     // msg - Unused migration message.
-    inline Region(CkMigrateMessage* msg = NULL) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), nextCheckpointIndex(1),
-                                                  numberOfMeshElements(0), numberOfChannelElements(0), meshElements(), channelElements(), elementsFinished(0)
+    inline Region(CkMigrateMessage* msg = NULL) : currentTime(Readonly::simulationStartTime), timestepEndTime(Readonly::simulationStartTime), nextForcingTime(Readonly::simulationStartTime),
+                                                  nextCheckpointIndex(1), numberOfMeshElements(0), numberOfChannelElements(0), meshElements(), channelElements(), elementsFinished(0)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -76,6 +76,7 @@ public:
         
         p | currentTime;
         p | timestepEndTime;
+        p | nextForcingTime;
         p | nextCheckpointIndex;
         p | numberOfMeshElements;
         p | numberOfChannelElements;
@@ -119,6 +120,7 @@ private:
     // Simulation time.
     double       currentTime;         // (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double       timestepEndTime;     // (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    double       nextForcingTime;     // (s) The next simulation time when new forcing data needs to be read.
     size_t       nextCheckpointIndex; // The index of the next checkpoint to output.
     const double simulationEndTime = Readonly::simulationStartTime + Readonly::simulationDuration;
                                       // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.

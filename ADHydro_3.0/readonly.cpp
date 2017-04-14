@@ -146,6 +146,12 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(localRegionStart + localNumberOfRegions <= globalNumberOfRegions))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: localRegionStart plus localNumberOfRegions must be less than or equal to globalNumberOfRegions.\n");
+        error = true;
+    }
+    
     return error;
 }
 
@@ -363,3 +369,5 @@ size_t Readonly::localNumberOfChannelElements;
 size_t Readonly::localChannelElementStart;
 size_t Readonly::maximumNumberOfChannelNeighbors;
 size_t Readonly::globalNumberOfRegions;
+size_t Readonly::localNumberOfRegions;
+size_t Readonly::localRegionStart;

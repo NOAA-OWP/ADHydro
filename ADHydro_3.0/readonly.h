@@ -108,7 +108,7 @@ public:
     
     // Variables for number of items.
     // FIXME Once we implement mesh adaption, these variables won't be read-only.
-    // I don't really have a good plan for how we are going to coordinate item homes for output once we start changing the number of elements.
+    // I don't really have a good plan for how we are going to coordinate item homes once we start changing the number of elements.
     static size_t globalNumberOfMeshElements;
     static size_t localNumberOfMeshElements;
     static size_t localMeshElementStart;
@@ -118,6 +118,8 @@ public:
     static size_t localChannelElementStart;
     static size_t maximumNumberOfChannelNeighbors;
     static size_t globalNumberOfRegions;
+    static size_t localNumberOfRegions;
+    static size_t localRegionStart;
 };
 
 #endif // __READONLY_H__

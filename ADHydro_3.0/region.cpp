@@ -12,9 +12,9 @@ bool Region::checkInvariant() const
     std::map<size_t,    MeshElement>::const_iterator itMesh;        // Loop iterator.
     std::map<size_t, ChannelElement>::const_iterator itChannel;     // Loop iterator.
     
-    if (!(currentTime <= timestepEndTime && timestepEndTime <= Readonly::getCheckpointTime(nextCheckpointIndex))) // FIXME timestepEndTime <= next forcing time
+    if (!(currentTime <= timestepEndTime && timestepEndTime <= nextForcingTime && timestepEndTime <= Readonly::getCheckpointTime(nextCheckpointIndex)))
     {
-        CkError("ERROR in Region::checkInvariant, region %lu: currentTime must be less than or equal to timestepEndTime, which must be less than or equal to the next checkpoint time.\n", thisIndex);
+        CkError("ERROR in Region::checkInvariant, region %lu: currentTime must be less than or equal to timestepEndTime, which must be less than or equal to nextForcingTime and the next checkpoint time.\n", thisIndex);
         error = true;
     }
     

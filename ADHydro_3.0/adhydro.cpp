@@ -129,4 +129,5 @@ ADHydro::ADHydro(CkArgMsg* msg)
 // Global readonly variables.
 CProxy_InitializationManager ADHydro::initializationManagerProxy;
 CProxy_CheckpointManager     ADHydro::checkpointManagerProxy;
+CProxy_ForcingManager        ADHydro::forcingManagerProxy;
 CProxy_Region                ADHydro::regionProxy;

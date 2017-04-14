@@ -39,21 +39,26 @@ module initialization_manager
                 }
                 
                 // Set local range of items.
-                Readonly::localStartAndNumber(Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, Readonly::globalNumberOfMeshElements, CkNumPes(), CkMyPe());
+                Readonly::localStartAndNumber(Readonly::localMeshElementStart,    Readonly::localNumberOfMeshElements,    Readonly::globalNumberOfMeshElements,    CkNumPes(), CkMyPe());
                 Readonly::localStartAndNumber(Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, Readonly::globalNumberOfChannelElements, CkNumPes(), CkMyPe());
+                Readonly::localStartAndNumber(Readonly::localRegionStart,         Readonly::localNumberOfRegions,         Readonly::globalNumberOfRegions,         CkNumPes(), CkMyPe());
                 
-                // Create the chare array of regions and send its proxy to all PEs.
+                // Create the forcing managers and the chare array of regions and send their proxies to all PEs.
+                // This has to be done after reading from file because their constructors require values read from file.
                 if (0 == CkMyPe())
                 {
-                    thisProxy.sendRegionProxy(CProxy_Region::ckNew(Readonly::globalNumberOfRegions));
+                    thisProxy.sendForcingAndRegionProxies(CProxy_ForcingManager::ckNew(), CProxy_Region::ckNew(Readonly::globalNumberOfRegions));
                 }
             }
             
-            when sendRegionProxy(CProxy_Region regionProxy)
+            when sendForcingAndRegionProxies(CProxy_ForcingManager forcingManagerProxy, CProxy_Region regionProxy)
             {
                 serial
                 {
-                    ADHydro::regionProxy = regionProxy;
+                    ADHydro::forcingManagerProxy = forcingManagerProxy;
+                    ADHydro::regionProxy         = regionProxy;
+                    
+                    contribute(CkCallback(CkReductionTarget(InitializationManager, barrier), thisProxy[0]));
                 }
             }
             
@@ -160,8 +165,21 @@ module initialization_manager
                     ADHydro::regionProxy[1].sendInitializeChannelElement(ChannelElement(1, STREAM, 1, 0.0, 0.0, 0.0, -1.0, 10.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, &evapoTranspirationState, 0.0, 0.0, 0.0, 0.0, neighbors));
                 }
             }
+            
+            if (0 == CkMyPe())
+            {
+                when barrier()
+                {
+                    serial
+                    {
+                        ADHydro::forcingManagerProxy.allProxiesSet();
+                        ADHydro::regionProxy.allProxiesSet();
+                    }
+                }
+            }
         }; // End entry void runUntilSimulationEnd().
         
-        entry void sendRegionProxy(CProxy_Region regionProxy);
+        entry void sendForcingAndRegionProxies(CProxy_ForcingManager forcingManagerProxy, CProxy_Region regionProxy);
+        entry [reductiontarget] void barrier();
     }; // End group InitializationManager.
 }; // End module initialization_manager.

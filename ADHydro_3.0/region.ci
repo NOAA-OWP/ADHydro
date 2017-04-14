@@ -106,9 +106,48 @@ module region
                 }
             }
             
+            // Barrier until we know ADHydro::forcingManagerProxy has been set on this PE.
+            when allProxiesSet() {}
+            
             // Run the simulation.
             while (currentTime < simulationEndTime)
             {
+                if (currentTime == nextForcingTime)
+                {
+                    // FIXME need to receive forcing data for all elements that might be coming from multiple managers in multiple messages.
+                    // FIXME while not all elements have forcing
+                    when sendForcing(double newNextForcingTime)
+                    {
+                        serial
+                        {
+                            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                            {
+                                if (!(newNextForcingTime > currentTime))
+                                {
+                                    CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
+                                    CkExit();
+                                }
+                                
+                                if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                {
+                                    CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
+                                    CkExit();
+                                }
+                            }
+                            
+                            // FIXME Store forcing data.
+                            
+                            if (nextForcingTime != newNextForcingTime)
+                            {
+                                // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
+                                nextForcingTime = newNextForcingTime;
+                                
+                                ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                            }
+                        }
+                    }
+                }
+                
                 // Step 1: Calculate nominal flow rates with neighbors.
                 serial
                 {
@@ -198,7 +237,7 @@ module region
                     
                     // Initially set timestepEndTime to be a time that we know we cannot exceed, either the next forcing read, checkpoint write, or simulationEndTime.
                     // Because there is always a checkpoint output at the end of the simulation, we don't need to check against simulationEndTime.
-                    timestepEndTime = Readonly::getCheckpointTime(nextCheckpointIndex); // FIXME forcing read.
+                    timestepEndTime = std::min(nextForcingTime, Readonly::getCheckpointTime(nextCheckpointIndex));
                     
                     // Set timestepEndTime to be no later than any expirationTime.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
@@ -288,7 +327,7 @@ module region
                     currentTime = timestepEndTime;
                     
                     // Check if it is time to output a checkpoint.
-                    if (Readonly::getCheckpointTime(nextCheckpointIndex) == currentTime)
+                    if (currentTime == Readonly::getCheckpointTime(nextCheckpointIndex))
                     {
                         for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                         {
@@ -319,6 +358,8 @@ module region
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
+        entry void allProxiesSet();
+        entry void sendForcing(double newNextForcingTime);
         entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
         entry void sendWater(const std::vector<WaterMessage>& messages);
     }; // End array [1D] Region.

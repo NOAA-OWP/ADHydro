@@ -2,6 +2,7 @@ mainmodule adhydro
 {
     extern module initialization_manager;
     extern module checkpoint_manager;
+    extern module forcing_manager;
     extern module region;
     
     mainchare ADHydro
@@ -12,6 +13,7 @@ mainmodule adhydro
         // Global readonly variables.
         readonly CProxy_InitializationManager initializationManagerProxy;
         readonly CProxy_CheckpointManager     checkpointManagerProxy;
+        readonly CProxy_ForcingManager        forcingManagerProxy;
         readonly CProxy_Region                regionProxy;
     }; // End mainchare ADHydro.
     
