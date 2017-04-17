@@ -496,6 +496,11 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
         // If you don't need to wait for a message mark the NeighborProxy as finished.
         ++neighborsFinished;
     }
+    else
+    {
+        // If the nominalFlowRate for this neighbor hasn't expired, it is finished.
+        ++neighborsFinished;
+    }
     
     return error;
 }
