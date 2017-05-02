@@ -56,6 +56,12 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
+    if (!(1721425.5 <= referenceDate + (simulationStartTime / (60.0 * 60.0 * 24.0))))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: simulationStartTime must be on or after 1 CE (1721425.5).\n");
+        error = true;
+    }
+    
     if (!(originalSimulationStartTime == simulationStartTime))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: simulationStartTime changed, which is not allowed for a readonly variable.\n");
@@ -226,14 +232,14 @@ double Readonly::newExpirationTime(double currentTime, double dtNew)
 {
     int          ii;                             // Loop counter.
     const int    numberOfDts               = 15; // Size of list in allowableDts.
-    const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 60.0, 2.0 * 60.0, 3.0 * 60.0, 5.0 * 60.0, 10.0 * 60.0, 15.0 * 60.0, 30.0 * 60.0, 60.0 * 60.0}; // (s).
+    const double allowableDts[numberOfDts] = {1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0, 1.0 * 60.0, 2.0 * 60.0, 3.0 * 60.0, 5.0 * 60.0, 10.0 * 60.0, 15.0 * 60.0, 30.0 * 60.0, 60.0 * 60.0}; // (s).
     double       selectedDt;                     // (s) Selected value from allowableDts.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        if (!(0.0 < dtNew))
+        if (!(0.0 < dtNew && INFINITY > dtNew))
         {
-            ADHYDRO_ERROR("ERROR in Readonly::newExpirationTime: dtNew must be greater than zero.\n");
+            ADHYDRO_ERROR("ERROR in Readonly::newExpirationTime: dtNew must be greater than zero and less than INFINITY.\n");
             ADHYDRO_EXIT(-1);
         }
     }

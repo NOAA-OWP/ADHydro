@@ -87,7 +87,6 @@
 #define GRAVITY               (9.81)      // (m/s^2)
 #define POLAR_RADIUS_OF_EARTH (6356752.3) // (m)
 #define ZERO_C_IN_KELVIN      (273.15)    // (K)
-#define PONDED_DEPTH          (0.001)     // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum

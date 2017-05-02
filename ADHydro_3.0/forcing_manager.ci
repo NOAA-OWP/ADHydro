@@ -43,7 +43,7 @@ module forcing_manager
                             if (0 == CkMyPe() && 1 <= Readonly::verbosityLevel)
                             {
                                 julianToGregorian(Readonly::referenceDate + (nextForcingTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
-                                CkPrintf("Reading forcing data for %02ld/%02ld/%04ld %02ld:%02ld:%02.2lf\n", month, day, year, hour, minute, second);
+                                CkPrintf("Reading forcing data for %02ld/%02ld/%04ld %02ld:%02ld:%02.0lf\n", month, day, year, hour, minute, second);
                             }
                             
                             // FIXME implement

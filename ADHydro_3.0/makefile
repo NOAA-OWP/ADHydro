@@ -36,6 +36,8 @@ ADHYDRO_OBJS := adhydro.o                \
                 neighbor_proxy.o         \
                 simple_groundwater.o     \
                 evapo_transpiration.o    \
+                surfacewater.o           \
+                groundwater.o            \
                 readonly.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
@@ -228,6 +230,8 @@ channel_element.o: channel_element.cpp   \
 
 neighbor_proxy.o: neighbor_proxy.cpp \
                   neighbor_proxy.h   \
+                  surfacewater.h     \
+                  groundwater.h      \
                   readonly.h         \
                   all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
@@ -241,6 +245,18 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        readonly.h              \
                        all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+surfacewater.o: surfacewater.cpp \
+                surfacewater.h   \
+                readonly.h       \
+                all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+groundwater.o: groundwater.cpp \
+               groundwater.h   \
+               readonly.h      \
+               all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 readonly.o: readonly.cpp \

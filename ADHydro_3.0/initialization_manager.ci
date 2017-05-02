@@ -25,6 +25,7 @@ module initialization_manager
                 
                 if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
                 {
+                    // FIXME call Readonly::checkInvariant instead?
                     if (!(1721425.5 <= Readonly::referenceDate))
                     {
                         CkError("ERROR in InitializationManager::runUntilSimulationEnd: referenceDate must be on or after 1 CE (1721425.5).\n");

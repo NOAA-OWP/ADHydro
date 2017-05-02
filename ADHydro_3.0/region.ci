@@ -307,6 +307,7 @@ module region
                     std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >::iterator itState;       // Loop iterator.
                     std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >           outgoingState; // State going to various OutputManagers.  Key is the destination PE.
                     size_t                                                                                     elementHome;   // The home PE of an element.
+                    // FIXME outgoingState could be made a member variable of Region to prevent repeated construction/destruction of vectors.
                     
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                     {
