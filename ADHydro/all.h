@@ -82,7 +82,11 @@
 #define GRAVITY               (9.81)      // Meters per second squared.
 #define POLAR_RADIUS_OF_EARTH (6356752.3) // Meters.
 #define ZERO_C_IN_KELVIN      (273.15)    // Kelvin.
-#define PONDED_DEPTH          (0.001)     // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
+//NJF Change ponded depth to 1 cm to improve numerical stability especially in channels. Previous 1 mm (0.001 M)
+//#define PONDED_DEPTH          (0.01)     // Meters.  Water can be ponded due to micro-topography.  Surfacewater depth below this will have no flow.
+//PONDED_DEPTH has been redefined in terms of MESH_RETENTION_DEPTH and CHANNEL_RETENTION_DEPTH
+#define MESH_RETENTION_DEPTH    (0.001)    // Meters.  Depth of water retained on mesh elements due to micro-topography.  Surfacewater depth below this will have no flow.
+#define CHANNEL_RETENTION_DEPTH (0.01)     // Meters.  Depth of water retained in channel elements.  Surfacewater depth below this will have no flow.
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
