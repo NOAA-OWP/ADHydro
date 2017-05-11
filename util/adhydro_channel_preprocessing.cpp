@@ -2,6 +2,7 @@
 #include <shapefil.h>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 // This code is a separate executable used to pre-process the channel network
 // into a .chan.ele file and a .chan.node file that are read into the adhydro
@@ -16,6 +17,19 @@
 
 // Locations of input files.  Edit these and recompile to change which files get read.
 // FIXME make these command line parameters.
+
+std::string mapDir;
+std::string baseName;
+std::string resolution;
+std::string streamNetworkShapefile;
+std::string waterbodiesShapefile;
+std::string waterbodiesStreamsIntersectionsShapefile;
+std::string waterbodiesWaterbodiesIntersectionsShapefile;
+std::string meshLinkFilename;
+std::string meshNodeFilename;
+std::string meshElementFilename;
+std::string meshEdgeFilename;
+/*
 const char* streamNetworkShapefile                       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/projectednet";
 const char* waterbodiesShapefile                         = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh_waterbodies";
 const char* waterbodiesStreamsIntersectionsShapefile     = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh_waterbodies_streams_intersections";
@@ -24,21 +38,26 @@ const char* meshLinkFilename                             = "/share/CI-WATER_Simu
 const char* meshNodeFilename                             = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.node";
 const char* meshElementFilename                          = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.ele";
 const char* meshEdgeFilename                             = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.edge";
-
+*/
 // Locations of output files.  Edit these and recompile to change which files get written.
 // FIXME make these command line parameters.
+std::string channelNodeFilename;
+std::string channelElementFilename;
+std::string channelPruneFilename;
+/*
 const char* channelNodeFilename    = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.node";
 const char* channelElementFilename = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.ele";
 const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh/mesh.1.chan.prune";
+*/
 
 // These values should be the same as the values in the ChannelElement class, but we can't include channel_element.h here because this isn't a Charm++ program.
 // If they are not the same it's actually not that bad.  When the output of this program gets read by the file managers if these numbers are less than the
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 1920; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 560;  // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 3072; // Maximum number of mesh neighbors.
+const int ChannelElement_channelVerticesSize  = 108; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 8;  // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 42; // Maximum number of mesh neighbors.
 
 #define SHAPES_SIZE     (82)  // Size of array of shapes in ChannelLinkStruct.
 #define UPSTREAM_SIZE   (557) // Size of array of upstream links in ChannelLinkStruct.
@@ -1950,9 +1969,9 @@ bool readTaudemStreamnet(ChannelLinkStruct* channels, int size, const char* file
       uslinkno1Index  = DBFGetFieldIndex(dbfFile, "USLINKNO1");
       uslinkno2Index  = DBFGetFieldIndex(dbfFile, "USLINKNO2");
       dslinknoIndex   = DBFGetFieldIndex(dbfFile, "DSLINKNO");
-      us_cont_arIndex = DBFGetFieldIndex(dbfFile, "US_Cont_Ar");
-      ds_cont_arIndex = DBFGetFieldIndex(dbfFile, "DS_Cont_Ar");
-      orderIndex      = DBFGetFieldIndex(dbfFile, "Order");
+      us_cont_arIndex = DBFGetFieldIndex(dbfFile, "USContArea"); //With version 5.3.8 of taudem, the field US_Cont_Ar doesn't exist, instead it is USContArea; NJF
+      ds_cont_arIndex = DBFGetFieldIndex(dbfFile, "DSContArea"); //See above ^^
+      orderIndex      = DBFGetFieldIndex(dbfFile, "strmOrder"); //Also in 5.3.8, Order has been changed to strmOrder
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
       if (!(0 < numberOfShapes))
@@ -6032,8 +6051,9 @@ void channelNetworkDealloc(ChannelLinkStruct** channels, int* size)
   *size     = 0;
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
+  
   bool               error = false; // Error flag.
   int                ii;            // Loop counter.
   ChannelLinkStruct* channels;      // The channel network.
@@ -6055,8 +6075,54 @@ int main(void)
   
   // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
   allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
+ 
+  if(argc == 3)
+  {
+    //Only passed mapDir and baseName
+    mapDir = std::string(argv[1]);
+    baseName = std::string(argv[2]);
+    resolution = std::string("");
+  }
+  if(argc == 4)
+  {
+        //Passed mapDir, baseName, and a resolution    
+        mapDir = std::string(argv[1]);
+        baseName = std::string(argv[2]);
+        resolution = std::string(argv[3]);
+  }
+  else
+  {
+    error = true;
+    printf("Usage: adhydroMapDir baseName [resolution]\n");
+  }
   
-  error = readLink(&channels, &size, meshLinkFilename);
+  if(!error)
+  {
+    std::string asciiDir = mapDir+"/ASCII/";
+    if(argc==4)
+        asciiDir = asciiDir+resolution+"_meter/";
+    std::string taudemDir = mapDir+"/TauDEM/";
+    std::string arcgisDir = mapDir+"/ArcGIS/";
+
+    streamNetworkShapefile = taudemDir+baseName+"_net";
+    waterbodiesShapefile = arcgisDir+baseName+"_waterbodies";
+    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
+    waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
+    meshLinkFilename = asciiDir+"mesh.1.link";
+    meshNodeFilename = asciiDir+"mesh.1.node";
+    meshElementFilename = asciiDir+"mesh.1.ele";
+    meshEdgeFilename = asciiDir+"mesh.1.edge";
+
+    channelNodeFilename = asciiDir+"mesh.1.chan.node";
+    channelElementFilename = asciiDir+"mesh.1.chan.ele";
+    channelPruneFilename = asciiDir+"mesh.1.chan.prune";
+
+  }
+
+  if(!error)
+  {  
+    error = readLink(&channels, &size, meshLinkFilename.c_str());
+  }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
   if (!error)
@@ -6067,7 +6133,7 @@ int main(void)
   
   if (!error)
     {
-      error = readWaterbodies(channels, size, waterbodiesShapefile);
+      error = readWaterbodies(channels, size, waterbodiesShapefile.c_str());
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -6079,7 +6145,7 @@ int main(void)
   
   if (!error)
     {
-      error = readTaudemStreamnet(channels, size, streamNetworkShapefile);
+      error = readTaudemStreamnet(channels, size, streamNetworkShapefile.c_str());
     }
   
   // Reach codes get set when reading the link file, but the types of those links get set in readWaterbodies and readTaudemStreamnet so temporarily there are
@@ -6102,7 +6168,7 @@ int main(void)
   
   if (!error)
     {
-      error = addAllStreamMeshEdges(channels, size, meshNodeFilename, meshEdgeFilename);
+      error = addAllStreamMeshEdges(channels, size, meshNodeFilename.c_str(), meshEdgeFilename.c_str());
     }
   
   // When adding a link element at the end of a link the length of the last unmoved element must temporarily be different than the link length.
@@ -6117,7 +6183,7 @@ int main(void)
   
   if (!error)
     {
-      error = readWaterbodyStreamIntersections(channels, size, waterbodiesStreamsIntersectionsShapefile);
+      error = readWaterbodyStreamIntersections(channels, size, waterbodiesStreamsIntersectionsShapefile.c_str());
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -6141,7 +6207,7 @@ int main(void)
   
   if (!error)
     {
-      error = readAndLinkWaterbodyWaterbodyIntersections(channels, size, waterbodiesWaterbodiesIntersectionsShapefile);
+      error = readAndLinkWaterbodyWaterbodyIntersections(channels, size, waterbodiesWaterbodiesIntersectionsShapefile.c_str());
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_INVARIANTS)
@@ -6180,8 +6246,8 @@ int main(void)
 
   if (!error)
     {
-      error = writeChannelNetwork(channels, size, meshNodeFilename, meshElementFilename, meshEdgeFilename, channelNodeFilename, channelElementFilename,
-                                  channelPruneFilename);
+      error = writeChannelNetwork(channels, size, meshNodeFilename.c_str(), meshElementFilename.c_str(), meshEdgeFilename.c_str(), channelNodeFilename.c_str(), channelElementFilename.c_str(),
+                                  channelPruneFilename.c_str());
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
