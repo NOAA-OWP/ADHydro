@@ -72,6 +72,28 @@ output_node_file           = os.path.join(output_directory_path, "mesh.node")
 output_poly_file           = os.path.join(output_directory_path, "mesh.poly")
 output_link_file           = os.path.join(output_directory_path, "mesh.1.link")
 
+# RCS 5/11/17
+# The above code has baked into it the directory structure that we currently use to organize all the different files that are produced when we make a mesh.
+# I don't like this for three reasons:
+#
+# 1) There's no documentation that tells you what directory structure you must use for this script to work.
+# 2) I never intended that directory structure to be the one and only one true way that you must organize your files to use ADHydro.
+# 3) The way I have had files organized has changed over time as I had better ideas, and it may change in the future.
+#
+# I would rather have a system of options where you can specify all seven files that need to be specified,
+# possibly with a couple groups like an input directory and an output directory where default names will be used.
+#
+# Here is how I originally specified the directories.  If you want to use this you can uncomment these lines and set file names here.
+#input_directory_path       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
+#input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
+#input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
+#input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
+#input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
+#output_directory_path      = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
+#output_node_file           = output_directory_path + "/" + "mesh.node"
+#output_poly_file           = output_directory_path + "/" + "mesh.poly"
+#output_link_file           = output_directory_path + "/" + "mesh.1.link"
+
 # Reach codes of waterbodies are 14 digit integers, which can be represented in
 # a 64 bit int.  Make sure that a python int is large enough.
 assert long(sys.maxint) >= 99999999999999L
