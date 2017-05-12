@@ -55,13 +55,13 @@ const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/upper_colo
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 108; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 8;  // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 42; // Maximum number of mesh neighbors.
+const int ChannelElement_channelVerticesSize  = 142;  // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 92;   // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 1312; // Maximum number of mesh neighbors. 1300 no 1312 yes
 
-#define SHAPES_SIZE     (82)  // Size of array of shapes in ChannelLinkStruct.
-#define UPSTREAM_SIZE   (557) // Size of array of upstream links in ChannelLinkStruct.
-#define DOWNSTREAM_SIZE (24)  // Size of array of downstream links in ChannelLinkStruct.
+#define SHAPES_SIZE     (20) // Size of array of shapes in ChannelLinkStruct.
+#define UPSTREAM_SIZE   (95) // Size of array of upstream links in ChannelLinkStruct.
+#define DOWNSTREAM_SIZE (4)  // Size of array of downstream links in ChannelLinkStruct.
 
 // Used for the return value of upstreamDownstream.
 typedef enum
@@ -1669,6 +1669,7 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
   long long       reachCode;      // The reach code of the waterbody.
   long long       permanent;      // The permanent code of the waterbody.
   const char*     ftype;          // The type of the waterbody as a string.
+  int             ftypeInt;       // The type of the waterbody as an int.
   int             linkNo;         // The link number of the waterbody.
   ChannelTypeEnum linkType;       // The type of the waterbody as an enum.
 
@@ -1790,8 +1791,9 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
           permanent = -1;
         }
 
-      ftype  = DBFReadStringAttribute(dbfFile, ii, ftypeIndex);
-      linkNo = 0;
+      ftype    = DBFReadStringAttribute( dbfFile, ii, ftypeIndex);
+      ftypeInt = DBFReadIntegerAttribute(dbfFile, ii, ftypeIndex);
+      linkNo   = 0;
 
       // Get link number.
       while(linkNo < size && (-1 == channels[linkNo].reachCode || (reachCode != channels[linkNo].reachCode && permanent != channels[linkNo].reachCode)))
@@ -1815,13 +1817,13 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
       // modify this code to account for different values in your data source.
       if (!error)
         {
-          if (0 == strcmp("Ice Mass", ftype) || 0 == strcmp("378", ftype))
+          if (0 == strcmp("Ice Mass", ftype) || 378 == ftypeInt)
             {
               linkType = ICEMASS;
             }
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-          else if (!(0 == strcmp("LakePond",  ftype) || 0 == strcmp("390", ftype) || 0 == strcmp("SwampMarsh", ftype) || 0 == strcmp("466", ftype) ||
-                     0 == strcmp("Reservoir", ftype) || 0 == strcmp("436", ftype) || 0 == strcmp("Playa",      ftype) || 0 == strcmp("361", ftype)))
+          else if (!(0 == strcmp("LakePond",  ftype) || 390 == ftypeInt || 0 == strcmp("SwampMarsh", ftype) || 466 == ftypeInt ||
+                     0 == strcmp("Reservoir", ftype) || 436 == ftypeInt || 0 == strcmp("Playa",      ftype) || 361 == ftypeInt))
             {
               fprintf(stderr, "ERROR in readWaterbodies: Waterbody reach code %lld has unknown type %s.\n", channels[linkNo].reachCode, ftype);
               error = true;
@@ -6056,7 +6058,7 @@ int main(int argc, char** argv)
   
   bool               error = false; // Error flag.
   int                ii;            // Loop counter.
-  ChannelLinkStruct* channels;      // The channel network.
+  ChannelLinkStruct* channels = NULL;      // The channel network.
   int                size;          // The number of elements in channels.
   
   // Reach codes get set when reading the link file, but the types of those links get set in readWaterbodies and readTaudemStreamnet so temporarily there are
@@ -6083,7 +6085,7 @@ int main(int argc, char** argv)
     baseName = std::string(argv[2]);
     resolution = std::string("");
   }
-  if(argc == 4)
+  else if(argc == 4)
   {
         //Passed mapDir, baseName, and a resolution    
         mapDir = std::string(argv[1]);
@@ -6106,7 +6108,7 @@ int main(int argc, char** argv)
 
     streamNetworkShapefile = taudemDir+baseName+"_net";
     waterbodiesShapefile = arcgisDir+baseName+"_waterbodies";
-    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
+    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_streams_intersections";
     waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
     meshLinkFilename = asciiDir+"mesh.1.link";
     meshNodeFilename = asciiDir+"mesh.1.node";
