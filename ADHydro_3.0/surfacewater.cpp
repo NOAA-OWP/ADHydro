@@ -1,9 +1,9 @@
 #include "surfacewater.h"
 #include "readonly.h"
 
-#define COURANT_DIFFUSIVE    (0.04)
-#define PONDED_DEPTH_MESH    (0.001)     // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
-#define PONDED_DEPTH_CHANNEL (0.01)      // (m) For numerical stability channels require a larger ponded depth than the mesh.
+#define COURANT_DIFFUSIVE       (0.04)
+#define MESH_RETENTION_DEPTH    (0.001) // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
+#define CHANNEL_RETENTION_DEPTH (0.01)  // (m) For numerical stability channels require a larger ponded depth than the mesh.
 
 bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity,
                                       double inflowHeight, double edgeLength, double edgeNormalX, double edgeNormalY, double elementArea,
@@ -86,7 +86,7 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
               *flowRate = 0.0;
             }
         }
-      else if (OUTFLOW == boundary && PONDED_DEPTH_MESH < surfacewaterDepth)
+      else if (OUTFLOW == boundary && MESH_RETENTION_DEPTH < surfacewaterDepth)
         {
           // Calculate flow rate.
           *flowRate = sqrt(GRAVITY * surfacewaterDepth) * surfacewaterDepth * edgeLength;
@@ -110,7 +110,7 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
               *dtNew = dtTemp;
             }
         }
-      // else if (NOFLOW == boundary || (OUTFLOW == boundary && PONDED_DEPTH_MESH >= surfacewaterDepth)) flowRate has already been assigned to zero above.
+      // else if (NOFLOW == boundary || (OUTFLOW == boundary && MESH_RETENTION_DEPTH >= surfacewaterDepth)) flowRate has already been assigned to zero above.
     }
   
   return error;
@@ -212,7 +212,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
               *flowRate = 0.0;
             }
         }
-      else if (OUTFLOW == boundary && PONDED_DEPTH_CHANNEL < surfacewaterDepth)
+      else if (OUTFLOW == boundary && CHANNEL_RETENTION_DEPTH < surfacewaterDepth)
         {
           // Calculate flow rate.
           topWidth        = baseWidth + 2.0 * sideSlope * surfacewaterDepth;
@@ -239,7 +239,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
               *dtNew = dtTemp;
             }
         }
-      // else if (NOFLOW == boundary || (OUTFLOW == boundary && PONDED_DEPTH_CHANNEL >= surfacewaterDepth)) flowRate has already been assigned to zero above.
+      // else if (NOFLOW == boundary || (OUTFLOW == boundary && CHANNEL_RETENTION_DEPTH >= surfacewaterDepth)) flowRate has already been assigned to zero above.
     }
   
   return error;
@@ -329,8 +329,8 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  if (!error && ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH_MESH < elementSurfacewaterDepth) ||
-                 (elementSurfacewaterHead < neighborSurfacewaterHead && PONDED_DEPTH_MESH < neighborSurfacewaterDepth)))
+  if (!error && ((elementSurfacewaterHead > neighborSurfacewaterHead && MESH_RETENTION_DEPTH < elementSurfacewaterDepth) ||
+                 (elementSurfacewaterHead < neighborSurfacewaterHead && MESH_RETENTION_DEPTH < neighborSurfacewaterDepth)))
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       ADHYDRO_ASSERT(0.0 < averageDepth && 0.0 != headSlope);
@@ -434,7 +434,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
 
   if (!error)
     {
-      if (meshSurfacewaterHead > channelSurfacewaterHead && PONDED_DEPTH_MESH < meshSurfacewaterDepth)
+      if (meshSurfacewaterHead > channelSurfacewaterHead && MESH_RETENTION_DEPTH < meshSurfacewaterDepth)
         {
           // Flow from the mesh to the channel.  If the channel water is over bank set weirElevation no lower than channelSurfacewaterHead.
           if (weirElevation < channelSurfacewaterHead)
@@ -459,7 +459,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
             }
           // else if water elevation is below the weir there is no flow.  flowRate has already been assigned to zero above.
         }
-      else if (channelSurfacewaterHead > meshSurfacewaterHead && PONDED_DEPTH_CHANNEL < channelSurfacewaterDepth)
+      else if (channelSurfacewaterHead > meshSurfacewaterHead && CHANNEL_RETENTION_DEPTH < channelSurfacewaterDepth)
         {
           // Flow from the channel to the mesh.  If the mesh water is over bank set weirElevation no lower than meshSurfacewaterHead.
           if (weirElevation < meshSurfacewaterHead)
@@ -561,8 +561,8 @@ void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double el
            (epsilonLess(0.0, neighborBaseWidth) || epsilonLess(0.0, neighborSideSlope)) && 0.0 < neighborManningsN && 0.0 <= neighborSurfacewaterDepth);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
   
-  if ((elementSurfacewaterHead > neighborSurfacewaterHead && PONDED_DEPTH_CHANNEL < elementSurfacewaterDepth) ||
-      (elementSurfacewaterHead < neighborSurfacewaterHead && PONDED_DEPTH_CHANNEL < neighborSurfacewaterDepth))
+  if ((elementSurfacewaterHead > neighborSurfacewaterHead && CHANNEL_RETENTION_DEPTH < elementSurfacewaterDepth) ||
+      (elementSurfacewaterHead < neighborSurfacewaterHead && CHANNEL_RETENTION_DEPTH < neighborSurfacewaterDepth))
     {
       elementArea  = elementSurfacewaterDepth * (elementBaseWidth + elementSideSlope * elementSurfacewaterDepth);
       neighborArea = neighborSurfacewaterDepth * (neighborBaseWidth + neighborSideSlope * neighborSurfacewaterDepth);
