@@ -1,10 +1,7 @@
 #include "neighbor_proxy.h"
-
-// FIXME stubs
-static size_t numberOfMeshElements = 2;
-static size_t numberOfChannelElements = 2;
-static size_t numberOfRegions = 2;
-// FIXME end stubs
+#include "surfacewater.h"
+#include "groundwater.h"
+#include "readonly.h"
 
 bool NeighborConnection::checkInvariant() const
 {
@@ -15,9 +12,9 @@ bool NeighborConnection::checkInvariant() const
         case MESH_SURFACE:
         case MESH_SOIL:
         case MESH_AQUIFER:
-            if (!(localElementNumber < numberOfMeshElements))
+            if (!(localElementNumber < Readonly::globalNumberOfMeshElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                 error = true;
             }
             
@@ -26,9 +23,9 @@ bool NeighborConnection::checkInvariant() const
                 case MESH_SURFACE:
                 case MESH_SOIL:
                 case MESH_AQUIFER:
-                    if (!(remoteElementNumber < numberOfMeshElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                         error = true;
                     }
                     
@@ -39,9 +36,9 @@ bool NeighborConnection::checkInvariant() const
                     }
                     break;
                 case CHANNEL_SURFACE:
-                    if (!(remoteElementNumber < numberOfChannelElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                         error = true;
                     }
                     break;
@@ -59,9 +56,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case CHANNEL_SURFACE:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -70,16 +67,16 @@ bool NeighborConnection::checkInvariant() const
                 case MESH_SURFACE:
                 case MESH_SOIL:
                 case MESH_AQUIFER:
-                    if (!(remoteElementNumber < numberOfMeshElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                         error = true;
                     }
                     break;
                 case CHANNEL_SURFACE:
-                    if (!(remoteElementNumber < numberOfChannelElements))
+                    if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                     {
-                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                        CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                         error = true;
                     }
                     
@@ -103,9 +100,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case RESERVOIR_RELEASE:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -116,9 +113,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
                 
@@ -130,9 +127,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case RESERVOIR_RECIPIENT:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -143,9 +140,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
                 
@@ -157,9 +154,9 @@ bool NeighborConnection::checkInvariant() const
             }
             break;
         case IRRIGATION_DIVERSION:
-            if (!(localElementNumber < numberOfChannelElements))
+            if (!(localElementNumber < Readonly::globalNumberOfChannelElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfChannelElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                 error = true;
             }
             
@@ -170,17 +167,17 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfMeshElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfMeshElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfMeshElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                     error = true;
                 }
             }
             break;
         case IRRIGATION_RECIPIENT:
-            if (!(localElementNumber < numberOfMeshElements))
+            if (!(localElementNumber < Readonly::globalNumberOfMeshElements))
             {
-                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than numberOfMeshElements.\n");
+                CkError("ERROR in NeighborConnection::checkInvariant: localElementNumber must be less than Readonly::globalNumberOfMeshElements.\n");
                 error = true;
             }
             
@@ -191,9 +188,9 @@ bool NeighborConnection::checkInvariant() const
             }
             else
             {
-                if (!(remoteElementNumber < numberOfChannelElements))
+                if (!(remoteElementNumber < Readonly::globalNumberOfChannelElements))
                 {
-                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than numberOfChannelElements.\n");
+                    CkError("ERROR in NeighborConnection::checkInvariant: remoteElementNumber must be less than Readonly::globalNumberOfChannelElements.\n");
                     error = true;
                 }
             }
@@ -255,12 +252,59 @@ bool NeighborAttributes::checkInvariant() const
 {
     bool error = false; // Error flag.
     
-    return error;
-}
-
-bool StateTransfer::checkInvariant() const
-{
-    bool error = false; // Error flag.
+    if (!(elementZTop >= elementZBottom))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: elementZTop must be greater than or equal to elementZBottom.\n");
+        error = true;
+    }
+    
+    if (!(0.0 < areaOrLength))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: areaOrLength must be greater than zero.\n");
+        error = true;
+    }
+    
+    if (!(0.0 < manningsN))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: manningsN must be greater than zero.\n");
+        error = true;
+    }
+    
+    if (!(0.0 <= conductivity))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: conductivity must be greater than or equal to zero.\n");
+        error = true;
+    }
+    
+    if (!(0.0 < porosityOrBedThickness))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: porosityOrBedThickness must be greater than zero.\n");
+        error = true;
+    }
+    
+    if (!(STREAM == channelType || WATERBODY == channelType || ICEMASS == channelType))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: channelType must be STREAM or WATERBODY or ICEMASS.\n");
+        error = true;
+    }
+    
+    if (!(0.0 <= baseWidth))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: baseWidth must be greater than or equal to zero.\n");
+        error = true;
+    }
+    
+    if (!(0.0 <= sideSlope))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: sideSlope must be greater than or equal to zero.\n");
+        error = true;
+    }
+    
+    if (!(0.0 < baseWidth || 0.0 < sideSlope))
+    {
+        CkError("ERROR in NeighborAttributes::checkInvariant: one of baseWidth or sideSlope must be greater than zero.\n");
+        error = true;
+    }
     
     return error;
 }
@@ -284,17 +328,17 @@ bool WaterTransfer::checkInvariant() const
     return error;
 }
 
-bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const
+bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
 {
     return proxy.receiveNeighborAttributes(neighborsFinished, this->attributes);
 }
 
-bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const
+bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
 {
-    return proxy.receiveStateMessage(neighborsFinished, *this, currentTime);
+    return proxy.receiveStateMessage(neighborsFinished, *this, localAttributes, localDepthOrHead, currentTime);
 }
 
-bool WaterMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const
+bool WaterMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
 {
     return proxy.receiveWaterMessage(neighborsFinished, *this, currentTime, timestepEndTime);
 }
@@ -304,9 +348,21 @@ bool NeighborProxy::checkInvariant() const
     bool                                    error = false; // Error flag.
     std::set<WaterTransfer>::const_iterator it;            // Loop iterator.
     
-    if (!(neighborRegion < numberOfRegions))
+    if (!(neighborRegion < Readonly::globalNumberOfRegions))
     {
-        CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than numberOfRegions.\n");
+        CkError("ERROR in NeighborProxy::checkInvariant: neighborRegion must be less than Readonly::globalNumberOfRegions.\n");
+        error = true;
+    }
+    
+    if (!(0.0 < edgeLength))
+    {
+        CkError("ERROR in NeighborProxy::checkInvariant: edgeLength must be greater than zero.\n");
+        error = true;
+    }
+    
+    if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
+    {
+        CkError("ERROR in NeighborProxy::checkInvariant: edgeNormalX and edgeNormalY must make a unit vector.\n");
         error = true;
     }
     
@@ -381,7 +437,7 @@ bool NeighborProxy::sendNeighborMessage(std::map<size_t, std::vector<NeighborMes
             RESERVOIR_RELEASE    == message.destination.remoteEndpoint || RESERVOIR_RECIPIENT  == message.destination.remoteEndpoint ||
             IRRIGATION_DIVERSION == message.destination.remoteEndpoint || IRRIGATION_RECIPIENT == message.destination.remoteEndpoint)
         {
-            // There is no remote neighbor.  Don't send the message and mark attributes as initialized and the NeighborProxy as finished.
+            // There is no remote neighbor, or the remote neighbor doesn't need my attributes.  Don't send the message and mark attributes as initialized and the NeighborProxy as finished.
             attributesInitialized = true;
             ++neighborsFinished;
         }
@@ -420,15 +476,14 @@ bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, const N
     return error;
 }
 
-bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& connection, double currentTime)
+bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const StateMessage& state, const NeighborAttributes& localAttributes, double currentTime)
 {
-    bool error   = false; // Error flag.
-    bool inflow  = false; // Flag for whether the flow is an inflow.
-    bool outflow = false; // Flag for whether the flow is an outflow.
+    bool error = false; // Error flag.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
-        error = connection.checkInvariant();
+        error = state.checkInvariant();
+        error = localAttributes.checkInvariant() || error;
         
         if (!(currentTime <= expirationTime))
         {
@@ -437,93 +492,65 @@ bool NeighborProxy::calculateNominalFlowRate(std::map<size_t, std::vector<StateM
         }
     }
     
-    // Only recalculate nominalFlowRate if it has expired.
-    if (!error && currentTime == expirationTime)
+    if (!error)
     {
-        // FIXME implement.  If the neighbor is in another region send a message with your state.
-        // If the neighbor is in the same region go get its state and calculate right away.
-        // If this is an inflow or outflow that has no neighbor element calculate right away.
-        // For now I'm just hardcoding something simple.  Mesh elements always flow to channel elements.
-        // Between elements of the same type the higher number element flows to the lower number one.
-        // The flow rate is always 0.1 m^3/s and the expiration time is always 1 s.
-        switch (connection.localEndpoint)
+        // Only recalculate nominalFlowRate if it has expired.
+        if (currentTime == expirationTime)
         {
-            case MESH_SURFACE:
-            case MESH_SOIL:
-            case MESH_AQUIFER:
-                if (BOUNDARY_INFLOW == connection.remoteEndpoint || TRANSBASIN_INFLOW == connection.remoteEndpoint)
+            if (BOUNDARY_INFLOW   == state.destination.remoteEndpoint || BOUNDARY_OUTFLOW     == state.destination.remoteEndpoint ||
+                TRANSBASIN_INFLOW == state.destination.remoteEndpoint || TRANSBASIN_OUTFLOW   == state.destination.remoteEndpoint ||
+                RESERVOIR_RELEASE == state.destination.localEndpoint  || IRRIGATION_DIVERSION == state.destination.localEndpoint)
+            {
+                // I can unilaterally calculate the flow rate without communicating with anybody.
+                error = nominalFlowRateCalculation(state.destination.localEndpoint, state.destination.remoteEndpoint, localAttributes, state.depthOrHead, 0.0, currentTime);
+                ++neighborsFinished;
+            }
+            else if (RESERVOIR_RECIPIENT == state.destination.localEndpoint || IRRIGATION_RECIPIENT == state.destination.localEndpoint)
+            {
+                // This sould actually never happen since expirationTime should be INFINITY.  Report an error.
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
                 {
-                    inflow = true;
+                    CkError("ERROR in NeighborProxy::calculateNominalFlowRate: Trying to recalculate flow rate for RESERVOIR_RECIPIENT or IRRIGATION_RECIPIENT, which should never happen.\n");
+                    error = true;
                 }
-                else if ((MESH_SURFACE == connection.remoteEndpoint || MESH_SOIL == connection.remoteEndpoint || MESH_AQUIFER == connection.remoteEndpoint) && connection.localElementNumber < connection.remoteElementNumber)
-                {
-                    inflow = true;
-                }
-                else
-                {
-                    outflow = true;
-                }
-                break;
-            case CHANNEL_SURFACE:
-                if (BOUNDARY_OUTFLOW == connection.remoteEndpoint || TRANSBASIN_OUTFLOW == connection.remoteEndpoint)
-                {
-                    outflow = true;
-                }
-                else if (CHANNEL_SURFACE == connection.remoteEndpoint && connection.localElementNumber > connection.remoteElementNumber)
-                {
-                    outflow = true;
-                }
-                else
-                {
-                    inflow = true;
-                }
-                break;
-            case RESERVOIR_RELEASE:
-            case IRRIGATION_DIVERSION:
-                outflow = true;
-                break;
-            default:
-                // For IRRIGATION_RECIPIENT and RESERVOIR_RECIPIENT never recalculate nominalFlowRate and expirationTime.
-                break;
+            }
+            else
+            {
+                // Send my state to my neighbor.
+                // FIXME short circuit if neighbor is on this PE?
+                outgoingMessages[neighborRegion].push_back(state);
+            }
         }
-        
-        if (outflow)
+        else
         {
-            nominalFlowRate = 0.1;
-            expirationTime  = currentTime + 1.0;
+            // If the nominalFlowRate for this neighbor hasn't expired, it is finished.
+            ++neighborsFinished;
         }
-        else if (inflow)
-        {
-            nominalFlowRate = -0.1;
-            expirationTime  = currentTime + 1.0;
-        }
-        
-        // If you don't need to wait for a message mark the NeighborProxy as finished.
-        ++neighborsFinished;
     }
     
     return error;
 }
 
-bool NeighborProxy::receiveStateMessage(size_t& neighborsFinished, const StateMessage& state, double currentTime)
+bool NeighborProxy::receiveStateMessage(size_t& neighborsFinished, const StateMessage& state, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime)
 {
     bool error = false; // Error flag.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
         error = state.checkInvariant();
+        error = localAttributes.checkInvariant() || error;
         
-        if (!(currentTime < expirationTime))
+        if (!(currentTime == expirationTime))
         {
-            CkError("ERROR in NeighborProxy::receiveStateTransfer: received state when I do not need to recalculate nominalFlowRate.\n");
+            CkError("ERROR in NeighborProxy::receiveStateMessage: currentTime must be equal to expirationTime.\n");
             error = true;
         }
     }
     
     if (!error)
     {
-        // FIXME implement
-        ++neighborsFinished; // When a NeighborProxy receives state it is finished with calculating nominalFlowRate.
+        error = nominalFlowRateCalculation(state.destination.localEndpoint, state.destination.remoteEndpoint, localAttributes, localDepthOrHead, state.depthOrHead, currentTime);
+        ++neighborsFinished;
     }
     
     return error;
@@ -782,4 +809,255 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
     }
     
     return water;
+}
+
+#define GLOBAL_DT_LIMIT (60.0) // FIXME do something better with this.
+#define INFLOW_VELOCITY (0.0)
+#define INFLOW_HEIGHT   (0.0)
+
+bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoint, NeighborEndpointEnum remoteEndpoint, const NeighborAttributes& localAttributes,
+                                               double localDepthOrHead, double remoteDepthOrHead, double currentTime)
+{
+    bool   error = false;           // Error flag.
+    double dtNew = GLOBAL_DT_LIMIT; // (s) Desired duration until the next expiration time.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+    {
+        CkAssert(!localAttributes.checkInvariant() && currentTime == expirationTime);
+    }
+    
+    if (MESH_SURFACE == localEndpoint && MESH_SURFACE == remoteEndpoint)
+    {
+        error = surfacewaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementX, localAttributes.elementY, localAttributes.elementZTop,
+                                             localAttributes.areaOrLength, localAttributes.manningsN, localDepthOrHead, attributes.elementX, attributes.elementY,
+                                             attributes.elementZTop, attributes.areaOrLength, attributes.manningsN, remoteDepthOrHead);
+    }
+    else if ((MESH_SURFACE == localEndpoint && MESH_SOIL    == remoteEndpoint) ||
+             (MESH_SURFACE == localEndpoint && MESH_AQUIFER == remoteEndpoint))
+    {
+        // Element is the soil neighbor.  Neighbor X and Y are the midpoint between the soil and surface where we assume the soil ends.
+        // NeighborZBedrock is the surface elevation.  NeighborZSurface is the surface elevation plus the thickness of the soil layer.
+        // NeighborConductivity and Porosity are the soil values.
+        error = groundwaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, attributes.elementX, attributes.elementY, attributes.elementZTop, attributes.elementZBottom, attributes.areaOrLength,
+                                            attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead, 0.5 * (localAttributes.elementX + attributes.elementX),
+                                            0.5 * (localAttributes.elementY + attributes.elementY), localAttributes.elementZTop + (attributes.elementZTop - attributes.elementZBottom),
+                                            localAttributes.elementZTop, localAttributes.areaOrLength, attributes.conductivity, attributes.porosityOrBedThickness, localAttributes.elementZTop + localDepthOrHead);
+        
+        // Reverse the direction of flow because the local element is neighbor in the previous calculation.
+        nominalFlowRate *= -1.0;
+    }
+    else if (MESH_SURFACE == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
+    {
+        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementZTop, localAttributes.areaOrLength, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
+                                                attributes.baseWidth, attributes.sideSlope, remoteDepthOrHead);
+        
+        if (!error)
+        {
+            // FIXME decide what to do about this
+            // Prevent out of bank flow out of streams because it results in really small timesteps.
+            // Still allow out of bank flow out of waterbodies and icemasses.
+            if (STREAM == attributes.channelType && 0.0 > nominalFlowRate)
+            {
+                nominalFlowRate = 0.0;
+                dtNew           = 5.0;
+            }
+        }
+    }
+    else if (MESH_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
+    {
+        error = surfacewaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_VELOCITY, INFLOW_VELOCITY, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.areaOrLength, localDepthOrHead);
+    }
+    else if (MESH_SURFACE == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
+    {
+        error = surfacewaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_VELOCITY, INFLOW_VELOCITY, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.areaOrLength, localDepthOrHead);
+    }
+    else if (MESH_SURFACE == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (MESH_SURFACE == localEndpoint && TRANSBASIN_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (MESH_SOIL == localEndpoint && MESH_SURFACE == remoteEndpoint)
+    {
+        // Element is the soil neighbor.  Neighbor X and Y are the midpoint between the soil and surface where we assume the soil ends.
+        // NeighborZBedrock is the surface elevation.  NeighborZSurface is the surface elevation plus the thickness of the soil layer.
+        // NeighborConductivity and Porosity are the soil values.
+        error = groundwaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementX, localAttributes.elementY, localAttributes.elementZTop, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                            localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead, 0.5 * (localAttributes.elementX + attributes.elementX),
+                                            0.5 * (localAttributes.elementY + attributes.elementY), attributes.elementZTop + (localAttributes.elementZTop - localAttributes.elementZBottom),
+                                            attributes.elementZTop, attributes.areaOrLength, localAttributes.conductivity, localAttributes.porosityOrBedThickness, attributes.elementZTop + remoteDepthOrHead);
+    }
+    else if ((MESH_SOIL == localEndpoint && MESH_SOIL    == remoteEndpoint) ||
+             (MESH_SOIL == localEndpoint && MESH_AQUIFER == remoteEndpoint))
+    {
+        error = groundwaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementX, localAttributes.elementY, localAttributes.elementZTop, localAttributes.elementZBottom,
+                                            localAttributes.areaOrLength, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead, attributes.elementX, attributes.elementY,
+                                            attributes.elementZTop, attributes.elementZBottom, attributes.areaOrLength, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+    }
+    else if (MESH_SOIL == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
+    {
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
+                                               attributes.baseWidth, attributes.sideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+    }
+    else if (MESH_SOIL == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
+    {
+        // FIXME get correct values for slopeX and slopeY.
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
+                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+    }
+    else if (MESH_SOIL == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME get correct values for slopeX and slopeY.
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
+                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+    }
+    else if (MESH_SOIL == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (MESH_SOIL == localEndpoint && TRANSBASIN_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (MESH_AQUIFER == localEndpoint && MESH_SURFACE == remoteEndpoint)
+    {
+        // Element is the soil neighbor.  Neighbor X and Y are the midpoint between the soil and surface where we assume the soil ends.
+        // NeighborZBedrock is the surface elevation.  NeighborZSurface is the surface elevation plus the thickness of the soil layer.
+        // NeighborConductivity and Porosity are the soil values.
+        error = groundwaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementX, localAttributes.elementY, localAttributes.elementZTop, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                            localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead, 0.5 * (localAttributes.elementX + attributes.elementX),
+                                            0.5 * (localAttributes.elementY + attributes.elementY), attributes.elementZTop + (localAttributes.elementZTop - localAttributes.elementZBottom),
+                                            attributes.elementZTop, attributes.areaOrLength, localAttributes.conductivity, localAttributes.porosityOrBedThickness, attributes.elementZTop + remoteDepthOrHead);
+    }
+    else if ((MESH_AQUIFER == localEndpoint && MESH_SOIL == remoteEndpoint) ||
+             (MESH_AQUIFER == localEndpoint && MESH_AQUIFER == remoteEndpoint))
+    {
+        error = groundwaterMeshMeshFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementX, localAttributes.elementY, localAttributes.elementZTop, localAttributes.elementZBottom,
+                                            localAttributes.areaOrLength, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead, attributes.elementX, attributes.elementY,
+                                            attributes.elementZTop, attributes.elementZBottom, attributes.areaOrLength, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+    }
+    else if (MESH_AQUIFER == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
+    {
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
+                                               attributes.baseWidth, attributes.sideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+    }
+    else if (MESH_AQUIFER == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
+    {
+        // FIXME get correct values for slopeX and slopeY.
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
+                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+    }
+    else if (MESH_AQUIFER == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME get correct values for slopeX and slopeY.
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
+                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+    }
+    else if (MESH_AQUIFER == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (MESH_AQUIFER == localEndpoint && TRANSBASIN_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && MESH_SURFACE == remoteEndpoint)
+    {
+        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, attributes.elementZTop, attributes.areaOrLength, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
+                                                localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+        
+        // Reverse the direction of flow because the local element is neighbor in the previous calculation.
+        nominalFlowRate *= -1.0;
+        
+        if (!error)
+        {
+            // FIXME decide what to do about this
+            // Prevent out of bank flow out of streams because it results in really small timesteps.
+            // Still allow out of bank flow out of waterbodies and icemasses.
+            if (STREAM == localAttributes.channelType && 0.0 < nominalFlowRate)
+            {
+                nominalFlowRate = 0.0;
+                dtNew           = 5.0;
+            }
+        }
+    }
+    else if ((CHANNEL_SURFACE == localEndpoint && MESH_SOIL    == remoteEndpoint) ||
+             (CHANNEL_SURFACE == localEndpoint && MESH_AQUIFER == remoteEndpoint))
+    {
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, attributes.elementZTop, attributes.elementZBottom, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
+                                               localAttributes.baseWidth, localAttributes.sideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+        
+        // Reverse the direction of flow because the local element is neighbor in the previous calculation.
+        nominalFlowRate *= -1.0;
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
+    {
+        error = surfacewaterChannelChannelFlowRate(&nominalFlowRate, &dtNew, localAttributes.channelType, localAttributes.elementZTop, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                                   localAttributes.baseWidth, localAttributes.sideSlope, localAttributes.manningsN, localDepthOrHead, attributes.channelType, attributes.elementZTop,
+                                                   attributes.elementZBottom, attributes.areaOrLength, attributes.baseWidth, attributes.sideSlope, attributes.manningsN, remoteDepthOrHead);
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
+    {
+        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
+    {
+        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (CHANNEL_SURFACE == localEndpoint && TRANSBASIN_OUTFLOW == remoteEndpoint)
+    {
+        // FIXME transbasin flows not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (RESERVOIR_RELEASE == localEndpoint)
+    {
+        // FIXME water management not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (IRRIGATION_DIVERSION == localEndpoint)
+    {
+        // FIXME water management not yet implemented
+        nominalFlowRate = 0.0;
+        dtNew           = INFINITY;
+    }
+    else if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+    {
+        CkAssert(false); // All other endpoints are invalid here.
+    }
+    
+    if (!error)
+    {
+        if (INFINITY == dtNew)
+        {
+            expirationTime = INFINITY;
+        }
+        else
+        {
+            expirationTime = Readonly::newExpirationTime(currentTime, dtNew);
+        }
+    }
+    
+    return error;
 }

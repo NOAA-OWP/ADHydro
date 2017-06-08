@@ -87,7 +87,6 @@
 #define GRAVITY               (9.81)      // (m/s^2)
 #define POLAR_RADIUS_OF_EARTH (6356752.3) // (m)
 #define ZERO_C_IN_KELVIN      (273.15)    // (K)
-#define PONDED_DEPTH          (0.001)     // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
@@ -115,22 +114,6 @@ enum ChannelTypeEnum
 
 #ifdef __CHARMC__
 PUPbytes(ChannelTypeEnum);
-#endif // __CHARMC__
-
-// FIXME double check if this is used in the final code.
-// Used for passing a Charm++ message with which type of file manager to use.
-// This could be replaced with pupping a base class pointer to a subclass
-// object.  This is a little bit of a kludge, or at least putting it here is.
-// Any time you create a new file manager type you need to add it here.
-// I don't want to put it in file_manager.h because then it would have to
-// include charm++.h for the PUPbytes declaration.
-enum FileManagerEnum
-{
-  FILE_MANAGER_NETCDF
-};
-
-#ifdef __CHARMC__
-PUPbytes(FileManagerEnum);
 #endif // __CHARMC__
 
 // Utility functions for epsilon-equality testing of doubles. Two doubles are

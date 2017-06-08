@@ -4,6 +4,39 @@
 #include "neighbor_proxy.h"
 #include "evapo_transpiration.h"
 
+class ChannelState
+{
+public:
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | elementNumber;
+        p | evapoTranspirationState;
+        p | surfaceWater;
+        p | surfaceWaterCreated;
+        p | precipitationRate;
+        p | precipitationCumulative;
+        p | evaporationRate;
+        p | evaporationCumulative;
+        p | neighbors;
+    }
+    
+    size_t                        elementNumber;
+    EvapoTranspirationStateStruct evapoTranspirationState;
+    double                        surfaceWater;
+    double                        surfaceWaterCreated;
+    double                        precipitationRate;
+    double                        precipitationCumulative;
+    double                        evaporationRate;
+    double                        evaporationCumulative;
+    std::vector<NeighborState>    neighbors;
+};
+
 // A ChannelElement is a length of stream, a waterbody, or a glacier in the channel network.  It is modeled as a linear element.
 // It simulates surfacewater state only.  Groundwater underneath the channel is simulated by neighboring mesh elements.
 class ChannelElement
@@ -154,7 +187,7 @@ public:
     // elementsFinished - Number of elements in the current Region finished in the current phase.  May be incremented if this call causes this element to be finished.
     // currentTime      - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
+    bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
     
     // Call sendNeighborAttributes on all NeighborProxies.
     //
@@ -201,6 +234,39 @@ public:
     // currentTime     - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool receiveInflowsAndUpdateState(double currentTime, double timestepEndTime);
+    
+    // Fill in this ChannelElement's values into a ChannelState object.
+    //
+    // Parameters:
+    //
+    // state - The ChannelState to fill in.
+    inline void fillInState(ChannelState& state)
+    {
+        std::map<NeighborConnection, NeighborProxy>::iterator itProxy; // Loop iterator.
+        std::vector<NeighborState>::iterator                  itState; // Loop iterator.
+        
+        state.elementNumber           = elementNumber;
+        state.evapoTranspirationState = evapoTranspirationState;
+        state.surfaceWater            = surfaceWater;
+        state.surfaceWaterCreated     = surfaceWaterCreated;
+        state.precipitationRate       = precipitationRate;
+        state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
+        state.evaporationRate         = evaporationRate;
+        state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
+        
+        state.neighbors.resize(neighbors.size());
+        
+        for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
+        {
+            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            {
+                // Because we resized state.neighbors we shouldn't run out of elements in this loop.
+                CkAssert(itState != state.neighbors.end());
+            }
+            
+            itProxy->second.fillInState(*itState, itProxy->first);
+        }
+    }
     
     // Returns: the value of elementNumber.
     inline double getElementNumber() const

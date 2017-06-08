@@ -1,9 +1,9 @@
 #include "surfacewater.h"
-#include "adhydro.h"
+#include "readonly.h"
 
-//#define COURANT_DIFFUSIVE (0.2)
-//NJF Testing smaller courant numbers to help alleviate osscilations at larger resolutions. 0.02 provides reasonable results, trying 0.04
-#define COURANT_DIFFUSIVE (0.04) 
+#define COURANT_DIFFUSIVE       (0.04)
+#define MESH_RETENTION_DEPTH    (0.001) // (m) Water can be ponded due to micro-topography.  Surfacewater depth below this will have no lateral flow.
+#define CHANNEL_RETENTION_DEPTH (0.01)  // (m) For numerical stability channels require a larger ponded depth than the mesh.
 
 bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity,
                                       double inflowHeight, double edgeLength, double edgeNormalX, double edgeNormalY, double elementArea,
@@ -15,7 +15,7 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: flowRate must not be NULL.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -27,43 +27,43 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: dtNew must not be NULL and must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!isBoundary(boundary))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(0.0 <= inflowHeight))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: edgeLength must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(epsilonEqual(1.0, edgeNormalX * edgeNormalX + edgeNormalY * edgeNormalY)))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: edgeNormalX and edgeNormalY must make a unit vector.\n");
       error = true;
     }
   
   if (!(0.0 < elementArea))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: elementArea must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: elementArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= surfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterMeshBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -78,9 +78,9 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
           // Force flow rate to have the correct sign.
           if (0.0 < *flowRate)
             {
-              if (2 <= ADHydro::verbosityLevel)
+              if (2 <= Readonly::verbosityLevel)
                 {
-                  CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+                  ADHYDRO_ERROR("WARNING in surfacewaterMeshBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
                 }
               
               *flowRate = 0.0;
@@ -94,9 +94,9 @@ bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryC
           // Force flow rate to have the correct sign.
           if (0.0 > *flowRate)
             {
-              if (2 <= ADHydro::verbosityLevel)
+              if (2 <= Readonly::verbosityLevel)
                 {
-                  CkError("WARNING in surfacewaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+                  ADHYDRO_ERROR("WARNING in surfacewaterMeshBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
                 }
               
               *flowRate = 0.0;
@@ -128,7 +128,7 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: flowRate must not be NULL.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -140,55 +140,55 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: dtNew must not be NULL and must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!isBoundary(boundary))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: boundary must be a valid boundary condition value.\n");
       error = true;
     }
   
   if (!(0.0 <= inflowVelocity))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: inflowVelocity must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: inflowVelocity must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 <= inflowHeight))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: inflowHeight must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementLength))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: elementLength must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: elementLength must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 <= baseWidth))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: baseWidth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: baseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 <= sideSlope))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: sideSlope must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: sideSlope must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(epsilonGreater(baseWidth, 0.0) || epsilonGreater(sideSlope, 0.0)))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: at least one of baseWidth or sideSlope must be epsilon greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: at least one of baseWidth or sideSlope must be epsilon greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= surfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterChannelBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelBoundaryFlowRate: surfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -204,9 +204,9 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
           // Force flow rate to have the correct sign.
           if (0.0 < *flowRate)
             {
-              if (2 <= ADHydro::verbosityLevel)
+              if (2 <= Readonly::verbosityLevel)
                 {
-                  CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
+                  ADHYDRO_ERROR("WARNING in surfacewaterChannelBoundaryFlowRate: Outward flow at INFLOW boundary.  Setting flow to zero.\n");
                 }
               
               *flowRate = 0.0;
@@ -223,9 +223,9 @@ bool surfacewaterChannelBoundaryFlowRate(double* flowRate, double* dtNew, Bounda
           // Force flow rate to have the correct sign.
           if (0.0 > *flowRate)
             {
-              if (2 <= ADHydro::verbosityLevel)
+              if (2 <= Readonly::verbosityLevel)
                 {
-                  CkError("WARNING in surfacewaterChannelBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
+                  ADHYDRO_ERROR("WARNING in surfacewaterChannelBoundaryFlowRate: Inward flow at OUTFLOW boundary.  Setting flow to zero.\n");
                 }
               
               *flowRate = 0.0;
@@ -264,7 +264,7 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: flowRate must not be NULL.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -276,55 +276,55 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: dtNew must not be NULL and must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: edgeLength must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < distance))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: Distance between element and neighbor centers must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: Distance between element and neighbor centers must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementArea))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: elementArea must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: elementArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementManningsN))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: elementManningsN must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: elementManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0.0 < neighborArea))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: neighborArea must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: neighborArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < neighborManningsN))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: neighborManningsN must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: neighborManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterMeshMeshFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshMeshFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -333,14 +333,13 @@ bool surfacewaterMeshMeshFlowRate(double* flowRate, double* dtNew, double edgeLe
                  (elementSurfacewaterHead < neighborSurfacewaterHead && MESH_RETENTION_DEPTH < neighborSurfacewaterDepth)))
     {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(0.0 < averageDepth && 0.0 != headSlope);
+      ADHYDRO_ASSERT(0.0 < averageDepth && 0.0 != headSlope);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       *flowRate = (pow(averageDepth, 5.0 / 3.0) / (averageManningsN * sqrt(fabs(headSlope)))) * headSlope * edgeLength;
 
       // Suggest new timestep.
-      dtTemp = COURANT_DIFFUSIVE * sqrt(2.0 * averageArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY *
-                                                                                                                                             averageDepth));
+      dtTemp = COURANT_DIFFUSIVE * sqrt(2.0 * averageArea) / (pow(averageDepth, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN + sqrt(GRAVITY * averageDepth));
 
       if (*dtNew > dtTemp)
         {
@@ -368,7 +367,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: flowRate must not be NULL.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -380,55 +379,55 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: dtNew must not be NULL and must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < edgeLength))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: edgeLength must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: edgeLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < meshArea))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: meshArea must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: meshArea must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= meshSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: meshSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: meshSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(channelZBank >= channelZBed))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelZBank must be greater than or equal to channelZBed");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: channelZBank must be greater than or equal to channelZBed");
       error = true;
     }
   
   if (!(0 <= channelBaseWidth))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelBaseWidth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: channelBaseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0 <= channelSideSlope))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelSideSlope must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: channelSideSlope must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(epsilonGreater(channelBaseWidth, 0.0) || epsilonGreater(channelSideSlope, 0.0)))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: at least one of channelBaseWidth or channelSideSlope must be epsilon greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: at least one of channelBaseWidth or channelSideSlope must be epsilon greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= channelSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterMeshChannelFlowRate: channelSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterMeshChannelFlowRate: channelSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -556,7 +555,7 @@ void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double el
                                                                                                      // seconds.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && 0.0 <= elementLength && 0.0 <= elementBaseWidth && 0.0 <= elementSideSlope &&
+  ADHYDRO_ASSERT(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && 0.0 <= elementLength && 0.0 <= elementBaseWidth && 0.0 <= elementSideSlope &&
            (epsilonLess(0.0, elementBaseWidth) || epsilonLess(0.0, elementSideSlope)) && 0.0 < elementManningsN && 0.0 <= elementSurfacewaterDepth &&
            0.0 < neighborLength && 0.0 <= neighborBaseWidth && 0.0 <= neighborSideSlope &&
            (epsilonLess(0.0, neighborBaseWidth) || epsilonLess(0.0, neighborSideSlope)) && 0.0 < neighborManningsN && 0.0 <= neighborSurfacewaterDepth);
@@ -600,7 +599,7 @@ void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double el
         }
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(0.0 < averageDepth && 0.0 != headSlope && 0.0 < averageArea && 0.0 < averageRadius && 0.0 < criticalVelocity);
+      ADHYDRO_ASSERT(0.0 < averageDepth && 0.0 != headSlope && 0.0 < averageArea && 0.0 < averageRadius && 0.0 < criticalVelocity);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Calculate flow rate.
@@ -661,7 +660,7 @@ void surfacewaterWaterbodyStreamFlowRate(double* flowRate, double* dtNew, double
   double waterbodyMouthSurfacewaterDepth; // Surfacewater depth of waterbody mouth in meters.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && waterbodyZBank >= waterbodyZBed && 0.0 <= waterbodySurfacewaterDepth &&
+  ADHYDRO_ASSERT(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && waterbodyZBank >= waterbodyZBed && 0.0 <= waterbodySurfacewaterDepth &&
            streamZBank >= streamZBed && 0.0 < streamLength && 0.0 <= streamBaseWidth && 0.0 <= streamSideSlope &&
            (epsilonLess(0.0, streamBaseWidth) || epsilonLess(0.0, streamSideSlope)) && 0.0 < streamManningsN && 0.0 <= streamSurfacewaterDepth);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
@@ -741,7 +740,7 @@ void surfacewaterWaterbodyWaterbodyFlowRate(double* flowRate, double* dtNew, dou
                                                                                                                     // timestep.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
-  CkAssert(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && elementZBank >= elementZBed && 0.0 < elementLength && 0.0 <= elementBaseWidth &&
+  ADHYDRO_ASSERT(NULL != flowRate && NULL != dtNew && 0.0 < *dtNew && elementZBank >= elementZBed && 0.0 < elementLength && 0.0 <= elementBaseWidth &&
            0.0 <= elementSideSlope && (epsilonLess(0.0, elementBaseWidth) || epsilonLess(0.0, elementSideSlope)) && 0.0 <= elementSurfacewaterDepth &&
            neighborZBank >= neighborZBed && 0.0 < neighborLength && 0.0 <= neighborBaseWidth && 0.0 <= neighborSideSlope &&
            (epsilonLess(0.0, neighborBaseWidth) || epsilonLess(0.0, neighborSideSlope)) && 0.0 <= neighborSurfacewaterDepth);
@@ -832,7 +831,7 @@ bool surfacewaterChannelChannelFlowRate(double* flowRate, double* dtNew, Channel
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: flowRate must not be NULL.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: flowRate must not be NULL.\n");
       error = true;
     }
   else
@@ -844,103 +843,103 @@ bool surfacewaterChannelChannelFlowRate(double* flowRate, double* dtNew, Channel
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != dtNew && 0.0 < *dtNew))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: dtNew must not be NULL and must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: dtNew must not be NULL and must be greater than zero.\n");
       error = true;
     }
   
   if (!(STREAM == elementChannelType || WATERBODY == elementChannelType || ICEMASS == elementChannelType))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementChannelType must be a valid channel type value.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementChannelType must be a valid channel type value.\n");
       error = true;
     }
   
   if (!(elementZBank >= elementZBed))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementZBank must be greater than or equal to elementZBed");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementZBank must be greater than or equal to elementZBed");
       error = true;
     }
   
   if (!(0.0 < elementLength))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementLength must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0 <= elementBaseWidth))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementBaseWidth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementBaseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0 <= elementSideSlope))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementSideSlope must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementSideSlope must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(epsilonGreater(elementBaseWidth, 0.0) || epsilonGreater(elementSideSlope, 0.0)))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: at least one of elementBaseWidth or elementSideSlope must be epsilon greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: at least one of elementBaseWidth or elementSideSlope must be epsilon greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < elementManningsN))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementManningsN must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= elementSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: elementSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(STREAM == neighborChannelType || WATERBODY == neighborChannelType || ICEMASS == neighborChannelType))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborChannelType must be a valid channel type value.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborChannelType must be a valid channel type value.\n");
       error = true;
     }
   
   if (!(neighborZBank >= neighborZBed))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborZBank must be greater than or equal to neighborZBed");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborZBank must be greater than or equal to neighborZBed");
       error = true;
     }
   
   if (!(0.0 < neighborLength))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborLength must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborLength must be greater than zero.\n");
       error = true;
     }
   
   if (!(0 <= neighborBaseWidth))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborBaseWidth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborBaseWidth must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(0 <= neighborSideSlope))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborSideSlope must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborSideSlope must be greater than or equal to zero.\n");
       error = true;
     }
   
   if (!(epsilonGreater(neighborBaseWidth, 0.0) || epsilonGreater(neighborSideSlope, 0.0)))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: at least one of neighborBaseWidth or neighborSideSlope must be epsilon greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: at least one of neighborBaseWidth or neighborSideSlope must be epsilon greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 < neighborManningsN))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborManningsN must be greater than zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborManningsN must be greater than zero.\n");
       error = true;
     }
   
   if (!(0.0 <= neighborSurfacewaterDepth))
     {
-      CkError("ERROR in surfacewaterChannelChannelFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
+      ADHYDRO_ERROR("ERROR in surfacewaterChannelChannelFlowRate: neighborSurfacewaterDepth must be greater than or equal to zero.\n");
       error = true;
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)

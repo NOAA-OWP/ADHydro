@@ -24,13 +24,20 @@ VPATH := ../HRLDAS-v3.6/Noah             \
 
 EXES := adhydro
 
-ADHYDRO_OBJS := adhydro.o             \
-                region.o              \
-                mesh_element.o        \
-                channel_element.o     \
-                neighbor_proxy.o      \
-                simple_groundwater.o  \
-                evapo_transpiration.o \
+ADHYDRO_OBJS := adhydro.o                \
+                initialization_manager.o \
+                checkpoint_manager.o     \
+                file_manager_NetCDF.o    \
+                time_point_state.o       \
+                forcing_manager.o        \
+                region.o                 \
+                mesh_element.o           \
+                channel_element.o        \
+                neighbor_proxy.o         \
+                simple_groundwater.o     \
+                evapo_transpiration.o    \
+                surfacewater.o           \
+                groundwater.o            \
                 readonly.o
 
 NOAHMP_OBJS := module_sf_noahmpdrv.o          \
@@ -55,36 +62,148 @@ all: $(EXES)
 adhydro: $(ADHYDRO_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
 
-adhydro.o: adhydro.cpp           \
-           adhydro.h             \
-           adhydro.decl.h        \
-           adhydro.def.h         \
-           region.h              \
-           region.decl.h         \
-           mesh_element.h        \
-           channel_element.h     \
-           neighbor_proxy.h      \
-           simple_groundwater.h  \
-           evapo_transpiration.h \
-           readonly.h            \
+adhydro.o: adhydro.cpp                   \
+           adhydro.h                     \
+           adhydro.decl.h                \
+           adhydro.def.h                 \
+           initialization_manager.h      \
+           initialization_manager.decl.h \
+           checkpoint_manager.h          \
+           checkpoint_manager.decl.h     \
+           time_point_state.h            \
+           forcing_manager.h             \
+           forcing_manager.decl.h        \
+           region.h                      \
+           region.decl.h                 \
+           mesh_element.h                \
+           channel_element.h             \
+           neighbor_proxy.h              \
+           simple_groundwater.h          \
+           evapo_transpiration.h         \
+           readonly.h                    \
            all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 adhydro.decl.h \
-adhydro.def.h: adhydro.ci \
+adhydro.def.h: adhydro.ci                \
+               initialization_manager.ci \
+               checkpoint_manager.ci     \
+               forcing_manager.ci        \
                region.ci
 	$(CHARMC) $<
 
-region.o: region.cpp            \
-          region.h              \
-          region.decl.h         \
-          region.def.h          \
-          mesh_element.h        \
-          channel_element.h     \
-          neighbor_proxy.h      \
-          simple_groundwater.h  \
-          evapo_transpiration.h \
-          readonly.h            \
+initialization_manager.o: initialization_manager.cpp    \
+                          initialization_manager.h      \
+                          initialization_manager.decl.h \
+                          initialization_manager.def.h  \
+                          adhydro.h                     \
+                          adhydro.decl.h                \
+                          checkpoint_manager.h          \
+                          checkpoint_manager.decl.h     \
+                          time_point_state.h            \
+                          forcing_manager.h             \
+                          forcing_manager.decl.h        \
+                          region.h                      \
+                          region.decl.h                 \
+                          mesh_element.h                \
+                          channel_element.h             \
+                          neighbor_proxy.h              \
+                          simple_groundwater.h          \
+                          evapo_transpiration.h         \
+                          readonly.h                    \
+                          all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+initialization_manager.decl.h \
+initialization_manager.def.h: initialization_manager.ci
+	$(CHARMC) $<
+
+checkpoint_manager.o: checkpoint_manager.cpp    \
+                      checkpoint_manager.h      \
+                      checkpoint_manager.decl.h \
+                      checkpoint_manager.def.h  \
+                      file_manager_NetCDF.h     \
+                      time_point_state.h        \
+                      mesh_element.h            \
+                      channel_element.h         \
+                      neighbor_proxy.h          \
+                      simple_groundwater.h      \
+                      evapo_transpiration.h     \
+                      readonly.h                \
+                      all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+checkpoint_manager.decl.h \
+checkpoint_manager.def.h: checkpoint_manager.ci
+	$(CHARMC) $<
+
+file_manager_NetCDF.o: file_manager_NetCDF.cpp \
+                       file_manager_NetCDF.h   \
+                       time_point_state.h      \
+                       mesh_element.h          \
+                       channel_element.h       \
+                       neighbor_proxy.h        \
+                       simple_groundwater.h    \
+                       evapo_transpiration.h   \
+                       readonly.h              \
+                       all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+time_point_state.o: time_point_state.cpp  \
+                    time_point_state.h    \
+                    mesh_element.h        \
+                    channel_element.h     \
+                    neighbor_proxy.h      \
+                    simple_groundwater.h  \
+                    evapo_transpiration.h \
+                    all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+forcing_manager.o: forcing_manager.cpp           \
+                   forcing_manager.h             \
+                   forcing_manager.decl.h        \
+                   forcing_manager.def.h         \
+                   adhydro.h                     \
+                   adhydro.decl.h                \
+                   initialization_manager.h      \
+                   initialization_manager.decl.h \
+                   checkpoint_manager.h          \
+                   checkpoint_manager.decl.h     \
+                   time_point_state.h            \
+                   region.h                      \
+                   region.decl.h                 \
+                   mesh_element.h                \
+                   channel_element.h             \
+                   neighbor_proxy.h              \
+                   simple_groundwater.h          \
+                   evapo_transpiration.h         \
+                   readonly.h                    \
+                   all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+forcing_manager.decl.h \
+forcing_manager.def.h: forcing_manager.ci
+	$(CHARMC) $<
+
+region.o: region.cpp                    \
+          region.h                      \
+          region.decl.h                 \
+          region.def.h                  \
+          adhydro.h                     \
+          adhydro.decl.h                \
+          initialization_manager.h      \
+          initialization_manager.decl.h \
+          checkpoint_manager.h          \
+          checkpoint_manager.decl.h     \
+          time_point_state.h            \
+          forcing_manager.h             \
+          forcing_manager.decl.h        \
+          mesh_element.h                \
+          channel_element.h             \
+          neighbor_proxy.h              \
+          simple_groundwater.h          \
+          evapo_transpiration.h         \
+          readonly.h                    \
           all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
@@ -111,6 +230,9 @@ channel_element.o: channel_element.cpp   \
 
 neighbor_proxy.o: neighbor_proxy.cpp \
                   neighbor_proxy.h   \
+                  surfacewater.h     \
+                  groundwater.h      \
+                  readonly.h         \
                   all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
@@ -123,6 +245,18 @@ evapo_transpiration.o: evapo_transpiration.cpp \
                        evapo_transpiration.h   \
                        readonly.h              \
                        all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+surfacewater.o: surfacewater.cpp \
+                surfacewater.h   \
+                readonly.h       \
+                all.h
+	$(CHARMC) $(CPPFLAGS) $< -o $@
+
+groundwater.o: groundwater.cpp \
+               groundwater.h   \
+               readonly.h      \
+               all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 readonly.o: readonly.cpp \

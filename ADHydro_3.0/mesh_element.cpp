@@ -1,18 +1,14 @@
 #include "mesh_element.h"
 #include "readonly.h"
 
-// FIXME stubs
-static size_t numberOfMeshElements = 2;
-// FIXME end stubs
-
 bool MeshElement::checkInvariant() const
 {
     bool                                                        error = false; // Error flag.
     std::map<NeighborConnection, NeighborProxy>::const_iterator it;            // Loop iterator.
     
-    if (!(elementNumber < numberOfMeshElements))
+    if (!(elementNumber < Readonly::globalNumberOfMeshElements))
     {
-        CkError("ERROR in MeshElement::checkInvariant, element %lu: elementNumber must be less than numberOfMeshElements.\n", elementNumber);
+        CkError("ERROR in MeshElement::checkInvariant, element %lu: elementNumber must be less than Readonly::globalNumberOfMeshElements.\n", elementNumber);
         error = true;
     }
     
@@ -349,6 +345,12 @@ bool MeshElement::receiveMessage(const Message& message, size_t& elementsFinishe
         if (!(neighbors.end() != it))
         {
             CkError("ERROR in MeshElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            error = true;
+        }
+        
+        if (!(currentTime <= timestepEndTime))
+        {
+            CkError("ERROR in MeshElement::receiveMessage: currentTime must be less than or equal to timestepEndTime.\n");
             error = true;
         }
     }

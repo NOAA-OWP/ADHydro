@@ -8,9 +8,19 @@ module region
         // Dummy function for structured dagger.
         entry void runUntilSimulationEnd()
         {
-            // Do initialization.  First receive all elements.
+            // Do initialization.  First receive the number of elements you will be getting.
+            when sendNumberOfElements(size_t numberOfMeshElementsInThisRegion, size_t numberOfChannelElementsInThisRegion)
+            {
+                serial
+                {
+                    numberOfMeshElements    = numberOfMeshElementsInThisRegion;
+                    numberOfChannelElements = numberOfChannelElementsInThisRegion;
+                }
+            }
+            
+            // Then receive all elements.
             // FIXME performance optimization aggregate initialization messages.
-            while (meshElements.size() < 1 /* FIXME numberOfMeshElements */ || channelElements.size() < 1 /* FIXME numberOfChannelElements*/)
+            while (meshElements.size() < numberOfMeshElements || channelElements.size() < numberOfChannelElements)
             {
                 case
                 {
@@ -96,8 +106,48 @@ module region
                 }
             }
             
+            // Barrier until we know ADHydro::forcingManagerProxy has been set on this PE.
+            when allProxiesSet() {}
+            
+            // Run the simulation.
             while (currentTime < simulationEndTime)
             {
+                if (currentTime == nextForcingTime)
+                {
+                    // FIXME need to receive forcing data for all elements that might be coming from multiple managers in multiple messages.
+                    // FIXME while not all elements have forcing
+                    when sendForcing(double newNextForcingTime)
+                    {
+                        serial
+                        {
+                            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                            {
+                                if (!(newNextForcingTime > currentTime))
+                                {
+                                    CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
+                                    CkExit();
+                                }
+                                
+                                if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                {
+                                    CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
+                                    CkExit();
+                                }
+                            }
+                            
+                            // FIXME Store forcing data.
+                            
+                            if (nextForcingTime != newNextForcingTime)
+                            {
+                                // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
+                                nextForcingTime = newNextForcingTime;
+                                
+                                ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                            }
+                        }
+                    }
+                }
+                
                 // Step 1: Calculate nominal flow rates with neighbors.
                 serial
                 {
@@ -186,7 +236,8 @@ module region
                     // FIXME outgoingMessages could be made a member variable of Region to prevent repeated construction/destruction of vectors.
                     
                     // Initially set timestepEndTime to be a time that we know we cannot exceed, either the next forcing read, checkpoint write, or simulationEndTime.
-                    timestepEndTime = simulationEndTime; // FIXME forcing read or checkpoint write.
+                    // Because there is always a checkpoint output at the end of the simulation, we don't need to check against simulationEndTime.
+                    timestepEndTime = std::min(nextForcingTime, Readonly::getCheckpointTime(nextCheckpointIndex));
                     
                     // Set timestepEndTime to be no later than any expirationTime.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
@@ -251,8 +302,12 @@ module region
                 // Step 5: Advance time.
                 serial
                 {
-                    std::map<size_t,    MeshElement>::iterator itMesh;    // Loop iterator.
-                    std::map<size_t, ChannelElement>::iterator itChannel; // Loop iterator.
+                    std::map<size_t,                                                    MeshElement>::iterator itMesh;        // Loop iterator.
+                    std::map<size_t,                                                 ChannelElement>::iterator itChannel;     // Loop iterator.
+                    std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >::iterator itState;       // Loop iterator.
+                    std::map<size_t, std::pair<std::vector<MeshState>, std::vector<ChannelState> > >           outgoingState; // State going to various OutputManagers.  Key is the destination PE.
+                    size_t                                                                                     elementHome;   // The home PE of an element.
+                    // FIXME outgoingState could be made a member variable of Region to prevent repeated construction/destruction of vectors.
                     
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                     {
@@ -271,20 +326,41 @@ module region
                     }
                     
                     currentTime = timestepEndTime;
+                    
+                    // Check if it is time to output a checkpoint.
+                    if (currentTime == Readonly::getCheckpointTime(nextCheckpointIndex))
+                    {
+                        for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+                        {
+                            elementHome = Readonly::home(itMesh->first, Readonly::globalNumberOfMeshElements, CkNumPes());
+                            outgoingState[elementHome].first.resize(outgoingState[elementHome].first.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
+                            itMesh->second.fillInState(outgoingState[elementHome].first.back());
+                        }
+                        
+                        for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+                        {
+                            elementHome = Readonly::home(itChannel->first, Readonly::globalNumberOfChannelElements, CkNumPes());
+                            outgoingState[elementHome].second.resize(outgoingState[elementHome].second.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
+                            itChannel->second.fillInState(outgoingState[elementHome].second.back());
+                        }
+                        
+                        for (itState = outgoingState.begin(); itState != outgoingState.end(); ++itState)
+                        {
+                            ADHydro::checkpointManagerProxy[itState->first].sendState(nextCheckpointIndex, itState->second.first, itState->second.second);
+                        }
+                        
+                        ++nextCheckpointIndex;
+                    }
                 }
             } // End while (currentTime < simulationEndTime).
-            
-            // Wait until all regions finish before exiting.
-            // FIXME put this in the checkpoint manager so it waits until the last checkpoint is written before exiting.
-            serial
-            {
-                contribute(CkCallback(CkCallback::ckExit));
-            }
         }; // End entry void runUntilSimulationEnd().
         
+        entry void sendNumberOfElements(size_t numberOfMeshElementsInThisRegion, size_t numberOfChannelElementsInThisRegion);
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
+        entry void allProxiesSet();
+        entry void sendForcing(double newNextForcingTime);
         entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
         entry void sendWater(const std::vector<WaterMessage>& messages);
     }; // End array [1D] Region.

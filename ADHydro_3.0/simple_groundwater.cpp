@@ -39,10 +39,9 @@ bool SimpleGroundwater::checkInvariant() const
 
 bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceWater, double waterTableDepth, double dt)
 {
-    bool   error = false;              // Error flag.
-    double newRecharge;                // (m) Water that will be added to or removed from groundwaterRecharge.
-    double equilibriumSaturationDepth; // (m) The shallowest depth that would be saturated if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
-    double equilibriumWater;           // (m) The quantity of water the layer would have if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
+    bool   error = false;    // Error flag.
+    double newRecharge;      // (m) Water that will be added to or removed from groundwaterRecharge.
+    double equilibriumWater; // (m) The quantity of water the layer would have if the capillary fringe were in hydrostatic equilibrium with waterTableDepth.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -80,14 +79,7 @@ bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceW
         }
         
         // Do vadoseZone.
-        equilibriumSaturationDepth = waterTableDepth - psiB;
-        
-        if (0.0 > equilibriumSaturationDepth)
-        {
-            equilibriumSaturationDepth = 0.0;
-        }
-        
-        equilibriumWater = waterFromSaturationDepth(equilibriumSaturationDepth);
+        equilibriumWater = waterFromSaturationDepth(std::max(waterTableDepth - psiB, 0.0));
         
         if (water > equilibriumWater && water - equilibriumWater > conductivity * dt - newRecharge)
         {
@@ -149,7 +141,7 @@ void SimpleGroundwater::addOrRemoveWater(double& recharge, double& waterCreated)
     }
 }
 
-double SimpleGroundwater::waterContentAtDepth(double depth)
+double SimpleGroundwater::waterContentAtDepth(double depth) const
 {
     double waterContent;                                      // (m^3/m^3) Return value.
     double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
@@ -176,7 +168,33 @@ double SimpleGroundwater::waterContentAtDepth(double depth)
     return waterContent;
 }
 
-double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth)
+double SimpleGroundwater::waterAboveDepth(double depth) const
+{
+    double waterAbove;                                        // (m) Return value.
+    double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(0.0 <= depth && depth <= thickness))
+        {
+            ADHYDRO_ERROR("ERROR in SimpleGroundwater::waterAboveDepth: depth must be greater than or equal to zero and less than or equal to thickness.\n");
+            ADHYDRO_EXIT(-1);
+        }
+    }
+    
+    if (depth >= saturationDepth)
+    {
+        waterAbove = water - (thickness - depth) * porosity;
+    }
+    else
+    {
+        waterAbove = 0.5 * waterContentAtDepth(depth) * depth;
+    }
+    
+    return waterAbove;
+}
+
+double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth) const
 {
     double waterQuantity; // (m) Return value.
     
@@ -198,7 +216,7 @@ double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth)
     return waterQuantity;
 }
 
-double SimpleGroundwater::saturationDepthFromWater(double waterQuantity)
+double SimpleGroundwater::saturationDepthFromWater(double waterQuantity) const
 {
     double saturationDepth; // (m) Return value.
     

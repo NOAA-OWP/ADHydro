@@ -10,6 +10,9 @@
 // NeighborEndpointEnum is used to disambiguate between multiple connections with the same neighbor.
 enum NeighborEndpointEnum
 {
+    // Special tag for no neighbor.
+    NO_NEIGHBOR          = -1, // Only used when writing/reading fixed sized arrays to/from file where the size of the array may be larger than the number of neighbors.
+    
     // Natural flows.
     MESH_SURFACE         = 0,
     MESH_SOIL            = 1,
@@ -104,7 +107,10 @@ class NeighborAttributes
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborAttributes(int payload = 0) : payload(payload)
+    inline NeighborAttributes(double elementX = 0.0, double elementY = 0.0, double elementZTop = 0.0, double elementZBottom = 0.0, double areaOrLength = 1.0, double manningsN = 1.0,
+                              double conductivity = 1.0, double porosityOrBedThickness = 1.0, ChannelTypeEnum channelType = STREAM, double baseWidth = 1.0, double sideSlope = 1.0) :
+        elementX(elementX), elementY(elementY), elementZTop(elementZTop), elementZBottom(elementZBottom), areaOrLength(areaOrLength), manningsN(manningsN),
+        conductivity(conductivity), porosityOrBedThickness(porosityOrBedThickness), channelType(channelType), baseWidth(baseWidth), sideSlope(sideSlope)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -122,7 +128,17 @@ public:
     // p - Pack/unpack processing object.
     inline void pup(PUP::er &p)
     {
-        p | payload;
+        p | elementX;
+        p | elementY;
+        p | elementZTop;
+        p | elementZBottom;
+        p | areaOrLength;
+        p | manningsN;
+        p | conductivity;
+        p | porosityOrBedThickness;
+        p | channelType;
+        p | baseWidth;
+        p | sideSlope;
     }
     
     // Check invariant conditions on data.
@@ -130,42 +146,26 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
     
-    int payload; // FIXME this is a placeholder.
-};
-
-// A StateTransfer contains the state that an element has to exchange with its neighbor so that they can calculate nominal flow rates.
-class StateTransfer
-{
-public:
-    
-    // Constructor.  All parameters directly initialize member variables.
-    inline StateTransfer(int payload = 0) : payload(payload)
-    {
-        if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-        {
-            if (checkInvariant())
-            {
-                CkExit();
-            }
-        }
-    }
-    
-    // Charm++ pack/unpack method.
-    //
-    // Parameters:
-    //
-    // p - Pack/unpack processing object.
-    inline void pup(PUP::er &p)
-    {
-        p | payload;
-    }
-    
-    // Check invariant conditions on data.
-    //
-    // Returns: true if the invariant is violated, false otherwise.
-    bool checkInvariant() const;
-    
-    int payload; // FIXME this is a placeholder.
+    double          elementX;               // (m) X coordinate of element center.
+    double          elementY;               // (m) Y coordinate of element center.
+    double          elementZTop;            // (m) For MESH_SURFACE this is the elevation above datum of the land surface.
+                                            // For MESH_SOIL and MESH_AQUIFER this is the elevation above datum of the top of the layer.
+                                            // For CHANNEL_SURFACE this is the elevation above datum of the channel bank.
+    double          elementZBottom;         // (m) For MESH_SURFACE this is unused.
+                                            // For MESH_SOIL and MESH_AQUIFER this is the elevation above datum of the bottom of the layer.
+                                            // For CHANNEL_SURFACE this is the elevation above datum of the channel bed.
+    double          areaOrLength;           // (m^2 or m) For mesh elements this is element area.  For channel elements this is element length.
+    double          manningsN;              // (s/(m^(1/3))) For MESH_SURFACE and CHANNEL_SURFACE this is the surface roughness parameter.
+                                            // For MESH_SOIL and MESH_AQUIFER this is unused.
+    double          conductivity;           // (m/s) For MESH_SURFACE this is unused.
+                                            // For MESH_SOIL and MESH_AQUIFER this is the hydraulic conductivity of the layer.
+                                            // For CHANNEL_SURFACE this is the hydraulic conductivity of the channel bed.
+    double          porosityOrBedThickness; // (m^3/m^3 or m) For MESH_SURFACE this is unused.
+                                            // For MESH_SOIL and MESH_AQUIFER this is the porosity of the layer.
+                                            // For CHANNEL_SURFACE this is the thickness of the channel bed.
+    ChannelTypeEnum channelType;            // For mesh elements this is unused.  For channel elements this is what type of channel it is.
+    double          baseWidth;              // (m) For mesh elements this is unused.  For channel elements this is the width of the channel base.
+    double          sideSlope;              // (m/m) For mesh elements this is unused.  For channel elements this is the widening of each side of the channel for each unit increase in water depth.
 };
 
 // A WaterTransfer represents some water that has been sent by one element and not yet received by another element.
@@ -246,7 +246,7 @@ public:
     // Parameters:
     //
     // p - Pack/unpack processing object.
-    inline virtual void pup(PUP::er &p)
+    inline void pup(PUP::er &p)
     {
         p | destination;
     }
@@ -267,9 +267,11 @@ public:
     //
     // proxy             - The NeighborProxy to pass this message to.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the current phase.  May be incremented if this call causes proxy to be finished.
+    // localAttributes   - Immutable attributes of the local element.
+    // localDepthOrHead  - (m) State of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const = 0;
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const = 0;
     
     NeighborConnection destination; // The remote neighbor is the destination of this message.
 };
@@ -319,20 +321,22 @@ public:
     //
     // proxy             - The NeighborProxy to pass this message to.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes proxy to be finished.
+    // localAttributes   - Immutable attributes of the local element.
+    // localDepthOrHead  - (m) State of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const;
     
     NeighborAttributes attributes; // The attributes that are being sent.
 };
 
-// A StateMessage is a Message containing a StateTransfer.
+// A StateMessage is a Message containing water state information from an element.
 class StateMessage : public Message
 {
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline StateMessage(const NeighborConnection& destination = NeighborConnection(), const StateTransfer& state = StateTransfer()) : Message(destination), state(state)
+    inline StateMessage(const NeighborConnection& destination = NeighborConnection(), double depthOrHead = 0.0) : Message(destination), depthOrHead(depthOrHead)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -352,7 +356,7 @@ public:
     {
         Message::pup(p);
         
-        p | state;
+        p | depthOrHead;
     }
     
     // Check invariant conditions on data.
@@ -360,7 +364,7 @@ public:
     // Returns: true if the invariant is violated, false otherwise.
     inline virtual bool checkInvariant() const
     {
-        return Message::checkInvariant() || state.checkInvariant();
+        return Message::checkInvariant();
     }
     
     // Pass this message on to the right member function of a NeighborProxy.
@@ -371,11 +375,14 @@ public:
     //
     // proxy             - The NeighborProxy to pass this message to.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes proxy to be finished.
+    // localAttributes   - Immutable attributes of the local element.
+    // localDepthOrHead  - (m) State of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const;
     
-    StateTransfer state; // The state that is being sent.
+    double depthOrHead; // (m) For MESH_SURFACE and CHANNEL_SURFACE this is the depth of ponded surface water.
+                        // For MESH_SOIL and MESH_AQUIFER this is the elevation above datum of the applicable water table including any surface water depth if the water table is at the land surface.
 };
 
 // A WaterMessage is a Message containing a WaterTransfer.
@@ -423,11 +430,43 @@ public:
     //
     // proxy             - The NeighborProxy to pass this message to.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the receive water phase.  May be incremented if this call causes proxy to be finished.
+    // localAttributes   - Immutable attributes of the local element.
+    // localDepthOrHead  - (m) State of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     // timestepEndTime   - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, double currentTime, double timestepEndTime) const;
+    virtual bool receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const;
     
     WaterTransfer water; // The water that is being sent.
+};
+
+// A NeighborState is the information about a NeighborProxy that needs to be output to a state file.
+class NeighborState
+{
+public:
+    
+    // Charm++ pack/unpack method.
+    //
+    // Parameters:
+    //
+    // p - Pack/unpack processing object.
+    inline void pup(PUP::er &p)
+    {
+        p | localEndpoint;
+        p | remoteEndpoint;
+        p | remoteElementNumber;
+        p | nominalFlowRate;
+        p | expirationTime;
+        p | inflowCumulative;
+        p | outflowCumulative;
+    }
+    
+    NeighborEndpointEnum localEndpoint;
+    NeighborEndpointEnum remoteEndpoint;
+    size_t               remoteElementNumber;
+    double               nominalFlowRate;
+    double               expirationTime;
+    double               inflowCumulative;
+    double               outflowCumulative;
 };
 
 // A NeighborProxy is how elements store their neighbor connections with other elements.  For each neighbor connection, two NeighborProxies are stored, one at each element.
@@ -438,9 +477,11 @@ class NeighborProxy
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborProxy(size_t neighborRegion = 0, double nominalFlowRate = 0.0, double expirationTime = 0.0, double inflowCumulative = 0.0, double outflowCumulative = 0.0) :
-        neighborRegion(neighborRegion), attributes(0), attributesInitialized(false), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
-        inflowCumulativeLongTerm(inflowCumulative), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
+    inline NeighborProxy(size_t neighborRegion = 0, double edgeLength = 1.0, double edgeNormalX = 1.0, double edgeNormalY = 0.0,
+                         double nominalFlowRate = 0.0, double expirationTime = 0.0, double inflowCumulative = 0.0, double outflowCumulative = 0.0) :
+        neighborRegion(neighborRegion), edgeLength(edgeLength), edgeNormalX(edgeNormalX), edgeNormalY(edgeNormalY), attributes(), attributesInitialized(false),
+        nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0), inflowCumulativeLongTerm(inflowCumulative),
+        outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -459,6 +500,9 @@ public:
     inline void pup(PUP::er &p)
     {
         p | neighborRegion;
+        p | edgeLength;
+        p | edgeNormalX;
+        p | edgeNormalY;
         p | attributes;
         p | attributesInitialized;
         p | nominalFlowRate;
@@ -501,30 +545,29 @@ public:
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same Region, or a boundary condition where there is no neighbor.
     // If expirationTime is already past currentTime then nominalFlowRate hasn't expired so do nothing.
     //
-    // FIXME this will actually require the local state to send in the StateMessage.
-    //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
     // outgoingMessages  - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes this NeighborProxy to be finished.
-    // connection        - How the local and remote neighbors are connected.
+    // state             - The local state to be sent or used to calculate the flow rate.
+    // localAttributes   - Immutable attributes of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& connection, double currentTime);
+    bool calculateNominalFlowRate(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& neighborsFinished, const StateMessage& state, const NeighborAttributes& localAttributes, double currentTime);
     
     // Receive a StateMessage from the remote neighbor and finish recalculating nominalFlowRate.
-    //
-    // FIXME this will require the local state as well to do the calculation.
     //
     // Returns: true if there is an error, false otherwise.
     //
     // Parameters:
     //
     // neighborsFinished - Number of NeighborProxies in the current element finished in the receive state phase.  May be incremented if this call causes this NeighborProxy to be finished.
-    // state             - The state that is being received.  It is the entire StateMessage, not just the StateTransfer because the function needs the NeighborConnection as well.
+    // state             - The state that is being received.
+    // localAttributes   - Immutable attributes of the local element.
+    // localDepthOrHead  - (m) State of the local element.
     // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
-    bool receiveStateMessage(size_t& neighborsFinished, const StateMessage& state, double currentTime);
+    bool receiveStateMessage(size_t& neighborsFinished, const StateMessage& state, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime);
     
     // Send a WaterTransfer to the remote neighbor.  The water has already been removed from the local element.
     //
@@ -568,6 +611,23 @@ public:
     // timestepEndTime - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double receiveWater(const NeighborConnection& connection, double currentTime, double timestepEndTime);
     
+    // Fill in this NeighborProxy's values into a NeighborState object.
+    //
+    // Parameters:
+    //
+    // state      - The NeighborState to fill in.
+    // connection - Some values come from the NeighborConnection that is not stored inside the NeighborProxy.
+    inline void fillInState(NeighborState& state, const NeighborConnection& connection)
+    {
+        state.localEndpoint       = connection.localEndpoint;
+        state.remoteEndpoint      = connection.remoteEndpoint;
+        state.remoteElementNumber = connection.remoteElementNumber;
+        state.nominalFlowRate     = nominalFlowRate;
+        state.expirationTime      = expirationTime;
+        state.inflowCumulative    = inflowCumulativeShortTerm + inflowCumulativeLongTerm;
+        state.outflowCumulative   = outflowCumulativeShortTerm + outflowCumulativeLongTerm;
+    }
+    
     // Returns: the value of nominalFlowRate.
     inline double getNominalFlowRate() const
     {
@@ -582,8 +642,29 @@ public:
     
 private:
     
+    // This is a helper function that actually does the calculation of nominalFlowRate and expirationTime.
+    // It must be symmertic with respect to the local and remote neighbor so that both neighbors agree on the same flow rate.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // localEndpoint     - How the local  neighbor is connected.
+    // remoteEndpoint    - How the remote neighbor is connected.
+    // localAttributes   - Immutable attributes of the local neighbor.
+    // localDepthOrHead  - (m) Depth of ponded surface water or elevation above datum of the applicable water table including any surface water depth if the water table is at the land surface.
+    // remoteDepthOrHead - (m) Depth of ponded surface water or elevation above datum of the applicable water table including any surface water depth if the water table is at the land surface.
+    // currentTime       - (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
+    bool nominalFlowRateCalculation(NeighborEndpointEnum localEndpoint, NeighborEndpointEnum remoteEndpoint, const NeighborAttributes& localAttributes,
+                                    double localDepthOrHead, double remoteDepthOrHead, double currentTime);
+    
     // Destination information needed to communicate with the remote neighbor.
     size_t neighborRegion;
+    
+    // Immutable attributes of the connection itself.
+    double edgeLength;  // (m) Length along the connected edge.
+    double edgeNormalX; // X component of a unit vector pointing outwards normal to the edge.
+    double edgeNormalY; // Y component of a unit vector pointing outwards normal to the edge.
     
     // Immutable attributes of the remote neighbor.
     NeighborAttributes attributes;
