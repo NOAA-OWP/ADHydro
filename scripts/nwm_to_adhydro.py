@@ -730,6 +730,8 @@ def getVarMP(subset, minRow=None, maxRow=None, minCol=None, maxCol=None):
     #print result['channel']
     result['mesh'].loc['T2D'] = result['mesh'].loc['T2D'].map(lambda x: x - 272.15)
     result['channel'].loc['T2D'] = result['channel'].loc['T2D'].map(lambda x: x - 272.15)
+    result['mesh'].loc['RAINRATE'] = result['mesh'].loc['RAINRATE'].map(lambda x: x*.001) #Convert mm/s to m/s
+    result['channel'].loc['RAINRATE'] = result['channel'].loc['RAINRATE'].map(lambda x: x*.001) #Convert mm/s to m/s
 
     for i, var in enumerate(nwm_vars):
         var_index = adhydro_var_array_index[ nwm_to_adhydro_vars[var]]
