@@ -10,7 +10,7 @@ parser.add_argument('catchmentFile', help='Shape file containing mesh catchments
 parser.add_argument('-o','--output', help='Optional output directory. (Default is current working directory)')
 #parser.add_argument('-n','--name', help='Name of the mesh, defaults to the input directory basename.')
 #parser.add_argument('-b','--boundary', help='Dissolve the original catchements to generate a single polygon defining the boundary of the mesh (no holes).', action='store_true')
-parser.add_argument('-x','--extent', help='Print the extents of the provided shapefile in its original CRS as well as WSG84 lat/long coordinates.  (minX, minY, maxX, maxY)', action='store_true')
+parser.add_argument('-x','--extent', help='Print the extents of the provided shapefile in its original CRS as well as WSG84 lat/long coordinates.  (minX, maxX, minY, maxY)', action='store_true')
 
 args = parser.parse_args()
 
