@@ -3661,6 +3661,12 @@ bool linkWaterbodyStreamIntersection(ChannelLinkStruct* channels, int size, int 
       // If location is not at the end of the stream, split the stream and then location will be at the end of the stream.
       if (!epsilonEqual(location, channels[streamLinkNo].length))
         {
+          // If location is epsilon equal to element->endLocation snap it to exactly equal.
+          if (epsilonEqual(location, element->endLocation))
+            {
+              location = element->endLocation;
+            }
+          
           error = splitLink(channels, size, streamLinkNo, element, location);
         }
 
