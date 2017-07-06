@@ -198,7 +198,19 @@ with open(output_node_file, "w") as node_file:
         # Deal with this by converting to long first, and then to int.
         # If reach code is not found, use permanent code instead.
         if not feature[reachcodeindex]:
-            reachcodelong = long(feature[permanentindex])
+            try:
+                reachcodelong = long(feature[permanentindex])
+            except ValueError, e:
+                #Check if we are trying to convert a hex style ID to long
+                result = feature[permanentindex]
+                if result[0] == '{':
+                    #Slit on hyphen
+                    parts = result.split('-')
+                    #Take first set of characters without the {
+                    first = parts[0][1:]
+                    reachcodelong = long(first, 16)
+                else:
+                    raise e
         else:
             reachcodelong = long(feature[reachcodeindex])
 
