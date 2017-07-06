@@ -55,9 +55,9 @@ const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/upper_colo
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 142;  // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 92;   // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 1312; // Maximum number of mesh neighbors. 1300 no 1312 yes
+const int ChannelElement_channelVerticesSize  = 40;  // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 4;   // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 8; // Maximum number of mesh neighbors.
 
 #define SHAPES_SIZE     (20) // Size of array of shapes in ChannelLinkStruct.
 #define UPSTREAM_SIZE   (95) // Size of array of upstream links in ChannelLinkStruct.
@@ -6078,7 +6078,14 @@ int main(int argc, char** argv)
   // When we split a link we update the end locations of link elements before moving them to the new link so they will temporarily fail the invariant.
   allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
  
-  if(argc == 3)
+  if(argc == 2)
+  {
+    //Only passed mapDir
+    mapDir = std::string(argv[1]);
+    baseName = std::string("");
+    resolution = std::string("");
+  }
+  else if(argc == 3)
   {
     //Only passed mapDir and baseName
     mapDir = std::string(argv[1]);
@@ -6095,7 +6102,7 @@ int main(int argc, char** argv)
   else
   {
     error = true;
-    printf("Usage: adhydroMapDir baseName [resolution]\n");
+    printf("Usage: adhydroMapDir [baseName] [resolution]\n");
   }
   
   if(!error)
@@ -6106,10 +6113,10 @@ int main(int argc, char** argv)
     std::string taudemDir = mapDir+"/TauDEM/";
     std::string arcgisDir = mapDir+"/ArcGIS/";
 
-    streamNetworkShapefile = taudemDir+baseName+"_net";
-    waterbodiesShapefile = arcgisDir+baseName+"_waterbodies";
-    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_streams_intersections";
-    waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
+    streamNetworkShapefile = arcgisDir+baseName+"projectednet";
+    waterbodiesShapefile = arcgisDir+baseName+"waterbodies_final";
+    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"wtrbodies_streams_intersect_final";
+    waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"intersect_wtrbodies_final";
     meshLinkFilename = asciiDir+"mesh.1.link";
     meshNodeFilename = asciiDir+"mesh.1.node";
     meshElementFilename = asciiDir+"mesh.1.ele";
