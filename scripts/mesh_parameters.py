@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description="Generate a parameter map and stati
 parser.add_argument('inputDirectory', help='Directory containing ADHydro simulation input, specifically parameter.nc and geometry.nc.')
 parser.add_argument('-o','--output', help='Optional output file (png). By default, results are only displayed to the screen and not saved.')
 parser.add_argument('-p','--parameters', help='A list of ADHydro parameters to map and analyze.', nargs='+', type=str, default=[])
-
+parser.add_argument('meridian', help='Central meridian of sinusoidal projection used for the mesh.', type=int)
 args = parser.parse_args()
 
 input_dir = os.path.abspath(args.inputDirectory)
@@ -34,7 +34,7 @@ geometry = os.path.join(input_dir, 'geometry.nc')
 parameter_ncf = netCDF4.Dataset(parameter)
 geometry_ncf = netCDF4.Dataset(geometry)
 #TODO/FIXME Eventually read proj string from netcdf variable.
-proj = '+proj=sinu +lon_0=-109 +x_0=20000000 +y_0=10000000 +datum=WGS84 +units=m +no_defs' 
+proj = '+proj=sinu +lon_0={} +x_0=20000000 +y_0=10000000 +datum=WGS84 +units=m +no_defs'.format(args.meridian)
 
 """
 http://stackoverflow.com/questions/33714050/geopandas-plotting-any-way-to-speed-things-up
