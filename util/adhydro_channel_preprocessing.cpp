@@ -1643,6 +1643,58 @@ bool readLink(ChannelLinkStruct** channels, int* size, const char* filename)
   return error;
 }
 
+// Read the values of the attributes reachCode and permanent.
+// There are some manipulations that must be done, and this code is used in multiple places so it is pulled into a function to eliminate duplicate code.
+//
+// Parameters:
+//
+// dbfFile - Attribute part of the shapefile.
+// shapeNumber - Index of shape in dbfFile.
+// reachCodeIndex - Index of metadata field.
+// permanentIndex - Index of metadata field.
+// reachCode      - Will be filled in with the reach code of the waterbody.
+// permanent      - Will be filled in with the permanent code of the waterbody.
+void readReachCodeAndPermanent(DBFHandle dbfFile, int shapeNumber, int reachCodeIndex, int permanentIndex, long long& reachCode, long long& permanent)
+{
+  int         numScanned; // Used to check that fscanf scanned all of the requested values.
+  const char* tempString; // String representation of reachCode or permanent.
+  
+  tempString = DBFReadStringAttribute(dbfFile, shapeNumber, reachCodeIndex);
+  numScanned = sscanf(tempString, "%lld", &reachCode);
+
+  // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
+  if (1 != numScanned)
+    {
+      reachCode = -1;
+    }
+
+  tempString = DBFReadStringAttribute(dbfFile, shapeNumber, permanentIndex);
+
+  // Some permanent codes are formatted like GUIDs with hexadecimal numbers separated by '-'.  Read those as hexadecimal.
+  if (NULL == strchr(tempString, '-'))
+    {
+      // There are no '-' separators.  Read as decimal.
+      numScanned = sscanf(tempString, "%lld", &permanent);
+    }
+  else
+    {
+      // Some GUID permanent codes are enclosed with curly braces so skip over an opening curly brace.
+      if ('{' == tempString[0])
+        {
+          tempString++;
+        }
+
+      // There are '-' separators.  Read as hexadecimal.
+      numScanned = sscanf(tempString, "%llx", &permanent);
+    }
+
+  // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
+  if (1 != numScanned)
+    {
+      permanent = -1;
+    }
+}
+
 // Read a waterbodies shapefile.  Tag the links in the channel network as
 // WATERBODY or ICEMASS.  Save the polygons from the shapefile.
 //
@@ -1661,7 +1713,6 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
   int             ii, jj;         // Loop counters.
   SHPHandle       shpFile;        // Geometry  part of the shapefile.
   DBFHandle       dbfFile;        // Attribute part of the shapefile.
-  int             numScanned;     // Used to check that sscanf scanned all of the requested values.
   int             numberOfShapes; // Number of shapes in the shapefile.
   int             reachCodeIndex; // Index of metadata field.
   int             permanentIndex; // Index of metadata field.
@@ -1756,40 +1807,7 @@ bool readWaterbodies(ChannelLinkStruct* channels, int size, const char* fileBase
   // Read the shapes.
   for (ii = 0; !error && ii < numberOfShapes; ii++)
     {
-      ftype      = DBFReadStringAttribute(dbfFile, ii, reachCodeIndex);
-      numScanned = sscanf(ftype, "%lld", &reachCode);
-
-      // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
-      if (1 != numScanned)
-        {
-          reachCode = -1;
-        }
-
-      ftype = DBFReadStringAttribute(dbfFile, ii, permanentIndex);
-      
-      // Some permanent codes are formatted like GUIDs with hexadecimal numbers separated by '-'.  Read those as hexadecimal.
-      if (NULL == strchr(ftype, '-'))
-        {
-          // There are no '-' separators.  Read as decimal.
-          numScanned = sscanf(ftype, "%lld", &permanent);
-        }
-      else
-        {
-          // Some GUID permanent codes are enclosed with curly braces so skip over an opening curly brace.
-          if ('{' == ftype[0])
-            {
-              ftype++;
-            }
-          
-          // There are '-' separators.  Read as hexadecimal.  Some GUID permanent codes are enclosed with curly braces so skip over an opening curly brace.
-          numScanned = sscanf(ftype, "%llx", &permanent);
-        }
-
-      // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
-      if (1 != numScanned)
-        {
-          permanent = -1;
-        }
+      readReachCodeAndPermanent(dbfFile, ii, reachCodeIndex, permanentIndex, reachCode, permanent);
 
       ftype    = DBFReadStringAttribute( dbfFile, ii, ftypeIndex);
       ftypeInt = DBFReadIntegerAttribute(dbfFile, ii, ftypeIndex);
@@ -2988,13 +3006,11 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
   int                    ii;                 // Loop counter.
   SHPHandle              shpFile;            // Geometry  part of the shapefile.
   DBFHandle              dbfFile;            // Attribute part of the shapefile.
-  int                    numScanned;         // Used to check that fscanf scanned all of the requested values.
   int                    numberOfShapes;     // Number of shapes in the shapefile.
   int                    linknoIndex;        // Index of metadata field.
   int                    reachCodeIndex;     // Index of metadata field.
   int                    permanentIndex;     // Index of metadata field.
   int                    streamLinkNo;       // The link number of the intersecting stream.
-  const char*            tempString;         // String representation of reachCode or permanent.
   long long              reachCode;          // The reach code of the intersecting waterbody.
   long long              permanent;          // The permanent code of the intersecting waterbody.
   int                    waterbodyLinkNo;    // The link number of the intersecting waterbody.
@@ -3090,23 +3106,7 @@ bool readWaterbodyStreamIntersections(ChannelLinkStruct* channels, int size, con
   for (ii = 0; !error && ii < numberOfShapes; ii++)
     {
       streamLinkNo = DBFReadIntegerAttribute(dbfFile, ii, linknoIndex);
-      tempString   = DBFReadStringAttribute(dbfFile, ii, reachCodeIndex);
-      numScanned   = sscanf(tempString, "%lld", &reachCode);
-
-      // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
-      if (1 != numScanned)
-        {
-          reachCode = -1;
-        }
-
-      tempString = DBFReadStringAttribute(dbfFile, ii, permanentIndex);
-      numScanned = sscanf(tempString, "%lld", &permanent);
-
-      // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
-      if (1 != numScanned)
-        {
-          permanent = -1;
-        }
+      readReachCodeAndPermanent(dbfFile, ii, reachCodeIndex, permanentIndex, reachCode, permanent);
       
       waterbodyLinkNo = 0;
       shape           = NULL;
@@ -3803,13 +3803,11 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
   int         numberOfLinks = 0;      // Total number of links in the channel network for detecting cycles.
   SHPHandle   shpFile;                // Geometry  part of the shapefile.
   DBFHandle   dbfFile;                // Attribute part of the shapefile.
-  int         numScanned;             // Used to check that sscanf scanned all of the requested values.
   int         numberOfShapes;         // Number of shapes in the shapefile.
   int         reachCode1Index;        // Index of metadata field.
   int         permanent1Index;        // Index of metadata field.
   int         reachCode2Index;        // Index of metadata field.
   int         permanent2Index;        // Index of metadata field.
-  const char* tempString;             // String representation of reachCode or permanent.
   long long   reachCode1;             // The reach code of the first intersecting waterbody.
   long long   permanent1;             // The permanent code of the first intersecting waterbody.
   long long   reachCode2;             // The reach code of the second intersecting waterbody.
@@ -3918,23 +3916,8 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
   // Read and link the intersections.
   for (ii = 0; !error && ii < numberOfShapes; ii++)
     {
-      tempString = DBFReadStringAttribute(dbfFile, ii, reachCode1Index);
-      numScanned = sscanf(tempString, "%lld", &reachCode1);
-
-      // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
-      if (1 != numScanned)
-        {
-          reachCode1 = -1;
-        }
-
-      tempString = DBFReadStringAttribute(dbfFile, ii, permanent1Index);
-      numScanned = sscanf(tempString, "%lld", &permanent1);
-
-      // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
-      if (1 != numScanned)
-        {
-          permanent1 = -1;
-        }
+      readReachCodeAndPermanent(dbfFile, ii, reachCode1Index, permanent1Index, reachCode1, permanent1);
+      readReachCodeAndPermanent(dbfFile, ii, reachCode2Index, permanent2Index, reachCode2, permanent2);
       
       linkNo1 = 0;
       
@@ -3956,24 +3939,6 @@ bool readAndLinkWaterbodyWaterbodyIntersections(ChannelLinkStruct* channels, int
       
       if (!error)
         {
-          tempString = DBFReadStringAttribute(dbfFile, ii, reachCode2Index);
-          numScanned = sscanf(tempString, "%lld", &reachCode2);
-
-          // Some shapes don't have a reach code, in which case we use the permanent code, so it is not an error if you can't scan a reach code.
-          if (1 != numScanned)
-            {
-              reachCode2 = -1;
-            }
-
-          tempString = DBFReadStringAttribute(dbfFile, ii, permanent2Index);
-          numScanned = sscanf(tempString, "%lld", &permanent2);
-
-          // Some shapes don't have a permanent code, in which case we use the reach code, so it is not an error if you can't scan a permanent code.
-          if (1 != numScanned)
-            {
-              permanent2 = -1;
-            }
-
           linkNo2 = 0;
 
           while(linkNo2 < size && (-1 == channels[linkNo2].reachCode ||
