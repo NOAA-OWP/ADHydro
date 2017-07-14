@@ -1360,12 +1360,6 @@ void FileManager::initializeFromASCIIFiles()
         }
     } // End read mesh edges.
   
-  // Read channel nodes.
-  if (!error)
-    {
-      error = readNodeAndZFiles(false);
-    }
-  
   // Open file.
   if (!error)
     {
@@ -1394,7 +1388,7 @@ void FileManager::initializeFromASCIIFiles()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-      if (!(0 < globalNumberOfChannelElements))
+      if (!(0 <= globalNumberOfChannelElements))
         {
           CkError("ERROR in FileManager::initializeFromASCIIFiles: invalid header in chan.ele file.\n");
           error = true;
@@ -1402,8 +1396,14 @@ void FileManager::initializeFromASCIIFiles()
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
     }
   
+  // Read channel nodes.
+  if (!error && 0 < globalNumberOfChannelElements)
+    {
+      error = readNodeAndZFiles(false);
+    }
+  
   // Calculate local start and number and allocate arrays.
-  if (!error)
+  if (!error && 0 < globalNumberOfChannelElements)
     {
       localStartAndNumber(&localChannelElementStart, &localNumberOfChannelElements, globalNumberOfChannelElements);
       
@@ -1652,7 +1652,7 @@ void FileManager::initializeFromASCIIFiles()
     } // End read channel elements.
 
   // channelPruned is only used for mesh massage so only read it in if you are doing mesh massage.
-  if (ADHydro::doMeshMassage)
+  if (ADHydro::doMeshMassage && 0 < globalNumberOfChannelElements)
     {
       // Open file.
       if (!error)
@@ -1761,7 +1761,7 @@ void FileManager::initializeFromASCIIFiles()
     }
   
   // FIXME below are hardcoded values that we want to find real data sources for
-  if (NULL == channelBedConductivity)
+  if (NULL == channelBedConductivity && 0 < globalNumberOfChannelElements)
     {
       channelBedConductivity = new double[localNumberOfChannelElements];
       
@@ -1771,7 +1771,7 @@ void FileManager::initializeFromASCIIFiles()
         }
     }
 
-  if (NULL == channelBedThickness)
+  if (NULL == channelBedThickness && 0 < globalNumberOfChannelElements)
     {
       channelBedThickness = new double[localNumberOfChannelElements];
       
@@ -1781,7 +1781,7 @@ void FileManager::initializeFromASCIIFiles()
         }
     }
 
-  if (NULL == channelManningsN)
+  if (NULL == channelManningsN && 0 < globalNumberOfChannelElements)
     {
       channelManningsN = new double[localNumberOfChannelElements];
       

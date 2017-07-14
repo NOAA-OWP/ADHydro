@@ -20,8 +20,8 @@ HDF5DIR          := /opt
 NETCDFDIR        := /opt
 METISDIR         := /opt
 LIBDIRNAME       := lib64
-EXTRAFLAGS       := -fdiagnostics-show-option
-EXTRANETCDFFLAGS := -lcurl
+EXTRAFLAGS       := -fdiagnostics-show-option -fpermissive
+EXTRANETCDFFLAGS := -lcurl -lz
 
 # Use these values for Mt Moran and EN3038 lab, but not for Yellowstone.
 
