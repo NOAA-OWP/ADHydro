@@ -309,7 +309,7 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
   if (!(0 <= fileManagerLocalIndex && fileManagerLocalIndex < fileManagerLocalBranch->localNumberOfRegions &&
-        NULL != fileManagerLocalBranch->regionNumberOfMeshElements && NULL != fileManagerLocalBranch->regionNumberOfChannelElements))
+        NULL != fileManagerLocalBranch->regionNumberOfMeshElements && (NULL != fileManagerLocalBranch->regionNumberOfChannelElements || 0 == fileManagerLocalBranch->globalNumberOfChannelElements)))
     {
       CkError("ERROR in Region::Region, region %d: initialization information not available from local file manager.\n", thisIndex);
       CkExit();
@@ -317,7 +317,14 @@ Region::Region(double referenceDateInit, double currentTimeInit, double simulati
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
   numberOfMeshElements    = fileManagerLocalBranch->regionNumberOfMeshElements[fileManagerLocalIndex];
-  numberOfChannelElements = fileManagerLocalBranch->regionNumberOfChannelElements[fileManagerLocalIndex];
+  if (0 == fileManagerLocalBranch->globalNumberOfChannelElements)
+  {
+    numberOfChannelElements = 0;
+  }
+  else
+  {
+    numberOfChannelElements = fileManagerLocalBranch->regionNumberOfChannelElements[fileManagerLocalIndex];
+  }
 
   // Initialization will be done in runUntilSimulationEnd.
   thisProxy[thisIndex].runUntilSimulationEnd();
