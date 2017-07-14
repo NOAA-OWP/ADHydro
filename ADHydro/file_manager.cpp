@@ -8663,49 +8663,49 @@ void FileManager::meshMassage()
       CkExit();
     }
   
-  if (!(NULL != channelChannelType))
+  if (!(NULL != channelChannelType || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelChannelType must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelReachCode))
+  if (!(NULL != channelReachCode || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelReachCode must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelElementZBed))
+  if (!(NULL != channelElementZBed || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelElementZBed must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelElementLength))
+  if (!(NULL != channelElementLength || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelElementLength must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelMeshNeighbors))
+  if (!(NULL != channelMeshNeighbors || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelMeshNeighbors must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelGroundwaterMeshNeighborsConnection))
+  if (!(NULL != channelGroundwaterMeshNeighborsConnection || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelGroundwaterMeshNeighborsConnection must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelChannelNeighbors))
+  if (!(NULL != channelChannelNeighbors || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelChannelNeighbors must not be NULL.\n");
       CkExit();
     }
   
-  if (!(NULL != channelChannelNeighborsDownstream))
+  if (!(NULL != channelChannelNeighborsDownstream || 0 == globalNumberOfChannelElements))
     {
       CkError("ERROR in FileManager::meshMassage: channelChannelNeighborsDownstream must not be NULL.\n");
       CkExit();
@@ -8750,7 +8750,7 @@ void FileManager::meshMassage()
           meshRegion = new int[globalNumberOfMeshElements];
         }
       
-      if (NULL == channelRegion)
+      if (NULL == channelRegion && 0 < globalNumberOfChannelElements)
         {
           channelRegion = new int[globalNumberOfChannelElements];
         }
@@ -9153,22 +9153,29 @@ void FileManager::meshMassage()
       
       if (!hasLowerNeighbor && !hasChannelNeighbor)
         {
-          // Break the digital dam by arbitrarily connecting the mesh element to the lowest stream element in the same catchment.
-          neighbor = breakMeshDigitalDam(ii, meshCatchment[ii]);
-          
-          if (NOFLOW == neighbor && NULL != channelPruned)
+          if (0 == globalNumberOfChannelElements)
             {
-              // The stream for that catchment was pruned.  Get the reach code of a link downstream of it.
-              jj = 0;
+              neighbor = NOFLOW;
+            }
+          else
+            {
+              // Break the digital dam by arbitrarily connecting the mesh element to the lowest stream element in the same catchment.
+              neighbor = breakMeshDigitalDam(ii, meshCatchment[ii]);
               
-              while (jj < numberOfChannelPruned && channelPruned[jj][0] != meshCatchment[ii])
+              if (NOFLOW == neighbor && NULL != channelPruned)
                 {
-                  jj++;
-                }
-              
-              if (jj < numberOfChannelPruned)
-                {
-                  neighbor = breakMeshDigitalDam(ii, channelPruned[jj][1]);
+                  // The stream for that catchment was pruned.  Get the reach code of a link downstream of it.
+                  jj = 0;
+                  
+                  while (jj < numberOfChannelPruned && channelPruned[jj][0] != meshCatchment[ii])
+                    {
+                      jj++;
+                    }
+                  
+                  if (jj < numberOfChannelPruned)
+                    {
+                      neighbor = breakMeshDigitalDam(ii, channelPruned[jj][1]);
+                    }
                 }
             }
 
