@@ -20,6 +20,21 @@ STATSGO_DIR = os.path.join(input_directory_path, 'STATSGO')
 def extractSSURGO():
     g = os.path.join(SSURGO_DIR, '*.zip')
     ssurgo_zip = glob.glob(g)
+    #zipfile is acting weird, shell out for extraction
+    for z in ssurgo_zip:
+        subprocess.call(['unzip', '-d', SSURGO_DIR, z])
+    SSURGO_soils = os.path.join(SSURGO_DIR, 'soils')
+    g = os.path.join(SSURGO_soils, '*wss_SSA*.zip')
+    soils = glob.glob(g)
+    for s in soils:
+        subprocess.call(['unzip', '-d', SSURGO_DIR, s])
+        os.remove(s)
+    [os.remove(f) for f in glob.glob(os.path.join(SSURGO_soils, '*'))]
+    os.rmdir(SSURGO_soils)
+    """
+    g = os.path.join(SSURGO_DIR, '*.zip')
+    ssurgo_zip = glob.glob(g)
+
     #Should now have the top level SSURGO zip file name.  Could possibly be more than one...
     for z in ssurgo_zip:
         with zipfile.ZipFile(z, 'r') as zf:
@@ -33,7 +48,7 @@ def extractSSURGO():
         with zipfile.ZipFile(s, 'r') as zf:
             zf.extractall(SSURGO_DIR)
         os.remove(s)
-    
+    """
 def prepareSSURGO():
     #build the soilmu_a__merge by combining spatial data for each area
     areas = os.path.join(SSURGO_DIR,'*')
@@ -47,6 +62,20 @@ def prepareSSURGO():
         subprocess.call(cmd)
         
 def extractSTATSGO():
+    #work around odd zipfile behaviour not expanding directories correctly, use shell
+    g = os.path.join(STATSGO_DIR, '*.zip')
+    statsgo_zip = glob.glob(g)
+    for z in statsgo_zip:
+        subprocess.call(['unzip', '-d', STATSGO_DIR, z])
+    STATSGO_soils = os.path.join(STATSGO_DIR, 'soils')
+    g = os.path.join(STATSGO_soils, 'wss_gsmsoil*.zip')
+    soils = glob.glob(g)
+    for s in soils:
+        subprocess.call(['unzip', '-d', STATSGO_DIR, s])
+        os.remove(s)
+    [os.remove(f) for f in glob.glob(os.path.join(STATSGO_soils, '*'))]
+    os.rmdir(STATSGO_soils)
+    """
     g = os.path.join(STATSGO_DIR, '*.zip')
     statsgo_zip = glob.glob(g)
     #Should now have the top level STATSGO zip file name.  Could possibly be more than one...
@@ -62,7 +91,7 @@ def extractSTATSGO():
         with zipfile.ZipFile(s, 'r') as zf:
             zf.extractall(STATSGO_DIR)
         os.remove(s)
-
+    """
 def prepareSTATSGO():
     #build the gsmsoilmu_a_merge by combining spatial data for each state
     areas = os.path.join(STATSGO_DIR,'*')
@@ -80,10 +109,12 @@ if __name__ == '__main__':
     #Test to see if SSURGO/STATSGO directories exist in provided directory
     if not os.path.isdir(SSURGO_DIR):
         print input_directory_path+" does not contain a SSURGO directory."
+    
     else:
         if args.extract:
             extractSSURGO()
         prepareSSURGO()
+    
     if not os.path.isdir(STATSGO_DIR):
         print input_directory_path+" does not contain a STATSGO directory."
     else:
