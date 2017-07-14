@@ -11603,6 +11603,8 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+  if (0 < localNumberOfChannelElements)
+    {
       if (!(NULL != meshChannelNeighbors))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshChannelNeighbors must not be NULL.\n");
@@ -11680,6 +11682,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           CkError("ERROR in FileManager::handleSendInitializationMessages: meshGroundwaterChannelNeighborsFlowCumulativeLongTerm must not be NULL.\n");
           error = true;
         }
+    }
     }
   
   if (0 < localNumberOfChannelElements)
@@ -12061,7 +12064,7 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
             }
         }
 
-      for (jj = 0; !error && jj < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++jj)
+      for (jj = 0; !error && 0 < globalNumberOfChannelElements && jj < MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE; ++jj)
         {
           // Invalid neighbors can cause the simulation to hang during initialization before reaching the invariant check so we are checking these here.
           if (0 <= meshChannelNeighbors[ii][jj] && meshChannelNeighbors[ii][jj] < globalNumberOfChannelElements)
