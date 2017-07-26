@@ -154,6 +154,18 @@ public:
         return thickness;
     }
     
+    // Returns: the value of conductivity.
+    inline double getConductivity() const
+    {
+        return conductivity;
+    }
+    
+    // Returns: the value of porosity.
+    inline double getPorosity() const
+    {
+        return porosity;
+    }
+    
 private:
     
     // Returns: (m) The quantity of water the modeled layer would have if the saturation depth were the given value.

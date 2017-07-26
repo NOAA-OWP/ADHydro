@@ -191,7 +191,7 @@ bool ChannelElement::receiveMessage(const Message& message, size_t& elementsFini
     
     if (!error)
     {
-        error = message.receive(it->second, neighborsFinished, currentTime, timestepEndTime);
+        error = message.receive(it->second, neighborsFinished, localAttributes(), surfaceWater, currentTime, timestepEndTime);
     }
     
     // Check if this element is finished
@@ -214,7 +214,7 @@ bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<Neighbo
     
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.sendNeighborMessage(outgoingMessages, neighborsFinished, NeighborMessage(it->first, NeighborAttributes(0)));
+        error = it->second.sendNeighborMessage(outgoingMessages, neighborsFinished, NeighborMessage(it->first, localAttributes()));
     }
     
     // Check if this element is finished.
@@ -237,7 +237,7 @@ bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<Stat
     
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.calculateNominalFlowRate(outgoingMessages, neighborsFinished, it->first, currentTime);
+        error = it->second.calculateNominalFlowRate(outgoingMessages, neighborsFinished, StateMessage(it->first, surfaceWater), localAttributes(), currentTime);
     }
     
     // Check if this element is finished.
@@ -247,19 +247,6 @@ bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<Stat
     }
     
     return error;
-}
-
-double ChannelElement::minimumExpirationTime()
-{
-    double                                                minimumTime = INFINITY; // Return value gets set to the minimum of expirationTime for all NeighborProxies.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;                     // Loop iterator.
-    
-    for (it = neighbors.begin(); it != neighbors.end(); ++it)
-    {
-        minimumTime = std::min(minimumTime, it->second.getExpirationTime());
-    }
-    
-    return minimumTime;
 }
 
 bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime)

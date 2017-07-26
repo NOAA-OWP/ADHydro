@@ -211,7 +211,18 @@ public:
     bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime);
     
     // Returns: The minimum value of expirationTime for all NeighborProxies.
-    double minimumExpirationTime();
+    inline double minimumExpirationTime()
+    {
+        double                                                minimumTime = INFINITY; // Return value gets set to the minimum of expirationTime for all NeighborProxies.
+        std::map<NeighborConnection, NeighborProxy>::iterator it;                     // Loop iterator.
+        
+        for (it = neighbors.begin(); it != neighbors.end(); ++it)
+        {
+            minimumTime = std::min(minimumTime, it->second.getExpirationTime());
+        }
+        
+        return minimumTime;
+    }
     
     // Perform precipitation, snowmelt, evaporation, transpiration, infiltration, and send lateral outflows.
     //
@@ -266,6 +277,12 @@ public:
             
             itProxy->second.fillInState(*itState, itProxy->first);
         }
+        
+        if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+        {
+            // Because we resized state.neighbors we should hit the end of both containers at the same time.
+            CkAssert(itState == state.neighbors.end());
+        }
     }
     
     // Returns: the value of elementNumber.
@@ -296,6 +313,12 @@ private:
         }
         
         return (baseWidth + sideSlope * depth) * depth;
+    }
+    
+    // Returns: the attributes of this element.
+    inline NeighborAttributes localAttributes()
+    {
+        return NeighborAttributes(elementX, elementY, elementZBank, elementZBed, elementLength, manningsN, bedConductivity, bedThickness, channelType, baseWidth, sideSlope);
     }
     
     // Immutable attributes of the element.

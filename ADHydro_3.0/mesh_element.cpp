@@ -357,7 +357,7 @@ bool MeshElement::receiveMessage(const Message& message, size_t& elementsFinishe
     
     if (!error)
     {
-        error = message.receive(it->second, neighborsFinished, currentTime, timestepEndTime);
+        error = message.receive(it->second, neighborsFinished, localAttributes(it->first.localEndpoint), localDepthOrHead(it->first.localEndpoint), currentTime, timestepEndTime);
     }
     
     // Check if this element is finished
@@ -380,7 +380,7 @@ bool MeshElement::sendNeighborAttributes(std::map<size_t, std::vector<NeighborMe
     
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.sendNeighborMessage(outgoingMessages, neighborsFinished, NeighborMessage(it->first, NeighborAttributes(0)));
+        error = it->second.sendNeighborMessage(outgoingMessages, neighborsFinished, NeighborMessage(it->first, localAttributes(it->first.localEndpoint)));
     }
     
     // Check if this element is finished.
@@ -403,7 +403,7 @@ bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMe
     
     for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
     {
-        error = it->second.calculateNominalFlowRate(outgoingMessages, neighborsFinished, it->first, currentTime);
+        error = it->second.calculateNominalFlowRate(outgoingMessages, neighborsFinished, StateMessage(it->first, localDepthOrHead(it->first.localEndpoint)), localAttributes(it->first.localEndpoint), currentTime);
     }
     
     // Check if this element is finished.
@@ -413,19 +413,6 @@ bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMe
     }
     
     return error;
-}
-
-double MeshElement::minimumExpirationTime()
-{
-    double                                                minimumTime = INFINITY; // Return value gets set to the minimum of expirationTime for all NeighborProxies.
-    std::map<NeighborConnection, NeighborProxy>::iterator it;                     // Loop iterator.
-    
-    for (it = neighbors.begin(); it != neighbors.end(); ++it)
-    {
-        minimumTime = std::min(minimumTime, it->second.getExpirationTime());
-    }
-    
-    return minimumTime;
 }
 
 bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime)

@@ -105,12 +105,6 @@ public:
         evapoTranspirationForcing.tBot   = 300.0f;
         evapoTranspirationForcing.pblh   = 0.0f;
         
-        // FIXME remove
-        if (1 == elementNumber)
-        {
-            evapoTranspirationForcing.prcp = 10.0f;
-        }
-        
         // It was necessary to do things this way to combine the regular constructor with the no-argument constructor while initializing evapoTranspirationState to values that pass the invariant in the no-argument case.
         if (NULL != evapoTranspirationStateInit)
         {
@@ -265,7 +259,18 @@ public:
     bool calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime);
     
     // Returns: The minimum value of expirationTime for all NeighborProxies.
-    double minimumExpirationTime();
+    inline double minimumExpirationTime()
+    {
+        double                                                minimumTime = INFINITY; // Return value gets set to the minimum of expirationTime for all NeighborProxies.
+        std::map<NeighborConnection, NeighborProxy>::iterator it;                     // Loop iterator.
+        
+        for (it = neighbors.begin(); it != neighbors.end(); ++it)
+        {
+            minimumTime = std::min(minimumTime, it->second.getExpirationTime());
+        }
+        
+        return minimumTime;
+    }
     
     // Perform precipitation, snowmelt, evaporation, transpiration, infiltration, and send lateral outflows.
     //
@@ -330,6 +335,12 @@ public:
             
             itProxy->second.fillInState(*itState, itProxy->first);
         }
+        
+        if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+        {
+            // Because we resized state.neighbors we should hit the end of both containers at the same time.
+            CkAssert(itState == state.neighbors.end());
+        }
     }
     
     // Returns: the value of elementNumber.
@@ -378,6 +389,71 @@ private:
     inline double aquiferThickness() const
     {
         return (aquiferExists ? aquiferWater.getThickness() : 0.0);
+    }
+    
+    // Returns: the surface water depth or groundwater head of this element appropriate to the type of endpoint.
+    //
+    // Parameters:
+    //
+    // localEndpoint - The type of endpoint.
+    inline double localDepthOrHead(NeighborEndpointEnum localEndpoint)
+    {
+        switch(localEndpoint)
+        {
+            case MESH_SURFACE:
+            case IRRIGATION_RECIPIENT:
+                return surfaceWater;
+                break;
+            case MESH_SOIL:
+                if (PERCHED_WATER_TABLE == groundwaterMode || NO_MULTILAYER == groundwaterMode)
+                {
+                    return perchedHead;
+                }
+                else
+                {
+                    return aquiferHead;
+                }
+                break;
+            case MESH_AQUIFER:
+                return aquiferHead;
+                break;
+            default:
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                {
+                    CkAssert(false); // All other endpoints are invalid here.
+                }
+                return 0.0;
+                break;
+        }
+    }
+    
+    // Returns: the attributes of this element appropriate to the type of endpoint.
+    //
+    // Parameters:
+    //
+    // localEndpoint - The type of endpoint.
+    inline NeighborAttributes localAttributes(NeighborEndpointEnum localEndpoint)
+    {
+        switch(localEndpoint)
+        {
+            case MESH_SURFACE:
+            case IRRIGATION_RECIPIENT:
+                return NeighborAttributes(elementX, elementY, elementZ, elementZ, elementArea, manningsN);
+                break;
+            case MESH_SOIL:
+                return NeighborAttributes(elementX, elementY, elementZ, elementZ - soilThickness(), elementArea, manningsN, soilWater.getConductivity(), soilWater.getPorosity());
+                break;
+            case MESH_AQUIFER:
+                return NeighborAttributes(elementX, elementY, elementZ - soilThickness(), elementZ - soilThickness() - aquiferThickness(), elementArea, manningsN, aquiferWater.getConductivity(), aquiferWater.getPorosity());
+                break;
+            default:
+                if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+                {
+                    CkAssert(false); // All other endpoints are invalid here.
+                }
+                return NeighborAttributes();
+                break;
+        }
     }
     
     // Immutable attributes of the element.
