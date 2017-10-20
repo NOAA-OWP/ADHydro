@@ -568,13 +568,13 @@ public:
   // and porosity are determined from vegetation and soil type.
   void meshMassageVegetationAndSoilType();
   
-  // To break digital dams in the mesh we arbitrarily connect mesh elements to
-  // the lowest channel element from the same catchment.  Catchment numbers for
-  // streams are stored in the channel element's reach code.  If a stream is
-  // pruned we may not find a channel element with that reach code in which
-  // case the return value indicates that no connection was made.  The caller
-  // should then find the reach code of an unpruned link downstream of the
-  // pruned stream and call this function again with that new reach code.
+  // To break digital dams in the mesh we arbitrarily connect a mesh element to
+  // a channel element from the same catchment.  Catchment numbers for streams
+  // are stored in the channel element's reach code.  If a stream is pruned we
+  // may not find a channel element with that reach code in which case the
+  // return value indicates that no connection was made.  The caller should
+  // then find the reach code of an unpruned link downstream of the pruned
+  // stream and call this function again with that new reach code.
   //
   // Returns: The channel element number that meshElement was connected to, or
   //          NOFLOW if no connection was made.

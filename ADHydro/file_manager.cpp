@@ -1503,9 +1503,14 @@ void FileManager::initializeFromASCIIFiles()
           channelElementLength[       index - localChannelElementStart]    = length;
           channelChannelType[         index - localChannelElementStart]    = (ChannelTypeEnum)type;
           channelReachCode[           index - localChannelElementStart]    = reachCode1;
-          // FIXLATER This assumes rectangular channels.  Calculate some other way?
-          channelBaseWidth[           index - localChannelElementStart]    = topWidth;
-          channelSideSlope[           index - localChannelElementStart]    = 0.0;
+          // FIXLATER This assumes 45 degree trapezoidal channels.  Calculate some other way?
+          channelSideSlope[           index - localChannelElementStart]    = 1.0;
+          channelBaseWidth[           index - localChannelElementStart]    = topWidth - 2.0 * channelSideSlope[index - localChannelElementStart] * bankFullDepth;
+          
+          if (0.1 > channelBaseWidth[ index - localChannelElementStart])
+          {
+              channelBaseWidth[       index - localChannelElementStart]    = 0.1;
+          }
         }
       
       // Read vertices.
@@ -8168,10 +8173,10 @@ void FileManager::meshMassageVegetationAndSoilType()
 
 int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
 {
-  int    ii;                       // Loop counter.
-  int    neighbor      = NOFLOW;   // A neighbor of meshElement.
-  double neighborZBank = INFINITY; // The bank Z coordinate of neighbor.
-  double edgeLength;               // The edge length to use for the new connection.
+  int    ii;                // Loop counter.
+  int    neighbor = NOFLOW; // The channel element that meshElement will be connected to.
+  double edgeZSurface;      // The surface Z coordinate of the center of a mesh edge.
+  double edgeLength;        // The edge length to use for the new connection.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(localMeshElementStart <= meshElement && meshElement < localMeshElementStart + localNumberOfMeshElements))
@@ -8298,14 +8303,33 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
       CkExit();
     }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+
+  // Find the lowest edge on the element.  That is the edge that will be connected to a channel element.
   
-  // Find the lowest elevation channel element that has the proper reach code.
+  // Edge zero.
+  edgeZSurface = 0.5 * (meshVertexZSurface[meshElement][1] + meshVertexZSurface[meshElement][2]);
+  edgeLength   = meshMeshNeighborsEdgeLength[meshElement][0];
+  
+  // Edge one.
+  if (edgeZSurface > 0.5 * (meshVertexZSurface[meshElement][2] + meshVertexZSurface[meshElement][0]))
+  {
+      edgeZSurface = 0.5 * (meshVertexZSurface[meshElement][2] + meshVertexZSurface[meshElement][0]);
+      edgeLength   = meshMeshNeighborsEdgeLength[meshElement][1];
+  }
+  
+  // Edge two.
+  if (edgeZSurface > 0.5 * (meshVertexZSurface[meshElement][0] + meshVertexZSurface[meshElement][1]))
+  {
+      edgeZSurface = 0.5 * (meshVertexZSurface[meshElement][0] + meshVertexZSurface[meshElement][1]);
+      edgeLength   = meshMeshNeighborsEdgeLength[meshElement][2];
+  }
+  
+  // Find the channel element with the proper reach code that is closest in elevation.
   for (ii = 0; ii < globalNumberOfChannelElements; ii++)
     {
-      if (reachCode == channelReachCode[ii] && (NOFLOW == neighbor || neighborZBank > channelElementZBank[ii]))
+      if (reachCode == channelReachCode[ii] && (NOFLOW == neighbor || std::abs(channelElementZBank[neighbor] - edgeZSurface) > std::abs(channelElementZBank[ii] - edgeZSurface)))
         {
-          neighbor      = ii;
-          neighborZBank = channelElementZBank[ii];
+          neighbor = ii;
         }
     }
   
@@ -8330,23 +8354,6 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
         }
       
       // Calculate the edge length of the connection as the minimum of the length of the lowest edge of the mesh meshElement or the length of the channel element.
-      if (meshVertexZSurface[meshElement][1] + meshVertexZSurface[meshElement][2] < meshVertexZSurface[meshElement][2] + meshVertexZSurface[meshElement][0] &&
-          meshVertexZSurface[meshElement][1] + meshVertexZSurface[meshElement][2] < meshVertexZSurface[meshElement][0] + meshVertexZSurface[meshElement][1])
-        {
-          // Edge zero is the lowest.
-          edgeLength = meshMeshNeighborsEdgeLength[meshElement][0];
-        }
-      else if (meshVertexZSurface[meshElement][2] + meshVertexZSurface[meshElement][0] < meshVertexZSurface[meshElement][0] + meshVertexZSurface[meshElement][1])
-        {
-          // Edge one is the lowest.
-          edgeLength = meshMeshNeighborsEdgeLength[meshElement][1];
-        }
-      else
-        {
-          // Edge two is the lowest.
-          edgeLength = meshMeshNeighborsEdgeLength[meshElement][2];
-        }
-      
       if (edgeLength > channelElementLength[neighbor])
         {
           edgeLength = channelElementLength[neighbor];
