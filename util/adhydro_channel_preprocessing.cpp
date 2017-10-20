@@ -3616,7 +3616,7 @@ bool linkWaterbodyStreamIntersection(ChannelLinkStruct* channels, int size, int 
     }
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-  assert(0 <= streamLinkNo && streamLinkNo < size && STREAM == channels[streamLinkNo].type && 0.0 <= location && location <= channels[streamLinkNo].length);
+  assert(0 <= streamLinkNo && streamLinkNo < size && STREAM == channels[streamLinkNo].type && 0.0 <= location && epsilonLessOrEqual(location, channels[streamLinkNo].length));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
   
   if (epsilonEqual(location, 0.0))
