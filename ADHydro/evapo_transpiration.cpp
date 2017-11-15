@@ -851,8 +851,8 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // error was large relative to the magnitude of canWaterShouldBe, and this check failed.  The same could occur for snow.  The solution is to use the
       // amount of precipitation to determine the acceptable epsilon.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp) &&
-               epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp));
+      CkAssert(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp * dt) &&
+               epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp * dt));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Determine the fraction of canopy ice.  This reuses the variable fIce for a different purpose because it is not used again in this function.
@@ -970,12 +970,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // Include water in the aquifer in the mass balance check.
       soilMoistureNew += wa;
       
-      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
-      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
-      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
-      // the second check That would use epsilon based on soilMoistureOriginal.
-      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runoff,  soilMoistureNew) ||
-               epsilonEqual(soilMoistureOriginal,  *evaporationFromGround + *transpiration - *surfacewaterAdd + runoff + soilMoistureNew));
+      // Verify that soil moisture balances.  There was a case where soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew
+      // was small.  The values passed to epsilonEqual were both small so epsilon was small and this check failed even though the difference was okay if
+      // epsilon were based on soilMoistureOriginal.  So I added soilMoistureOriginal as epsilonProxy.
+      CkAssert(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runoff,  soilMoistureNew, soilMoistureOriginal));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
