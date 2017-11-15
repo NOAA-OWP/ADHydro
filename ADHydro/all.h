@@ -130,34 +130,44 @@ inline double epsilon(double x)
 }
 
 // Returns: true if a is less than and not epsilon-equal to b, false otherwise.
-inline bool epsilonLess(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLess(double a, double b, double epsilonProxy = 0.0)
 {
-  return a < b - epsilon(b);
+  return a < b - epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is greater than and not epsilon-equal to b, false
 //          otherwise.
-inline bool epsilonGreater(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreater(double a, double b, double epsilonProxy = 0.0)
 {
-  return a > b + epsilon(b);
+  return a > b + epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is less than or epsilon-equal to b, false otherwise.
-inline bool epsilonLessOrEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLessOrEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonGreater(a, b);
+  return !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Returns: true if a is greater than or epsilon-equal to b, false otherwise.
-inline bool epsilonGreaterOrEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreaterOrEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b);
+  return !epsilonLess(a, b, epsilonProxy);
 }
 
 // Returns: true if a is epsilon-equal to b, false otherwise.
-inline bool epsilonEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+  return !epsilonLess(a, b, epsilonProxy) && !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Utility functions for epsilon-equality testing of floats.  Same as the
@@ -170,34 +180,44 @@ inline float epsilon(float x)
 }
 
 // Returns: true if a is less than and not epsilon-equal to b, false otherwise.
-inline bool epsilonLess(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLess(float a, float b, float epsilonProxy = 0.0)
 {
-  return a < b - epsilon(b);
+  return a < b - epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is greater than and not epsilon-equal to b, false
 //          otherwise.
-inline bool epsilonGreater(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreater(float a, float b, float epsilonProxy = 0.0)
 {
-  return a > b + epsilon(b);
+  return a > b + epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is less than or epsilon-equal to b, false otherwise.
-inline bool epsilonLessOrEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLessOrEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonGreater(a, b);
+  return !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Returns: true if a is greater than or epsilon-equal to b, false otherwise.
-inline bool epsilonGreaterOrEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreaterOrEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b);
+  return !epsilonLess(a, b, epsilonProxy);
 }
 
 // Returns: true if a is epsilon-equal to b, false otherwise.
-inline bool epsilonEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+  return !epsilonLess(a, b, epsilonProxy) && !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Utility functions for converting dates.

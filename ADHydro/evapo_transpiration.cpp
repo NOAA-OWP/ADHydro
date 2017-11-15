@@ -846,9 +846,13 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       //
       // We can't really tell the difference between small amounts of water being thrown away and roundoff error so in every case we set canIce and canLiq to
       // equal canWaterShouldBe.  This should fix small amounts of water being thrown away without making roundoff error any worse.
+      //
+      // There was a situation where rainfallAboveCanopy and rainfallBelowCanopy were both large, but rainfallInterceptedByCanopy was small so its roundoff
+      // error was large relative to the magnitude of canWaterShouldBe, and this check failed.  The same could occur for snow.  The solution is to use the
+      // amount of precipitation to determine the acceptable epsilon.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      CkAssert(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq) &&
-               epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq));
+      CkAssert(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp) &&
+               epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Determine the fraction of canopy ice.  This reuses the variable fIce for a different purpose because it is not used again in this function.
