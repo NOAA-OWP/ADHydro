@@ -911,7 +911,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -1553,7 +1553,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -2051,7 +2051,7 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           CkAssert(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
