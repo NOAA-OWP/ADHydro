@@ -1086,7 +1086,13 @@ contains
 
      IF(HVT(VEGTYP)> 0. .AND. HVT(VEGTYP) <= 1.0) THEN  !MB: change to 1.0 and 0.2 to reflect
        SNOWHC = HVT(VEGTYP)*EXP(-SNOWH/0.2)             !      changes to HVT in MPTABLE
-       FB     = MIN(SNOWH,SNOWHC)/SNOWHC
+       
+       ! RCS if SNOWH is a little above 17 meters then EXP(-SNOWH/0.2) rounds off to zero, and dividing by SNOWHC would result in NAN
+       IF (0 .EQ. SNOWHC) THEN
+         FB     = 1.0
+       ELSE
+         FB     = MIN(SNOWH,SNOWHC)/SNOWHC
+       ENDIF
      ENDIF
 
      ELAI =  LAI*(1.-FB)
