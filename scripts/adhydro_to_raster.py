@@ -10,18 +10,19 @@ import psutil
 import time
 import argparse
 import multiprocessing as mp
-from collections import defaultdict
 from shapely import speedups
 speedups.enable()
 from shapely.geometry import Point, Polygon, box
 from shapely.ops import transform
-from qgis.core import QgsSpatialIndex, QgsFeature, QgsGeometry, QgsRectangle, QgsPoint, QgsFeatureIterator
+#from qgis.core import QgsSpatialIndex, QgsFeature, QgsGeometry, QgsRectangle, QgsPoint, QgsFeatureIterator
 from functools import partial
 from math import ceil
 import pyproj
-from osgeo import gdal, osr
-gdal.UseExceptions()
-
+#from osgeo import gdal, osr
+#gdal.UseExceptions()
+import rasterio
+import rasterio.features
+from datetime import datetime
 
 def mem_usage(GB=False):
     """
@@ -38,9 +39,23 @@ def checkPositiveInput(i):
       Utility for checking a postive input value passed as i in command line options
     """
     value = int(i)
-    if value < 0:
-        raise argparse.ArgumentTypeError('{} is not a valid input, must be >= 0'.format(value))
+    if value < 1:
+        raise argparse.ArgumentTypeError('{} is not a valid input, must be >= 1'.format(value))
     return value
+
+def verify_date(s):
+    try:
+      return datetime.strptime(s, '%Y-%m-%d:%H')
+    except:
+      return datetime.strptime(s, '%Y-%m-%d')
+
+def test_bounds(bounds):
+  minX, minY, maxX, maxY = bounds
+  if minX >= maxX:
+    parser.error('Boundary Error: minLong ({}) must be < maxLong ({})'.format(minX, maxX))
+  if minY <= maxY: #raster Y axis is inverted, so maxY > minY world coordinate
+    parser.error('Boundary Error: minLat ({}) must be < maxLat ({})'.format(maxY, minY))
+
 
 """
   Set up command line args and parser
@@ -48,14 +63,17 @@ def checkPositiveInput(i):
 parser = argparse.ArgumentParser(description="Create a rasterized inundation map based on original DEM cells.")
 parser.add_argument('ADHydroGeometry', help='The ADHydro geometry.nc file containing the mesh geometry.')
 parser.add_argument('ADHydroOutput', help='The ADHydro output netCDF file containing <variable>.')
-parser.add_argument('DEM', help='The original DEM file used to create the mesh in geometry.nc.')
+#parser.add_argument('DEM', help='The original DEM file used to create the mesh in geometry.nc.')
 parser.add_argument('-v', '--variable', type=str, help='The adhydro variable to transform to raster form, must a variable in ADHydroOutput.', required=True)
-parser.add_argument('-t', '--time', help='Time instance in ADHydroOutput to generate the raster for.  Defaults to 0.', type=checkPositiveInput)
-parser.add_argument('-n', '--numSubsets', type=checkPositiveInput, help='Split the processing into N subsets of the raster grid.  Useful on large meshes to avoid running out of memory.')
+parser.add_argument('-t', '--time', help='Time to generate output for, accepted inputs are YYYY-MM-DD or YYY-MM-DD:H.', type=verify_date, required=True)
+#parser.add_argument('-n', '--numSubsets', type=checkPositiveInput, help='Split the processing into N subsets of the raster grid.  Useful on large meshes to avoid running out of memory.')
 parser.add_argument('-m', '--meridian', help='Centeral meridian to use for ADHydro Sinusoidal projection', required=True, type=float)
-parser.add_argument('-f', '--outputFileName', help='Optional output file name.  By default, the filename will be gridded_output.tif .')
+parser.add_argument('-o', '--outputFileName', help='Optional output file name.  By default, the filename will be <time>_<variable>_adhydro.tif .')
+parser.add_argument('-a', '--aggregate', help='Aggregate results daily using [min, max, mean].', required=False, choices=['min', 'max', 'mean'])
+parser.add_argument('-p', '--period', help='Periods to produce output.  One file per period will be produced (daily frequency), with the time appended to outputFileName if specified. Defaults to 1.', type=checkPositiveInput, default=1)
+parser.add_argument('-b', '--bounds', help="Bounding box to limit processing. Coordinates in lat/long (WGS84).  Input as minLong, minLat, maxLong, maxLat.  Default uses mesh extent.", nargs=4, type=float, metavar=('minLong', 'minLat', 'maxLong', 'maxLat'))
 args = parser.parse_args()
-
+test_bounds(args.bounds)
 """
   Verify inputs exist as files
 """
@@ -65,45 +83,28 @@ if not os.path.isfile(args.ADHydroGeometry):
 if not os.path.isfile(args.ADHydroOutput):
     parser.error("Data file '{}' does not exist".format(args.ADHydroOutput))
 
-if not os.path.isfile(args.DEM):
-    parser.error("DEM file '{}' does not exist".format(args.DEM))
-
-#Open the adhydro output file and verify the variable to process
+#Open the adhydro output file and verify the time and variable to process
 adhydro_output = nc.Dataset(args.ADHydroOutput, 'r')
+
+ref_date = adhydro_output.variables['referenceDate'][0]
+adhydro_times = adhydro_output.variables['currentTime'][:]/86400.0 + ref_date
+times = pd.to_datetime(adhydro_times, unit='D', origin='julian').round('H') #Round to nearest hour to clean up small rounding erros in julian conversions
+time_df = pd.DataFrame({'i':range(len(times))}, index=times)
+#Close and reopen dataset per process later
+adhydro_output.close()
+
+if args.time not in times:
+  parser.error( "Time {} does not exist in adhydro output file {}. Time range is: {} - {}".format(args.time, args.ADHydroOutput, times[0], times[-1]) )
+
 if args.variable not in adhydro_output.variables.keys():
     parser.error("Variable {} not found in {}".format(args.variable, args.ADHydroOutput))
 
-#Otherwise, get the output dataset if time is in proper range
-adhydro_time = 0
-if args.time:
-  if args.time < len(adhydro_output.variables[args.variable]):
-    adhydro_time = args.time
-  else:
-    print("WARNING: time arguement out of range for variable {} in {}.  Setting time to last instance.".format(args.variable, args.ADHydroOutput))
-    adhydro_time = -1
-#Read the dataset into memory
-output_variable = adhydro_output.variables[args.variable][adhydro_time][:]
-
-#Set the output file name
-output_file = 'gridded_output.tif'
-if args.outputFileName:
-  output_file = args.outputFileName
 
 #set ADHydro projection string based on passed meridian
 adhydro_projection = '+proj=sinu +lon_0={} +x_0=20000000 +y_0=0 +datum=WGS84 +units=m +no_defs'.format(args.meridian)
 
-#Open up raster as global variable
-raster = gdal.Open(args.DEM)
-raster_crs = osr.SpatialReference()
-raster_crs.ImportFromWkt(raster.GetProjection())
-#NOTE Can modify the bounds if a differnt box is desired, or set up for the entire mesh.  TODO make bounding box an arg to command line
-#Use the bounds of the mesh geometry to limit the raster processing
-#mesh_minX, mesh_minY, mesh_maxX, mesh_maxY = mesh.total_bounds
-#bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs=adhydro_projection)
-#Pre defined bounding box
-#in lat/long coords
-mesh_minX, mesh_maxX, mesh_minY, mesh_maxY = (-95.8939, -95.2916, 29.9744, 29.5541)
-bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs=raster_crs.ExportToProj4() )
+#Albers Equal Area Conic on NAD83 datum
+output_projection = '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'
 
 
 def getChunks(size, num_chunks):
@@ -152,7 +153,7 @@ def getADHydroMeshPolyGeometry(geometryFile, bounding_box = None):
     #print "Mem usage after collection: {}".format(mem_usage(True))
     #Create dataframe to contain further attributes
     meshFrame = gpd.GeoDataFrame([], geometry=adhydroMeshGeometry)
-    
+    """ 
     #Create a QGSI spatial index since RTREE hangs on moran??? TODO/FIXME
     meshIndex = QgsSpatialIndex()
     for i, triangle in meshFrame.itertuples():
@@ -160,186 +161,139 @@ def getADHydroMeshPolyGeometry(geometryFile, bounding_box = None):
         feature.setFeatureId(i)
         feature.setGeometry(QgsGeometry.fromWkt(triangle.to_wkt()))
         meshIndex.insertFeature(feature) 
+    """
     t1 = time.time()
     print "Mem after reading ADHydro mesh polygon geometries: {} GB".format(mem_usage(True))
     print "Time to read ADHydro mesh geometry: {}".format(t1-t0)
     adhydro_geom.close()
-    return meshFrame, meshIndex
+    return meshFrame#, meshIndex
 
-def pixels_to_points(geoTransform, source_crs, target_crs, xMin = 0, xMax = 1, yMin = 0, yMax = 1 ):
-  """
-    Function that takes a range of x and y values (Pixel Values)
-    and returns a series of points based on the provided geoTransform
-    Note:  This can generate multiple rows worth, but they will be
-           returned in a linear series!
-
-  """
-  upperLeftX = geoTransform[0]
-  upperLeftY = geoTransform[3]
-  #xSkew = geoTransform[2]
-  #ySkew = geoTransform[4]
-  xResolution = geoTransform[1]
-  yResolution = geoTransform[5]
-  projection = partial(
-       pyproj.transform,
-       pyproj.Proj(source_crs),
-       pyproj.Proj(target_crs))
-  xs = pd.np.arange(xMin, xMax+1)
-  ys = pd.np.arange(yMin, yMax+1)
-  xs = xs*xResolution + upperLeftX + (xResolution / 2.0)
-  ys = ys*yResolution + upperLeftY + (yResolution / 2.0)
-  xxs, yys = projection( *(pd.np.meshgrid(xs, ys)) )
-  """
-  print xxs.shape
-  print xxs
-  print yys.shape
-  print yys
-  """
-  points = [ [ (x,y)for x in xxs[0] ] for y in yys[:,0] ] 
-  """
-  print len(points)
-  print len(points[0])
-  print points[0][0]
-  """
-  return points
-
-def points_to_pixels(geoTransform, points):
-  upperLeftX = geoTransform[0]
-  upperLeftY = geoTransform[3]
-  xSkew = geoTransform[2]
-  ySkew = geoTransform[4]
-  xResolution = geoTransform[1]
-  yResolution = geoTransform[5]
-  indicies = [ ]
-  #print upperLeftX, upperLeftY
-  #print xResolution, yResolution
-  for point in points:
-    col = int( (point.x - upperLeftX ) / xResolution )
-    row = int( (point.y - upperLeftY ) / yResolution )
-    indicies.append( (col, row) )
-  return indicies
-
-def data_at_points(points):
-  result = pd.np.full(len(points), pd.np.nan)
-  for i, point in enumerate(points):
-    search_start = time.time()
-    hits = list(meshIndex.intersects(QgsRectangle(point[0],point[1],point[0],point[1])))
-    for h in hits:
-      geom = mesh.loc[h].geometry
-      if geom.contains(Point(point[0], point[1])):
-        result[i] = output_variable[h]
-        break
-  return result
-
-def data_at_point(point):
-  hits = list(meshIndex.intersects(QgsRectangle(*(point.bounds))))
-
-  for h in hits:
-    geom = mesh.loc[h].geometry
-    if geom.contains(point):
-      return output_variable[h]
-  return pd.np.nan
-
-
-def process_rows(chunks):
-  try:
-    setup_start = time.time()
-    my_subset = row_points[chunks[0]:chunks[-1]]
-    offset =chunks[0]
-    output_dataset = gdal.Open(output_file, gdal.GA_Update)
-    band = output_dataset.GetRasterBand(1)
-    setup_end = time.time()
-    dataTimeStart = time.time()
-    dataTimes = []
-    writeTimes = []
-    for i, row in enumerate(my_subset):
-        #Use these geometries to create a dataframe
-        data_start = time.time()
-        data = pd.DataFrame()
-        #Add depth info to dataframe
-        data['output']  = data_at_points(row)# pixelGeom.geometry.apply(data_at_point)
-        #print data['depth'].dropna()
-        data['output'].fillna(-9999, inplace=True)
-        write_data = pd.np.expand_dims(data['output'].values, axis=0)
-        dataTimes.append(time.time() - data_start)
-        #print write_data.shape
-        write_start = time.time()
-        lock.acquire()
-        fs_time = time.time()
-        band.WriteArray(write_data, 0, offset+i)
-        lock.release()
-        writeTimes.append(time.time() - write_start)
-        fs_time2 = time.time()
-    dataTimeEnd = time.time()
-    flush_time = time.time()
-    lock.acquire()
-    band.FlushCache()
-    del output_dataset
-    flush_time_end = time.time()
-    print "Time to process {} rows: {}. dataTime {}, writeTime {}, flushTime {}".format(len(chunks), dataTimeEnd - dataTimeStart, sum(dataTimes), sum(writeTimes), flush_time - flush_time_end)
-    lock.release()
-  except Exception, e:
-    print e
-    raise(e)
-
-def mp_init(init_lock):
-  global lock
-  lock = init_lock
 
 """
 BEGIN processing beyond user control!
-
 """
-#Figure out which indicies these points correspond to in the DEM
-raster_bounds = points_to_pixels( raster.GetGeoTransform(), bounds )
-raster_xMin, raster_yMin = raster_bounds[0]
-raster_xMax, raster_yMax = raster_bounds[1]
-col_size = raster_xMax - raster_xMin + 1 #For 0 based index
-row_size = raster_yMax - raster_yMin + 1 #For 0 based index
-mesh_bounds = bounds.to_crs(adhydro_projection)
-bounding_box = box(mesh_bounds[0].x, mesh_bounds[0].y, mesh_bounds[1].x, mesh_bounds[1].y)
 
-#Get the mesh into geometries for operating on, including a spatial index
-mesh, meshIndex = getADHydroMeshPolyGeometry(args.ADHydroGeometry, bounding_box)
+adhydro_to_output = partial(
+   pyproj.transform,
+   pyproj.Proj( adhydro_projection ),
+   pyproj.Proj( output_projection ) )
+
+bounds = gpd.GeoSeries([])
+if args.bounds:
+  #Limit processing based on input bounding box
+  bounds = gpd.GeoSeries( [Point(args.bounds[0], args.bounds[1]), Point(args.bounds[2], args.bounds[3])], crs="+init=epsg:4326")
+#Use the bounds of the mesh geometry to limit the raster processing
+#mesh_minX, mesh_minY, mesh_maxX, mesh_maxY = mesh.total_bounds
+#bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs=adhydro_projection)
+#Pre defined bounding box
+#in lat/long coords (WGS84)
+#mesh_minX, mesh_maxX, mesh_minY, mesh_maxY = (-95.8939, -95.2916, 29.9744, 29.5541)
+#bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs="+init=epsg:4326" )
+
+bounding_box = None
+
+if not bounds.empty:
+  mesh_bounds = bounds.to_crs(adhydro_projection)
+  bounding_box = box(mesh_bounds[0].x, mesh_bounds[0].y, mesh_bounds[1].x, mesh_bounds[1].y)
+
+#Get the mesh into geometries for operating on
+mesh = getADHydroMeshPolyGeometry(args.ADHydroGeometry, bounding_box)
+
+if bounds.empty:
+  mesh_minX, mesh_minY, mesh_maxX, mesh_maxY = mesh.total_bounds
+  mesh_bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs=adhydro_projection)
+
 #print mesh
 #Can save mesh shape file for debuggin if needed, uncomment the next line
 #mesh.to_file('/scratch/houston_mesh_small.shp', 'ESRI Shapefile')
 #os._exit(1)
+#print mesh_bounds
+#The parameters for the new raster will based on these bounds
+#We need to convert them to the output_projection and create the output raster
+output_xMin, output_yMin = adhydro_to_output( mesh_bounds[0].x, mesh_bounds[0].y )
+output_xMax, output_yMax = adhydro_to_output( mesh_bounds[1].x, mesh_bounds[1].y )
+output_xRes = 10
+output_yRes = -10
+#Build the geo transform for pixels->coords
+transform = rasterio.transform.from_origin(output_xMin, output_yMin, output_xRes, -output_yRes)
+#Invert transform for coords->pixels
+inverse_transform = ~transform
 
-#Set up the output raster
-driver = gdal.GetDriverByName('GTiff')
-output_dataset = driver.Create(output_file, col_size, row_size, 1, gdal.GDT_Float64)
-output_originX = bounds[0].x 
-output_originY = bounds[0].y
-output_xResolution = raster.GetGeoTransform()[1]
-output_yResolution = raster.GetGeoTransform()[5]
-print "Creating raster with {} rows, {} cols, starting at {}, {} with xRes {}, yRes {}".format(row_size, col_size, output_originX, output_originY, output_xResolution, output_yResolution)
-output_dataset.SetGeoTransform( (output_originX, output_xResolution, 0, output_originY, 0, output_yResolution) )
-output_dataset.SetProjection( raster_crs.ExportToWkt() )
-band = output_dataset.GetRasterBand(1)
-band.SetNoDataValue(-9999)
-del output_dataset #reopen in each process
-print "Bounded Grid Size: {} rows, {} cols".format(row_size, col_size)
-percent_done = 0
-#update_at = int(row_size*0.01) #update progress every 10%
-    
-#Generate points for all
-#Let the generator project the coordinates from raster to adhydro coords
-pointTimeStart = time.time()
-row_points = pixels_to_points(raster.GetGeoTransform(), raster_crs.ExportToProj4(), adhydro_projection, raster_xMin, raster_xMax, raster_yMin, raster_yMax)
-pointTimeEnd = time.time()
-print "Created all points in {} seconds".format(pointTimeEnd - pointTimeStart)
+index_xMin, index_yMin = map(int, inverse_transform * (output_xMin, output_yMin) )
+index_xMax, index_yMax = map(int, inverse_transform * (output_xMax, output_yMax) )
+
+#Not supported in this version of rasterio... so using manual method above
+#index_xMin, index_xMax, index_yMin, index_yMax = rasterio.transform.rowcol(transform, [output_xMin, output_xMax], [output_yMin, output_yMax] )
+
+#Find raster size in number of pixels per column and row
+col_size = index_xMax - index_xMin + 1 #For 0 based index
+row_size = index_yMax - index_yMin + 1 #For 0 based index
+
+print "Projecting mesh coordinates"
+mesh = mesh.to_crs(output_projection)
+
+def process(which):
+
+  def read_data(s):
+    return output_variable[s.name]
+
+  def aggregate_data(s, agg):
+    return agg( output_variable[:, s.name] )
+
+  #Read the dataset into memory
+  adhydro_output = nc.Dataset(args.ADHydroOutput, 'r')
+  output_variable = None
+  start_time = args.time + pd.Timedelta('{} day'.format(which))
+  if start_time > time_df.index[-1]:
+    print "WARNING: Time {} does not exist in {}.  Skipping rasterization.".format(start_time, args.ADHydroOutput)
+    return
+  if args.aggregate:
+    end_time = start_time + pd.Timedelta('23 hours')
+    if end_time > time_df.index[-1]:
+        end_time = time_df.index[-1]
+        print "WARNING: Cannot aggregate full day, result for {} aggregates to {}".format(start_time, end_time)
+    indicies = time_df['i'][start_time:end_time]
+    #print time_df.loc[start_time:end_time] 
+    output_variable = adhydro_output.variables[args.variable][ indicies.values ][:]
+  else:
+    #If no aggregation, can read a single time
+    output_variable = adhydro_output.variables[args.variable][time_df['i'][start_time]][:]
+  
+  #Set the output file name
+  time_string = start_time.strftime('%Y-%m-%d:%H:%M:%S')
+  output_file = '{}_{}_adhydro.tif'.format(time_string, args.variable)
+  if args.aggregate:
+    output_file = '{}_{}_adhydro_daily_{}.tif'.format(time_string, args.variable, args.aggregate)
+
+  if args.outputFileName:
+    output_file = time_string+'_'+args.outputFileName
+
+  if args.aggregate:
+    op = None
+    if args.aggregate == 'min':
+      op = pd.np.min
+    elif args.aggregate == 'max':
+      op = pd.np.max
+    else:
+      op = pd.np.mean
+    mesh['data'] = mesh.apply(aggregate_data, axis=1, args=(op,))
+  else:
+      mesh['data'] = mesh.apply(read_data, axis=1)
+  mesh['data'].fillna(-9999, inplace=True)
+
+  print "Creating {} with {} rows, {} cols, starting at {}, {} with xRes {}, yRes {}".format(output_file, row_size, col_size, output_xMin, output_yMin, output_xRes, output_yRes)
+  #NOTE cannot use proj4 string output_projection for albers equal area...it hangs and segfaults the raster open...so for now use the epsg/seri code 102003
+  output_crs = rasterio.crs.CRS.from_string("epsg:102003")
+  with rasterio.open(output_file, 'w', driver='GTiff', width = col_size, height=row_size, count=1, dtype = rasterio.float64, crs=output_crs, transform=transform, nodata=-9999) as out:
+    #print "Starting rasterization"
+    raster_start = time.time()
+    img = rasterio.features.rasterize( ( (geom, data) for data,geom in mesh[['data', 'geometry']].itertuples(index=False) ), 
+                                       out_shape=(row_size, col_size), fill=-9999, transform=transform, dtype=rasterio.float64 )
+    raster_end = time.time()
+    print "Time to rasterize {} was {} seconds.".format(output_file, raster_end - raster_start)
+    out.write_band(1, img)
 
 if __name__ == '__main__':
-    print "Initial memory usage: {} GB".format(mem_usage(True))
-    start_time = time.time()
-       
-    #total = len(row_points)
-    #update_at = int(total*0.1)
-    num_cores = mp.cpu_count()
-    chunks = getChunks(len(row_points), num_cores)
-    lock = mp.Lock()
-    pool = mp.Pool(num_cores, initializer=mp_init, initargs=(lock,))
-    pool.map(process_rows, chunks)
-    pool.close()
-    pool.join()
+  num_cores = mp.cpu_count()
+  pool = mp.Pool(num_cores)
+  pool.map(process, range(args.period))
