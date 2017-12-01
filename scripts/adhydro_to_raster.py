@@ -107,6 +107,8 @@ adhydro_projection = '+proj=sinu +lon_0={} +x_0=20000000 +y_0=0 +datum=WGS84 +un
 #Albers Equal Area Conic on NAD83 datum
 output_projection = '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'
 
+#NOTE cannot use proj4 string output_projection for albers equal area...it hangs and segfaults the raster open...so for now use the epsg/seri code 102003
+output_crs = rasterio.crs.CRS.from_string("epsg:102003")
 
 def getChunks(size, num_chunks):
     """
@@ -283,8 +285,6 @@ def process(which):
   mesh['data'].fillna(-9999, inplace=True)
 
   print "Creating {} with {} rows, {} cols, starting at {}, {} with xRes {}, yRes {}".format(output_file, row_size, col_size, output_xMin, output_yMin, output_xRes, output_yRes)
-  #NOTE cannot use proj4 string output_projection for albers equal area...it hangs and segfaults the raster open...so for now use the epsg/seri code 102003
-  output_crs = rasterio.crs.CRS.from_string("epsg:102003")
   with rasterio.open(output_file, 'w', driver='GTiff', width = col_size, height=row_size, count=1, dtype = rasterio.float64, crs=output_crs, transform=transform, nodata=-9999) as out:
     #print "Starting rasterization"
     raster_start = time.time()
