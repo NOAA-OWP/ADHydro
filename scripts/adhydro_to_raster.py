@@ -73,7 +73,8 @@ parser.add_argument('-a', '--aggregate', help='Aggregate results daily using [mi
 parser.add_argument('-p', '--period', help='Periods to produce output.  One file per period will be produced (daily frequency), with the time appended to outputFileName if specified. Defaults to 1.', type=checkPositiveInput, default=1)
 parser.add_argument('-b', '--bounds', help="Bounding box to limit processing. Coordinates in lat/long (WGS84).  Input as minLong, minLat, maxLong, maxLat.  Default uses mesh extent.", nargs=4, type=float, metavar=('minLong', 'minLat', 'maxLong', 'maxLat'))
 args = parser.parse_args()
-test_bounds(args.bounds)
+if args.bounds:
+  test_bounds(args.bounds)
 """
   Verify inputs exist as files
 """
@@ -200,7 +201,7 @@ if not bounds.empty:
 mesh = getADHydroMeshPolyGeometry(args.ADHydroGeometry, bounding_box)
 
 if bounds.empty:
-  mesh_minX, mesh_minY, mesh_maxX, mesh_maxY = mesh.total_bounds
+  mesh_minX, mesh_maxY, mesh_maxX, mesh_minY = mesh.total_bounds
   mesh_bounds = gpd.GeoSeries( [ Point(mesh_minX, mesh_minY), Point(mesh_maxX, mesh_maxY) ], crs=adhydro_projection)
 
 #print mesh
