@@ -80,9 +80,9 @@ const char* channelPruneFilename   = "/share/CI-WATER_Simulation_Data/upper_colo
 // sizes in the ChannelElement class the extra entries will get filled in with defaults.  If they are more the file managers will report an error and not read
 // the files.
 // FIXME These numbers might not exist as fixed sizes in the rewritten code if everything is stored in vectors instead of arrays.
-const int ChannelElement_channelVerticesSize  = 40;  // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
-const int ChannelElement_channelNeighborsSize = 4;   // Maximum number of channel neighbors.
-const int ChannelElement_meshNeighborsSize    = 8; // Maximum number of mesh neighbors.
+const int ChannelElement_channelVerticesSize  = 108; // Maximum number of channel vertices.  Unlike the mesh, vertices are not necessarily equal to neighbors.
+const int ChannelElement_channelNeighborsSize = 8;  // Maximum number of channel neighbors.
+const int ChannelElement_meshNeighborsSize    = 42; // Maximum number of mesh neighbors.
 
 #define SHAPES_SIZE     (20) // Size of array of shapes in ChannelLinkStruct.
 #define UPSTREAM_SIZE   (95) // Size of array of upstream links in ChannelLinkStruct.
@@ -5467,9 +5467,9 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 }
               
               // Output fixed length per-element information.
-              numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
+              numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
                                    topWidth, bankFullDepth, ChannelElement_channelVerticesSize, ChannelElement_channelNeighborsSize,
-                                   ChannelElement_meshNeighborsSize);
+                                   ChannelElement_meshNeighborsSize, streamOrder);
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(0 < numPrinted))
@@ -6126,10 +6126,10 @@ int main(int argc, char** argv)
     std::string taudemDir = mapDir+"/TauDEM/";
     std::string arcgisDir = mapDir+"/ArcGIS/";
 
-    streamNetworkShapefile = arcgisDir+baseName+"projectednet";
-    waterbodiesShapefile = arcgisDir+baseName+"waterbodies_final";
-    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"wtrbodies_streams_intersect_final";
-    waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"intersect_wtrbodies_final";
+    streamNetworkShapefile = taudemDir+baseName+"_net";
+    waterbodiesShapefile = arcgisDir+baseName+"_waterbodies";
+    waterbodiesStreamsIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
+    waterbodiesWaterbodiesIntersectionsShapefile = arcgisDir+baseName+"_waterbodies_waterbodies_intersections";
     meshLinkFilename = asciiDir+"mesh.1.link";
     meshNodeFilename = asciiDir+"mesh.1.node";
     meshElementFilename = asciiDir+"mesh.1.ele";
