@@ -68,7 +68,7 @@ public:
   // simulationEndTimeInit - Simulation time in seconds since referenceDateInit
   //                         to initialize simulationEndTime and nextSyncTime.
   Element(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
-  
+  Element(){}
   // Charm++ pack/unpack method.
   //
   // Parameters:
