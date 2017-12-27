@@ -575,6 +575,7 @@ ChannelElement::ChannelElement() :
   elementNumber(0), // Dummy values will be overwritten by pup_stl.h code.
   channelType(NOT_USED),
   reachCode(0),
+  streamOrder(0),
   elementX(0.0),
   elementY(0.0),
   elementZBank(0.0),
@@ -612,7 +613,7 @@ ChannelElement::ChannelElement() :
   // Initialization handled by initialization list.
 }
 
-ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit, double elementYInit,
+ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit, double elementYInit,
                                double elementZBankInit, double elementZBedInit, double elementLengthInit, double latitudeInit, double longitudeInit,
                                double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit, double manningsNInit,
                                double surfacewaterDepthInit, double surfacewaterErrorInit, double precipitationRateInit,
@@ -622,6 +623,7 @@ ChannelElement::ChannelElement(int elementNumberInit, ChannelTypeEnum channelTyp
   elementNumber(elementNumberInit),
   channelType(channelTypeInit),
   reachCode(reachCodeInit),
+  streamOrder(streamOrderInit),
   elementX(elementXInit),
   elementY(elementYInit),
   elementZBank(elementZBankInit),
@@ -793,6 +795,7 @@ void ChannelElement::pup(PUP::er &p)
   p | elementNumber;
   p | channelType;
   p | reachCode;
+  p | streamOrder;
   p | elementX;
   p | elementY;
   p | elementZBank;

@@ -194,7 +194,7 @@ public:
   //
   // meshNeighbors, channelNeighbors, and undergroundMeshNeighbors are
   // initialized to empty.
-  ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit, double elementYInit,
+  ChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit, double elementYInit,
                  double elementZBankInit, double elementZBedInit, double elementLengthInit, double latitudeInit, double longitudeInit,
                  double baseWidthInit, double sideSlopeInit, double bedConductivityInit, double bedThicknessInit, double manningsNInit,
                  double surfacewaterDepthInit, double surfacewaterErrorInit, double precipitationRateInit,
@@ -375,7 +375,7 @@ public:
   int             elementNumber; // Channel element ID number of this element.
   ChannelTypeEnum channelType;   // What type of channel is this.
   long long       reachCode;     // For waterbodies, reach code.  For streams, original link number that element came from.
-  
+  int 		  streamOrder;   // Stream order of the channel element.
   // Geometric coordinates.
   double elementX;      // Meters.
   double elementY;      // Meters.
