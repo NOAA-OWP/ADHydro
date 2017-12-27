@@ -1,0 +1,9 @@
+module region
+{
+  array [1D] Region
+  {
+    entry Region();
+    entry void doSomething();
+    
+  }; // End array [1D] Region.
+}; // End module region.

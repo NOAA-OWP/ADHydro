@@ -1,0 +1,9 @@
+module OutputManager 
+{
+  group OutputManager
+  {
+    entry OutputManager();
+    entry void registerRegion(Region& region);
+    entry void unregisterRegion(Region& region);
+  }
+}

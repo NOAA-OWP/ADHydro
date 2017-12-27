@@ -1,0 +1,15 @@
+mainmodule main
+{
+    extern module region;
+    extern module OutputManager;
+    
+    readonly CProxy_Main mainProxy;
+
+    mainchare Main
+    {   
+	readonly CProxy_OutputManager outputManager;
+	readonly CProxy_Region regionProxy;
+        entry Main(CkArgMsg* msg);
+        entry void done(int);
+    };
+};
