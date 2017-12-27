@@ -1,42 +1,21 @@
-######
-#   Set CHARMDIR to be the install directory of charm
-######
+.PHONY: all netcdf
 
-######
-#EN LAB
-######
-#CHARMDIR    := /opt/build/charm
+IO_OBJS := adhydro_io.o
+NETCDFOBJS := netcdf/adhydro_netcdf.o
+VPATH := ./netcdf
 
-######
-#MOUNT MORAN
-######
-#CHARMDIR   := /project/CI-WATER/tools/CI-WATER-tools/charm
+all: netcdf $(IO_OBJS)
 
-######
-#OTHER
-######
-#CHARMDIR   := ~/Desktop/charm/
+netcdf: $(NETCDFOBJS)
 
+netcdf/adhydro_netcdf.o: adhydro_netcdf.cc netcdf/netcdf_io_ops.h netcdf/netcdf_io_ops.cpp
+	$(MAKE) -C netcdf
 
-
-CHARMC      := $(CHARMDIR)/bin/charmc $(OPTS)
-CHARM_INCL  := $(CHARMDIR)/include
-
-all: test
-
-test:	interperter.o lexer.o parser.o ast.o
-
-interperter.o:	lexer.o       \
-		ast.o         \
-		parser.o      
-
-lexer.o: lexer.cpp
-
-parser.o: lexer.o ast.o parser.cpp
-
-ast.o: ast.cpp
-
-.PHONY: all clean
+adhydro_io.o: adhydro_netcdf.cc netcdf/adhydro_netcdf.o
+	$(CHARMC) $(CPPFLAGS) $< -o tmp.o
+	$(LD) -r tmp.o $(NETCDFOBJS) -o $@ #These two lines nessicary because the charmc shell script doesn't properly handle creating an obj file from source and obj file
+	rm tmp.o
 
 clean:
-	rm -f *.o a.out
+	$(MAKE) -C netcdf clean
+	rm -f *.o *.def.h *.decl.h
