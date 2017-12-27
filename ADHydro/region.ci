@@ -41,7 +41,7 @@ module region
             }
           }
           
-          when sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+          when sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
                                             double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
                                             double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
@@ -55,7 +55,7 @@ module region
           {
             serial
             {
-              handleInitializeChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, elementXInit, elementYInit, elementZBankInit, elementZBedInit,
+              handleInitializeChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, streamOrderInit, elementXInit, elementYInit, elementZBankInit, elementZBedInit,
                                              elementLengthInit, latitudeInit, longitudeInit, baseWidthInit, sideSlopeInit, bedConductivityInit,
                                              bedThicknessInit, manningsNInit, surfacewaterDepthInit, surfacewaterErrorInit, precipitationRateInit,
                                              precipitationCumulativeShortTermInit, precipitationCumulativeLongTermInit, evaporationRateInit,
@@ -515,7 +515,7 @@ sendMaxDepthForTurnedOffElements();
                                          InfiltrationAndGroundwater::VadoseZone vadoseZoneInit, std::vector<simpleNeighborInfo> surfacewaterMeshNeighbors,
                                          std::vector<simpleNeighborInfo> surfacewaterChannelNeighbors,
                                          std::vector<simpleNeighborInfo> groundwaterMeshNeighbors, std::vector<simpleNeighborInfo> groundwaterChannelNeighbors);
-    entry void sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+    entry void sendInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
                                             double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
                                             double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,

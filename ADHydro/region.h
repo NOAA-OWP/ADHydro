@@ -203,7 +203,7 @@ public:
   // simulationEndTimeInit - Simulation time in seconds since referenceDateInit
   //                         to initialize simulationEndTime and nextSyncTime.
   Region(double referenceDateInit, double currentTimeInit, double simulationEndTimeInit);
-  
+  Region(){}
   // Charm++ migration constructor.
   //
   // Parameters:
@@ -389,7 +389,7 @@ public:
   //                                that are channel elements.
   // groundwaterMeshNeighbors     - Groundwater neighbors of the new element
   //                                that are mesh elements.
-  void handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+  void handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit,
                                       double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
                                       double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
                                       double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,

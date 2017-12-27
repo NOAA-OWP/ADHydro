@@ -1774,7 +1774,7 @@ void Region::handleInitializeMeshElement(int elementNumberInit, int catchmentIni
     }
 }
 
-void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, double elementXInit,
+void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEnum channelTypeInit, long long reachCodeInit, int streamOrderInit, double elementXInit,
                                             double elementYInit, double elementZBankInit, double elementZBedInit, double elementLengthInit,
                                             double latitudeInit, double longitudeInit, double baseWidthInit, double sideSlopeInit, double bedConductivityInit,
                                             double bedThicknessInit, double manningsNInit, double surfacewaterDepthInit, double surfacewaterErrorInit,
@@ -1826,7 +1826,7 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   
   // Insert element in this region's elements vector.
   channelElements.insert(std::pair<int, ChannelElement>(elementNumberInit,
-                                                        ChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, elementXInit, elementYInit,
+                                                        ChannelElement(elementNumberInit, channelTypeInit, reachCodeInit, streamOrderInit, elementXInit, elementYInit,
                                                                        elementZBankInit, elementZBedInit, elementLengthInit, latitudeInit, longitudeInit,
                                                                        baseWidthInit, sideSlopeInit, bedConductivityInit, bedThicknessInit, manningsNInit,
                                                                        surfacewaterDepthInit, surfacewaterErrorInit, precipitationRateInit,
