@@ -4,6 +4,11 @@
 #include <sys/stat.h>
 #include <libgen.h>
 
+
+//Quick hack for getting NETCDF IO namespace correct.  FIXME find all calls and use FQN
+using namespace adhydro::io::netcdf;
+
+
 ElementStateMessage::ElementStateMessage() :
   elementNumber(0), // Dummy values will be overwritten by pup_stl.h code.
   surfacewaterDepth(0.0),
@@ -289,6 +294,7 @@ FileManager::FileManager() :
   channelRegion(NULL),
   channelChannelType(NULL),
   channelReachCode(NULL),
+  channelStreamOrder(NULL),
   channelElementX(NULL),
   channelElementY(NULL),
   channelElementZBank(NULL),
@@ -498,6 +504,7 @@ FileManager::~FileManager()
   delete[] channelRegion;
   delete[] channelChannelType;
   delete[] channelReachCode;
+  delete[] channelStreamOrder;
   delete[] channelElementX;
   delete[] channelElementY;
   delete[] channelElementZBank;
@@ -809,6 +816,7 @@ void FileManager::initializeFromASCIIFiles()
   int                numberOfVertices;         // The number of vertices for a particular channel element.
   int                numberOfChannelNeighbors; // The number of channel neighbors for a particular channel element.
   int                numberOfMeshNeighbors;    // The number of mesh neighbors for a particular channel element.
+  int		     streamOrder;	       // Used to read channel stream order from the files.
   int                downstream;               // Used to read whether a channel neighbor is downstream.
   LongLongArrayPair* tempChannelPruned;        // For reallocing channelPruned.
 
@@ -1410,6 +1418,7 @@ void FileManager::initializeFromASCIIFiles()
       channelElementVertices            = new int[localNumberOfChannelElements][XDMF_SIZE];
       channelChannelType                = new ChannelTypeEnum[localNumberOfChannelElements];
       channelReachCode                  = new long long[localNumberOfChannelElements];
+      channelStreamOrder		= new int[localNumberOfChannelElements];
       channelElementBankFullDepth       = new double[localNumberOfChannelElements];
       channelElementLength              = new double[localNumberOfChannelElements];
       channelBaseWidth                  = new double[localNumberOfChannelElements];
@@ -1423,11 +1432,11 @@ void FileManager::initializeFromASCIIFiles()
   // Read channel elements.
   for (ii = 0; !error && ii < globalNumberOfChannelElements; ii++)
     {
-      numScanned = fscanf(chanEleFile, "%d %d %lld %lf %lf %lf %d %d %d", &index, &type, &reachCode1, &length, &topWidth, &bankFullDepth, &numberOfVertices,
-                          &numberOfChannelNeighbors, &numberOfMeshNeighbors);
-      
+      numScanned = fscanf(chanEleFile, "%d %d %lld %lf %lf %lf %d %d %d %d", &index, &type, &reachCode1, &length, &topWidth, &bankFullDepth, &numberOfVertices,
+                          &numberOfChannelNeighbors, &numberOfMeshNeighbors, &streamOrder);
+      //NJF updated to read stream order 2017-05-17
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(9 == numScanned))
+      if (!(10 == numScanned))
         {
           CkError("ERROR in FileManager::initializeFromASCIIFiles: unable to read entry %d from chan.ele file.\n", ii);
           error = true;
@@ -1491,6 +1500,12 @@ void FileManager::initializeFromASCIIFiles()
                   "than or equal to the maximum number of channel mesh neighbors %d in chan.ele file.\n", index, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE);
           error = true;
         }
+        
+      if (!(0 < streamOrder))
+      {
+	  CkError("ERROR in FileManager::initializeFromASCIIFiles: channel %d: streamOrder must be greater than zero in chan.ele file.\n", index);
+          error = true;
+      }
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
 
       // Save values.
@@ -1511,7 +1526,8 @@ void FileManager::initializeFromASCIIFiles()
           {
               channelBaseWidth[       index - localChannelElementStart]    = 0.1;
           }
-        }
+	        
+          channelStreamOrder[	      index - localChannelElementStart]    = streamOrder;
       
       // Read vertices.
       for (jj = 0; !error && jj < numberOfVertices; jj++)
@@ -1797,147 +1813,9 @@ void FileManager::initializeFromASCIIFiles()
     }
 }
 
-bool FileManager::NetCDFOpenForRead(const char* path, int* fileID)
-{
-  bool error = false; // Error flag.
-  int  ncErrorCode;   // Return value of NetCDF functions.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != path))
-    {
-      CkError("ERROR in FileManager::NetCDFOpenForRead: path must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != fileID))
-    {
-      CkError("ERROR in FileManager::NetCDFOpenForRead: fileID must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  if (!error)
-    {
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFOpenForRead: could not open for read NetCDF file %s.  NetCDF error message: %s.\n", path,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
 
-  return error;
-}
-
-bool FileManager::NetCDFCreateOrOpenForWrite(const char* path, int* fileID, bool* created)
-{
-  bool        error     = false; // Error flag.
-  int         ncErrorCode;       // Return value of NetCDF functions.
-  char*       tmpPath   = NULL;  // Temporary string for string manipulation.
-  char*       directory = NULL;  // Directory where file is located.
-  struct stat fileStatus;        // Used to detect whether files and directories exist.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != path))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: path must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != fileID))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: fileID must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-  if (NULL != created)
-    {
-      *created = false;
-    }
-
-  if (!error)
-    {
-      // FIXLATER this works for Linux only
-      // Create the directory if it doesn't already exist.  The dirname function may modify the string passed to it so we first need to create a copy of path to
-      // pass to dirname.
-      tmpPath = (char*)malloc(strlen(path) + 1);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NULL != tmpPath))
-        {
-          CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: could not allocate memory for tmpPath.\n");
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  if (!error)
-    {
-      strcpy(tmpPath, path);
-      directory = dirname(tmpPath);
-      
-      if (0 != stat(directory, &fileStatus))
-        {
-          // Directory does not exist.  Create it.
-          // FIXME does not create directory hierarchies.
-          if (0 != mkdir(directory, 0777))
-            {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-              CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: Cannot create directory %s.\n", directory);
-              error = true;
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            }
-        }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      else if (S_IFDIR != (fileStatus.st_mode & S_IFMT))
-        {
-          // File exists, but is not directory.  Error.
-          CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: Cannot create file %s because %s already exists, but is not a directory.\n", path,
-                  directory);
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  if (NULL != tmpPath)
-    {
-      free(tmpPath);
-    }
-  
-  if (!error)
-    {
-      // At this point the directory exists.  Try to open the file for write, and if that fails try to create the file.
-      ncErrorCode = nc_open_par(path, NC_NETCDF4 | NC_MPIIO | NC_WRITE, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
-      
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          ncErrorCode = nc_create_par(path, NC_NETCDF4 | NC_MPIIO | NC_NOCLOBBER, MPI_COMM_WORLD /* FIXME this isn't working NetCDFMPIComm */, MPI_INFO_NULL, fileID);
-      
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::NetCDFCreateOrOpenForWrite: could not create or open for write NetCDF file %s.  NetCDF error message: %s.\n",
-                      path, nc_strerror(ncErrorCode));
-              error = true;
-            }
-          else
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-            {
-              if (NULL != created)
-                {
-                  *created = true;
-                }
-            }
-        }
-    }
-  
-  return error;
-}
 
 bool FileManager::NetCDFCreateOrOpenForWriteGeometry(int* fileID)
 {
@@ -2689,6 +2567,12 @@ bool FileManager::NetCDFCreateOrOpenForWriteParameter(int* fileID)
                                        "The reach code of each channel element.  This is a unique ID for stream reaches and waterbodies.");
         }
       
+      if (!error && NULL != channelStreamOrder)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelStreamOrder", NC_INT, 2, instancesDimensionID, channelElementsDimensionID, 0, NULL,
+                                       "The stream order of the channel element.");
+        }
+        
       if (!error && NULL != channelBaseWidth)
         {
           error = NetCDFCreateVariable(*fileID, "channelBaseWidth", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
@@ -3337,7 +3221,7 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
         {
           error = NetCDFCreateDimension(*fileID, "channelElements", NC_UNLIMITED, &channelElementsDimensionID);
         }
-      
+
       // Create display variables.
       if (!error)
         {
@@ -3372,7 +3256,130 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
           error = NetCDFCreateVariable(*fileID, "currentTime", NC_DOUBLE, 1, instancesDimensionID, 0, 0, "seconds",
                                        "Elapsed time since referenceDate.  Can be negative to indicate times before referenceDate.");
         }
+ //NJF Adding these variables to display temporarily for scaling analysis, remove them!!! FIXME
+ 
+int     meshMeshNeighborsSizeDimensionID;       // ID of dimension in NetCDF file.
+  int     meshChannelNeighborsSizeDimensionID;    // ID of dimension in NetCDF file.
+  int     channelMeshNeighborsSizeDimensionID;    // ID of dimension in NetCDF file.
+  int     channelChannelNeighborsSizeDimensionID; // ID of dimension in NetCDF file.
+if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "meshMeshNeighborsSize", MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &meshMeshNeighborsSizeDimensionID);
+        }
       
+      if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "meshChannelNeighborsSize", MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &meshChannelNeighborsSizeDimensionID);
+        }
+if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "channelMeshNeighborsSize", CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &channelMeshNeighborsSizeDimensionID);
+        }
+      
+      if (!error)
+        {
+          error = NetCDFCreateDimension(*fileID, "channelChannelNeighborsSize", CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE,
+                                        &channelChannelNeighborsSizeDimensionID);
+        }
+ if (!error && NULL != meshSurfacewaterDepth)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
+                                       "Surfacewater depth of each mesh element.");
+        }
+if (!error && NULL != meshPrecipitationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous precipitation rate of each mesh element as a negative number.");
+        }
+if (!error && NULL != meshPrecipitationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
+                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != meshPrecipitationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
+                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
+                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowRate", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
+                                       meshChannelNeighborsSizeDimensionID, "meters^3/second",
+                                       "Instantaneous flow rate of surfacewater between a mesh element and its channel neighbor.  Positive means flow out of "
+                                       "the element into the neighbor.  Negative means flow into the element out of the neighbor.");
+        }
+      
+      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", NC_DOUBLE, 3, instancesDimensionID,
+                                       meshElementsDimensionID, meshChannelNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
+                                       "between a mesh element and its channel neighbor.  Positive means flow out of the element into the neighbor.  Negative "
+                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative flow add short term and long term.");
+        }
+      
+      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", NC_DOUBLE, 3, instancesDimensionID,
+                                       meshElementsDimensionID, meshChannelNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
+                                       "between a mesh element and its channel neighbor.  Positive means flow out of the element into the neighbor.  Negative "
+                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative flow add short term and long term.");
+        }
+     if (!error && NULL != channelSurfacewaterDepth)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
+                                       "Surfacewater depth of each channel element.");
+        }
+     if (!error && NULL != channelPrecipitationRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters/second",
+                                       "Instantaneous precipitation rate of each channel element as a negative number.");
+        }
+      
+      if (!error && NULL != channelPrecipitationCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
+                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+      
+      if (!error && NULL != channelPrecipitationCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
+                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
+                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
+        }
+if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowRate", NC_DOUBLE, 3, instancesDimensionID, channelElementsDimensionID,
+                                       channelMeshNeighborsSizeDimensionID, "meters^3/second",
+                                       "Instantaneous flow rate of surfacewater between a channel element and its mesh neighbor.  Positive means flow out of "
+                                       "the element into the neighbor.  Negative means flow into the element out of the neighbor.");
+        }
+      
+      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", NC_DOUBLE, 3, instancesDimensionID,
+                                       channelElementsDimensionID, channelMeshNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
+                                       "between a channel element and its mesh neighbor.  Positive means flow out of the element into the neighbor.  Negative "
+                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative flow add short term and long term.");
+        }
+      
+      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
+        {
+          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", NC_DOUBLE, 3, instancesDimensionID,
+                                       channelElementsDimensionID, channelMeshNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
+                                       "between a channel element and its mesh neighbor.  Positive means flow out of the element into the neighbor.  Negative "
+                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
+                                       "cumulative flow add short term and long term.");
+        }
+ /*NJF Hacking Display file for debugging variables 
+    
       if (!error && NULL != meshSurfacewaterDepth)
         {
           error = NetCDFCreateVariable(*fileID, "meshSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
@@ -3541,9 +3548,10 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
           error = NetCDFCreateVariable(*fileID, "channelSnowWaterEquivalent", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
                                        "Total water (liquid and solid) in snow pack in meters of liquid water equivalent");
         }
-    }
+    
   // FIXME else if not error the file was not created we could check that the dimensions and variables exist and the dimensions are the right size.
-  
+*/
+  }
   if (error && fileOpen)
     {
       ncErrorCode = nc_close(*fileID);
@@ -4461,297 +4469,14 @@ void FileManager::NetCDFCreateInstances()
     }
 }
 
-bool FileManager::NetCDFCreateDimension(int fileID, const char* dimensionName, size_t dimensionSize, int* dimensionID)
-{
-  bool error = false; // Error flag.
-  int  ncErrorCode;   // Return value of NetCDF functions.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != dimensionName))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateDimension: dimensionName must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != dimensionID))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateDimension: dimensionID must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
 
-  if (!error)
-    {
-      ncErrorCode = nc_def_dim(fileID, dimensionName, dimensionSize, dimensionID);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFCreateDimension: unable to create dimension %s in NetCDF file.  NetCDF error message: %s.\n", dimensionName,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  return error;
-}
 
-bool FileManager::NetCDFReadDimensionSize(int fileID, const char* dimensionName, size_t* dimensionSize)
-{
-  bool error = false; // Error flag.
-  int  ncErrorCode;   // Return value of NetCDF functions.
-  int  dimensionID;   // ID of dimension in NetCDF file.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != dimensionName))
-    {
-      CkError("ERROR in FileManager::NetCDFReadDimensionSize: dimensionName must not be null.\n");
-      error = true;
-    }
-  
-  if (!(NULL != dimensionSize))
-    {
-      CkError("ERROR in FileManager::NetCDFReadDimensionSize: dimensionSize must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-  // Get the dimension ID.
-  if (!error)
-    {
-      ncErrorCode = nc_inq_dimid(fileID, dimensionName, &dimensionID);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFReadDimensionSize: unable to get dimension %s in NetCDF file.  NetCDF error message: %s.\n", dimensionName,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Get the dimension length.
-  if (!error)
-    {
-      ncErrorCode = nc_inq_dimlen(fileID, dimensionID, dimensionSize);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFReadDimensionSize: unable to get length of dimension %s in NetCDF file.  NetCDF error message: %s.\n",
-                  dimensionName, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  return error;
-}
 
-bool FileManager::NetCDFCreateVariable(int fileID, const char* variableName, nc_type dataType, int numberOfDimensions, int dimensionID0, int dimensionID1,
-                                       int dimensionID2, const char* units, const char* comment)
-{
-  bool error = false;                 // Error flag.
-  int  ncErrorCode;                   // Return value of NetCDF functions.
-  int  dimensionIDs[NC_MAX_VAR_DIMS]; // For passing dimension IDs.
-  int  variableID;                    // For getting variable ID.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != variableName))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateVariable: variableName must not be null.\n");
-      error = true;
-    }
-  
-  if (!(1 <= numberOfDimensions && 3 >= numberOfDimensions))
-    {
-      CkError("ERROR in FileManager::NetCDFCreateVariable: numberOfDimensions must be greater than or equal to one and less than or equal to three.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-  if (!error)
-    {
-      dimensionIDs[0] = dimensionID0;
-      dimensionIDs[1] = dimensionID1;
-      dimensionIDs[2] = dimensionID2;
 
-      ncErrorCode = nc_def_var(fileID, variableName, dataType, numberOfDimensions, dimensionIDs, &variableID);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFCreateVariable: unable to create variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  if (!error && NULL != units)
-    {
-      ncErrorCode = nc_put_att_text(fileID, variableID, "units", strlen(units), units);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFCreateVariable: unable to create attribute units of variable %s in NetCDF file.  NetCDF error message: %s.\n",
-                  variableName, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  if (!error && NULL != comment)
-    {
-      ncErrorCode = nc_put_att_text(fileID, variableID, "comment", strlen(comment), comment);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFCreateVariable: unable to create attribute comment of variable %s in NetCDF file.  NetCDF error message: %s.\n",
-                  variableName, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  return error;
-}
-
-template <typename T> bool FileManager::NetCDFReadVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart,
-                                                           size_t numberOfNodesElements, size_t fileDimension, size_t memoryDimension, bool repeatLastValue,
-                                                           T defaultValue, bool mandatory, T** variable)
-{
-  bool   error = false;          // Error flag.
-  size_t ii, jj;                 // Loop counters.
-  int    ncErrorCode;            // Return value of NetCDF functions.
-  int    variableID;             // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
-  T*     tempVariable;           // For remapping arrays when fileDimension is smaller than memoryDimension
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != variableName))
-    {
-      CkError("ERROR in FileManager::NetCDFReadVariable: variableName must not be null.\n");
-      error = true;
-    }
-  
-  if (!(1 <= numberOfNodesElements))
-    {
-      CkError("ERROR in FileManager::NetCDFReadVariable: numberOfNodesElements must be greater than or equal to one.\n");
-      error = true;
-    }
-  
-  if (!(1 <= memoryDimension))
-    {
-      CkError("ERROR in FileManager::NetCDFReadVariable: memoryDimension must be greater than or equal to one.\n");
-      error = true;
-    }
-  
-  if (!(NULL != variable))
-    {
-      CkError("ERROR in FileManager::NetCDFReadVariable: variable must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  // fileDimenison must be less than or equal to memoryDimension.  Otherwise there is not enough room to read all of the data and it is an error.
-  if (!(1 <= fileDimension && fileDimension <= memoryDimension))
-    {
-      CkError("ERROR in FileManager::NetCDFReadVariable: fileDimension must be greater than or equal to one and less than or equal to memoryDimension for "
-              "variable %s in NetCDF file.\n", variableName);
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-  
-  if (!error)
-    {
-      // Get the variable ID.
-      ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
-
-      if (!(NC_NOERR == ncErrorCode))
-        {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          // If the variable does not exist it is only an error if the variable is mandatory.
-          if (mandatory)
-            {
-              CkError("ERROR in FileManager::NetCDFReadVariable: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-        }
-      else // If the variable does exist get its data.
-        {
-          // Fill in the start and count of the dimensions.
-          start[0] = instance;
-          start[1] = nodeElementStart;
-          start[2] = 0;
-          count[0] = 1;
-          count[1] = numberOfNodesElements;
-          count[2] = fileDimension;
-
-          // Allocate space if needed.
-          if (NULL == *variable)
-            {
-              *variable = new T[numberOfNodesElements * fileDimension];
-            }
-          
-          // Get the variable data.
-          ncErrorCode = nc_get_vara(fileID, variableID, start, count, *variable);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          if (!(NC_NOERR == ncErrorCode))
-            {
-              CkError("ERROR in FileManager::NetCDFReadVariable: unable to read variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-                      nc_strerror(ncErrorCode));
-              error = true;
-            }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-          
-          // If fileDimenison is less than memoryDimension we need to remap the array and fill in the extra elements.
-          if (!error && fileDimension < memoryDimension)
-            {
-              // Allocate a new array of the right size for memoryDimension.
-              tempVariable = new T[numberOfNodesElements * memoryDimension];
-              
-              for (ii = 0; ii < numberOfNodesElements; ii++)
-                {
-                  for (jj = 0; jj < fileDimension; jj++)
-                    {
-                      // Fill in the values up to fileDimension that were read from the file.
-                      tempVariable[ii * memoryDimension + jj] = (*variable)[ii * fileDimension + jj];
-                    }
-                  
-                  for(jj = fileDimension; jj < memoryDimension; jj++)
-                    {
-                      if (repeatLastValue)
-                        {
-                          // Fill in the rest of the values by repeating the last value read from the file.
-                          tempVariable[ii * memoryDimension + jj] = (*variable)[ii * fileDimension + fileDimension - 1];
-                        }
-                      else
-                        {
-                          // Fill in the rest of the values with defaultValue.
-                          tempVariable[ii * memoryDimension + jj] = defaultValue;
-                        }
-                    }
-                }
-              
-              // Delete the wrong size array read in from file and set variable to point to the right size array.
-              delete[] *variable;
-              *variable = tempVariable;
-            }
-        } // End if the variable does exist get its data.
-    } // End if (!error).
-  
-  return error;
-}
 
 bool FileManager::NetCDFReadInstances()
 {
@@ -5454,6 +5179,12 @@ bool FileManager::NetCDFReadParameter()
 
       if (!error)
         {
+          error = NetCDFReadVariable(fileID, "channelStreamOrder", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true,
+                                     0, false, &channelStreamOrder); //FIXME is 0 a reasonable default?  Should streamOrder be mandatory at this point?
+        }
+      
+      if (!error)
+        {
           error = NetCDFReadVariable(fileID, "channelBaseWidth", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1, 1, true, 0.0,
                                      false, &channelBaseWidth);
         }
@@ -5949,96 +5680,7 @@ bool FileManager::NetCDFReadState()
   return error;
 }
 
-bool FileManager::NetCDFWriteVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
-                                      size_t memoryDimension, void* variable)
-{
-  bool   error = false;          // Error flag.
-  int    ncErrorCode;            // Return value of NetCDF functions.
-  int    variableID;             // ID of variable in NetCDF file.
-  size_t start[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
-  size_t count[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
-  
-#if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  if (!(NULL != variableName))
-    {
-      CkError("ERROR in FileManager::NetCDFWriteVariable: variableName must not be null.\n");
-      error = true;
-    }
-  
-  if (!(1 <= numberOfNodesElements))
-    {
-      CkError("ERROR in FileManager::NetCDFWriteVariable: numberOfNodesElements must be greater than or equal to one.\n");
-      error = true;
-    }
-  
-  if (!(1 <= memoryDimension))
-    {
-      CkError("ERROR in FileManager::NetCDFWriteVariable: memoryDimension must be greater than or equal to one.\n");
-      error = true;
-    }
-  
-  if (!(NULL != variable))
-    {
-      CkError("ERROR in FileManager::NetCDFWriteVariable: variable must not be null.\n");
-      error = true;
-    }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
-  
-  // Get the variable ID.
-  if (!error)
-    {
-      ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
 
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  // Set collective access.
-  if (!error)
-    {
-      ncErrorCode = nc_var_par_access(fileID, variableID, NC_COLLECTIVE);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to set collective access for variable %s in NetCDF file.  NetCDF error message: %s.\n",
-                  variableName, nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-
-  if (!error)
-    {
-      // Fill in the start and count of the dimensions.
-      start[0] = instance;
-      start[1] = nodeElementStart;
-      start[2] = 0;
-      count[0] = 1;
-      count[1] = numberOfNodesElements;
-      count[2] = memoryDimension;
-      
-      // Write the variable.
-      ncErrorCode = nc_put_vara(fileID, variableID, start, count, variable);
-
-#if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-      if (!(NC_NOERR == ncErrorCode))
-        {
-          CkError("ERROR in FileManager::NetCDFWriteVariable: unable to write variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName,
-                  nc_strerror(ncErrorCode));
-          error = true;
-        }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
-    }
-  
-  return error;
-}
 
 bool FileManager::NetCDFWriteGeometry(int& fileID, bool& fileOpen)
 {
@@ -6504,6 +6146,12 @@ bool FileManager::NetCDFWriteParameter(int& fileID, bool& fileOpen)
                                   channelReachCode);
     }
   
+  if (!error && NULL != channelStreamOrder)
+    {
+      error = NetCDFWriteVariable(fileID, "channelStreamOrder", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelStreamOrder);
+    }
+
   if (!error && NULL != channelBaseWidth)
     {
       error = NetCDFWriteVariable(fileID, "channelBaseWidth", parameterInstance, localChannelElementStart, localNumberOfChannelElements, 1,
@@ -6960,9 +6608,88 @@ bool FileManager::NetCDFWriteDisplay(int& fileID, bool& fileOpen)
     {
       error = NetCDFWriteVariable(fileID, "currentTime", displayInstance, 0, 1, 1, &currentTime);
     }
+  //FIXME the following are debug only variables to write to netcdf at display interval.  Remove these lines and unncomment old display var lines
+ if (!error && NULL != meshSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterDepth);
+    }
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
+                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowRate);
+    }
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
+    }
   
+  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
+                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
+    }
+  if (!error && NULL != meshPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != meshPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
+                                  meshPrecipitationCumulativeLongTerm);
+    }
+  if (!error && NULL != channelSurfacewaterDepth)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelSurfacewaterDepth);
+    }
+  
+  
+  if (!error && NULL != channelPrecipitationRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationRate);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelPrecipitationCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
+                                  channelPrecipitationCumulativeLongTerm);
+    }
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowRate);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
+    }
+  
+  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
+    {
+      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
+                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
+    }
+ /* NJF Hacking display function to write out debugging analysis variables
   if (!error && NULL != meshSurfacewaterDepth)
     {
+
       error = NetCDFWriteVariable(fileID, "meshSurfacewaterDepth", displayInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterDepth);
     }
   
@@ -7129,7 +6856,7 @@ bool FileManager::NetCDFWriteDisplay(int& fileID, bool& fileOpen)
       
       error = NetCDFWriteVariable(fileID, "channelSnowWaterEquivalent", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelTempArray);
     }
-  
+  */
   // Close the display file.
   if (fileOpen)
     {
@@ -11759,6 +11486,12 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           error = true;
         }
 
+      if (!(NULL != channelStreamOrder))
+        {
+          CkError("ERROR in FileManager::handleSendInitializationMessages: channelStreamOrder must not be NULL.\n");
+          error = true;
+        }
+        
       if (!(NULL != channelElementX))
         {
           CkError("ERROR in FileManager::handleSendInitializationMessages: channelElementX must not be NULL.\n");
@@ -12290,7 +12023,7 @@ evapoTranspirationForcingInit.prcp = 0.0;
 
       if (!error)
         {
-          regionProxy[channelRegion[ii]].sendInitializeChannelElement(ii + localChannelElementStart, channelChannelType[ii], channelReachCode[ii],
+          regionProxy[channelRegion[ii]].sendInitializeChannelElement(ii + localChannelElementStart, channelChannelType[ii], channelReachCode[ii], channelStreamOrder[ii],
               channelElementX[ii], channelElementY[ii], channelElementZBank[ii], channelElementZBed[ii], channelElementLength[ii], channelLatitude[ii],
               channelLongitude[ii], channelBaseWidth[ii], channelSideSlope[ii], channelBedConductivity[ii], channelBedThickness[ii], channelManningsN[ii],
               channelSurfacewaterDepth[ii], channelSurfacewaterError[ii], channelPrecipitationRate[ii], channelPrecipitationCumulativeShortTerm[ii],
