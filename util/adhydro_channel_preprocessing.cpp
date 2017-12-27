@@ -5469,7 +5469,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
               // Output fixed length per-element information.
               numPrinted = fprintf(outputFile, "%d %d %lld %lf %lf %lf %d %d %d %d", jj, channels[ii].type, channels[ii].reachCode, actualElementLength,
                                    topWidth, bankFullDepth, ChannelElement_channelVerticesSize, ChannelElement_channelNeighborsSize,
-                                   ChannelElement_meshNeighborsSize, streamOrder);
+                                   ChannelElement_meshNeighborsSize, streamOrder); //NJF Updated to output streamOrder
 
 #if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
               if (!(0 < numPrinted))
