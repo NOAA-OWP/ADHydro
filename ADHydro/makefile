@@ -26,16 +26,18 @@ EXTRANETCDFFLAGS := -lcurl -lz
 # Use these values for Mt Moran and EN3038 lab, but not for Yellowstone.
 
 NETCDFCPPFLAGS := -I$(NETCDFDIR)/include
-NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -Wl,--end-group $(EXTRANETCDFFLAGS)
+NETCDFLDFLAGS  := -L$(HDF5DIR)/$(LIBDIRNAME) -L$(NETCDFDIR)/$(LIBDIRNAME) -lnetcdff -Wl,--start-group -lnetcdf -lhdf5_hl -lhdf5 -lz -Wl,--end-group $(EXTRANETCDFFLAGS)
 
 # Use these values for all.
 
 CHARMC         := $(CHARMDIR)/bin/charmc
 METISLDFLAGS   := -L$(METISDIR)/$(LIBDIRNAME) -lmetis -balancer MetisLB
-CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -I../management/generated_code/charm_diversions -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall -O3
+CPPFLAGS       := $(NETCDFCPPFLAGS) $(EXTRAFLAGS) -Iad_hydro_io -I../management/generated_code/charm_diversions -I../management/generated_code/charm_factory -I../management/generated_code/charm_reservoirs -I../inih/cpp -g -Wall -O3 -fpermissive
 LDFLAGS        := $(NETCDFLDFLAGS) $(METISLDFLAGS) $(EXTRAFLAGS) -lgfortran -g -Wall -language charm++ -O3
 
-VPATH  := ../management/generated_code/charm_diversions ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../management/build ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
+export
+
+VPATH  := ad_hydro_io ../management/generated_code/charm_diversions ../management/generated_code/charm_factory ../management/generated_code/charm_reservoirs ../management/build ../HRLDAS-v3.6/Noah ../HRLDAS-v3.6/IO_code ../HRLDAS-v3.6/Utility_routines ../inih ../inih/cpp
 
 EXES := adhydro
 
@@ -74,12 +76,20 @@ NOAHMP_OBJS := module_sf_noahmpdrv.o          \
 INIH_OBJS := INIReader.o \
              ini.o
 
+
+IO_OBJS := adhydro_io.o
+
 all: $(EXES)
 
-.PHONY: all
+.PHONY: all io_modules adhydro #make adhydro a phony target so it gets relinked whenever we change subdirs
 
-adhydro: $(ADHYDRO_OBJS) $(MANAGEMENT_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS)
+adhydro: $(ADHYDRO_OBJS) $(MANAGEMENT_OBJS) $(NOAHMP_OBJS) $(INIH_OBJS) $(IO_OBJS)
 	$(CHARMC) $(LDFLAGS) $^ -o $@
+
+ad_hydro_io/adhydro_io.o: io_modules
+
+io_modules:
+	$(MAKE) -C ad_hydro_io
 
 adhydro.o: adhydro.cpp           \
            adhydro.h             \
@@ -127,7 +137,7 @@ file_manager.o: file_manager.cpp      \
                 ReservoirFactory.h    \
                 Reservoir.h           \
                 DiversionFactory.h    \
-                Diversion.h
+                Diversion.h           
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
 file_manager.decl.h \
@@ -285,7 +295,10 @@ garto.o: garto.cpp   \
          all.h
 	$(CHARMC) $(CPPFLAGS) $< -o $@
 
-clean:
+clean: clean_modules
 	rm -f charmrun $(EXES) *.o *.decl.h *.def.h
 
-.PHONY: clean
+clean_modules:
+	$(MAKE) -C ad_hydro_io clean
+
+.PHONY: clean clean_modules
