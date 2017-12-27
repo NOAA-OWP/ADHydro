@@ -288,6 +288,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
   
   // Create file manager.
   fileManagerProxy = CProxy_FileManager::ckNew();
+  //NJF POSSIBLY CHECK FOR SPEC FILE CHANGES HERE AND SIGNAL TO RELOAD
 }
 
 #include "adhydro.def.h"

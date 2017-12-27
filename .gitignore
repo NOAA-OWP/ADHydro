@@ -3,4 +3,4 @@
 *.def.h
 *.o
 *.so
-
+*.kdev4
