@@ -8,6 +8,7 @@ bool Readonly::checkInvariant()
     const static std::string originalNoahMPVegParmFilePath   = noahMPVegParmFilePath;   // For checking that readonly values are never changed.
     const static std::string originalNoahMPSoilParmFilePath  = noahMPSoilParmFilePath;  // For checking that readonly values are never changed.
     const static std::string originalNoahMPGenParmFilePath   = noahMPGenParmFilePath;   // For checking that readonly values are never changed.
+    const static std::string originalForcingFilePath         = forcingFilePath;         // For checking that readonly values are never changed.
     const static double      originalReferenceDate           = referenceDate;           // For checking that readonly values are never changed.
     const static double      originalSimulationStartTime     = simulationStartTime;     // For checking that readonly values are never changed.
     const static double      originalSimulationDuration      = simulationDuration;      // For checking that readonly values are never changed.
@@ -43,7 +44,13 @@ bool Readonly::checkInvariant()
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: noahMPGenParmFilePath changed, which is not allowed for a readonly variable.\n");
         error = true;
     }
-    
+     
+    if (!(originalForcingFilePath == forcingFilePath))
+    {
+        ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: forcingFilePath changed, which is not allowed for a readonly variable.\n");
+        error = true;
+    }
+   
     if (!(1721425.5 <= referenceDate))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: referenceDate must be on or after 1 CE (1721425.5).\n");
@@ -56,7 +63,7 @@ bool Readonly::checkInvariant()
         error = true;
     }
     
-    if (!(1721425.5 <= referenceDate + (simulationStartTime / (60.0 * 60.0 * 24.0))))
+    if (!(1721425.5 <= referenceDate + (simulationStartTime / ONE_DAY_IN_SECONDS)))
     {
         ADHYDRO_ERROR("ERROR in Readonly::checkInvariant: simulationStartTime must be on or after 1 CE (1721425.5).\n");
         error = true;
@@ -353,6 +360,7 @@ std::string Readonly::noahMPMpTableFilePath;
 std::string Readonly::noahMPVegParmFilePath;
 std::string Readonly::noahMPSoilParmFilePath;
 std::string Readonly::noahMPGenParmFilePath;
+std::string Readonly::forcingFilePath;
 double      Readonly::referenceDate;
 double      Readonly::simulationStartTime;
 double      Readonly::simulationDuration;

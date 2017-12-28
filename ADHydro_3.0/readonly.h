@@ -93,7 +93,8 @@ public:
     static std::string noahMPVegParmFilePath;   // For initializing Noah-MP.
     static std::string noahMPSoilParmFilePath;  // For initializing Noah-MP.
     static std::string noahMPGenParmFilePath;   // For initializing Noah-MP.
-    static double      referenceDate;           // (days) Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to referenceDate + (currentTime / (24.0 * 60.0 * 60.0)).  Time zone is UTC.
+    static std::string forcingFilePath;         // File from which to read forcing data.
+    static double      referenceDate;           // (days) Julian date when currentTime is zero.  The current date and time of the simulation is the Julian date equal to referenceDate + (currentTime / ONE_DAY_IN_SECONDS).  Time zone is UTC.
     static double      simulationStartTime;     // (s) Time when the simulation starts specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     static double      simulationDuration;      // (s) Time duration that the simulation will run.  Must be positive.  The simulation ends when currentTime is simulationStartTime + simulationDuration.
     static double      checkpointPeriod;        // (s) Time duration between state checkpoints.  Must be positive.  Checkpoints occur at simulationStartTime + checkpointPeriod, simulationStartTime + 2 * checkpointPeriod, etc.

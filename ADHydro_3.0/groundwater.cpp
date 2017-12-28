@@ -1,7 +1,7 @@
 #include "groundwater.h"
 #include "readonly.h"
 
-#define COURANT_DIFFUSIVE (0.04)
+#define COURANT_DIFFUSIVE (0.2)
 
 bool groundwaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowHeight, double edgeLength,
                                      double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea, double elementSlopeX,

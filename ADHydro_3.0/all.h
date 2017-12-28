@@ -84,14 +84,15 @@
 #define DEBUG_LEVEL (DEBUG_LEVEL_DEVELOPMENT)
 
 // Constants.
-#define GRAVITY               (9.81)      // (m/s^2)
-#define POLAR_RADIUS_OF_EARTH (6356752.3) // (m)
-#define ZERO_C_IN_KELVIN      (273.15)    // (K)
+#define GRAVITY               (9.81)               // (m/s^2)
+#define POLAR_RADIUS_OF_EARTH (6356752.3)          // (m)
+#define ZERO_C_IN_KELVIN      (273.15)             // (K)
+#define ONE_DAY_IN_SECONDS    (60.0 * 60.0 * 24.0) // (s)
 
 // Special cases of element boundaries.
 enum BoundaryConditionEnum
 {
-  NOFLOW  = -1, // This must be -1 because Triangle and TauDEM both use -1 to indicate no neighbor.
+  NOFLOW  = -1, // NOFLOW must be -1 because Triangle and TauDEM both use -1 to indicate no neighbor.
   INFLOW  = -2, // Others must be non-positive because positive numbers are used for neighbor array indices.
   OUTFLOW = -3,
 };
@@ -118,14 +119,18 @@ PUPbytes(ChannelTypeEnum);
 
 // Utility functions for epsilon-equality testing of doubles. Two doubles are
 // considered epsilon-equal if they are within epsilon.  Epsilon is the larger
-// of 10^-10 or ten orders of magnitude smaller than one of the two numbers
-// being compared.  This is necessary because large values stored in a double
+// of 10^-10 or ten orders of magnitude smaller than the numbers being
+// compared.  This is necessary because large values stored in a double
 // might have less resolution than ten digits past the decimal point, but they
 // will always have ten significant digits.  Which of the two numbers being
 // compared is used to calculate epsilon is chosen arbitrarily.  If the numbers
-// are similar the epsilon values will be similar and it won't matter.  If the
-// numbers are different they won't be epsilon-equal and the exact value of
-// epsilon won't matter.
+// are similar, the epsilon values will be similar and it won't matter.  If the
+// numbers are different, they won't be epsilon-equal and the exact value of
+// epsilon won't matter.  In addition, the caller can pass in another value to
+// use to generate epsilon.  This can be used if a calculation results in lost
+// precision, for example if two large numbers are subtracted to generate a
+// small number.  Then the round off error depends on the magnitude of the
+// large numbers, and so epsilon must be based on that.
 
 // Returns: the epsilon value to use for epsilon-equality testing with x.
 inline double epsilon(double x)
@@ -134,33 +139,43 @@ inline double epsilon(double x)
 }
 
 // Returns: true if a is less than and not epsilon-equal to b, false otherwise.
-inline bool epsilonLess(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLess(double a, double b, double epsilonProxy = 0.0)
 {
-  return a < b - epsilon(b);
+  return a < b - epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is greater than and not epsilon-equal to b, false otherwise.
-inline bool epsilonGreater(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreater(double a, double b, double epsilonProxy = 0.0)
 {
-  return a > b + epsilon(b);
+  return a > b + epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is less than or epsilon-equal to b, false otherwise.
-inline bool epsilonLessOrEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLessOrEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonGreater(a, b);
+  return !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Returns: true if a is greater than or epsilon-equal to b, false otherwise.
-inline bool epsilonGreaterOrEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreaterOrEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b);
+  return !epsilonLess(a, b, epsilonProxy);
 }
 
 // Returns: true if a is epsilon-equal to b, false otherwise.
-inline bool epsilonEqual(double a, double b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonEqual(double a, double b, double epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+  return !epsilonLess(a, b, epsilonProxy) && !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Utility functions for epsilon-equality testing of floats.  Same as the
@@ -173,33 +188,43 @@ inline float epsilon(float x)
 }
 
 // Returns: true if a is less than and not epsilon-equal to b, false otherwise.
-inline bool epsilonLess(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLess(float a, float b, float epsilonProxy = 0.0)
 {
-  return a < b - epsilon(b);
+  return a < b - epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is greater than and not epsilon-equal to b, false otherwise.
-inline bool epsilonGreater(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreater(float a, float b, float epsilonProxy = 0.0)
 {
-  return a > b + epsilon(b);
+  return a > b + epsilon(std::max(std::fabs(b), std::fabs(epsilonProxy)));
 }
 
 // Returns: true if a is less than or epsilon-equal to b, false otherwise.
-inline bool epsilonLessOrEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonLessOrEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonGreater(a, b);
+  return !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Returns: true if a is greater than or epsilon-equal to b, false otherwise.
-inline bool epsilonGreaterOrEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonGreaterOrEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b);
+  return !epsilonLess(a, b, epsilonProxy);
 }
 
 // Returns: true if a is epsilon-equal to b, false otherwise.
-inline bool epsilonEqual(float a, float b)
+//
+// epsilonProxy sets a floor on the magnitude used to generate epsilon.
+inline bool epsilonEqual(float a, float b, float epsilonProxy = 0.0)
 {
-  return !epsilonLess(a, b) && !epsilonGreater(a, b);
+  return !epsilonLess(a, b, epsilonProxy) && !epsilonGreater(a, b, epsilonProxy);
 }
 
 // Utility functions for converting dates.
@@ -236,7 +261,7 @@ inline double gregorianToJulian(long year, long month, long day, long hour, long
   long   century;              // Number of centuries.
   long   yearInCentury;        // Tens and ones digit of the year, 0 to 99.
   long   julianDay;            // Julian day not including fractional day.
-  double secondsSinceMidnight; // Number of seconds since midnight, 0.0 to (60.0 * 60.0 * 24.0).
+  double secondsSinceMidnight; // Number of seconds since midnight, 0.0 to ONE_DAY_IN_SECONDS.
   double julianDate;           // The Julian date to return.
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -303,7 +328,7 @@ inline double gregorianToJulian(long year, long month, long day, long hour, long
       secondsSinceMidnight -= 60.0 * 60.0 * 12.0;
     }
 
-  julianDate = julianDay + secondsSinceMidnight / (60.0 * 60.0 * 24.0);
+  julianDate = julianDay + secondsSinceMidnight / ONE_DAY_IN_SECONDS;
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     {
