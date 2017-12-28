@@ -811,9 +811,13 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       //
       // We can't really tell the difference between small amounts of water being thrown away and roundoff error so in every case we set canIce and canLiq to
       // equal canWaterShouldBe.  This should fix small amounts of water being thrown away without making roundoff error any worse.
+      //
+      // There was a situation where rainfallAboveCanopy and rainfallBelowCanopy were both large, but rainfallInterceptedByCanopy was small so its roundoff
+      // error was large relative to the magnitude of canWaterShouldBe, and this check failed.  The same could occur for snow.  The solution is to use the
+      // magnitude of precipitation to determine the acceptable epsilon.
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
-      ADHYDRO_ASSERT(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq) &&
-                     epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq));
+      ADHYDRO_ASSERT(epsilonLessOrEqual(canWaterShouldBe - 2.0e-6f, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp * dt) &&
+                     epsilonGreaterOrEqual(canWaterShouldBe, evapoTranspirationState->canIce + evapoTranspirationState->canLiq, evapoTranspirationForcing->prcp * dt));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
       // Determine the fraction of canopy ice.  This reuses the variable fIce for a different purpose because it is not used again in this function.
@@ -872,7 +876,7 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
           ADHYDRO_ASSERT(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -931,12 +935,10 @@ bool evapoTranspirationSoil(int vegType, int soilType, float lat, int yearLen, f
       // Include water in the aquifer in the mass balance check.
       soilMoistureNew += wa;
       
-      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
-      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
-      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
-      // the second check That would use epsilon based on soilMoistureOriginal.
-      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runoff,  soilMoistureNew) ||
-                     epsilonEqual(soilMoistureOriginal,  *evaporationFromGround + *transpiration - *surfacewaterAdd + runoff + soilMoistureNew));
+      // Verify that soil moisture balances.  There was a case where soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew
+      // was small.  The values passed to epsilonEqual were both small so epsilon was small and this check failed even though the difference was okay if
+      // epsilon were based on soilMoistureOriginal.  So I added soilMoistureOriginal as epsilonProxy.
+      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround - *transpiration + *surfacewaterAdd - runoff, soilMoistureNew, soilMoistureOriginal));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -1516,7 +1518,7 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
           ADHYDRO_ASSERT(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -1592,12 +1594,10 @@ bool evapoTranspirationWater(float lat, int yearLen, float julian, float cosZ, f
       // Include water in the aquifer and channel surfacewater in the mass balance check.
       soilMoistureNew += wa + wsLake;
       
-      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
-      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
-      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
-      // the second check That would use epsilon based on soilMoistureOriginal.
-      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff,  soilMoistureNew) ||
-                     epsilonEqual(soilMoistureOriginal,  *evaporationFromGround - *surfacewaterAdd + runoff + soilMoistureNew));
+      // Verify that soil moisture balances.  There was a case where soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew
+      // was small.  The values passed to epsilonEqual were both small so epsilon was small and this check failed even though the difference was okay if
+      // epsilon were based on soilMoistureOriginal.  So I added soilMoistureOriginal as epsilonProxy.
+      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff, soilMoistureNew, soilMoistureOriginal));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
@@ -2014,7 +2014,7 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
           ADHYDRO_ASSERT(epsilonEqual(2000.0f, evapoTranspirationState->snEqv));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
           
-          evapoTranspirationState->snowH += snEqvShouldBe - evapoTranspirationState->snEqv / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
+          evapoTranspirationState->snowH += (snEqvShouldBe - evapoTranspirationState->snEqv) / 1000.0f; // Divide by one thousand to convert from millimeters to meters.
           
           if (0 > evapoTranspirationState->iSnow)
             {
@@ -2068,12 +2068,10 @@ bool evapoTranspirationGlacier(float cosZ, float dt, EvapoTranspirationForcingSt
             }
         }
       
-      // Verify that soil moisture balances.  Epsilon needs to be based on the largest value used to calculate it.  However, there was a case where
-      // soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew was small.  The values passed to the first epsilonEqual were
-      // both small so epsilon was small and this check failed even though the difference was okay if epsilon were based on soilMoistureOriginal.  So I added
-      // the second check That would use epsilon based on soilMoistureOriginal.
-      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff,  soilMoistureNew) ||
-                     epsilonEqual(soilMoistureOriginal,  *evaporationFromGround - *surfacewaterAdd + runoff + soilMoistureNew));
+      // Verify that soil moisture balances.  There was a case where soilMoistureOriginal was large with a lot of water subtracted from it and soilMoistureNew
+      // was small.  The values passed to epsilonEqual were both small so epsilon was small and this check failed even though the difference was okay if
+      // epsilon were based on soilMoistureOriginal.  So I added soilMoistureOriginal as epsilonProxy.
+      ADHYDRO_ASSERT(epsilonEqual(soilMoistureOriginal - *evaporationFromGround + *surfacewaterAdd - runoff, soilMoistureNew, soilMoistureOriginal));
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     } // End if (!error).
   
