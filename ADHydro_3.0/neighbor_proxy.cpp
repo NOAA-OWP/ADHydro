@@ -850,18 +850,6 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     {
         error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementZTop, localAttributes.areaOrLength, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
                                                 attributes.baseWidth, attributes.sideSlope, remoteDepthOrHead);
-        
-        if (!error)
-        {
-            // FIXME decide what to do about this
-            // Prevent out of bank flow out of streams because it results in really small timesteps.
-            // Still allow out of bank flow out of waterbodies and icemasses.
-            if (STREAM == attributes.channelType && 0.0 > nominalFlowRate)
-            {
-                nominalFlowRate = 0.0;
-                dtNew           = 5.0;
-            }
-        }
     }
     else if (MESH_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
@@ -982,18 +970,6 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
         
         // Reverse the direction of flow because the local element is neighbor in the previous calculation.
         nominalFlowRate *= -1.0;
-        
-        if (!error)
-        {
-            // FIXME decide what to do about this
-            // Prevent out of bank flow out of streams because it results in really small timesteps.
-            // Still allow out of bank flow out of waterbodies and icemasses.
-            if (STREAM == localAttributes.channelType && 0.0 < nominalFlowRate)
-            {
-                nominalFlowRate = 0.0;
-                dtNew           = 5.0;
-            }
-        }
     }
     else if ((CHANNEL_SURFACE == localEndpoint && MESH_SOIL    == remoteEndpoint) ||
              (CHANNEL_SURFACE == localEndpoint && MESH_AQUIFER == remoteEndpoint))
