@@ -1,9 +1,9 @@
-#ifndef __SIMPLE_GROUNDWATER_H__
-#define __SIMPLE_GROUNDWATER_H__
+#ifndef __SIMPLE_VADOSE_ZONE_H__
+#define __SIMPLE_VADOSE_ZONE_H__
 
 #include "all.h"
 
-// A SimpleGroundwater is an extremely low fidelity model of a groundwater capillary fringe.  In the model, there is a shallowest depth that is saturated.
+// A SimpleVadoseZone is an extremely low fidelity model of a groundwater capillary fringe.  In the model, there is a shallowest depth that is saturated.
 // The model assumes there is a triangle of water above that depth and a rectangle of water below that depth.
 //
 //          0 |\          .
@@ -47,7 +47,7 @@
 // The timestep simulation moves the quantity of water towards equilibrium putting water in to or taking water from recharge.
 // The timestep simulation also performs trivial infiltration moving water from the surface directly to recharge without simulating an infiltration front.
 // The timestep simulation ensures that no flow exceeds conductivity either from the surface or to/from recharge.
-class SimpleGroundwater
+class SimpleVadoseZone
 {
 public:
     
@@ -57,7 +57,7 @@ public:
     //
     // waterTableDepth - (m) If this value is not NAN and is greater than or equal to zero, the water parameter is ignored, and the water member variable is initialized to be in
     //                   hydrostatic equilibrium with this water table.  Otherwise, this parameter is ignored and the water member variable is initialized to the water parameter.
-    inline SimpleGroundwater(double thickness = 1.0, double conductivity = 1.0, double porosity = 1.0, double psiB = 0.0, double water = 0.0, double waterTableDepth = NAN) :
+    inline SimpleVadoseZone(double thickness = 1.0, double conductivity = 1.0, double porosity = 1.0, double psiB = 0.0, double water = 0.0, double waterTableDepth = NAN) :
         thickness(thickness), conductivity(conductivity), porosity(porosity), psiB(psiB), water((0.0 <= waterTableDepth) ? waterFromSaturationDepth(std::max(waterTableDepth - psiB, 0.0)) : water)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
@@ -192,4 +192,4 @@ private:
     double water; // (m) The quantity of water in the layer.
 };
 
-#endif // __SIMPLE_GROUNDWATER_H__
+#endif // __SIMPLE_VADOSE_ZONE_H__

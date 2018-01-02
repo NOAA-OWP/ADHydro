@@ -1,6 +1,6 @@
-#include "simple_groundwater.h"
+#include "simple_vadose_zone.h"
 
-bool SimpleGroundwater::checkInvariant() const
+bool SimpleVadoseZone::checkInvariant() const
 {
     bool error = false; // Error flag.
     
@@ -37,7 +37,7 @@ bool SimpleGroundwater::checkInvariant() const
     return error;
 }
 
-bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceWater, double waterTableDepth, double dt)
+bool SimpleVadoseZone::doTimestep(double& groundwaterRecharge, double& surfaceWater, double waterTableDepth, double dt)
 {
     bool   error = false;    // Error flag.
     double newRecharge;      // (m) Water that will be added to or removed from groundwaterRecharge.
@@ -106,7 +106,7 @@ bool SimpleGroundwater::doTimestep(double& groundwaterRecharge, double& surfaceW
     return error;
 }
 
-void SimpleGroundwater::addOrRemoveWater(double& recharge, double& waterCreated)
+void SimpleVadoseZone::addOrRemoveWater(double& recharge, double& waterCreated)
 {
     if (0.0 < recharge)
     {
@@ -141,7 +141,7 @@ void SimpleGroundwater::addOrRemoveWater(double& recharge, double& waterCreated)
     }
 }
 
-double SimpleGroundwater::waterContentAtDepth(double depth) const
+double SimpleVadoseZone::waterContentAtDepth(double depth) const
 {
     double waterContent;                                      // (m^3/m^3) Return value.
     double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
@@ -168,7 +168,7 @@ double SimpleGroundwater::waterContentAtDepth(double depth) const
     return waterContent;
 }
 
-double SimpleGroundwater::waterAboveDepth(double depth) const
+double SimpleVadoseZone::waterAboveDepth(double depth) const
 {
     double waterAbove;                                        // (m) Return value.
     double saturationDepth = saturationDepthFromWater(water); // (m) The current saturation depth.
@@ -194,7 +194,7 @@ double SimpleGroundwater::waterAboveDepth(double depth) const
     return waterAbove;
 }
 
-double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth) const
+double SimpleVadoseZone::waterFromSaturationDepth(double saturationDepth) const
 {
     double waterQuantity; // (m) Return value.
     
@@ -216,7 +216,7 @@ double SimpleGroundwater::waterFromSaturationDepth(double saturationDepth) const
     return waterQuantity;
 }
 
-double SimpleGroundwater::saturationDepthFromWater(double waterQuantity) const
+double SimpleVadoseZone::saturationDepthFromWater(double waterQuantity) const
 {
     double saturationDepth; // (m) Return value.
     
