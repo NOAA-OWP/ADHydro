@@ -108,9 +108,9 @@ public:
     
     // Constructor.  All parameters directly initialize member variables.
     inline NeighborAttributes(double elementX = 0.0, double elementY = 0.0, double elementZTop = 0.0, double elementZBottom = 0.0, double areaOrLength = 1.0, double manningsN = 1.0,
-                              double conductivity = 1.0, double porosityOrBedThickness = 1.0, ChannelTypeEnum channelType = STREAM, double baseWidth = 1.0, double sideSlope = 1.0) :
+                              double conductivity = 1.0, double porosityOrBedThickness = 1.0, ChannelTypeEnum channelType = STREAM, double slopeXOrBaseWidth = 1.0, double slopeYOrSideSlope = 1.0) :
         elementX(elementX), elementY(elementY), elementZTop(elementZTop), elementZBottom(elementZBottom), areaOrLength(areaOrLength), manningsN(manningsN),
-        conductivity(conductivity), porosityOrBedThickness(porosityOrBedThickness), channelType(channelType), baseWidth(baseWidth), sideSlope(sideSlope)
+        conductivity(conductivity), porosityOrBedThickness(porosityOrBedThickness), channelType(channelType), slopeXOrBaseWidth(slopeXOrBaseWidth), slopeYOrSideSlope(slopeYOrSideSlope)
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -137,8 +137,8 @@ public:
         p | conductivity;
         p | porosityOrBedThickness;
         p | channelType;
-        p | baseWidth;
-        p | sideSlope;
+        p | slopeXOrBaseWidth;
+        p | slopeYOrSideSlope;
     }
     
     // Check invariant conditions on data.
@@ -164,8 +164,8 @@ public:
                                             // For MESH_SOIL and MESH_AQUIFER this is the porosity of the layer.
                                             // For CHANNEL_SURFACE this is the thickness of the channel bed.
     ChannelTypeEnum channelType;            // For mesh elements this is unused.  For channel elements this is what type of channel it is.
-    double          baseWidth;              // (m) For mesh elements this is unused.  For channel elements this is the width of the channel base.
-    double          sideSlope;              // (m/m) For mesh elements this is unused.  For channel elements this is the widening of each side of the channel for each unit increase in water depth.
+    double          slopeXOrBaseWidth;      // (m/m or m) For mesh elements this is element slope in X direction.  For channel elements this is the width of the channel base.
+    double          slopeYOrSideSlope;      // (m/m)      For mesh elements this is element slope in Y direction.  For channel elements this is the widening of each side of the channel for each unit increase in water depth.
 };
 
 // A WaterTransfer represents some water that has been sent by one element and not yet received by another element.

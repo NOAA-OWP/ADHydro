@@ -178,7 +178,7 @@ bool ChannelElement::receiveMessage(const Message& message, size_t& elementsFini
         
         if (!(neighbors.end() != it))
         {
-            CkError("ERROR in ChannelElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            CkError("ERROR in ChannelElement::receiveMessage: received a Message with a NeighborConnection that I do not have.\n");
             error = true;
         }
         
@@ -208,7 +208,7 @@ bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<Neighbo
     bool                                                  error = false; // Error flag.
     std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
     
-    // Don't error check parameters because it's a simple pass-through to NeighborProxy::calculateNominalFlowRate and it will be checked inside that method.
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::sendNeighborMessage and it will be checked inside that method.
     
     neighborsFinished = 0;
     
@@ -252,7 +252,7 @@ bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<Stat
 bool ChannelElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime)
 {
     bool   error                = false;                         // Error flag.
-    double localSolarDateTime   = Readonly::referenceDate + (currentTime / (24.0 * 60.0 * 60.0)) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
+    double localSolarDateTime   = Readonly::referenceDate + (currentTime / ONE_DAY_IN_SECONDS) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
     long   year;                                                 // For calculating yearlen, julian, and hourAngle.
     long   month;                                                // For calculating hourAngle.
     long   day;                                                  // For calculating hourAngle.

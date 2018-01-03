@@ -2,7 +2,7 @@
 #define __MESH_ELEMENT_H__
 
 #include "neighbor_proxy.h"
-#include "simple_groundwater.h"
+#include "simple_vadose_zone.h"
 #include "evapo_transpiration.h"
 
 // A GroundwaterModeEnum describes the current mode of the multi-layer groundwater simulation in a single mesh element.
@@ -54,10 +54,10 @@ public:
     double                        surfaceWaterCreated;
     GroundwaterModeEnum           groundwaterMode;
     double                        perchedHead;
-    SimpleGroundwater             soilWater;
+    SimpleVadoseZone              soilWater;
     double                        soilWaterCreated;
     double                        aquiferHead;
-    SimpleGroundwater             aquiferWater;
+    SimpleVadoseZone              aquiferWater;
     double                        aquiferWaterCreated;
     double                        deepGroundwater;
     double                        precipitationRate;
@@ -76,14 +76,14 @@ public:
     
     // Constructor.  All parameters directly initialize member variables.
     inline MeshElement(size_t elementNumber = 0, size_t catchment = 0, double elementX = 0.0, double elementY = 0.0, double elementZ = 0.0, double elementArea = 1.0, double latitude = 0.0,
-                       double longitude = 0.0, int vegetationType = 1, int groundType = 1, double manningsN = 1.0, bool soilExists = false, double impedanceConductivity = 0.0,
-                       bool aquiferExists = false, double deepConductivity = 0.0, const EvapoTranspirationStateStruct* evapoTranspirationStateInit = NULL, double surfaceWater = 0.0,
-                       double surfaceWaterCreated = 0.0, GroundwaterModeEnum groundwaterMode = NO_MULTILAYER, double perchedHead = 0.0, const SimpleGroundwater& soilWater = SimpleGroundwater(),
-                       double soilWaterCreated = 0.0, double aquiferHead = 0.0, const SimpleGroundwater& aquiferWater = SimpleGroundwater(), double aquiferWaterCreated = 0.0,
-                       double deepGroundwater = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0, double transpirationCumulative = 0.0,
+                       double longitude = 0.0, double slopeX = 0.0, double slopeY = 0.0, int vegetationType = 1, int groundType = 1, double manningsN = 1.0, bool soilExists = false,
+                       double impedanceConductivity = 0.0, bool aquiferExists = false, double deepConductivity = 0.0, const EvapoTranspirationStateStruct* evapoTranspirationStateInit = NULL,
+                       double surfaceWater = 0.0, double surfaceWaterCreated = 0.0, GroundwaterModeEnum groundwaterMode = NO_MULTILAYER, double perchedHead = 0.0,
+                       const SimpleVadoseZone& soilWater = SimpleVadoseZone(), double soilWaterCreated = 0.0, double aquiferHead = 0.0, const SimpleVadoseZone& aquiferWater = SimpleVadoseZone(),
+                       double aquiferWaterCreated = 0.0, double deepGroundwater = 0.0, double precipitationCumulative = 0.0, double evaporationCumulative = 0.0, double transpirationCumulative = 0.0,
                        const std::map<NeighborConnection, NeighborProxy>& neighbors = std::map<NeighborConnection, NeighborProxy>()) :
-        elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude),
-        vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
+        elementNumber(elementNumber), catchment(catchment), elementX(elementX), elementY(elementY), elementZ(elementZ), elementArea(elementArea), latitude(latitude), longitude(longitude), slopeX(slopeX),
+        slopeY(slopeY), vegetationType(vegetationType), groundType(groundType), manningsN(manningsN), soilExists(soilExists), impedanceConductivity(impedanceConductivity), aquiferExists(aquiferExists),
         deepConductivity(deepConductivity), /* evapoTranspirationForcing and evapoTranspirationState initialized below. */ surfaceWater(surfaceWater), surfaceWaterCreated(surfaceWaterCreated),
         groundwaterMode(groundwaterMode), perchedHead(perchedHead), soilWater(soilWater), soilWaterCreated(soilWaterCreated), soilRecharge(0.0), aquiferHead(aquiferHead), aquiferWater(aquiferWater),
         aquiferWaterCreated(aquiferWaterCreated), aquiferRecharge(0.0), deepGroundwater(deepGroundwater), precipitationRate(0.0), precipitationCumulativeShortTerm(0.0),
@@ -186,6 +186,8 @@ public:
         p | elementArea;
         p | latitude;
         p | longitude;
+        p | slopeX;
+        p | slopeY;
         p | vegetationType;
         p | groundType;
         p | manningsN;
@@ -438,13 +440,13 @@ private:
         {
             case MESH_SURFACE:
             case IRRIGATION_RECIPIENT:
-                return NeighborAttributes(elementX, elementY, elementZ, elementZ, elementArea, manningsN);
+                return NeighborAttributes(elementX, elementY, elementZ,                   elementZ,                                        elementArea, manningsN, 1.0,                            1.0,                        STREAM, slopeX, slopeY);
                 break;
             case MESH_SOIL:
-                return NeighborAttributes(elementX, elementY, elementZ, elementZ - soilThickness(), elementArea, manningsN, soilWater.getConductivity(), soilWater.getPorosity());
+                return NeighborAttributes(elementX, elementY, elementZ,                   elementZ - soilThickness(),                      elementArea, manningsN, soilWater.getConductivity(),    soilWater.getPorosity(),    STREAM, slopeX, slopeY);
                 break;
             case MESH_AQUIFER:
-                return NeighborAttributes(elementX, elementY, elementZ - soilThickness(), elementZ - soilThickness() - aquiferThickness(), elementArea, manningsN, aquiferWater.getConductivity(), aquiferWater.getPorosity());
+                return NeighborAttributes(elementX, elementY, elementZ - soilThickness(), elementZ - soilThickness() - aquiferThickness(), elementArea, manningsN, aquiferWater.getConductivity(), aquiferWater.getPorosity(), STREAM, slopeX, slopeY);
                 break;
             default:
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
@@ -465,6 +467,8 @@ private:
     double elementArea;           // (m^2) 2D surface area of element ignoring slope.
     double latitude;              // (radians)
     double longitude;             // (radians)
+    double slopeX;                // (m/m) Element slope in X direction.
+    double slopeY;                // (m/m) Element slope in Y direction.
     int    vegetationType;        // Type of land cover or land use.
     int    groundType;            // Type of ground material exposed at the surface.  This could be the type of dirt in the soil layer, or the type of material in the aquifer layer if there is no soil layer,
                                   // or something like pavement if there is no soil layer but there is an impedance layer above the aquifer, or it could be bedrock if there is no soil or aquifer layers.
@@ -483,11 +487,11 @@ private:
     double                        surfaceWaterCreated;     // (m) Surface water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     GroundwaterModeEnum           groundwaterMode;         // The mode corresponding to the current groundwater state.
     double                        perchedHead;             // (m) Elevation above datum of the perched water table if it exists.  Only valid when groundwaterMode is PERCHED_WATER_TABLE or NO_MULTILAYER and soil exists.
-    SimpleGroundwater             soilWater;               // Data structure containing the moisture content profile of the soil layer.
+    SimpleVadoseZone              soilWater;               // Data structure containing the moisture content profile of the soil layer.
     double                        soilWaterCreated;        // (m) Soil water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     double                        soilRecharge;            // (m) Temporary holding bucket for water that is moving to/from the soil expressed as a thickness of water.  Can be negative for a water deficit.
     double                        aquiferHead;             // (m) Elevation above datum of the aquifer water table.
-    SimpleGroundwater             aquiferWater;            // Data structure containing the moisture content profile of the aquifer layer.
+    SimpleVadoseZone              aquiferWater;            // Data structure containing the moisture content profile of the aquifer layer.
     double                        aquiferWaterCreated;     // (m) Aquifer water created or destroyed for exceptional and possibly erroneous circumstances.  Positive means water was created.  Negative means water was destroyed.
     double                        aquiferRecharge;         // (m) Temporary holding bucket for water that is moving to/from the aquifer expressed as a thickness of water.  Can be negative for a water deficit.
     double                        deepGroundwater;         // (m) Water that has reached a deep aquifer.  FIXME this might not be accounted for within individual elements separately.

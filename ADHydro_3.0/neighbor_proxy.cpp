@@ -288,24 +288,6 @@ bool NeighborAttributes::checkInvariant() const
         error = true;
     }
     
-    if (!(0.0 <= baseWidth))
-    {
-        CkError("ERROR in NeighborAttributes::checkInvariant: baseWidth must be greater than or equal to zero.\n");
-        error = true;
-    }
-    
-    if (!(0.0 <= sideSlope))
-    {
-        CkError("ERROR in NeighborAttributes::checkInvariant: sideSlope must be greater than or equal to zero.\n");
-        error = true;
-    }
-    
-    if (!(0.0 < baseWidth || 0.0 < sideSlope))
-    {
-        CkError("ERROR in NeighborAttributes::checkInvariant: one of baseWidth or sideSlope must be greater than zero.\n");
-        error = true;
-    }
-    
     return error;
 }
 
@@ -849,7 +831,7 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if (MESH_SURFACE == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
         error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementZTop, localAttributes.areaOrLength, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                                attributes.baseWidth, attributes.sideSlope, remoteDepthOrHead);
+                                                attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, remoteDepthOrHead);
     }
     else if (MESH_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
@@ -891,19 +873,17 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if (MESH_SOIL == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
         error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                               attributes.baseWidth, attributes.sideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+                                               attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
     }
     else if (MESH_SOIL == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
-        // FIXME get correct values for slopeX and slopeY.
-        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
-                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
     }
     else if (MESH_SOIL == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
     {
-        // FIXME get correct values for slopeX and slopeY.
-        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
-                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
     }
     else if (MESH_SOIL == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
     {
@@ -937,19 +917,17 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if (MESH_AQUIFER == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
         error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                               attributes.baseWidth, attributes.sideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+                                               attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
     }
     else if (MESH_AQUIFER == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
-        // FIXME get correct values for slopeX and slopeY.
-        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
-                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
     }
     else if (MESH_AQUIFER == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
     {
-        // FIXME get correct values for slopeX and slopeY.
-        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength, 0.0, 0.0,
-                                                localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+        error = groundwaterMeshBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_HEIGHT, edgeLength, edgeNormalX, edgeNormalY, localAttributes.elementZBottom, localAttributes.areaOrLength,
+                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
     }
     else if (MESH_AQUIFER == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
     {
@@ -966,7 +944,7 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if (CHANNEL_SURFACE == localEndpoint && MESH_SURFACE == remoteEndpoint)
     {
         error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, attributes.elementZTop, attributes.areaOrLength, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
-                                                localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localDepthOrHead);
         
         // Reverse the direction of flow because the local element is neighbor in the previous calculation.
         nominalFlowRate *= -1.0;
@@ -975,7 +953,7 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
              (CHANNEL_SURFACE == localEndpoint && MESH_AQUIFER == remoteEndpoint))
     {
         error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, attributes.elementZTop, attributes.elementZBottom, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
-                                               localAttributes.baseWidth, localAttributes.sideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
+                                               localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
         
         // Reverse the direction of flow because the local element is neighbor in the previous calculation.
         nominalFlowRate *= -1.0;
@@ -983,16 +961,16 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if (CHANNEL_SURFACE == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
         error = surfacewaterChannelChannelFlowRate(&nominalFlowRate, &dtNew, localAttributes.channelType, localAttributes.elementZTop, localAttributes.elementZBottom, localAttributes.areaOrLength,
-                                                   localAttributes.baseWidth, localAttributes.sideSlope, localAttributes.manningsN, localDepthOrHead, attributes.channelType, attributes.elementZTop,
-                                                   attributes.elementZBottom, attributes.areaOrLength, attributes.baseWidth, attributes.sideSlope, attributes.manningsN, remoteDepthOrHead);
+                                                   localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.manningsN, localDepthOrHead, attributes.channelType, attributes.elementZTop,
+                                                   attributes.elementZBottom, attributes.areaOrLength, attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.manningsN, remoteDepthOrHead);
     }
     else if (CHANNEL_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
-        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, INFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localDepthOrHead);
     }
     else if (CHANNEL_SURFACE == localEndpoint && BOUNDARY_OUTFLOW == remoteEndpoint)
     {
-        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.baseWidth, localAttributes.sideSlope, localDepthOrHead);
+        error = surfacewaterChannelBoundaryFlowRate(&nominalFlowRate, &dtNew, OUTFLOW, INFLOW_VELOCITY, INFLOW_HEIGHT, localAttributes.areaOrLength, localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localDepthOrHead);
     }
     else if (CHANNEL_SURFACE == localEndpoint && TRANSBASIN_INFLOW == remoteEndpoint)
     {

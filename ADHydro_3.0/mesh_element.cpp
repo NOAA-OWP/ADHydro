@@ -344,7 +344,7 @@ bool MeshElement::receiveMessage(const Message& message, size_t& elementsFinishe
         
         if (!(neighbors.end() != it))
         {
-            CkError("ERROR in MeshElement::receiveNeighborAttributes: received a NeighborMessage with a NeighborConnection that I do not have.\n");
+            CkError("ERROR in MeshElement::receiveMessage: received a Message with a NeighborConnection that I do not have.\n");
             error = true;
         }
         
@@ -418,7 +418,7 @@ bool MeshElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMe
 bool MeshElement::doPointProcessesAndSendOutflows(std::map<size_t, std::vector<WaterMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime, double timestepEndTime)
 {
     bool   error                = false;                                 // Error flag.
-    double localSolarDateTime   = Readonly::referenceDate + (currentTime / (24.0 * 60.0 * 60.0)) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
+    double localSolarDateTime   = Readonly::referenceDate + (currentTime / ONE_DAY_IN_SECONDS) + (longitude / (2.0 * M_PI)); // (days) Julian date converted from UTC to local solar time.
     long   year;                                                         // For calculating yearlen, julian, and hourAngle.
     long   month;                                                        // For calculating hourAngle.
     long   day;                                                          // For calculating hourAngle.
