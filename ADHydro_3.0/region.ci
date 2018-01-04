@@ -108,7 +108,7 @@ module region
                 }
             }
             
-            // Barrier until we know ADHydro::forcingManagerProxy has been set on this PE.
+            // Barrier until we know ADHydro::forcingManagerProxy and ADHydro::checkpointManagerProxy has been set on this PE.
             when allProxiesSet() {}
             
             // Run the simulation.
@@ -146,6 +146,7 @@ module region
                                 }
                                 
                                 // Store forcing data.
+                                // FIXME make sure we have the element that the forcing is for.
                                 // FIXME make sure we don't receive duplicate forcing for an element.
                                 for (it = meshForcing.begin(); it != meshForcing.end(); ++it)
                                 {

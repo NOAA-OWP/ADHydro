@@ -9,25 +9,17 @@ module forcing_manager
         entry void runUntilSimulationEnd()
         {
             // Barrier until we know ADHydro::regionProxy has been set on this PE.
-            when allProxiesSet() {}
+            when regionProxiesSet() {}
             
             while (nextForcingTime < simulationEndTime)
             {
                 // When a Region receives forcing data it sends a message back to the ForcingManagers letting them know it is ready for them to queue up the next forcing data.
-                // The first time a ForcingManager receives a message asking for the next time that hasn't been sent out yet it loads and sends that forcing data.
+                // The first time a ForcingManager receives a message asking for the next time that hasn't been sent out yet it loads and sends that forcing data to everyone.
                 // Later messages asking for the same time are ignored.
                 when readyForForcing(double forcingTime)
                 {
                     serial
                     {
-                        size_t ii; // Loop counter.
-                        long   year;                          // For adding date and time to fileneme.
-                        long   month;                         // For adding date and time to fileneme.
-                        long   day;                           // For adding date and time to fileneme.
-                        long   hour;                          // For adding date and time to fileneme.
-                        long   minute;                        // For adding date and time to fileneme.
-                        double second;                        // For adding date and time to fileneme.
-                        
                         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
                         {
                             if (!(forcingTime <= nextForcingTime))
@@ -40,19 +32,9 @@ module forcing_manager
                         if (forcingTime == nextForcingTime)
                         {
                             // Someone is ready for the next forcing.  Load it up and send it out.
-                            if (0 == CkMyPe() && 1 <= Readonly::verbosityLevel)
+                            if (readAndSendForcing())
                             {
-                                julianToGregorian(Readonly::referenceDate + (nextForcingTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
-                                CkPrintf("Reading forcing data for %02ld/%02ld/%04ld %02ld:%02ld:%02.0lf\n", month, day, year, hour, minute, second);
-                            }
-                            
-                            // FIXME implement
-                            nextForcingTime += 3.5;
-                            
-                            for (ii = Readonly::localRegionStart; ii < Readonly::localRegionStart + Readonly::localNumberOfRegions; ++ii)
-                            {
-                                // FIXME send forcing data to regions.
-                                ADHydro::regionProxy[ii].sendForcing(nextForcingTime);
+                                CkExit();
                             }
                         }
                         // else forcingTime < nextForcingTime.  We have already sent out that forcing.  Do nothing.
@@ -61,7 +43,7 @@ module forcing_manager
             }
         }; // End entry void runUntilSimulationEnd().
         
-        entry void allProxiesSet();
+        entry void regionProxiesSet();
         entry void readyForForcing(double forcingTime);
     }; // End group ForcingManager.
 }; // End module forcing_manager.
