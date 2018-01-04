@@ -291,6 +291,12 @@ public:
         return elementNumber;
     }
     
+    // Sets forcing data.
+    inline void setEvapoTranspirationForcing(const EvapoTranspirationForcingStruct& newEvapoTranspirationForcing)
+    {
+        evapoTranspirationForcing = newEvapoTranspirationForcing;
+    }
+    
 private:
     
     // Returns: (m) the surface water depth of a trapeziodal channel from the wetted cross sectional area.

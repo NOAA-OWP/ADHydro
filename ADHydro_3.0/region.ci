@@ -40,6 +40,7 @@ module region
                                 }
                             }
                             
+                            // FIXME check that this isn't a duplicate element.
                             meshElements.insert(std::pair<size_t, MeshElement>(element.getElementNumber(), element));
                             
                             // Send messages to initialize NeighborProxy remote neighbor attributes.
@@ -74,6 +75,7 @@ module region
                                 }
                             }
                             
+                            // FIXME check that this isn't a duplicate element.
                             channelElements.insert(std::pair<size_t, ChannelElement>(element.getElementNumber(), element));
                             
                             // Send messages to initialize NeighborProxy remote neighbor attributes.
@@ -114,35 +116,56 @@ module region
             {
                 if (currentTime == nextForcingTime)
                 {
-                    // FIXME need to receive forcing data for all elements that might be coming from multiple managers in multiple messages.
-                    // FIXME while not all elements have forcing
-                    when sendForcing(double newNextForcingTime)
+                    serial
                     {
-                        serial
+                        elementsFinished = 0;
+                    }
+                    
+                    // Receive until all elements have their forcing updated.
+                    while (meshElements.size() + channelElements.size() > elementsFinished)
+                    {
+                        when sendForcing(double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct> meshForcing, std::map<size_t, EvapoTranspirationForcingStruct> channelForcing)
                         {
-                            if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                            serial
                             {
-                                if (!(newNextForcingTime > currentTime))
+                                std::map<size_t, EvapoTranspirationForcingStruct>::iterator it; // Loop iterator.
+                                
+                                if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
                                 {
-                                    CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
-                                    CkExit();
+                                    if (!(newNextForcingTime > currentTime))
+                                    {
+                                        CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
+                                        CkExit();
+                                    }
+                                    
+                                    if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                    {
+                                        CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
+                                        CkExit();
+                                    }
                                 }
                                 
-                                if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                // Store forcing data.
+                                // FIXME make sure we don't receive duplicate forcing for an element.
+                                for (it = meshForcing.begin(); it != meshForcing.end(); ++it)
                                 {
-                                    CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
-                                    CkExit();
+                                    meshElements[it->first].setEvapoTranspirationForcing(it->second);
                                 }
-                            }
-                            
-                            // FIXME Store forcing data.
-                            
-                            if (nextForcingTime != newNextForcingTime)
-                            {
-                                // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
-                                nextForcingTime = newNextForcingTime;
                                 
-                                ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                                for (it = channelForcing.begin(); it != channelForcing.end(); ++it)
+                                {
+                                    channelElements[it->first].setEvapoTranspirationForcing(it->second);
+                                }
+                                
+                                elementsFinished += meshForcing.size() + channelForcing.size();
+                                
+                                if (nextForcingTime != newNextForcingTime)
+                                {
+                                    // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
+                                    nextForcingTime = newNextForcingTime;
+                                    
+                                    ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                                }
                             }
                         }
                     }
@@ -190,7 +213,7 @@ module region
                         }
                         else
                         {
-                            // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
+                            // FIXME what if the other region is on the same PE as me?  Shortcut further down?
                             thisProxy[itMessage->first].sendState(itMessage->second, currentTime);
                         }
                     }
@@ -280,7 +303,7 @@ module region
                         }
                         else
                         {
-                            // FIXME what if the other regions is on the same PE as me?  Shortcut further down?
+                            // FIXME what if the other region is on the same PE as me?  Shortcut further down?
                             thisProxy[itMessage->first].sendWater(itMessage->second);
                         }
                     }
@@ -360,7 +383,7 @@ module region
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
         entry void allProxiesSet();
-        entry void sendForcing(double newNextForcingTime);
+        entry void sendForcing(double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct> meshForcing, std::map<size_t, EvapoTranspirationForcingStruct> channelForcing);
         entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
         entry void sendWater(const std::vector<WaterMessage>& messages);
     }; // End array [1D] Region.

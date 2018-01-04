@@ -351,6 +351,12 @@ public:
         return elementNumber;
     }
     
+    // Sets forcing data.
+    inline void setEvapoTranspirationForcing(const EvapoTranspirationForcingStruct& newEvapoTranspirationForcing)
+    {
+        evapoTranspirationForcing = newEvapoTranspirationForcing;
+    }
+    
 private:
     
     // Fill in the soil moisture profile into a struct needed by Noah-MP.  I believe this is the best place for this function.
