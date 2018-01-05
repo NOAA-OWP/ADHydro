@@ -358,14 +358,22 @@ module region
                         {
                             elementHome = Readonly::home(itMesh->first, Readonly::globalNumberOfMeshElements, CkNumPes());
                             outgoingState[elementHome].first.resize(outgoingState[elementHome].first.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
-                            itMesh->second.fillInState(outgoingState[elementHome].first.back());
+                            
+                            if (itMesh->second.fillInState(outgoingState[elementHome].first.back()))
+                            {
+                                CkExit();
+                            }
                         }
                         
                         for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
                         {
                             elementHome = Readonly::home(itChannel->first, Readonly::globalNumberOfChannelElements, CkNumPes());
                             outgoingState[elementHome].second.resize(outgoingState[elementHome].second.size() + 1); // FIXME see if there's a way to figure out the final size before resizing.
-                            itChannel->second.fillInState(outgoingState[elementHome].second.back());
+                            
+                            if (itChannel->second.fillInState(outgoingState[elementHome].second.back()))
+                            {
+                                CkExit();
+                            }
                         }
                         
                         for (itState = outgoingState.begin(); itState != outgoingState.end(); ++itState)

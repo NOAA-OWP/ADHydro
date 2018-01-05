@@ -14,10 +14,10 @@ TimePointState::TimePointState(size_t globalNumberOfMeshElements, size_t localNu
                                meshSurfaceWaterCreated(        (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshGroundwaterMode(            (0 == localNumberOfMeshElements)                                ? (NULL) : (new         GroundwaterModeEnum[localNumberOfMeshElements])),
                                meshPerchedHead(                (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
-                               meshSoilWater(                  (0 == localNumberOfMeshElements)                                ? (NULL) : (new        GroundwaterStateBlob[localNumberOfMeshElements])),
+                               meshSoilWater(                  (0 == localNumberOfMeshElements)                                ? (NULL) : (new         VadoseZoneStateBlob[localNumberOfMeshElements])),
                                meshSoilWaterCreated(           (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshAquiferHead(                (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
-                               meshAquiferWater(               (0 == localNumberOfMeshElements)                                ? (NULL) : (new        GroundwaterStateBlob[localNumberOfMeshElements])),
+                               meshAquiferWater(               (0 == localNumberOfMeshElements)                                ? (NULL) : (new         VadoseZoneStateBlob[localNumberOfMeshElements])),
                                meshAquiferWaterCreated(        (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshDeepGroundwater(            (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshPrecipitationRate(          (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
@@ -26,8 +26,8 @@ TimePointState::TimePointState(size_t globalNumberOfMeshElements, size_t localNu
                                meshEvaporationCumulative(      (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshTranspirationRate(          (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshTranspirationCumulative(    (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
-                               meshCanopyWaterEquivalent(      (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
-                               meshSnowWaterEquivalent(        (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
+                               meshCanopyWater(                (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
+                               meshSnowWater(                  (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshRootZoneWater(              (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshTotalGroundwater(           (0 == localNumberOfMeshElements)                                ? (NULL) : (new                      double[localNumberOfMeshElements])),
                                meshNeighborLocalEndpoint(      (0 == localNumberOfMeshElements * maximumNumberOfMeshNeighbors) ? (NULL) : (new        NeighborEndpointEnum[localNumberOfMeshElements * maximumNumberOfMeshNeighbors])),
@@ -44,7 +44,7 @@ TimePointState::TimePointState(size_t globalNumberOfMeshElements, size_t localNu
                                channelPrecipitationCumulative(    (0 == localNumberOfChannelElements)                                   ? (NULL) : (new                      double[localNumberOfChannelElements])),
                                channelEvaporationRate(            (0 == localNumberOfChannelElements)                                   ? (NULL) : (new                      double[localNumberOfChannelElements])),
                                channelEvaporationCumulative(      (0 == localNumberOfChannelElements)                                   ? (NULL) : (new                      double[localNumberOfChannelElements])),
-                               channelSnowWaterEquivalent(        (0 == localNumberOfChannelElements)                                   ? (NULL) : (new                      double[localNumberOfChannelElements])),
+                               channelSnowWater(                  (0 == localNumberOfChannelElements)                                   ? (NULL) : (new                      double[localNumberOfChannelElements])),
                                channelNeighborLocalEndpoint(      (0 == localNumberOfChannelElements * maximumNumberOfChannelNeighbors) ? (NULL) : (new        NeighborEndpointEnum[localNumberOfChannelElements * maximumNumberOfChannelNeighbors])),
                                channelNeighborRemoteEndpoint(     (0 == localNumberOfChannelElements * maximumNumberOfChannelNeighbors) ? (NULL) : (new        NeighborEndpointEnum[localNumberOfChannelElements * maximumNumberOfChannelNeighbors])),
                                channelNeighborRemoteElementNumber((0 == localNumberOfChannelElements * maximumNumberOfChannelNeighbors) ? (NULL) : (new                      size_t[localNumberOfChannelElements * maximumNumberOfChannelNeighbors])),
@@ -129,8 +129,8 @@ TimePointState::~TimePointState()
     delete[] meshEvaporationCumulative;
     delete[] meshTranspirationRate;
     delete[] meshTranspirationCumulative;
-    delete[] meshCanopyWaterEquivalent;
-    delete[] meshSnowWaterEquivalent;
+    delete[] meshCanopyWater;
+    delete[] meshSnowWater;
     delete[] meshRootZoneWater;
     delete[] meshTotalGroundwater;
     delete[] meshNeighborLocalEndpoint;
@@ -147,7 +147,7 @@ TimePointState::~TimePointState()
     delete[] channelPrecipitationCumulative;
     delete[] channelEvaporationRate;
     delete[] channelEvaporationCumulative;
-    delete[] channelSnowWaterEquivalent;
+    delete[] channelSnowWater;
     delete[] channelNeighborLocalEndpoint;
     delete[] channelNeighborRemoteEndpoint;
     delete[] channelNeighborRemoteElementNumber;
@@ -197,27 +197,27 @@ bool TimePointState::receiveMeshState(const MeshState& state)
     if (!error)
     {
         elementsReceived++;
-        meshEvapoTranspirationState[localIndex].noahMPStateBlob            = state.evapoTranspirationState;
-        meshSurfaceWater[           localIndex]                            = state.surfaceWater;
-        meshSurfaceWaterCreated[    localIndex]                            = state.surfaceWaterCreated;
-        meshGroundwaterMode[        localIndex]                            = state.groundwaterMode;
-        meshPerchedHead[            localIndex]                            = state.perchedHead;
-        meshSoilWater[              localIndex].simpleGroundwaterStateBlob = state.soilWater;
-        meshSoilWaterCreated[       localIndex]                            = state.soilWaterCreated;
-        meshAquiferHead[            localIndex]                            = state.aquiferHead;
-        meshAquiferWater[           localIndex].simpleGroundwaterStateBlob = state.aquiferWater;
-        meshAquiferWaterCreated[    localIndex]                            = state.aquiferWaterCreated;
-        meshDeepGroundwater[        localIndex]                            = state.deepGroundwater;
-        meshPrecipitationRate[      localIndex]                            = state.precipitationRate;
-        meshPrecipitationCumulative[localIndex]                            = state.precipitationCumulative;
-        meshEvaporationRate[        localIndex]                            = state.evaporationRate;
-        meshEvaporationCumulative[  localIndex]                            = state.evaporationCumulative;
-        meshTranspirationRate[      localIndex]                            = state.transpirationRate;
-        meshTranspirationCumulative[localIndex]                            = state.transpirationCumulative;
-        meshCanopyWaterEquivalent[  localIndex]                            = (state.evapoTranspirationState.canLiq + state.evapoTranspirationState.canIce) / 1000.0; // Divide by 1000.0 to convert from millimeters to meters.
-        meshSnowWaterEquivalent[    localIndex]                            = state.evapoTranspirationState.snEqv / 1000.0;                                           // Divide by 1000.0 to convert from millimeters to meters.
-        meshRootZoneWater[          localIndex]                            = state.soilWater.waterAboveDepth(state.soilWater.getThickness()); // FIXME define the root zone.
-        meshTotalGroundwater[       localIndex]                            = state.soilWater.waterAboveDepth(state.soilWater.getThickness()) + state.aquiferWater.waterAboveDepth(state.aquiferWater.getThickness());
+        memcpy(meshEvapoTranspirationState[localIndex], state.evapoTranspirationState, sizeof(EvapoTranspirationStateBlob));
+        meshSurfaceWater[           localIndex] = state.surfaceWater;
+        meshSurfaceWaterCreated[    localIndex] = state.surfaceWaterCreated;
+        meshGroundwaterMode[        localIndex] = state.groundwaterMode;
+        meshPerchedHead[            localIndex] = state.perchedHead;
+        memcpy(meshSoilWater[localIndex], state.soilWater, sizeof(VadoseZoneStateBlob));
+        meshSoilWaterCreated[       localIndex] = state.soilWaterCreated;
+        meshAquiferHead[            localIndex] = state.aquiferHead;
+        memcpy(meshAquiferWater[localIndex], state.aquiferWater, sizeof(VadoseZoneStateBlob));
+        meshAquiferWaterCreated[    localIndex] = state.aquiferWaterCreated;
+        meshDeepGroundwater[        localIndex] = state.deepGroundwater;
+        meshPrecipitationRate[      localIndex] = state.precipitationRate;
+        meshPrecipitationCumulative[localIndex] = state.precipitationCumulative;
+        meshEvaporationRate[        localIndex] = state.evaporationRate;
+        meshEvaporationCumulative[  localIndex] = state.evaporationCumulative;
+        meshTranspirationRate[      localIndex] = state.transpirationRate;
+        meshTranspirationCumulative[localIndex] = state.transpirationCumulative;
+        meshCanopyWater[            localIndex] = state.canopyWater;
+        meshSnowWater[              localIndex] = state.snowWater;
+        meshRootZoneWater[          localIndex] = state.rootZoneWater;
+        meshTotalGroundwater[       localIndex] = state.totalGroundwater;
         
         for (it = state.neighbors.begin(), ii = 0; it != state.neighbors.end(); ++it, ++ii)
         {
@@ -274,14 +274,14 @@ bool TimePointState::receiveChannelState(const ChannelState& state)
     if (!error)
     {
         elementsReceived++;
-        channelEvapoTranspirationState[localIndex].noahMPStateBlob = state.evapoTranspirationState;
-        channelSurfaceWater[           localIndex]                 = state.surfaceWater;
-        channelSurfaceWaterCreated[    localIndex]                 = state.surfaceWaterCreated;
-        channelPrecipitationRate[      localIndex]                 = state.precipitationRate;
-        channelPrecipitationCumulative[localIndex]                 = state.precipitationCumulative;
-        channelEvaporationRate[        localIndex]                 = state.evaporationRate;
-        channelEvaporationCumulative[  localIndex]                 = state.evaporationCumulative;
-        channelSnowWaterEquivalent[    localIndex]                 = state.evapoTranspirationState.snEqv / 1000.0; // Divide by 1000.0 to convert from millimeters to meters.
+        memcpy(channelEvapoTranspirationState[localIndex], state.evapoTranspirationState, sizeof(EvapoTranspirationStateBlob));
+        channelSurfaceWater[           localIndex] = state.surfaceWater;
+        channelSurfaceWaterCreated[    localIndex] = state.surfaceWaterCreated;
+        channelPrecipitationRate[      localIndex] = state.precipitationRate;
+        channelPrecipitationCumulative[localIndex] = state.precipitationCumulative;
+        channelEvaporationRate[        localIndex] = state.evaporationRate;
+        channelEvaporationCumulative[  localIndex] = state.evaporationCumulative;
+        channelSnowWater[              localIndex] = state.snowWater;
         
         for (it = state.neighbors.begin(), ii = 0; it != state.neighbors.end(); ++it, ++ii)
         {

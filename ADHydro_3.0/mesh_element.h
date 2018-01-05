@@ -2,8 +2,7 @@
 #define __MESH_ELEMENT_H__
 
 #include "neighbor_proxy.h"
-#include "simple_vadose_zone.h"
-#include "evapo_transpiration.h"
+#include "NetCDF_blobs.h"
 
 // A GroundwaterModeEnum describes the current mode of the multi-layer groundwater simulation in a single mesh element.
 enum GroundwaterModeEnum
@@ -45,28 +44,36 @@ public:
         p | evaporationCumulative;
         p | transpirationRate;
         p | transpirationCumulative;
+        p | canopyWater;
+        p | snowWater;
+        p | rootZoneWater;
+        p | totalGroundwater;
         p | neighbors;
     }
     
-    size_t                        elementNumber;
-    EvapoTranspirationStateStruct evapoTranspirationState;
-    double                        surfaceWater;
-    double                        surfaceWaterCreated;
-    GroundwaterModeEnum           groundwaterMode;
-    double                        perchedHead;
-    SimpleVadoseZone              soilWater;
-    double                        soilWaterCreated;
-    double                        aquiferHead;
-    SimpleVadoseZone              aquiferWater;
-    double                        aquiferWaterCreated;
-    double                        deepGroundwater;
-    double                        precipitationRate;
-    double                        precipitationCumulative;
-    double                        evaporationRate;
-    double                        evaporationCumulative;
-    double                        transpirationRate;
-    double                        transpirationCumulative;
-    std::vector<NeighborState>    neighbors;
+    size_t                      elementNumber;
+    EvapoTranspirationStateBlob evapoTranspirationState;
+    double                      surfaceWater;
+    double                      surfaceWaterCreated;
+    GroundwaterModeEnum         groundwaterMode;
+    double                      perchedHead;
+    VadoseZoneStateBlob         soilWater;
+    double                      soilWaterCreated;
+    double                      aquiferHead;
+    VadoseZoneStateBlob         aquiferWater;
+    double                      aquiferWaterCreated;
+    double                      deepGroundwater;
+    double                      precipitationRate;
+    double                      precipitationCumulative;
+    double                      evaporationRate;
+    double                      evaporationCumulative;
+    double                      transpirationRate;
+    double                      transpirationCumulative;
+    double                      canopyWater;
+    double                      snowWater;
+    double                      rootZoneWater;
+    double                      totalGroundwater;
+    std::vector<NeighborState>  neighbors;
 };
 
 // A MeshElement is a triangular element in the mesh.  It simulates overland (non-channel) surfacewater state as well as groundwater and vadose zone state.
@@ -298,51 +305,125 @@ public:
     
     // Fill in this MeshElement's values into a MeshState object.
     //
+    // Returns: true if there is an error, false otherwise.
+    //
     // Parameters:
     //
     // state - The MeshState to fill in.
-    inline void fillInState(MeshState& state)
+    inline bool fillInState(MeshState& state)
     {
-        std::map<NeighborConnection, NeighborProxy>::iterator itProxy; // Loop iterator.
-        std::vector<NeighborState>::iterator                  itState; // Loop iterator.
+        bool                                                  error = false;                                          // Error flag.
+        std::map<NeighborConnection, NeighborProxy>::iterator itProxy;                                                // Loop iterator.
+        std::vector<NeighborState>::iterator                  itState;                                                // Loop iterator.
+        PUP::sizer                                            evapoTranspirationSizer;                                // Used to make sure there is enough space in the fixed size blob.
+        PUP::toMem                                            evapotranspirationPuper(state.evapoTranspirationState); // Used to put evapoTranspirationState into a fixed size blob.
+        PUP::sizer                                            soilWaterSizer;                                         // Used to make sure there is enough space in the fixed size blob.
+        PUP::toMem                                            soilWaterPuper(state.soilWater);                        // Used to put soilWater into a fixed size blob.
+        PUP::sizer                                            aquiferWaterSizer;                                      // Used to make sure there is enough space in the fixed size blob.
+        PUP::toMem                                            aquiferWaterPuper(state.aquiferWater);                  // Used to put aquiferWater into a fixed size blob.
         
-        state.elementNumber           = elementNumber;
-        state.evapoTranspirationState = evapoTranspirationState;
-        state.surfaceWater            = surfaceWater;
-        state.surfaceWaterCreated     = surfaceWaterCreated;
-        state.groundwaterMode         = groundwaterMode;
-        state.perchedHead             = perchedHead;
-        state.soilWater               = soilWater;
-        state.soilWaterCreated        = soilWaterCreated;
-        state.aquiferHead             = aquiferHead;
-        state.aquiferWater            = aquiferWater;
-        state.aquiferWaterCreated     = aquiferWaterCreated;
-        state.deepGroundwater         = deepGroundwater;
-        state.precipitationRate       = precipitationRate;
-        state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
-        state.evaporationRate         = evaporationRate;
-        state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
-        state.transpirationRate       = transpirationRate;
-        state.transpirationCumulative = transpirationCumulativeShortTerm + transpirationCumulativeLongTerm;
+        state.elementNumber = elementNumber;
         
-        state.neighbors.resize(neighbors.size());
+        evapoTranspirationSizer | evapoTranspirationState;
         
-        for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
+        if (evapoTranspirationSizer.size() <= sizeof(EvapoTranspirationStateBlob))
         {
-            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            evapotranspirationPuper | evapoTranspirationState;
+        }
+        else
+        {
+            CkError("ERROR in MeshElement::fillInState: Puping evapoTranspirationState requires %d bytes, which is more than the %d bytes available in an EvapoTranspirationStateBlob.\n",
+                    evapoTranspirationSizer.size(), sizeof(EvapoTranspirationStateBlob));
+            error = true;
+        }
+        
+        if (!error)
+        {
+            state.surfaceWater        = surfaceWater;
+            state.surfaceWaterCreated = surfaceWaterCreated;
+            state.groundwaterMode     = groundwaterMode;
+            state.perchedHead         = perchedHead;
+            
+            soilWaterSizer | soilWater;
+            
+            if (soilWaterSizer.size() <= sizeof(VadoseZoneStateBlob))
             {
-                // Because we resized state.neighbors we shouldn't run out of elements in this loop.
-                CkAssert(itState != state.neighbors.end());
+                soilWaterPuper | soilWater;
+            }
+            else
+            {
+                CkError("ERROR in MeshElement::fillInState: Puping soilWater requires %d bytes, which is more than the %d bytes available in a VadoseZoneStateBlob.\n",
+                        soilWaterSizer.size(), sizeof(VadoseZoneStateBlob));
+                error = true;
+            }
+        }
+        
+        if (!error)
+        {
+            state.soilWaterCreated = soilWaterCreated;
+            state.aquiferHead      = aquiferHead;
+            
+            aquiferWaterSizer | aquiferWater;
+            
+            if (aquiferWaterSizer.size() <= sizeof(VadoseZoneStateBlob))
+            {
+                aquiferWaterPuper | aquiferWater;
+            }
+            else
+            {
+                CkError("ERROR in MeshElement::fillInState: Puping aquiferWater requires %d bytes, which is more than the %d bytes available in a VadoseZoneStateBlob.\n",
+                        aquiferWaterSizer.size(), sizeof(VadoseZoneStateBlob));
+                error = true;
+            }
+        }
+        
+        if (!error)
+        {
+            state.aquiferWaterCreated     = aquiferWaterCreated;
+            state.deepGroundwater         = deepGroundwater;
+            state.precipitationRate       = precipitationRate;
+            state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
+            state.evaporationRate         = evaporationRate;
+            state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
+            state.transpirationRate       = transpirationRate;
+            state.transpirationCumulative = transpirationCumulativeShortTerm + transpirationCumulativeLongTerm;
+            state.canopyWater             = (evapoTranspirationState.canLiq + evapoTranspirationState.canIce) / 1000.0; // divide by a thousand to convert from millimeters to meters.
+            state.snowWater               = evapoTranspirationState.snEqv                                     / 1000.0; // divide by a thousand to convert from millimeters to meters.
+            state.rootZoneWater           = 0.0;
+            state.totalGroundwater        = 0.0;
+            
+            if (soilExists)
+            {
+                state.rootZoneWater    += soilWater.waterAboveDepth(soilWater.getThickness()); // FIXME decide on depth of root zone
+                state.totalGroundwater += soilWater.waterAboveDepth(soilWater.getThickness());
             }
             
-            itProxy->second.fillInState(*itState, itProxy->first);
+            if (aquiferExists)
+            {
+                state.totalGroundwater += aquiferWater.waterAboveDepth(aquiferWater.getThickness());
+            }
+            
+            state.neighbors.resize(neighbors.size());
+            
+            for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
+            {
+                if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+                {
+                    // Because we resized state.neighbors we shouldn't run out of elements in this loop.
+                    CkAssert(itState != state.neighbors.end());
+                }
+                
+                itProxy->second.fillInState(*itState, itProxy->first);
+            }
+            
+            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            {
+                // Because we resized state.neighbors we should hit the end of both containers at the same time.
+                CkAssert(itState == state.neighbors.end());
+            }
         }
         
-        if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
-        {
-            // Because we resized state.neighbors we should hit the end of both containers at the same time.
-            CkAssert(itState == state.neighbors.end());
-        }
+        return error;
     }
     
     // Returns: the value of elementNumber.

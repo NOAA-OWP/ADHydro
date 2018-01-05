@@ -2,7 +2,7 @@
 #define __CHANNEL_ELEMENT_H__
 
 #include "neighbor_proxy.h"
-#include "evapo_transpiration.h"
+#include "NetCDF_blobs.h"
 
 class ChannelState
 {
@@ -23,18 +23,20 @@ public:
         p | precipitationCumulative;
         p | evaporationRate;
         p | evaporationCumulative;
+        p | snowWater;
         p | neighbors;
     }
     
-    size_t                        elementNumber;
-    EvapoTranspirationStateStruct evapoTranspirationState;
-    double                        surfaceWater;
-    double                        surfaceWaterCreated;
-    double                        precipitationRate;
-    double                        precipitationCumulative;
-    double                        evaporationRate;
-    double                        evaporationCumulative;
-    std::vector<NeighborState>    neighbors;
+    size_t                      elementNumber;
+    EvapoTranspirationStateBlob evapoTranspirationState;
+    double                      surfaceWater;
+    double                      surfaceWaterCreated;
+    double                      precipitationRate;
+    double                      precipitationCumulative;
+    double                      evaporationRate;
+    double                      evaporationCumulative;
+    double                      snowWater;
+    std::vector<NeighborState>  neighbors;
 };
 
 // A ChannelElement is a length of stream, a waterbody, or a glacier in the channel network.  It is modeled as a linear element.
@@ -248,41 +250,65 @@ public:
     
     // Fill in this ChannelElement's values into a ChannelState object.
     //
+    // Returns: true if there is an error, false otherwise.
+    //
     // Parameters:
     //
     // state - The ChannelState to fill in.
-    inline void fillInState(ChannelState& state)
+    inline bool fillInState(ChannelState& state)
     {
-        std::map<NeighborConnection, NeighborProxy>::iterator itProxy; // Loop iterator.
-        std::vector<NeighborState>::iterator                  itState; // Loop iterator.
+        bool                                                  error = false;                                          // Error flag.
+        std::map<NeighborConnection, NeighborProxy>::iterator itProxy;                                                // Loop iterator.
+        std::vector<NeighborState>::iterator                  itState;                                                // Loop iterator.
+        PUP::sizer                                            evapoTranspirationSizer;                                // Used to make sure there is enough space in the fixed size blob.
+        PUP::toMem                                            evapotranspirationPuper(state.evapoTranspirationState); // Used to put evapoTranspirationState into a fixed size blob.
         
-        state.elementNumber           = elementNumber;
-        state.evapoTranspirationState = evapoTranspirationState;
-        state.surfaceWater            = surfaceWater;
-        state.surfaceWaterCreated     = surfaceWaterCreated;
-        state.precipitationRate       = precipitationRate;
-        state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
-        state.evaporationRate         = evaporationRate;
-        state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
+        state.elementNumber = elementNumber;
         
-        state.neighbors.resize(neighbors.size());
+        evapoTranspirationSizer | evapoTranspirationState;
         
-        for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
+        if (evapoTranspirationSizer.size() <= sizeof(EvapoTranspirationStateBlob))
         {
-            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            evapotranspirationPuper | evapoTranspirationState;
+        }
+        else
+        {
+            CkError("ERROR in ChannelElement::fillInState: Puping evapoTranspirationState requires %d bytes, which is more than the %d bytes available in an EvapoTranspirationStateBlob.\n",
+                    evapoTranspirationSizer.size(), sizeof(EvapoTranspirationStateBlob));
+            error = true;
+        }
+        
+        if (!error)
+        {
+            state.surfaceWater            = surfaceWater;
+            state.surfaceWaterCreated     = surfaceWaterCreated;
+            state.precipitationRate       = precipitationRate;
+            state.precipitationCumulative = precipitationCumulativeShortTerm + precipitationCumulativeLongTerm;
+            state.evaporationRate         = evaporationRate;
+            state.evaporationCumulative   = evaporationCumulativeShortTerm + evaporationCumulativeLongTerm;
+            state.snowWater               = evapoTranspirationState.snEqv / 1000.0; // divide by a thousand to convert from millimeters to meters.
+            
+            state.neighbors.resize(neighbors.size());
+            
+            for (itProxy = neighbors.begin(), itState = state.neighbors.begin(); itProxy != neighbors.end(); ++itProxy, ++itState)
             {
-                // Because we resized state.neighbors we shouldn't run out of elements in this loop.
-                CkAssert(itState != state.neighbors.end());
+                if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+                {
+                    // Because we resized state.neighbors we shouldn't run out of elements in this loop.
+                    CkAssert(itState != state.neighbors.end());
+                }
+                
+                itProxy->second.fillInState(*itState, itProxy->first);
             }
             
-            itProxy->second.fillInState(*itState, itProxy->first);
+            if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
+            {
+                // Because we resized state.neighbors we should hit the end of both containers at the same time.
+                CkAssert(itState == state.neighbors.end());
+            }
         }
         
-        if (DEBUG_LEVEL && DEBUG_LEVEL_INTERNAL_SIMPLE)
-        {
-            // Because we resized state.neighbors we should hit the end of both containers at the same time.
-            CkAssert(itState == state.neighbors.end());
-        }
+        return error;
     }
     
     // Returns: the value of elementNumber.

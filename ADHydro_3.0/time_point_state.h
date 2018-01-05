@@ -4,23 +4,6 @@
 #include "mesh_element.h"
 #include "channel_element.h"
 
-// The state of the evapotranspiration and groundwater simulations are generally complex data structures.
-// We want ADHydro to support using third party modules for those simulations so we don't necessarily have control over the data structure,
-// and the data structure can change if you change to a different module, but we need to save that state in the input/output files as a fixed size blob.
-// These declarations provide fixed size blobs for that data.  Any new simulation module must shoehorn their state into a fixed size blob and add it as an additional union option.
-union EvapoTranspirationStateBlob
-{
-    EvapoTranspirationStateStruct noahMPStateBlob;
-};
-
-union GroundwaterStateBlob
-{
-    // Constructor.  This is needed because SimpleGroundwater has a non-trivial no-argument constructor so GroundwaterStateBlob's default constructor gets implicitly deleted by the compiler.
-    inline GroundwaterStateBlob() {}
-    
-    SimpleGroundwater simpleGroundwaterStateBlob;
-};
-
 // TimePointState contains the state to be written to file for a single time point.  If any array dimension is zero applicable array pointers are NULL.
 // For parallel output, each TimePointState might only contain a slice of the total state with each processor getting a different slice.
 class TimePointState
@@ -65,12 +48,12 @@ public:
     
     // Dimension sizes.  These are stored with each TimePointState because mesh adaption may cause them to change over time.
     const size_t globalNumberOfMeshElements;
-    const size_t localNumberOfMeshElements;    // Must be less than or equal to globalNumberOfMeshElements.
-    const size_t localMeshElementStart;        // Must be less than globalNumberOfMeshElements or zero if localNumberOfMeshElements is zero.
+    const size_t localNumberOfMeshElements;
+    const size_t localMeshElementStart;
     const size_t maximumNumberOfMeshNeighbors;
     const size_t globalNumberOfChannelElements;
-    const size_t localNumberOfChannelElements; // Must be less than or equal to globalNumberOfChannelElements.
-    const size_t localChannelElementStart;     // Must be less than globalNumberOfChannelElements or zero if localNumberOfChannelElements is zero.
+    const size_t localNumberOfChannelElements;
+    const size_t localChannelElementStart;
     const size_t maximumNumberOfChannelNeighbors;
     
     // For checking when all state is received.
@@ -87,10 +70,10 @@ public:
     double*                      meshSurfaceWaterCreated;            // 1D array of size localNumberOfMeshElements.
     GroundwaterModeEnum*         meshGroundwaterMode;                // 1D array of size localNumberOfMeshElements.
     double*                      meshPerchedHead;                    // 1D array of size localNumberOfMeshElements.
-    GroundwaterStateBlob*        meshSoilWater;                      // 1D array of size localNumberOfMeshElements.
+    VadoseZoneStateBlob*         meshSoilWater;                      // 1D array of size localNumberOfMeshElements.
     double*                      meshSoilWaterCreated;               // 1D array of size localNumberOfMeshElements.
     double*                      meshAquiferHead;                    // 1D array of size localNumberOfMeshElements.
-    GroundwaterStateBlob*        meshAquiferWater;                   // 1D array of size localNumberOfMeshElements.
+    VadoseZoneStateBlob*         meshAquiferWater;                   // 1D array of size localNumberOfMeshElements.
     double*                      meshAquiferWaterCreated;            // 1D array of size localNumberOfMeshElements.
     double*                      meshDeepGroundwater;                // 1D array of size localNumberOfMeshElements.
     
@@ -103,8 +86,8 @@ public:
     double*                      meshTranspirationCumulative;        // 1D array of size localNumberOfMeshElements.
     
     // Mesh state for outputting values derived from EvapoTranspirationStateBlob and GroundwaterStateBlob that are nice to have visible outside those opaque blobs.
-    double*                      meshCanopyWaterEquivalent;          // 1D array of size localNumberOfMeshElements.
-    double*                      meshSnowWaterEquivalent;            // 1D array of size localNumberOfMeshElements.
+    double*                      meshCanopyWater;                    // 1D array of size localNumberOfMeshElements.
+    double*                      meshSnowWater;                      // 1D array of size localNumberOfMeshElements.
     double*                      meshRootZoneWater;                  // 1D array of size localNumberOfMeshElements.
     double*                      meshTotalGroundwater;               // 1D array of size localNumberOfMeshElements.
     
@@ -129,7 +112,7 @@ public:
     double*                      channelEvaporationCumulative;       // 1D array of size localNumberOfChannelElements.
     
     // Channel state for outputting values derived from EvapoTranspirationStateBlob that are nice to have visible outside that opaque blob.
-    double*                      channelSnowWaterEquivalent;         // 1D array of size localNumberOfChannelElements.
+    double*                      channelSnowWater;                   // 1D array of size localNumberOfChannelElements.
     
     // Channel neighbor state.
     NeighborEndpointEnum*        channelNeighborLocalEndpoint;       // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
