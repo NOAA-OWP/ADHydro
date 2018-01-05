@@ -22,7 +22,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
     int                channelElementsDimensionID;    // ID of dimension in NetCDF file.
     int                channelNeighborsDimensionID;   // ID of dimension in NetCDF file.
     nc_type            EvapoTranspirationStateTypeID; // ID of type in NetCDF file.
-    nc_type            GroundwaterStateTypeID;        // ID of type in NetCDF file.
+    nc_type            VadoseZoneStateTypeID;         // ID of type in NetCDF file.
     
     if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
     {
@@ -36,7 +36,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
     // Build filename and create file.
     if (!error)
     {
-        julianToGregorian(Readonly::referenceDate + (checkpointTime / (60.0 * 60.0 * 24.0)), &year, &month, &day, &hour, &minute, &second);
+        julianToGregorian(Readonly::referenceDate + (checkpointTime / ONE_DAY_IN_SECONDS), &year, &month, &day, &hour, &minute, &second);
         
         filename << Readonly::checkpointDirectoryPath << "/state_" << std::setfill('0') << std::setw(4) << year << std::setw(2) << month << std::setw(2) << day
                  << std::setw(2) << hour << std::setw(2) << minute << std::fixed << std::setprecision(0) << std::setw(2) << second << ".nc";
@@ -193,7 +193,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
     
     if (!error)
     {
-        ncErrorCode = nc_def_opaque(fileID, sizeof(GroundwaterStateBlob), "GroundwaterState", &GroundwaterStateTypeID);
+        ncErrorCode = nc_def_opaque(fileID, sizeof(VadoseZoneStateBlob), "VadoseZoneState", &VadoseZoneStateTypeID);
         
         if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
         {
@@ -242,7 +242,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = createVariable(fileID, "meshSoilWater", GroundwaterStateTypeID, 1, meshElementsDimensionID, 0, NULL, "Opaque blob of groundwater state in the soil layer of mesh elements.");
+            error = createVariable(fileID, "meshSoilWater", VadoseZoneStateTypeID, 1, meshElementsDimensionID, 0, NULL, "Opaque blob of vadose zone state in the soil layer of mesh elements.");
         }
         
         if (!error)
@@ -258,7 +258,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = createVariable(fileID, "meshAquiferWater", GroundwaterStateTypeID, 1, meshElementsDimensionID, 0, NULL, "Opaque blob of groundwater state in the aquifer layer of mesh elements.");
+            error = createVariable(fileID, "meshAquiferWater", VadoseZoneStateTypeID, 1, meshElementsDimensionID, 0, NULL, "Opaque blob of vadose zone state in the aquifer layer of mesh elements.");
         }
         
         if (!error)
@@ -306,12 +306,12 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = createVariable(fileID, "meshCanopyWaterEquivalent", NC_DOUBLE, 1, meshElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in canopy in mesh elements.");
+            error = createVariable(fileID, "meshCanopyWater", NC_DOUBLE, 1, meshElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in canopy in mesh elements.");
         }
         
         if (!error)
         {
-            error = createVariable(fileID, "meshSnowWaterEquivalent", NC_DOUBLE, 1, meshElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in snow pack in mesh elements.");
+            error = createVariable(fileID, "meshSnowWater", NC_DOUBLE, 1, meshElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in snow pack in mesh elements.");
         }
         
         if (!error)
@@ -427,7 +427,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = createVariable(fileID, "channelSnowWaterEquivalent", NC_DOUBLE, 1, channelElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in snow pack in channel elements.");
+            error = createVariable(fileID, "channelSnowWater", NC_DOUBLE, 1, channelElementsDimensionID, 0, "meters", "Water equivalent of total snow and liquid water in snow pack in channel elements.");
         }
         
         if (0 < timePointState.maximumNumberOfChannelNeighbors)
@@ -581,12 +581,12 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = writeVariable(fileID, "meshCanopyWaterEquivalent", timePointState.localMeshElementStart, timePointState.localNumberOfMeshElements, 0, timePointState.meshCanopyWaterEquivalent);
+            error = writeVariable(fileID, "meshCanopyWater", timePointState.localMeshElementStart, timePointState.localNumberOfMeshElements, 0, timePointState.meshCanopyWater);
         }
         
         if (!error)
         {
-            error = writeVariable(fileID, "meshSnowWaterEquivalent", timePointState.localMeshElementStart, timePointState.localNumberOfMeshElements, 0, timePointState.meshSnowWaterEquivalent);
+            error = writeVariable(fileID, "meshSnowWater", timePointState.localMeshElementStart, timePointState.localNumberOfMeshElements, 0, timePointState.meshSnowWater);
         }
         
         if (!error)
@@ -684,7 +684,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
         
         if (!error)
         {
-            error = writeVariable(fileID, "channelSnowWaterEquivalent", timePointState.localChannelElementStart, timePointState.localNumberOfChannelElements, 0, timePointState.channelSnowWaterEquivalent);
+            error = writeVariable(fileID, "channelSnowWater", timePointState.localChannelElementStart, timePointState.localNumberOfChannelElements, 0, timePointState.channelSnowWater);
         }
         
         if (0 < timePointState.maximumNumberOfChannelNeighbors)
