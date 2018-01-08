@@ -23,8 +23,6 @@ public:
         thisProxy[CkMyPe()].runUntilSimulationEnd();
     }
     
-    // FIXME checkInvariant?
-    
 private:
     
     // Returns: true if the CheckpointManager has all of the data it needs to output the next checkpoint(s).
