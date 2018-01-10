@@ -3,7 +3,7 @@
 
 #include "initialization_manager.decl.h"
 
-// InitializationManager is a Charm++ group that handles reading in initialization data from files and then sending that data to the appropriate Region object.
+// InitializationManager is a Charm++ group that handles reading in initialization data from files and then sending that data to the appropriate Region objects.
 // Reading is done in parallel.
 class InitializationManager : public CBase_InitializationManager
 {
@@ -12,10 +12,27 @@ class InitializationManager : public CBase_InitializationManager
 public:
     
     // Constructor.
-    inline InitializationManager()
+    inline InitializationManager() :
+    meshRegion(NULL),
+    channelRegion(NULL)
     {
-        thisProxy[CkMyPe()].runUntilSimulationEnd();
+        initializeSimulation();
     }
+    
+    // Destructor.
+    inline ~InitializationManager()
+    {
+        delete[] meshRegion;
+        delete[] channelRegion;
+    }
+    
+    int* meshRegion;
+    int* channelRegion;
+    
+private:
+    
+    // Load initialization data from files and send it to simulation objects.
+    void initializeSimulation();
 };
 
 #endif // __INITIALIZATION_MANAGER_H__

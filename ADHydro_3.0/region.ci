@@ -121,48 +121,62 @@ module region
                     // Receive until all elements have their forcing updated.
                     while (meshElements.size() + channelElements.size() > elementsFinished)
                     {
-                        when sendForcing(double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct> meshForcing, std::map<size_t, EvapoTranspirationForcingStruct> channelForcing)
+                        when sendForcing(double forcingTime, double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct>& meshForcing, std::map<size_t, EvapoTranspirationForcingStruct>& channelForcing)
                         {
                             serial
                             {
                                 std::map<size_t, EvapoTranspirationForcingStruct>::iterator it; // Loop iterator.
                                 
-                                if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+                                if (currentTime < forcingTime)
                                 {
-                                    if (!(newNextForcingTime > currentTime))
+                                    // This is a message from the future, don't receive it yet.
+                                    thisProxy[thisIndex].sendForcing(forcingTime, newNextForcingTime, meshForcing, channelForcing);
+                                }
+                                else
+                                {
+                                    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
                                     {
-                                        CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
-                                        CkExit();
+                                        if (!(forcingTime == currentTime))
+                                        {
+                                            CkError("ERROR in Region::runUntilSimulationEnd: forcing message received from the past, which is an error.\n");
+                                            CkExit();
+                                        }
+                                        
+                                        if (!(newNextForcingTime > currentTime))
+                                        {
+                                            CkError("ERROR in Region::runUntilSimulationEnd: newNextForcingTime must be greater than currentTime.\n");
+                                            CkExit();
+                                        }
+                                        
+                                        if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                        {
+                                            CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
+                                            CkExit();
+                                        }
                                     }
                                     
-                                    if (!(nextForcingTime == currentTime || nextForcingTime == newNextForcingTime))
+                                    // Store forcing data.
+                                    // FIXME make sure we have the element that the forcing is for.
+                                    // FIXME make sure we don't receive duplicate forcing for an element.
+                                    for (it = meshForcing.begin(); it != meshForcing.end(); ++it)
                                     {
-                                        CkError("ERROR in Region::runUntilSimulationEnd: nextForcingTime must be equal to currentTime or newNextForcingTime.\n");
-                                        CkExit();
+                                        meshElements[it->first].setEvapoTranspirationForcing(it->second);
                                     }
-                                }
-                                
-                                // Store forcing data.
-                                // FIXME make sure we have the element that the forcing is for.
-                                // FIXME make sure we don't receive duplicate forcing for an element.
-                                for (it = meshForcing.begin(); it != meshForcing.end(); ++it)
-                                {
-                                    meshElements[it->first].setEvapoTranspirationForcing(it->second);
-                                }
-                                
-                                for (it = channelForcing.begin(); it != channelForcing.end(); ++it)
-                                {
-                                    channelElements[it->first].setEvapoTranspirationForcing(it->second);
-                                }
-                                
-                                elementsFinished += meshForcing.size() + channelForcing.size();
-                                
-                                if (nextForcingTime != newNextForcingTime)
-                                {
-                                    // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
-                                    nextForcingTime = newNextForcingTime;
                                     
-                                    ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                                    for (it = channelForcing.begin(); it != channelForcing.end(); ++it)
+                                    {
+                                        channelElements[it->first].setEvapoTranspirationForcing(it->second);
+                                    }
+                                    
+                                    elementsFinished += meshForcing.size() + channelForcing.size();
+                                    
+                                    if (nextForcingTime != newNextForcingTime)
+                                    {
+                                        // Let the ForcingManagers know I'm ready for them to queue up the next forcing.
+                                        nextForcingTime = newNextForcingTime;
+                                        
+                                        ADHydro::forcingManagerProxy.readyForForcing(nextForcingTime);
+                                    }
                                 }
                             }
                         }
@@ -212,7 +226,7 @@ module region
                         else
                         {
                             // FIXME what if the other region is on the same PE as me?  Shortcut further down?
-                            thisProxy[itMessage->first].sendState(itMessage->second, currentTime);
+                            thisProxy[itMessage->first].sendState(currentTime, itMessage->second);
                         }
                     }
                 }
@@ -220,14 +234,14 @@ module region
                 // Finish step 1 for any NeighborProxies that need to receive a message before calculating their nominal flow rate.
                 while (meshElements.size() + channelElements.size() > elementsFinished)
                 {
-                    when sendState(const std::vector<StateMessage>& messages, double messageTime)
+                    when sendState(double messageTime, const std::vector<StateMessage>& messages)
                     {
                         serial
                         {
                             if (currentTime < messageTime)
                             {
                                 // This is a message from the future, don't receive it yet.
-                                thisProxy[thisIndex].sendState(messages, messageTime);
+                                thisProxy[thisIndex].sendState(messageTime, messages);
                             }
                             else
                             {
@@ -388,8 +402,8 @@ module region
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
-        entry void sendForcing(double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct> meshForcing, std::map<size_t, EvapoTranspirationForcingStruct> channelForcing);
-        entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
+        entry void sendForcing(double forcingTime, double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct>& meshForcing, std::map<size_t, EvapoTranspirationForcingStruct>& channelForcing);
+        entry void sendState(double messageTime, const std::vector<StateMessage>& messages);
         entry void sendWater(const std::vector<WaterMessage>& messages);
     }; // End array [1D] Region.
 }; // End module region.

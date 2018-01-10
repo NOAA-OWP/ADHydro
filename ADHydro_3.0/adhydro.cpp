@@ -104,11 +104,6 @@ ADHydro::ADHydro(CkArgMsg* msg)
             Readonly::checkpointGroupSize = 1;
         }
         
-        // Create manager groups.
-        initializationManagerProxy = CProxy_InitializationManager::ckNew();
-        checkpointManagerProxy     = CProxy_CheckpointManager::ckNew();
-        forcingManagerProxy        = CProxy_ForcingManager::ckNew();
-        
         // Create Region array.  This requires knowing the number of regions, which must be read from file.
         // The initialization managers will re-open the file to read lots of other stuff, but getting this one value here simplifies the code,
         // and opening and closing the file one extra time isn't a high performance cost.
@@ -116,6 +111,11 @@ ADHydro::ADHydro(CkArgMsg* msg)
         Readonly::globalNumberOfRegions = 2;
         
         regionProxy = CProxy_Region::ckNew(Readonly::globalNumberOfRegions);
+        
+        // Create manager groups.
+        initializationManagerProxy = CProxy_InitializationManager::ckNew();
+        checkpointManagerProxy     = CProxy_CheckpointManager::ckNew();
+        forcingManagerProxy        = CProxy_ForcingManager::ckNew();
     }
     
     if (error)

@@ -155,6 +155,7 @@ forcing_manager.o: forcing_manager.cpp             \
                    forcing_manager.def.h           \
                    adhydro.h                       \
                    adhydro.decl.h                  \
+                   initialization_manager.h        \
                    initialization_manager.decl.h   \
                    checkpoint_manager.decl.h       \
                    region.decl.h                   \

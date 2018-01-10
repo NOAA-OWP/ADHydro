@@ -1,5 +1,6 @@
 #include "forcing_manager.h"
 #include "adhydro.h"
+#include "initialization_manager.h"
 #include "forcing_manager.def.h"
 #include <netcdf.h>
 #include <netcdf_par.h>
@@ -234,7 +235,7 @@ bool ForcingManager::readAndSendForcing()
         // Load the forcing.
         // FIXME implement
         
-        // Increment jultimeIndex and update nextForcingTime.
+        // Find the next forcing data to use.  The time of this forcing data will be sent to regions to let them know when to stop and expect more forcing.
         // To protect against entries that are not monotonically increasing, find the next index strictly later than jultimeIndex when converted to a simulation time including roundoff to the nearest second.
         newIndex = jultimeIndex;
         
@@ -246,22 +247,64 @@ bool ForcingManager::readAndSendForcing()
             }
         }
         
-        jultimeIndex    = newIndex;
-        nextForcingTime = newForcingTime;
-        
         // Print a warning if we are sending the last forcing time in the file.
-        if (2 <= Readonly::verbosityLevel && jultimeIndex == jultimeSize)
+        if (2 <= Readonly::verbosityLevel && newIndex == jultimeSize)
         {
             CkError("WARNING in ForcingManager::readAndSendForcing: reading the last entry in the forcing file.  No more forcing will be loaded in the future for this run.\n");
         }
         
-        // Send the forcing and nextForcingTime.
+        // Send the forcing.
         // FIXME implement
-        //for (ii = Readonly::localRegionStart; ii < Readonly::localRegionStart + Readonly::localNumberOfRegions; ++ii)
-        //{
-        //    // FIXME send forcing data to regions.
-        //    ADHydro::regionProxy[ii].sendForcing(nextForcingTime);
-        //}
+        std::map<size_t, std::pair<std::map<size_t, EvapoTranspirationForcingStruct>, std::map<size_t, EvapoTranspirationForcingStruct> > >           forcing;
+        std::map<size_t, std::pair<std::map<size_t, EvapoTranspirationForcingStruct>, std::map<size_t, EvapoTranspirationForcingStruct> > >::iterator it;
+        InitializationManager*                                                                                                                        initializationManager = ADHydro::initializationManagerProxy.ckLocalBranch();
+        
+        for (size_t ii = 0; ii < Readonly::localNumberOfMeshElements; ++ii)
+        {
+            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
+            
+            forcingStruct.dz8w   = 20.0f;
+            forcingStruct.sfcTmp = 300.0f;
+            forcingStruct.sfcPrs = 101300.0f;
+            forcingStruct.psfc   = 101180.0f;
+            forcingStruct.uu     = 0.0f;
+            forcingStruct.vv     = 0.0f;
+            forcingStruct.q2     = 0.01f;
+            forcingStruct.qc     = 0.01f;
+            forcingStruct.solDn  = 500.0f;
+            forcingStruct.lwDn   = 300.0f;
+            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0E-3f : 0.0f;
+            forcingStruct.tBot   = 300.0f;
+            forcingStruct.pblh   = 1000.0f;
+        }
+        
+        for (size_t ii = 0; ii < Readonly::localNumberOfChannelElements; ++ii)
+        {
+            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
+            
+            forcingStruct.dz8w   = 20.0f;
+            forcingStruct.sfcTmp = 300.0f;
+            forcingStruct.sfcPrs = 101300.0f;
+            forcingStruct.psfc   = 101180.0f;
+            forcingStruct.uu     = 0.0f;
+            forcingStruct.vv     = 0.0f;
+            forcingStruct.q2     = 0.01f;
+            forcingStruct.qc     = 0.01f;
+            forcingStruct.solDn  = 500.0f;
+            forcingStruct.lwDn   = 300.0f;
+            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0E-3f : 0.0f;
+            forcingStruct.tBot   = 300.0f;
+            forcingStruct.pblh   = 1000.0f;
+        }
+        
+        for (it = forcing.begin(); it != forcing.end(); ++it)
+        {
+            ADHydro::regionProxy[it->first].sendForcing(nextForcingTime, newForcingTime, it->second.first, it->second.second);
+        }
+        
+        // Increment jultimeIndex and update nextForcingTime.
+        jultimeIndex    = newIndex;
+        nextForcingTime = newForcingTime;
     }
     
     // Close the forcing file.
