@@ -23,43 +23,17 @@ module initialization_manager
                 Readonly::maximumNumberOfChannelNeighbors = 5;
                 Readonly::globalNumberOfRegions = 2;
                 
-                if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-                {
-                    // FIXME call Readonly::checkInvariant instead?
-                    if (!(1721425.5 <= Readonly::referenceDate))
-                    {
-                        CkError("ERROR in InitializationManager::runUntilSimulationEnd: referenceDate must be on or after 1 CE (1721425.5).\n");
-                        CkExit();
-                    }
-                    
-                    if (!(1721425.5 <= Readonly::referenceDate + (Readonly::simulationStartTime / (60.0 * 60.0 * 24.0))))
-                    {
-                        CkError("ERROR in InitializationManager::runUntilSimulationEnd: simulationStartTime must be on or after 1 CE (1721425.5).\n");
-                        CkExit();
-                    }
-                }
-                
                 // Set local range of items.
                 Readonly::localStartAndNumber(Readonly::localMeshElementStart,    Readonly::localNumberOfMeshElements,    Readonly::globalNumberOfMeshElements,    CkNumPes(), CkMyPe());
                 Readonly::localStartAndNumber(Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, Readonly::globalNumberOfChannelElements, CkNumPes(), CkMyPe());
                 Readonly::localStartAndNumber(Readonly::localRegionStart,         Readonly::localNumberOfRegions,         Readonly::globalNumberOfRegions,         CkNumPes(), CkMyPe());
                 
-                // Create the forcing managers and the chare array of regions and send their proxies to all PEs.
-                // This has to be done after reading from file because their constructors require values read from file.
-                if (0 == CkMyPe())
+                if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
                 {
-                    thisProxy.sendForcingAndRegionProxies(CProxy_ForcingManager::ckNew(), CProxy_Region::ckNew(Readonly::globalNumberOfRegions));
-                }
-            }
-            
-            when sendForcingAndRegionProxies(CProxy_ForcingManager forcingManagerProxy, CProxy_Region regionProxy)
-            {
-                serial
-                {
-                    ADHydro::forcingManagerProxy = forcingManagerProxy;
-                    ADHydro::regionProxy         = regionProxy;
-                    
-                    contribute(CkCallback(CkReductionTarget(InitializationManager, barrier), thisProxy[0]));
+                    if (Readonly::checkInvariant())
+                    {
+                        CkExit();
+                    }
                 }
             }
             
@@ -71,6 +45,7 @@ module initialization_manager
                     ADHydro::regionProxy[0].sendNumberOfElements(1, 1);
                     ADHydro::regionProxy[1].sendNumberOfElements(1, 1);
                     
+                    /*
                     EvapoTranspirationStateStruct evapoTranspirationState;
                     
                     evapoTranspirationState.fIceOld[0] = 0;
@@ -164,23 +139,9 @@ module initialization_manager
                     neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, CHANNEL_SURFACE, 0), NeighborProxy(0, 0.0, 0.0, 0.0, 0.0)));
                     
                     ADHydro::regionProxy[1].sendInitializeChannelElement(ChannelElement(1, STREAM, 1, 0.0, 0.0, 0.0, -1.0, 10.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, &evapoTranspirationState, 0.0, 0.0, 0.0, 0.0, neighbors));
-                }
-            }
-            
-            if (0 == CkMyPe())
-            {
-                when barrier()
-                {
-                    serial
-                    {
-                        ADHydro::forcingManagerProxy.allProxiesSet();
-                        ADHydro::regionProxy.allProxiesSet();
-                    }
+                    */
                 }
             }
         }; // End entry void runUntilSimulationEnd().
-        
-        entry void sendForcingAndRegionProxies(CProxy_ForcingManager forcingManagerProxy, CProxy_Region regionProxy);
-        entry [reductiontarget] void barrier();
     }; // End group InitializationManager.
 }; // End module initialization_manager.

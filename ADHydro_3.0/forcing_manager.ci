@@ -8,9 +8,6 @@ module forcing_manager
         // Dummy function for structured dagger.
         entry void runUntilSimulationEnd()
         {
-            // Barrier until we know ADHydro::regionProxy has been set on this PE.
-            when regionProxiesSet() {}
-            
             while (nextForcingTime < simulationEndTime)
             {
                 // When a Region receives forcing data it sends a message back to the ForcingManagers letting them know it is ready for them to queue up the next forcing data.
@@ -43,7 +40,6 @@ module forcing_manager
             }
         }; // End entry void runUntilSimulationEnd().
         
-        entry void regionProxiesSet();
         entry void readyForForcing(double forcingTime);
     }; // End group ForcingManager.
 }; // End module forcing_manager.

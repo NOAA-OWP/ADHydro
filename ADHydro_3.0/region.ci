@@ -108,9 +108,6 @@ module region
                 }
             }
             
-            // Barrier until we know ADHydro::forcingManagerProxy and ADHydro::checkpointManagerProxy has been set on this PE.
-            when allProxiesSet() {}
-            
             // Run the simulation.
             while (currentTime < simulationEndTime)
             {
@@ -391,7 +388,6 @@ module region
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
-        entry void allProxiesSet();
         entry void sendForcing(double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct> meshForcing, std::map<size_t, EvapoTranspirationForcingStruct> channelForcing);
         entry void sendState(const std::vector<StateMessage>& messages, double messageTime);
         entry void sendWater(const std::vector<WaterMessage>& messages);

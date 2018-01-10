@@ -188,7 +188,6 @@ bool ForcingManager::readAndSendForcing()
     int    ncErrorCode;      // Return value of NetCDF functions.
     int    fileID;           // ID of NetCDF file.
     bool   fileOpen = false; // Whether fileID refers to an open file.
-    int    variableID;       // ID of variable in NetCDF file.
     long   year;             // For printing date and time of forcing data.
     long   month;            // For printing date and time of forcing data.
     long   day;              // For printing date and time of forcing data.

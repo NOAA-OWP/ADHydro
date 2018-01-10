@@ -1,9 +1,8 @@
 #ifndef __ADHYDRO_H__
 #define __ADHYDRO_H__
 
-#include "initialization_manager.h"
-#include "checkpoint_manager.h"
-#include "forcing_manager.h"
+#include "mesh_element.h"
+#include "channel_element.h"
 #include "adhydro.decl.h"
 
 // An ADHydro object is the main chare of the program.  Execution starts in its constructor.

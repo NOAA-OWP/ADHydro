@@ -1,4 +1,5 @@
 #include "adhydro.h"
+#include "readonly.h"
 #include "adhydro.def.h"
 #include "INIReader.h"
 
@@ -8,6 +9,7 @@ ADHydro::ADHydro(CkArgMsg* msg)
     const char* superfileName = (1 < msg->argc) ? (msg->argv[1]) : (""); // The first command line argument protected against non-existance.
     INIReader   superfile(superfileName);                                // Superfile reader object.
     std::string noahMPDirectoryPath;                                     // Directory path to use with default filenames if file paths not specified.
+    std::string adhydroInputDirectoryPath;                               // Directory path to use with default filenames if file paths not specified.
     long        referenceDateYear;                                       // For converting Gregorian date to Julian date.
     long        referenceDateMonth;                                      // For converting Gregorian date to Julian date.
     long        referenceDateDay;                                        // For converting Gregorian date to Julian date.
@@ -42,6 +44,8 @@ ADHydro::ADHydro(CkArgMsg* msg)
         Readonly::noahMPVegParmFilePath  = superfile.Get(    "", "noahMPVegParmFilePath",  noahMPDirectoryPath + "/VEGPARM.TBL");
         Readonly::noahMPSoilParmFilePath = superfile.Get(    "", "noahMPSoilParmFilePath", noahMPDirectoryPath + "/SOILPARM.TBL");
         Readonly::noahMPGenParmFilePath  = superfile.Get(    "", "noahMPGenParmFilePath",  noahMPDirectoryPath + "/GENPARM.TBL");
+        adhydroInputDirectoryPath        = superfile.Get(    "", "adhydroInputDirectoryPath", ".");
+        Readonly::forcingFilePath        = superfile.Get(    "", "adhydroInputForcingFilePath", adhydroInputDirectoryPath + "/forcing.nc");
         Readonly::referenceDate          = superfile.GetReal("", "referenceDateJulian", NAN);
         
         // If there is no referenceDateJulian read a Gregorian date and convert to Julian date.
@@ -84,40 +88,34 @@ ADHydro::ADHydro(CkArgMsg* msg)
         Readonly::zeroWaterCreated        = superfile.GetBoolean("", "zeroWaterCreated",        false);
         Readonly::verbosityLevel          = superfile.GetInteger("", "verbosityLevel",          2);
         
+        // At this point, Readonly::referenceDate, Readonly::simulationStartTime, and Readonly::simulationDuration could all be NAN.
+        // If Readonly::referenceDate or Readonly::simulationStartTime are NAN then the initialization manager will read them from file.
+        // If Readonly::simulationDuration is NAN it is an error, which will be caught when the initialization manager calls Readonly::checkInvariant().
+        
+        // If simulationStartTime was changed then expiration times are invalid and need to be recalculated.
         if (!isnan(Readonly::simulationStartTime))
         {
             Readonly::zeroExpirationTime = true;
         }
         
+        // The minimum checkpointGroupSize is one.  Since the variable is unsigned the simplest thing to do is treat zero as one and then no condition produces an error.
         if (0 == Readonly::checkpointGroupSize)
         {
             Readonly::checkpointGroupSize = 1;
         }
         
-        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
-        {
-            // FIXME check that referenceDate and simulationStartTime are no earlier than 1 CE.  Our Julian to Gregorian conversion routines don't work before 1 CE.
-            // Error check referenceDate and simulationStartTime after they are possibly loaded from file.
-            
-            if (!(0.0 < Readonly::simulationDuration))
-            {
-                CkError("ERROR in ADHydro::ADHydro: simulationDuration must be greater than zero.\n");
-                error = true;
-            }
-            
-            if (!(0.0 < Readonly::checkpointPeriod))
-            {
-                CkError("ERROR in ADHydro::ADHydro: checkpointPeriod must be greater than zero.\n");
-                error = true;
-            }
-        }
-    }
-    
-    if (!error)
-    {
         // Create manager groups.
         initializationManagerProxy = CProxy_InitializationManager::ckNew();
         checkpointManagerProxy     = CProxy_CheckpointManager::ckNew();
+        forcingManagerProxy        = CProxy_ForcingManager::ckNew();
+        
+        // Create Region array.  This requires knowing the number of regions, which must be read from file.
+        // The initialization managers will re-open the file to read lots of other stuff, but getting this one value here simplifies the code,
+        // and opening and closing the file one extra time isn't a high performance cost.
+        // FIXME read the real value
+        Readonly::globalNumberOfRegions = 2;
+        
+        regionProxy = CProxy_Region::ckNew(Readonly::globalNumberOfRegions);
     }
     
     if (error)

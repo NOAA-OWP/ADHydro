@@ -94,7 +94,7 @@ module checkpoint_manager
                         }
                     }
                 }
-            } // End while (nextCheckpointIndex < checkpointData.size()).
+            } // End while (checkpointData.size() > nextCheckpointIndex).
             
             // Wait until all checkpoints finish before exiting.
             serial

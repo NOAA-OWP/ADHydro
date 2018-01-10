@@ -1,3 +1,28 @@
+/*
+ * Filename: adhydro_channel_preprocessing.cpp
+ * Author:   Robert Steinke
+ * 
+ * Purpose: This file contains an executable program that takes information from various sources about a channel network, waterbodies, and a 2D triangular land surface mesh.
+ *          It then merges this data to assign neighbor relationships between elements and does some massaging to eliminate awkward situations that would slow down simulations run on the result.
+ * 
+ * Acknowledgements:
+ * 
+ * Financial support for this research includes NSF EPSCoR grant No. 1135483, and the National Oceanic and Atmospheric Administration, U.S. National Water Center, through the Universities Corporation for Atmospheric Research.
+ * 
+ * Copyright (C) 2017 University of Wyoming
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3, 2007 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * A copy of the full GNU General Public License is available at
+ * http://www.gnu.org/copyleft/gpl.html
+ * or from:
+ * The Free Software Foundation, Inc., 59 Temple Place - Suite 330
+ * Boston, MA  02111-1307, USA.
+ * 
+ */
+
 #include "all.h"
 #include <shapefil.h>
 #include <cstdio>

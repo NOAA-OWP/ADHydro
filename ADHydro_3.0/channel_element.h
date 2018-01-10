@@ -1,43 +1,7 @@
 #ifndef __CHANNEL_ELEMENT_H__
 #define __CHANNEL_ELEMENT_H__
 
-#include "neighbor_proxy.h"
-#include "NetCDF_blobs.h"
-
-class ChannelState
-{
-public:
-    
-    // Charm++ pack/unpack method.
-    //
-    // Parameters:
-    //
-    // p - Pack/unpack processing object.
-    inline void pup(PUP::er &p)
-    {
-        p | elementNumber;
-        p | evapoTranspirationState;
-        p | surfaceWater;
-        p | surfaceWaterCreated;
-        p | precipitationRate;
-        p | precipitationCumulative;
-        p | evaporationRate;
-        p | evaporationCumulative;
-        p | snowWater;
-        p | neighbors;
-    }
-    
-    size_t                      elementNumber;
-    EvapoTranspirationStateBlob evapoTranspirationState;
-    double                      surfaceWater;
-    double                      surfaceWaterCreated;
-    double                      precipitationRate;
-    double                      precipitationCumulative;
-    double                      evaporationRate;
-    double                      evaporationCumulative;
-    double                      snowWater;
-    std::vector<NeighborState>  neighbors;
-};
+#include "checkpoint_manager_data_types.h"
 
 // A ChannelElement is a length of stream, a waterbody, or a glacier in the channel network.  It is modeled as a linear element.
 // It simulates surfacewater state only.  Groundwater underneath the channel is simulated by neighboring mesh elements.

@@ -12,7 +12,7 @@
 // FIXME this program is a little light on error checking.  It only checks if the files can be opened.
 // FIXME we could have a more flexible way to specify the locations of all eight files that will be touched.
 
-int openNetCDFFile(std::string directoryPath, std::string fileName)
+int openNetCDFFile(std::string directoryPath, std::string fileName, bool& success)
 {
   int         ncErrorCode;
   std::string filePath;
@@ -24,7 +24,11 @@ int openNetCDFFile(std::string directoryPath, std::string fileName)
   if (NC_NOERR != ncErrorCode)
     {
       printf("ERROR: Cannot open NetCDF file %s for read.\n", filePath.c_str());
-      exit(-1);
+      success = false;
+    }
+  else
+    {
+      success = true;
     }
   
   return fileID;
@@ -113,7 +117,9 @@ int main(int argc, char** argv)
   int                geometryFileID;
   int                parameterFileID;
   int                stateFileID;
+  bool               stateFileOpen;
   int                displayFileID;
+  bool               displayFileOpen;
   FILE*              meshStateOut;
   FILE*              channelStateOut;
   FILE*              meshDisplayOut;
@@ -142,17 +148,36 @@ int main(int argc, char** argv)
       exit(-1);
     }
   
-  // Open NetCDF input files.
-  geometryFileID  = openNetCDFFile(argv[1], "geometry.nc");
-  parameterFileID = openNetCDFFile(argv[1], "parameter.nc");
-  stateFileID     = openNetCDFFile(argv[1], "state.nc");
-  displayFileID   = openNetCDFFile(argv[1], "display.nc");
+  // Open NetCDF input files.  Geometry and parameter files must be present.  If state or display is not present then don't create the outputs for that one.
+  geometryFileID  = openNetCDFFile(argv[1], "geometry.nc", stateFileOpen);
+  
+  if (!stateFileOpen)
+  {
+      exit(-1);
+  }
+  
+  parameterFileID = openNetCDFFile(argv[1], "parameter.nc", stateFileOpen);
+  
+  if (!stateFileOpen)
+  {
+      exit(-1);
+  }
+  
+  stateFileID     = openNetCDFFile(argv[1], "state.nc", stateFileOpen);
+  displayFileID   = openNetCDFFile(argv[1], "display.nc", displayFileOpen);
   
   // Open XDMF output files.
-  meshStateOut      = openXDMFFile(argv[1], "mesh_state.xdmf");
-  channelStateOut   = openXDMFFile(argv[1], "channel_state.xdmf");
-  meshDisplayOut    = openXDMFFile(argv[1], "mesh_display.xdmf");
-  channelDisplayOut = openXDMFFile(argv[1], "channel_display.xdmf");
+  if (stateFileOpen)
+  {
+      meshStateOut      = openXDMFFile(argv[1], "mesh_state.xdmf");
+      channelStateOut   = openXDMFFile(argv[1], "channel_state.xdmf");
+  }
+  
+  if (displayFileOpen)
+  {
+      meshDisplayOut    = openXDMFFile(argv[1], "mesh_display.xdmf");
+      channelDisplayOut = openXDMFFile(argv[1], "channel_display.xdmf");
+  }
   
   // Read dimensions from geometry.nc.
   nc_inq_dimid(geometryFileID, "instances", &dimensionVariableID);
@@ -167,20 +192,33 @@ int main(int argc, char** argv)
   nc_inq_dimlen(parameterFileID, dimensionVariableID, &numberOfParameterInstances);
   
   // Read dimensions from state.nc.
-  nc_inq_dimid(stateFileID, "instances", &dimensionVariableID);
-  nc_inq_dimlen(stateFileID, dimensionVariableID, &numberOfStateInstances);
+  if (stateFileOpen)
+  {
+      nc_inq_dimid(stateFileID, "instances", &dimensionVariableID);
+      nc_inq_dimlen(stateFileID, dimensionVariableID, &numberOfStateInstances);
+  }
   
   // Read dimensions from display.nc.
-  nc_inq_dimid(displayFileID, "instances", &dimensionVariableID);
-  nc_inq_dimlen(displayFileID, dimensionVariableID, &numberOfDisplayInstances);
+  if (displayFileOpen)
+  {
+      nc_inq_dimid(displayFileID, "instances", &dimensionVariableID);
+      nc_inq_dimlen(displayFileID, dimensionVariableID, &numberOfDisplayInstances);
+  }
   
-  writeXMLHeader(meshStateOut,      "MeshState");
-  writeXMLHeader(channelStateOut,   "ChannelState");
-  writeXMLHeader(meshDisplayOut,    "MeshDisplay");
-  writeXMLHeader(channelDisplayOut, "ChannelDisplay");
+  if (stateFileOpen)
+  {
+      writeXMLHeader(meshStateOut,      "MeshState");
+      writeXMLHeader(channelStateOut,   "ChannelState");
+  }
+  
+  if (displayFileOpen)
+  {
+      writeXMLHeader(meshDisplayOut,    "MeshDisplay");
+      writeXMLHeader(channelDisplayOut, "ChannelDisplay");
+  }
   
   // Write to meshStateOut and channelStateOut for each state file instance.
-  for (stateInstance = 0; stateInstance < numberOfStateInstances; ++stateInstance)
+  for (stateInstance = 0; stateFileOpen && stateInstance < numberOfStateInstances; ++stateInstance)
     {
       // Read variables from state.nc.
       index[0] = stateInstance;
@@ -273,7 +311,7 @@ int main(int argc, char** argv)
     } // End write to meshStateOut and channelStateOut for each state file instance.
   
   // Write to meshDisplayOut and channelDisplayOut for each display file instance.
-  for (displayInstance = 0; displayInstance < numberOfDisplayInstances; ++displayInstance)
+  for (displayInstance = 0; displayFileOpen && displayInstance < numberOfDisplayInstances; ++displayInstance)
     {
       // Read variables from display.nc.
       index[0] = displayInstance;
@@ -368,22 +406,44 @@ int main(int argc, char** argv)
       writeGridFooter(channelDisplayOut);
     } // End write to meshDisplayOut and channelDisplayOut for each display file instance.
   
-  writeXMLFooter(meshStateOut);
-  writeXMLFooter(channelStateOut);
-  writeXMLFooter(meshDisplayOut);
-  writeXMLFooter(channelDisplayOut);
+  if (stateFileOpen)
+  {
+      writeXMLFooter(meshStateOut);
+      writeXMLFooter(channelStateOut);
+  }
+  
+  if (displayFileOpen)
+  {
+      writeXMLFooter(meshDisplayOut);
+      writeXMLFooter(channelDisplayOut);
+  }
   
   // Close XDMF output files.
-  fclose(meshStateOut);
-  fclose(channelStateOut);
-  fclose(meshDisplayOut);
-  fclose(channelDisplayOut);
+  if (stateFileOpen)
+  {
+      fclose(meshStateOut);
+      fclose(channelStateOut);
+  }
+  
+  if (displayFileOpen)
+  {
+      fclose(meshDisplayOut);
+      fclose(channelDisplayOut);
+  }
   
   // Close NetCDF input files.
   nc_close(geometryFileID);
   nc_close(parameterFileID);
-  nc_close(stateFileID);
-  nc_close(displayFileID);
+  
+  if (stateFileOpen)
+  {
+      nc_close(stateFileID);
+  }
+  
+  if (displayFileOpen)
+  {
+      nc_close(displayFileID);
+  }
   
   return 0;
 }

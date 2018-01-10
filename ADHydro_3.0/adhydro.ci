@@ -22,6 +22,7 @@ mainmodule adhydro
     readonly std::string Readonly::noahMPVegParmFilePath;
     readonly std::string Readonly::noahMPSoilParmFilePath;
     readonly std::string Readonly::noahMPGenParmFilePath;
+    readonly std::string Readonly::forcingFilePath;
     readonly double      Readonly::referenceDate;
     readonly double      Readonly::simulationStartTime;
     readonly double      Readonly::simulationDuration;

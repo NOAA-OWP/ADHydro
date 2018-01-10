@@ -1,8 +1,7 @@
 #ifndef __TIME_POINT_STATE_H__
 #define __TIME_POINT_STATE_H__
 
-#include "mesh_element.h"
-#include "channel_element.h"
+#include "checkpoint_manager_data_types.h"
 
 // TimePointState contains the state to be written to file for a single time point.  If any array dimension is zero applicable array pointers are NULL.
 // For parallel output, each TimePointState might only contain a slice of the total state with each processor getting a different slice.
