@@ -257,14 +257,14 @@ bool ForcingManager::readAndSendForcing()
             forcingStruct.qc     = 0.01f;
             forcingStruct.solDn  = 500.0f;
             forcingStruct.lwDn   = 300.0f;
-            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0E-3f : 0.0f;
+            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0f : 0.0f;
             forcingStruct.tBot   = 300.0f;
             forcingStruct.pblh   = 1000.0f;
         }
         
         for (size_t ii = 0; ii < Readonly::localNumberOfChannelElements; ++ii)
         {
-            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
+            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].second[ii + Readonly::localMeshElementStart];
             
             forcingStruct.dz8w   = 20.0f;
             forcingStruct.sfcTmp = 300.0f;
@@ -276,7 +276,7 @@ bool ForcingManager::readAndSendForcing()
             forcingStruct.qc     = 0.01f;
             forcingStruct.solDn  = 500.0f;
             forcingStruct.lwDn   = 300.0f;
-            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0E-3f : 0.0f;
+            forcingStruct.prcp   = 0.0f;
             forcingStruct.tBot   = 300.0f;
             forcingStruct.pblh   = 1000.0f;
         }
