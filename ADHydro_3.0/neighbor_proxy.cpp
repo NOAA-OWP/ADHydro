@@ -758,7 +758,7 @@ double NeighborProxy::receiveWater(const NeighborConnection& connection, double 
                 
                 if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                 {
-                    CkAssert(0.0 <= partialQuantity && partialQuantity < incomingWater.begin()->water);
+                    CkAssert(0.0 <= partialQuantity && partialQuantity <= incomingWater.begin()->water);
                 }
                 
                 water             += partialQuantity;

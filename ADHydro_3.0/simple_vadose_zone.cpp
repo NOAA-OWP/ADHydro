@@ -194,6 +194,24 @@ double SimpleVadoseZone::waterAboveDepth(double depth) const
     return waterAbove;
 }
 
+double SimpleVadoseZone::specificYield(double waterTableDepth) const
+{
+    double yield;                                    // return value.
+    double saturationDepth = waterTableDepth - psiB; // (m) The shallowest depth from the top of the modeled layer that would be saturated if the soil
+                                                     // moisture were in equilibrium with waterTableDepth.  No need to protect against a negative value.
+    
+    if (saturationDepth <= thickness)
+    {
+        yield = 0.5 * porosity;
+    }
+    else // (saturationDepth > thickness)
+    {
+        yield = std::max(0.5 * thickness * thickness / (saturationDepth * saturationDepth), 0.01) * porosity;
+    }
+    
+    return yield;
+}
+
 double SimpleVadoseZone::waterFromSaturationDepth(double saturationDepth) const
 {
     double waterQuantity; // (m) Return value.

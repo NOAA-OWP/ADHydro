@@ -148,6 +148,20 @@ public:
     // depth - (m) The depth from the top of the modeled layer expressed as a positive number.
     double waterAboveDepth(double depth) const;
     
+    // Specific yield is a measure of how much water needs to move when the water table rises or falls.
+    // For example, if the water table rises one unit, how many units of water need to be added to keep
+    // the soil mosture content profile in equilibrium with that new water table.
+    // The value can never be greater than porosity.
+    // The value is limited to no less than 1% of porosity for numerical stability,
+    // even though in theory it goes to zero when the vadose zone is fully saturated.
+    //
+    // Returns: (m/m) delta water / delta water table.
+    //
+    // Parameters:
+    //
+    // waterTableDepth - (m) The depth of the water table from the top of the modeled layer expressed as a positive number.
+    double specificYield(double waterTableDepth) const;
+    
     // Returns: the value of thickness.
     inline double getThickness() const
     {

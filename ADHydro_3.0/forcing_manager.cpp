@@ -257,7 +257,7 @@ bool ForcingManager::readAndSendForcing()
             forcingStruct.qc     = 0.01f;
             forcingStruct.solDn  = 500.0f;
             forcingStruct.lwDn   = 300.0f;
-            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart) ? 1.0f : 0.0f;
+            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart && 55000 > nextForcingTime) ? 1.0f : 0.0f;
             forcingStruct.tBot   = 300.0f;
             forcingStruct.pblh   = 1000.0f;
         }

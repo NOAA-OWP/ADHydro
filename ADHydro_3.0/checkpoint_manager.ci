@@ -73,7 +73,11 @@ module checkpoint_manager
                     {
                         serial
                         {
-                            FileManagerNetCDF::writeState(Readonly::getCheckpointTime(nextCheckpointIndex), *checkpointData[nextCheckpointIndex]);
+                            if (FileManagerNetCDF::writeState(Readonly::getCheckpointTime(nextCheckpointIndex), *checkpointData[nextCheckpointIndex]))
+                            {
+                                CkExit();
+                            }
+                            
                             delete checkpointData[nextCheckpointIndex]; // FIXME implement a pool of TimePointStates so we don't need to keep newing and deleting them.
                             checkpointData[nextCheckpointIndex] = NULL;
                             contribute(CkCallback(CkReductionTarget(CheckpointManager, barrier), thisProxy));

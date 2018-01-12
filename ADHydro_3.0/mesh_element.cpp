@@ -970,7 +970,7 @@ bool MeshElement::receiveInflowsAndUpdateState(double currentTime, double timest
         }
         else if (aquiferExists) // NO_MULTILAYER == groundwaterMode.
         {
-            updateHead(aquiferHead, aquiferRecharge, elementZ);
+            updateHead(aquiferHead, aquiferRecharge, aquiferWater.specificYield(elementZ - aquiferHead), elementZ);
             aquiferWater.addOrRemoveWater(aquiferRecharge, aquiferWaterCreated);
             
             if (aquiferWater.isFull())
@@ -1091,10 +1091,14 @@ void MeshElement::fillInEvapoTranspirationSoilMoistureStruct(EvapoTranspirationS
     evapoTranspirationSoilMoisture.smcwtd = evapoTranspirationSoilMoisture.smc[EVAPO_TRANSPIRATION_NUMBER_OF_SOIL_LAYERS - 1];
 }
 
-void MeshElement::updateHead(double& head, double recharge, double maxHead)
+void MeshElement::updateHead(double& head, double recharge, double specificYield, double maxHead)
 {
-    head += recharge; // FIXME adjust for specific yield
-    head  = std::min(head, maxHead);
+    if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+    {
+        CkAssert(0.0 < specificYield && 1.0 >= specificYield);
+    }
+    
+    head = std::min(head + recharge / specificYield, maxHead);
 }
 
 void MeshElement::resolveSoilRechargeSaturatedAquifer()
@@ -1104,7 +1108,7 @@ void MeshElement::resolveSoilRechargeSaturatedAquifer()
         CkAssert(SATURATED_AQUIFER == groundwaterMode);
     }
     
-    updateHead(aquiferHead, soilRecharge, elementZ);
+    updateHead(aquiferHead, soilRecharge, soilWater.specificYield(elementZ - aquiferHead), elementZ);
     
     if (elementZ - soilThickness() > aquiferHead)
     {
@@ -1136,7 +1140,7 @@ void MeshElement::resolveSoilRechargePerchedWaterTable()
         CkAssert(PERCHED_WATER_TABLE == groundwaterMode || (NO_MULTILAYER == groundwaterMode && soilExists));
     }
     
-    updateHead(perchedHead, soilRecharge, elementZ);
+    updateHead(perchedHead, soilRecharge, soilWater.specificYield(elementZ - perchedHead), elementZ);
     soilWater.addOrRemoveWater(soilRecharge, soilWaterCreated);
     
     if (soilWater.isFull())
@@ -1158,7 +1162,7 @@ void MeshElement::resolveAquiferRechargeUnsaturatedAquifer()
         CkAssert(UNSATURATED_AQUIFER == groundwaterMode || PERCHED_WATER_TABLE == groundwaterMode);
     }
     
-    updateHead(aquiferHead, aquiferRecharge, elementZ - soilThickness() - epsilon(0.0));
+    updateHead(aquiferHead, aquiferRecharge, aquiferWater.specificYield(elementZ - soilThickness() - aquiferHead), elementZ - soilThickness() - epsilon(0.0));
     aquiferWater.addOrRemoveWater(aquiferRecharge, aquiferWaterCreated);
     
     if (aquiferWater.isFull())

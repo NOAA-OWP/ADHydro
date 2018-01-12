@@ -381,10 +381,11 @@ private:
     //
     // Parameters:
     //
-    // head     - (m) The elevation above datum of a water table.  Will be updated to a new value.
-    // recharge - (m) A thickness of water that is left over in a recharge bucket after accounting for all flows.  Can be negative for a water deficit.
-    // maxHead  - (m) The maximum value allowed for the updated value of head.
-    void updateHead(double& head, double recharge, double maxHead = INFINITY);
+    // head          - (m) The elevation above datum of a water table.  Will be updated to a new value.
+    // recharge      - (m) A thickness of water that is left over in a recharge bucket after accounting for all flows.  Can be negative for a water deficit.
+    // specificYield - (m/m) delta water / delta water table.  A measure of how much the water table will move for a given amount of recharge.
+    // maxHead       - (m) The maximum value allowed for the updated value of head.
+    void updateHead(double& head, double recharge, double specificYield, double maxHead = INFINITY);
     
     // A helper function for updating state when there is a saturated aquifer.
     void resolveSoilRechargeSaturatedAquifer();
