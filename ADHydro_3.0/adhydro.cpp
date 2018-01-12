@@ -89,12 +89,23 @@ ADHydro::ADHydro(CkArgMsg* msg)
         Readonly::verbosityLevel          = superfile.GetInteger("", "verbosityLevel",          2);
         
         // At this point, Readonly::referenceDate, Readonly::simulationStartTime, and Readonly::simulationDuration could all be NAN.
-        // If Readonly::referenceDate or Readonly::simulationStartTime are NAN then the initialization manager will read them from file.
-        // If Readonly::simulationDuration is NAN it is an error, which will be caught when the initialization manager calls Readonly::checkInvariant().
-        
-        // If simulationStartTime was changed then expiration times are invalid and need to be recalculated.
-        if (!isnan(Readonly::simulationStartTime))
+        // If Readonly::simulationDuration is NAN it is an error, which will be caught when we call Readonly::checkInvariant().
+        // If Readonly::referenceDate or Readonly::simulationStartTime are NAN then we need to read them from file before calling the Region or ForcingManager constructors.
+        // We also need to know the number of regions, which must be read from file, before calling the Region constructor.
+        // The initialization managers will re-open these files to read lots of other stuff, but getting these values here simplifies the code.
+        // Opening and closing the files one extra time isn't a high performance cost.
+        if (isnan(Readonly::referenceDate))
         {
+            // FIXME read Readonly::referenceDate from file
+        }
+        
+        if (isnan(Readonly::simulationStartTime))
+        {
+            // FIXME read Readonly::simulationStartTime from file
+        }
+        else
+        {
+            // If simulationStartTime was changed then expiration times are invalid and need to be recalculated.
             Readonly::zeroExpirationTime = true;
         }
         
@@ -104,12 +115,29 @@ ADHydro::ADHydro(CkArgMsg* msg)
             Readonly::checkpointGroupSize = 1;
         }
         
-        // Create Region array.  This requires knowing the number of regions, which must be read from file.
-        // The initialization managers will re-open the file to read lots of other stuff, but getting this one value here simplifies the code,
-        // and opening and closing the file one extra time isn't a high performance cost.
-        // FIXME read the real value
-        Readonly::globalNumberOfRegions = 2;
+        // Read the number of regions from file to create the correct size array of Region chares.
+        Readonly::globalNumberOfRegions = 2; // FIXME read the real value
         
+        // The real values for these will be read from file in the InitializationManager constructor.
+        // For now, just set values that will pass Readonly::checkInvariant().
+        Readonly::globalNumberOfMeshElements    = 0;
+        Readonly::localNumberOfMeshElements     = 0;
+        Readonly::localMeshElementStart         = 0;
+        Readonly::globalNumberOfChannelElements = 0;
+        Readonly::localNumberOfChannelElements  = 0;
+        Readonly::localChannelElementStart      = 0;
+        Readonly::localNumberOfRegions          = 0;
+        Readonly::localRegionStart              = 0;
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            error = Readonly::checkInvariant();
+        }
+    }
+    
+    if (!error)
+    {
+        // Create Region array.  This must be done before creating the InitializationManager group because the InitializationManager constructor will send messages to regionProxy.
         regionProxy = CProxy_Region::ckNew(Readonly::globalNumberOfRegions);
         
         // Create manager groups.

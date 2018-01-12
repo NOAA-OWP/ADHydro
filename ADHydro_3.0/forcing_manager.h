@@ -86,6 +86,35 @@ private:
         return newTime;
     }
     
+    // There are times when we want to increment to the next forcing data entry.
+    // In all of those cases, we want to skip over any entries that are not monotonically increasing in time when rounded to the nearest second.
+    // To avoid duplicate code this is pulled out into a separate function.
+    //
+    // Returns: the index of the "next" forcing data entry after jultimeIndex while skipping over entries that are not monotonically
+    //          increasing in time when rounded to the nearest second.  Can return jultimeSize if there are no more entries in the array.
+    //
+    // Parameters:
+    //
+    // newForcingTime - (s) Scalar passed by reference will be filled in with getForcingTime() of the returned index.
+    //                  Can be passed in as NULL, in which case it is ignored.  The caller can call getForcingTime separately to get
+    //                  this value, but we have to calculate it to find newIndex so no reason to make the caller calculate it again.
+    inline size_t skipEntriesNotMonotonicallyIncreasingInTime(double* newForcingTime = NULL)
+    {
+        size_t  newIndex    = jultimeIndex;                                                   // Return value.
+        double  tempForcingTime;                                                              // (s) temporary variable to use if newForcingTime is NULL.
+        double& forcingTime = ((NULL != newForcingTime) ? *newForcingTime : tempForcingTime); // (s) reference to fill in value into newForcingTime or use a temporary variable if newForcingTime is NULL.
+        
+        while (!((forcingTime = getForcingTime(++newIndex)) > nextForcingTime) && newIndex < jultimeSize)
+        {
+            if (2 <= Readonly::verbosityLevel)
+            {
+                CkError("WARNING in ForcingManager::skipEntriesNotMonotonicallyIncreasingInTime: forcing file entry %lu is not monotonically increasing in time when rounded to the nearest second.\n", newIndex);
+            }
+        }
+        
+        return newIndex;
+    }
+    
     // Simulation time of forcing instances.
     double*      jultime;         // Array of Julian dates of all instances in forcing file.
     size_t       jultimeSize;     // The size of the allocated array pointed to by jultime.

@@ -82,7 +82,7 @@ void InitializationManager::initializeSimulation()
         neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
         
         ADHydro::regionProxy[1].sendInitializeMeshElement(MeshElement(1, 1, -100.0, 0.0, -2.0, 10000.0, 0.0, 0.0, -0.02, -0.02, 11, 2, 0.16, true, 3.38E-6, true, 9.74E-7, NULL, 0.0, 0.0, UNSATURATED_AQUIFER, 0.0,
-                                                                      SimpleVadoseZone(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -1.1, SimpleVadoseZone(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
+                                                                      SimpleVadoseZone(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -2.9, SimpleVadoseZone(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
         
         neighbors.clear();
         

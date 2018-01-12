@@ -82,7 +82,7 @@ bool ForcingManager::readForcingTimes()
                 CkError("ERROR in ForcingManager::readForcingTimes: unable to get length of dimension Time in NetCDF forcing file.  NetCDF error message: %s.\n", nc_strerror(ncErrorCode));
                 error = true;
             }
-            else if ((0 < jultimeSize))
+            else if (!(0 < jultimeSize))
             {
                 CkError("ERROR in ForcingManager::readForcingTimes: No forcing data in NetCDF forcing file.\n");
                 error = true;
@@ -124,8 +124,8 @@ bool ForcingManager::readForcingTimes()
     
     // Set jultimeIndex and nextForcingTime to the forcing data to use at the start of the simulation.
     // We do a linear scan from the beginning of the array to find the last entry that is no later than Readonly::simulationStartTime.
-    // If we find entries that are not monotonically increasing in time we print a warning and those entries are ignored.
     // It's possible that the first entry in the array is after Readonly::simulationStartTime.  In this case, we print a warning and use that entry.
+    // If we find entries that are not monotonically increasing in time we print a warning and those entries are ignored.
     if (!error)
     {
         jultimeIndex    = 0;
@@ -134,15 +134,7 @@ bool ForcingManager::readForcingTimes()
         while (!done)
         {
             // To protect against entries that are not monotonically increasing, find the next index strictly later than jultimeIndex when converted to a simulation time including roundoff to the nearest second.
-            newIndex = jultimeIndex;
-            
-            while (!(newForcingTime = getForcingTime(++newIndex) > nextForcingTime) && newIndex < jultimeSize)
-            {
-                if (2 <= Readonly::verbosityLevel)
-                {
-                    CkError("WARNING in ForcingManager::readForcingTimes: forcing file entry %lu is not monotonically increasing in time when rounded to the nearest second.\n", newIndex);
-                }
-            }
+            newIndex = skipEntriesNotMonotonicallyIncreasingInTime(&newForcingTime);
             
             if (!(newForcingTime <= Readonly::simulationStartTime) || newIndex == jultimeSize)
             {
@@ -237,15 +229,7 @@ bool ForcingManager::readAndSendForcing()
         
         // Find the next forcing data to use.  The time of this forcing data will be sent to regions to let them know when to stop and expect more forcing.
         // To protect against entries that are not monotonically increasing, find the next index strictly later than jultimeIndex when converted to a simulation time including roundoff to the nearest second.
-        newIndex = jultimeIndex;
-        
-        while (!(newForcingTime = getForcingTime(++newIndex) > nextForcingTime) && newIndex < jultimeSize)
-        {
-            if (2 <= Readonly::verbosityLevel)
-            {
-                CkError("WARNING in ForcingManager::readAndSendForcing: forcing file entry %lu is not monotonically increasing in time when rounded to the nearest second.\n", newIndex);
-            }
-        }
+        newIndex = skipEntriesNotMonotonicallyIncreasingInTime(&newForcingTime);
         
         // Print a warning if we are sending the last forcing time in the file.
         if (2 <= Readonly::verbosityLevel && newIndex == jultimeSize)
