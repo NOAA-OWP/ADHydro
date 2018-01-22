@@ -3,6 +3,135 @@
 #include <iomanip>
 #include <netcdf_par.h>
 
+// Need explicit template instantiation.
+template bool FileManagerNetCDF::readVariable(int, const char*, size_t, size_t, size_t, size_t, size_t, bool, float, bool, float**);
+
+template <typename T> bool FileManagerNetCDF::readVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                                                           size_t fileDimension, size_t memoryDimension, bool repeatLastValue, T defaultValue, bool mandatory, T** variable)
+{
+    bool   error = false;          // Error flag.
+    size_t ii, jj;                 // Loop counters.
+    int    ncErrorCode;            // Return value of NetCDF functions.
+    int    variableID;             // ID of variable in NetCDF file.
+    size_t start[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
+    size_t count[NC_MAX_VAR_DIMS]; // For specifying subarrays when reading from NetCDF file.
+    T*     tempVariable;           // For remapping arrays when fileDimension is smaller than memoryDimension
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        if (!(NULL != variableName))
+        {
+            CkError("ERROR in FileManagerNetCDF::readVariable: variableName must not be null.\n");
+            error = true;
+        }
+        
+        if (!(1 <= numberOfNodesElements))
+        {
+            CkError("ERROR in FileManagerNetCDF::readVariable: numberOfNodesElements must be greater than or equal to one.\n");
+            error = true;
+        }
+        
+        if (!(NULL != variable))
+        {
+            CkError("ERROR in FileManagerNetCDF::readVariable: variable must not be null.\n");
+            error = true;
+        }
+    }
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+    {
+        // fileDimenison must be less than or equal to memoryDimension.  Otherwise there is not enough room to read all of the data and it is an error.
+        if (!(1 <= fileDimension && fileDimension <= memoryDimension))
+        {
+            CkError("ERROR in FileManagerNetCDF::readVariable: fileDimension must be greater than or equal to one and less than or equal to memoryDimension for variable %s in NetCDF file.\n", variableName);
+            error = true;
+        }
+    }
+    
+    if (!error)
+    {
+        // Get the variable ID.
+        ncErrorCode = nc_inq_varid(fileID, variableName, &variableID);
+        
+        if (!(NC_NOERR == ncErrorCode))
+        {
+            if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            {
+                // If the variable does not exist it is only an error if the variable is mandatory.
+                if (mandatory)
+                {
+                    CkError("ERROR in FileManagerNetCDF::readVariable: unable to get variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName, nc_strerror(ncErrorCode));
+                    error = true;
+                }
+            }
+        }
+        else // If the variable does exist get its data.
+        {
+            // Fill in the start and count of the dimensions.
+            start[0] = instance;
+            start[1] = nodeElementStart;
+            start[2] = 0;
+            count[0] = 1;
+            count[1] = numberOfNodesElements;
+            count[2] = fileDimension;
+            
+            // Allocate space if needed.
+            if (NULL == *variable)
+            {
+                *variable = new T[numberOfNodesElements * fileDimension];
+            }
+            
+            // Get the variable data.
+            ncErrorCode = nc_get_vara(fileID, variableID, start, count, *variable);
+            
+            if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            {
+                if (!(NC_NOERR == ncErrorCode))
+                {
+                    CkError("ERROR in FileManagerNetCDF::readVariable: unable to read variable %s in NetCDF file.  NetCDF error message: %s.\n", variableName, nc_strerror(ncErrorCode));
+                    error = true;
+                }
+            }
+            
+            // If fileDimenison is less than memoryDimension we need to remap the array and fill in the extra elements.
+            if (!error && fileDimension < memoryDimension)
+            {
+                // Allocate a new array of the right size for memoryDimension.
+                tempVariable = new T[numberOfNodesElements * memoryDimension];
+                
+                for (ii = 0; ii < numberOfNodesElements; ii++)
+                {
+                    for (jj = 0; jj < fileDimension; jj++)
+                    {
+                        // Fill in the values up to fileDimension that were read from the file.
+                        tempVariable[ii * memoryDimension + jj] = (*variable)[ii * fileDimension + jj];
+                    }
+                    
+                    for(jj = fileDimension; jj < memoryDimension; jj++)
+                    {
+                        if (repeatLastValue)
+                        {
+                            // Fill in the rest of the values by repeating the last value read from the file.
+                            tempVariable[ii * memoryDimension + jj] = (*variable)[ii * fileDimension + fileDimension - 1];
+                        }
+                        else
+                        {
+                            // Fill in the rest of the values with defaultValue.
+                            tempVariable[ii * memoryDimension + jj] = defaultValue;
+                        }
+                    }
+                }
+                
+                // Delete the wrong size array read in from file and set variable to point to the right size array.
+                delete[] *variable;
+                *variable = tempVariable;
+            }
+        } // End if the variable does exist get its data.
+    } // End if (!error).
+    
+    return error;
+}
+
 bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& timePointState)
 {
     bool               error    = false;              // Error flag.

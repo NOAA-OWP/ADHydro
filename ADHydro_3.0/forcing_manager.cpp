@@ -1,6 +1,7 @@
 #include "forcing_manager.h"
 #include "adhydro.h"
 #include "initialization_manager.h"
+#include "file_manager_NetCDF.h"
 #include "forcing_manager.def.h"
 #include <netcdf.h>
 #include <netcdf_par.h>
@@ -225,7 +226,122 @@ bool ForcingManager::readAndSendForcing()
     if (!error)
     {
         // Load the forcing.
-        // FIXME implement
+        // FIXME figure out what to do when adaption changes the number of elements.
+        if (0 < Readonly::localNumberOfMeshElements)
+        {
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "T2",     jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &t2);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "PSFC",   jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &psfc);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "U",      jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &u);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "V",      jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &v);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "QVAPOR", jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &qVapor);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "QCLOUD", jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &qCloud);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "SWDOWN", jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &swDown);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "GLW",    jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &gLw);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "TPREC",  jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tPrec);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "TSLB",   jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &tslb);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "PBLH",   jultimeIndex, Readonly::localMeshElementStart, Readonly::localNumberOfMeshElements, 1, 1, true, 0.0f, true, &pblh);
+            }
+        }
+        
+        if (0 < Readonly::localNumberOfChannelElements)
+        {
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "T2_C",     jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &t2_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "PSFC_C",   jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &psfc_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "U_C",      jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &u_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "V_C",      jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &v_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "QVAPOR_C", jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qVapor_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "QCLOUD_C", jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &qCloud_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "SWDOWN_C", jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &swDown_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "GLW_C",    jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &gLw_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "TPREC_C",  jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tPrec_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "TSLB_C",   jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &tslb_c);
+            }
+            
+            if (!error)
+            {
+                error = FileManagerNetCDF::readVariable(fileID, "PBLH_C",   jultimeIndex, Readonly::localChannelElementStart, Readonly::localNumberOfChannelElements, 1, 1, true, 0.0f, true, &pblh_c);
+            }
+        }
         
         // Find the next forcing data to use.  The time of this forcing data will be sent to regions to let them know when to stop and expect more forcing.
         // To protect against entries that are not monotonically increasing, find the next index strictly later than jultimeIndex when converted to a simulation time including roundoff to the nearest second.
@@ -238,7 +354,6 @@ bool ForcingManager::readAndSendForcing()
         }
         
         // Send the forcing.
-        // FIXME implement
         std::map<size_t, std::pair<std::map<size_t, EvapoTranspirationForcingStruct>, std::map<size_t, EvapoTranspirationForcingStruct> > >           forcing;
         std::map<size_t, std::pair<std::map<size_t, EvapoTranspirationForcingStruct>, std::map<size_t, EvapoTranspirationForcingStruct> > >::iterator it;
         InitializationManager*                                                                                                                        initializationManager = ADHydro::initializationManagerProxy.ckLocalBranch();
@@ -248,18 +363,18 @@ bool ForcingManager::readAndSendForcing()
             EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
             
             forcingStruct.dz8w   = 20.0f;
-            forcingStruct.sfcTmp = 300.0f;
-            forcingStruct.sfcPrs = 101300.0f;
-            forcingStruct.psfc   = 101180.0f;
-            forcingStruct.uu     = 0.0f;
-            forcingStruct.vv     = 0.0f;
-            forcingStruct.q2     = 0.01f;
-            forcingStruct.qc     = 0.01f;
-            forcingStruct.solDn  = 500.0f;
-            forcingStruct.lwDn   = 300.0f;
-            forcingStruct.prcp   = (0 == ii + Readonly::localMeshElementStart && 55000 > nextForcingTime) ? 1.0f : 0.0f;
-            forcingStruct.tBot   = 300.0f;
-            forcingStruct.pblh   = 1000.0f;
+            forcingStruct.sfcTmp = t2[ii] + ZERO_C_IN_KELVIN;   // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
+            forcingStruct.sfcPrs = psfc[ii];
+            forcingStruct.psfc   = psfc[ii] - 120.0f;           // sfcPrs and psfc have slightly different definitions.  We handle this by subtracting 120 Pa.
+            forcingStruct.uu     = u[ii];
+            forcingStruct.vv     = v[ii];
+            forcingStruct.q2     = qVapor[ii];
+            forcingStruct.qc     = qCloud[ii];
+            forcingStruct.solDn  = swDown[ii];
+            forcingStruct.lwDn   = gLw[ii];
+            forcingStruct.prcp   = tPrec[ii] * 1000.0f;         // * 1000.0f to convert from meters to millimeters.
+            forcingStruct.tBot   = tslb[ii] + ZERO_C_IN_KELVIN; // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
+            forcingStruct.pblh   = pblh[ii];
         }
         
         for (size_t ii = 0; ii < Readonly::localNumberOfChannelElements; ++ii)
@@ -267,18 +382,18 @@ bool ForcingManager::readAndSendForcing()
             EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].second[ii + Readonly::localMeshElementStart];
             
             forcingStruct.dz8w   = 20.0f;
-            forcingStruct.sfcTmp = 300.0f;
-            forcingStruct.sfcPrs = 101300.0f;
-            forcingStruct.psfc   = 101180.0f;
-            forcingStruct.uu     = 0.0f;
-            forcingStruct.vv     = 0.0f;
-            forcingStruct.q2     = 0.01f;
-            forcingStruct.qc     = 0.01f;
-            forcingStruct.solDn  = 500.0f;
-            forcingStruct.lwDn   = 300.0f;
-            forcingStruct.prcp   = 0.0f;
-            forcingStruct.tBot   = 300.0f;
-            forcingStruct.pblh   = 1000.0f;
+            forcingStruct.sfcTmp = t2_c[ii] + ZERO_C_IN_KELVIN;   // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
+            forcingStruct.sfcPrs = psfc_c[ii];
+            forcingStruct.psfc   = psfc_c[ii] - 120.0f;           // sfcPrs and psfc have slightly different definitions.  We handle this by subtracting 120 Pa.
+            forcingStruct.uu     = u_c[ii];
+            forcingStruct.vv     = v_c[ii];
+            forcingStruct.q2     = qVapor_c[ii];
+            forcingStruct.qc     = qCloud_c[ii];
+            forcingStruct.solDn  = swDown_c[ii];
+            forcingStruct.lwDn   = gLw_c[ii];
+            forcingStruct.prcp   = tPrec_c[ii] * 1000.0f;         // * 1000.0f to convert from meters to millimeters.
+            forcingStruct.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN; // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
+            forcingStruct.pblh   = pblh_c[ii];
         }
         
         for (it = forcing.begin(); it != forcing.end(); ++it)

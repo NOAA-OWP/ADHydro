@@ -9,6 +9,39 @@ class FileManagerNetCDF
 {
 public:
     
+    // Read a variable from a NetCDF file.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // fileID                - The file ID of the NetCDF file.
+    // variableName          - The name of the variable to read.
+    // instance              - The index of the first  dimension to read.  The count of the first dimension is always one.  This reads one particular instance in time.
+    // nodeElementStart      - The index of the second dimension to read.  This is ignored if the variable has less than two dimensions.
+    // numberOfNodesElements - The count of the second dimension to read.  If the variable has less than two dimensions this must be one.
+    //                         nodeElementStart and numberOfNodesElements combine to specify a subset of the nodes or elements stored in the variable.
+    // fileDimension         - The count of the third  dimension to read.  The index of the third dimension is always zero.
+    //                         If the variable has less than three dimensions this must be one.
+    // memoryDimension       - The size of the third dimension in memory.  This function can read an array whose third dimension in the file is smaller than the
+    //                         desired third dimension in memory.  In that case, what gets filled in to the extra cells depends on repeatLastValue and defaultValue.
+    //                         It is an error if memoryDimension is less than fileDimension.  If the variable has less than three dimensions this must be one.
+    // repeatLastValue       - If there are extra cells to be filled in because memoryDimension is greater than fileDimension then if repeatLastValue is true, the last value in
+    //                         each row of the third dimension in the file is repeated in the extra cells.  If repeatLastValue is false, the extra cells are filled in with defaultValue.
+    // defaultValue          - If there are extra cells to be filled in because memoryDimension is greater than fileDimension then if repeatLastValue is false, the extra cells are
+    //                         filled in with defaultValue.  If repeatLastValue is true, defaultValue is ignored.
+    // mandatory             - Whether the existence of the variable is mandatory.  If true, it is an error if the variable does not exist.
+    //                         If false, this function does nothing if the variable does not exist.
+    // variable              - A pointer passed by reference.  The pointer (that is, *variable) may point to an array of size numberOfNodesElements * fileDimension,
+    //                         which is the size of the array that will be read, or it can be NULL.  If it is NULL it will be set to point to a newly allocated array.
+    //                         This array, whether passed in or newly allocated, is filled in with the values read from the NetCDF file.  Then, if memoryDimension is
+    //                         greater than fileDimension it is reallocated to the larger size with new[] and delete[].  NOTE: even if you pass in an array, it will be
+    //                         deleted and *variable will be set to point to a newly allocated array if memoryDimension is greater than fileDimension.  Therefore, the
+    //                         array you pass in must be allocated with new[].  Reallocation will only happen if memoryDimension is greater than fileDimension.
+    //                         In any case, *variable will wind up pointing to an array of size numberOfNodesElements * memoryDimension.
+    template <typename T> static bool readVariable(int fileID, const char* variableName, size_t instance, size_t nodeElementStart, size_t numberOfNodesElements,
+                                                   size_t fileDimension, size_t memoryDimension, bool repeatLastValue, T defaultValue, bool mandatory, T** variable);
+    
     // Write a TimePointState out to a NetCDF file.  writeState does collective parallel I/O so you must call it from all processors simultaneously,
     // one call per processor, all outputing to the same file.  It will block until all processors attempt to open the same file.
     //

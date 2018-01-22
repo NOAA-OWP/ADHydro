@@ -158,6 +158,8 @@ forcing_manager.o: forcing_manager.cpp             \
                    initialization_manager.h        \
                    initialization_manager.decl.h   \
                    checkpoint_manager.decl.h       \
+                   file_manager_NetCDF.h           \
+                   time_point_state.h              \
                    region.decl.h                   \
                    mesh_element.h                  \
                    channel_element.h               \

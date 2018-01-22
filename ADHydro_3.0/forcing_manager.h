@@ -13,7 +13,8 @@ class ForcingManager : public CBase_ForcingManager
 public:
     
     // Constructor.
-    inline ForcingManager() : jultime(NULL), jultimeSize(0), jultimeIndex(0), nextForcingTime(0.0)
+    inline ForcingManager() : jultime(NULL), jultimeSize(0), jultimeIndex(0), nextForcingTime(0.0), t2(NULL), psfc(NULL), u(NULL), v(NULL), qVapor(NULL), qCloud(NULL), swDown(NULL), gLw(NULL), tPrec(NULL),
+                              tslb(NULL), pblh(NULL), t2_c(NULL), psfc_c(NULL), u_c(NULL), v_c(NULL), qVapor_c(NULL), qCloud_c(NULL), swDown_c(NULL), gLw_c(NULL), tPrec_c(NULL), tslb_c(NULL), pblh_c(NULL)
     {
         if (readForcingTimes())
         {
@@ -38,6 +39,28 @@ public:
     inline ~ForcingManager()
     {
         delete[] jultime;
+        delete[] t2;
+        delete[] psfc;
+        delete[] u;
+        delete[] v;
+        delete[] qVapor;
+        delete[] qCloud;
+        delete[] swDown;
+        delete[] gLw;
+        delete[] tPrec;
+        delete[] tslb;
+        delete[] pblh;
+        delete[] t2_c;
+        delete[] psfc_c;
+        delete[] u_c;
+        delete[] v_c;
+        delete[] qVapor_c;
+        delete[] qCloud_c;
+        delete[] swDown_c;
+        delete[] gLw_c;
+        delete[] tPrec_c;
+        delete[] tslb_c;
+        delete[] pblh_c;
     }
     
     // Check invariant conditions on data.
@@ -122,6 +145,30 @@ private:
     double       nextForcingTime; // (s) The simulation time of the instance at jultimeIndex or INFINITY if jultimeIndex is off the end of the array.
     const double simulationEndTime = Readonly::simulationStartTime + Readonly::simulationDuration;
                                   // This is partly for efficiency so we don't do the addition over and over and partly because Charm++ is having trouble parsing Readonly:: in the .ci file.
+    
+    // Arrays for reading forcing data from file.
+    float* t2;       // Used to read air temperature at 2m height forcing for mesh elements.
+    float* psfc;     // Used to read surface pressure forcing for mesh elements.
+    float* u;        // Used to read wind speed U component forcing for mesh elements.
+    float* v;        // Used to read wind speed V component forcing for mesh elements.
+    float* qVapor;   // Used to read water vapor mixing ratio forcing for mesh elements.
+    float* qCloud;   // Used to read cloud water mixing ratio forcing for mesh elements.
+    float* swDown;   // Used to read downward shortwave flux forcing for mesh elements.
+    float* gLw;      // Used to read downward longwave flux forcing for mesh elements.
+    float* tPrec;    // Used to read total precipitation forcing for mesh elements.
+    float* tslb;     // Used to read soil temperature at the deepest layer forcing for mesh elements.
+    float* pblh;     // Used to read planetary boundary layer height forcing for mesh elements.
+    float* t2_c;     // Used to read air temperature at 2m height forcing for channel elements.
+    float* psfc_c;   // Used to read surface pressure forcing for channel elements.
+    float* u_c;      // Used to read wind speed U component forcing for channel elements.
+    float* v_c;      // Used to read wind speed V component forcing for channel elements.
+    float* qVapor_c; // Used to read water vapor mixing ratio forcing for channel elements.
+    float* qCloud_c; // Used to read cloud water mixing ratio forcing for channel elements.
+    float* swDown_c; // Used to read downward shortwave flux forcing for channel elements.
+    float* gLw_c;    // Used to read downward longwave flux forcing for channel elements.
+    float* tPrec_c;  // Used to read total precipitation forcing for channel elements.
+    float* tslb_c;   // Used to read soil temperature at the deepest layer forcing for channel elements.
+    float* pblh_c;   // Used to read planetary boundary layer height forcing for channel elements.
 };
 
 #endif // __FORCING_MANAGER_H__
