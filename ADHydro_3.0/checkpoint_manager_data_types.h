@@ -15,7 +15,6 @@
 // generally by providing a pup routine, and update the size definition to make sure it will fit.
 #define VADOSE_ZONE_STATE_BLOB_SIZE         (sizeof(SimpleVadoseZone))
 #define EVAPO_TRANSPIRATION_STATE_BLOB_SIZE (sizeof(EvapoTranspirationStateStruct))
-// FIXME test with these sizes too small
 
 typedef unsigned char VadoseZoneStateBlob[VADOSE_ZONE_STATE_BLOB_SIZE];
 typedef unsigned char EvapoTranspirationStateBlob[EVAPO_TRANSPIRATION_STATE_BLOB_SIZE];
