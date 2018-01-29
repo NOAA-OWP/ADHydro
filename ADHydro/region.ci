@@ -217,10 +217,11 @@ module region
           {
             serial
             {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+// FIXME #defines not working right in .ci file
+//#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
               // Iterators must not be in use at this time.
               CkAssert(!pupItMeshAndItChannel && !pupItNeighbor);
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+//#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
               
               for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
                 {
@@ -407,10 +408,11 @@ module region
           
           serial
           {
-#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+// FIXME #defines not working right in .ci file
+//#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
             // If debug level does not include internal invariants only check the invariant at most once at the beginning of the simulation.
-            needToCheckInvariant = false;
-#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+//            needToCheckInvariant = false;
+//#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
           }
         } // End if (currentTime == nextSyncTime).
         

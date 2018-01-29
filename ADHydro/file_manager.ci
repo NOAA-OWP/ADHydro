@@ -70,13 +70,14 @@ module file_manager
         // File manager 0 creates the region array, sets up its default reduction client, and sends its proxy out to all of the file managers.
         if (0 == CkMyPe())
           {
-#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+// FIXME #defines not working right in .ci file
+//#if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
             if (!(0 < globalNumberOfRegions))
               {
                 CkError("ERROR in FileManager::runUntilSimulationEnd: globalNumberOfRegions must be greater than zero.\n");
                 CkExit();
               }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+//#endif // (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
             
             // Create the chare array of regions.
             ADHydro::regionProxy = CProxy_Region::ckNew(ADHydro::referenceDate, currentTime, simulationEndTime, globalNumberOfRegions);
@@ -312,13 +313,14 @@ module file_manager
                           handleChannelElementStateMessage(*it);
                         }
                     }
-#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+// FIXME #defines not working right in .ci file
+//#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                   else
                     {
                       CkError("ERROR in FileManager::runUntilSimulationEnd: state message received from the past.  This should never happen.\n");
                       CkExit();
                     }
-#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+//#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
                 } // End serial inside of receive state updates.
               } // End receive state updates.
             } // End while (!allStateUpdated()).
