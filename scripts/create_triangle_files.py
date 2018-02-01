@@ -11,7 +11,7 @@ import argparse
 import os
 
 from qgis.core import *
-qgishome = '/project/CI-WATER/tools/CI-WATER-tools'
+qgishome = '/opt'
 app = QgsApplication([], True)
 app.setPrefixPath(qgishome, True)
 app.initQgis()
@@ -21,7 +21,12 @@ parser.add_argument('ADHydroMapDir', help='The ADHydro map directory containing 
 parser.add_argument('-o', '--outputDir', help='Optional output directory. By default, output will be put in ADHydroMapDir/ASCII')
 parser.add_argument('-b', '--base', help='Optional base name to add to files, i.e. <base>_catchments.shp. Defaults to mesh')
 parser.add_argument('-r', '--resolution', help='Stream resolutions to read (i.e. <base>_streams_20_meter.shp). By default looks for <base>_streams.shp.')
+parser.add_argument('-d', '--densify', help='Number of additional pilot points to add between line segments.', type=int, default=0)
 args = parser.parse_args()
+
+if args.densify:
+  if args.densify < 0:
+    parser.error("densify argument must be a positive integer")
 
 if not os.path.isdir(args.ADHydroMapDir):
     parser.error("Directory '{}' does not exist.".format(args.ADHydroMapDir))
@@ -121,6 +126,31 @@ def point_in_polygon(feature):
     assert geom.contains(QgsPoint(testx, testy)) # if the first point was not in the polygon, this second one must be.
   return testx, testy
 
+#Densify a multi-line segment by adding n evenly spaced points between two existing nodes
+def densify(segments, n):
+  if n == 0:
+    return segments
+  new_segments = []
+  #Adding n points means making n+1 intervals
+  n=n+1
+  #Loop through all points except the last
+  #Since range isn't inclusive, use len(segments) to store index
+  for p1, index in zip(segments[:-1], range(len(segments))):
+    #p1 is the first point on this segment 
+    p2 = segments[index+1] #Second point that creates a segment from p1 -> p2
+    #Find the x and y interval steps
+    x_distance = (p2.x() - p1.x())/float(n)
+    y_distance = (p2.y() - p1.y())/float(n)
+    new_segments.append(p1)
+    for i in range(1,n):
+      nextX = p1.x() + i*x_distance
+      nextY = p1.y() + i*y_distance
+      new_segments.append(QgsPoint(nextX, nextY))
+    #end of a given segment is the beginning of the next, so it gets added in the next iteration
+  #Finally, add the last point back to the segments
+  new_segments.append(segments[-1])
+  return new_segments
+
 with open(output_node_file, "w") as node_file:
   with open(output_poly_file, "w") as poly_file:
     with open(output_link_file, "w") as link_file:
@@ -169,6 +199,7 @@ with open(output_node_file, "w") as node_file:
         assert 0 < len(polygon) # No empty polygons.
         boundary_marker = "0" # Catchment segments have no boundary marker.
         for ring in polygon:
+          ring = densify(ring, args.densify)
           firstnode = node
           for point in ring:
             node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
@@ -228,6 +259,7 @@ with open(output_node_file, "w") as node_file:
         # mesh edge boundary.
         boundary_marker = str(linkno + 2)
         for ring in polygon:
+          ring = densify(ring, args.densify)
           firstnode = node
           for point in ring:
             node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
@@ -259,6 +291,7 @@ with open(output_node_file, "w") as node_file:
         # mesh edge boundary.
         boundary_marker = str(linkno + 2)
         firstnode = node
+        polyline = densify(polyline, args.densify)
         for point in polyline:
           node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
           if node < firstnode + len(polyline) - 1:
