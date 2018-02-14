@@ -477,11 +477,11 @@ class NeighborProxy
 public:
     
     // Constructor.  All parameters directly initialize member variables.
-    inline NeighborProxy(size_t neighborRegion = 0, double edgeLength = 1.0, double edgeNormalX = 1.0, double edgeNormalY = 0.0,
+    inline NeighborProxy(size_t neighborRegion = 0, double edgeLength = 1.0, double edgeNormalX = 1.0, double edgeNormalY = 0.0, double zOffset = 0.0,
                          double nominalFlowRate = 0.0, double expirationTime = 0.0, double inflowCumulative = 0.0, double outflowCumulative = 0.0) :
-        neighborRegion(neighborRegion), edgeLength(edgeLength), edgeNormalX(edgeNormalX), edgeNormalY(edgeNormalY), attributes(), attributesInitialized(false),
-        nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0), inflowCumulativeLongTerm(inflowCumulative),
-        outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
+        neighborRegion(neighborRegion), edgeLength(edgeLength), edgeNormalX(edgeNormalX), edgeNormalY(edgeNormalY), zOffset(zOffset), attributes(),
+        attributesInitialized(false), nominalFlowRate(nominalFlowRate), expirationTime(expirationTime), inflowCumulativeShortTerm(0.0),
+        inflowCumulativeLongTerm(inflowCumulative), outflowCumulativeShortTerm(0.0), outflowCumulativeLongTerm(outflowCumulative), incomingWater()
     {
         if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
         {
@@ -503,6 +503,7 @@ public:
         p | edgeLength;
         p | edgeNormalX;
         p | edgeNormalY;
+        p | zOffset;
         p | attributes;
         p | attributesInitialized;
         p | nominalFlowRate;
@@ -537,9 +538,10 @@ public:
     //
     // Parameters:
     //
+    // newZOffset        - When the attributes are received, a new zOffset is calculated, if applicable.  This value is simply stored in zOffset.
     // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
     // remoteAttributes  - The attributes that are being received.
-    bool receiveNeighborAttributes(size_t& neighborsFinished, const NeighborAttributes& remoteAttributes);
+    bool receiveNeighborAttributes(size_t& neighborsFinished, double newZOffset, const NeighborAttributes& remoteAttributes);
     
     // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same Region, or a boundary condition where there is no neighbor.
@@ -665,6 +667,9 @@ private:
     double edgeLength;  // (m) Length along the connected edge.
     double edgeNormalX; // X component of a unit vector pointing outwards normal to the edge.
     double edgeNormalY; // Y component of a unit vector pointing outwards normal to the edge.
+    double zOffset;     // (m) The Z coordinate at the center of a mesh element is not necessarily the same as the Z coordinate at the edge of the mesh element next to a channel neighbor.
+                        // If this neighborProxy is a connection between a mesh element and a channel element, then this Z offset, which can be positive or negative,
+                        // is added to mesh element center Z coordinates for the purposes of any interaction between the neighbors.
     
     // Immutable attributes of the remote neighbor.
     NeighborAttributes attributes;

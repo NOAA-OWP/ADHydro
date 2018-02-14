@@ -112,6 +112,12 @@ public:
     
 private:
     
+    // Returns: (s) The next time when all regions have to stop at a synchronized simulation time to receive forcing or write state.
+    inline double nextSyncTime()
+    {
+        return std::min(nextForcingTime, Readonly::getCheckpointTime(nextCheckpointIndex));
+    }
+    
     // Simulation time.
     double       currentTime;         // (s) Current simulation time specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     double       timestepEndTime;     // (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.

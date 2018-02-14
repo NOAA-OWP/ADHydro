@@ -53,44 +53,44 @@ void InitializationManager::initializeSimulation()
         
         std::map<NeighborConnection, NeighborProxy> neighbors;
         
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, MESH_SURFACE,    1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    0, MESH_SOIL,       1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, MESH_AQUIFER,    1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, MESH_SURFACE,    1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    0, MESH_SOIL,       1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, MESH_AQUIFER,    1), NeighborProxy(1, 100.0, -1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 0, CHANNEL_SURFACE, 0), NeighborProxy(0, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
         
         ADHydro::regionProxy[0].sendInitializeMeshElement(MeshElement(0, 0, 0.0, 0.0, 0.0, 10000.0, 0.0, 0.0, -0.02, -0.02, 11, 2, 0.16, true, 3.38E-6, true, 9.74E-7, NULL, 0.0, 0.0, UNSATURATED_AQUIFER, 0.0,
                                                                       SimpleVadoseZone(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -0.9, SimpleVadoseZone(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
         
         neighbors.clear();
         
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SURFACE,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SOIL   ,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_AQUIFER,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, CHANNEL_SURFACE, 1), NeighborProxy(1, 1.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SURFACE,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_SOIL   ,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, MESH_AQUIFER,    0), NeighborProxy(0, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 0, CHANNEL_SURFACE, 1), NeighborProxy(1, 1.0, -1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
         
-        ADHydro::regionProxy[0].sendInitializeChannelElement(ChannelElement(0, STREAM, 0, 0.0, -50.0, -1.0, -2.0, 100.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, NULL, 0.0, 0.0, 0.0, 0.0, neighbors));
+        ADHydro::regionProxy[0].sendInitializeChannelElement(ChannelElement(0, STREAM, 0, 0.0, -50.0, 10.0, -2.0, 100.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, NULL, 0.0, 0.0, 0.0, 0.0, neighbors));
         
         neighbors.clear();
         
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, MESH_SURFACE,    0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    1, MESH_SOIL,       0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, MESH_AQUIFER,    0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, MESH_SURFACE,    0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL,    1, MESH_SOIL,       0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, MESH_AQUIFER,    0), NeighborProxy(0, 100.0, 1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SURFACE, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_SOIL   , 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(MESH_AQUIFER, 1, CHANNEL_SURFACE, 1), NeighborProxy(1, 100.0, 0.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
         
         ADHydro::regionProxy[1].sendInitializeMeshElement(MeshElement(1, 1, -100.0, 0.0, -2.0, 10000.0, 0.0, 0.0, -0.02, -0.02, 11, 2, 0.16, true, 3.38E-6, true, 9.74E-7, NULL, 0.0, 0.0, UNSATURATED_AQUIFER, 0.0,
                                                                       SimpleVadoseZone(0.1, 1.41E-5, 0.421, 0.0426, 0.0, 0.9), 0.0, -2.9, SimpleVadoseZone(0.8, 4.66E-5, 0.339, 0.0279, 0.0, 0.8), 0.0, 0.0, 0.0, 0.0, 0.0, neighbors));
         
         neighbors.clear();
         
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SURFACE,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SOIL   ,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_AQUIFER,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, CHANNEL_SURFACE,  0), NeighborProxy(0, 1.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
-        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, BOUNDARY_OUTFLOW, 0), NeighborProxy(0, 1.0, -1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SURFACE,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_SOIL   ,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, MESH_AQUIFER,     1), NeighborProxy(1, 100.0, 0.0, 1.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, CHANNEL_SURFACE,  0), NeighborProxy(0, 1.0, 1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
+        neighbors.insert(std::pair<NeighborConnection, NeighborProxy>(NeighborConnection(CHANNEL_SURFACE, 1, BOUNDARY_OUTFLOW, 0), NeighborProxy(0, 1.0, -1.0, 0.0, 0.0, 0.0, Readonly::simulationStartTime, 0.0, 0.0)));
         
         ADHydro::regionProxy[1].sendInitializeChannelElement(ChannelElement(1, STREAM, 1, -100.0, -50.0, -3.0, -4.0, 100.0, 0.0, 0.0, 1.0, 1.0, 0.038, 1.0, 1.41E-5, NULL, 0.0, 0.0, 0.0, 0.0, neighbors));
     }

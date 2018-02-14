@@ -111,6 +111,34 @@ module region
             // Run the simulation.
             while (currentTime < simulationEndTime)
             {
+                // Check if it is time to check the invariant.
+                // FIXME only do it if DEBUG_LEVEL is right.
+                if (currentTime == nextSyncTime())
+                {
+                    serial
+                    {
+                        long   year;   // For printing date and time of invariant check.
+                        long   month;  // For printing date and time of invariant check.
+                        long   day;    // For printing date and time of invariant check.
+                        long   hour;   // For printing date and time of invariant check.
+                        long   minute; // For printing date and time of invariant check.
+                        double second; // For printing date and time of invariant check.
+                        
+                        // Print out that we are checking the invariant.
+                        if (0 == thisIndex && 1 <= Readonly::verbosityLevel)
+                        {
+                            julianToGregorian(Readonly::referenceDate + currentTime / ONE_DAY_IN_SECONDS, &year, &month, &day, &hour, &minute, &second);
+                            CkPrintf("Checking invariant at simulation time %.0lf, date and time %02ld/%02ld/%04ld %02ld:%02ld:%02.0lf\n", currentTime, month, day, year, hour, minute, second);
+                        }
+                        
+                        if (checkInvariant())
+                        {
+                            CkExit();
+                        }
+                    }
+                }
+                
+                // Check if it is time to receive forcing data.
                 if (currentTime == nextForcingTime)
                 {
                     serial
@@ -272,7 +300,7 @@ module region
                     
                     // Initially set timestepEndTime to be a time that we know we cannot exceed, either the next forcing read, checkpoint write, or simulationEndTime.
                     // Because there is always a checkpoint output at the end of the simulation, we don't need to check against simulationEndTime.
-                    timestepEndTime = std::min(nextForcingTime, Readonly::getCheckpointTime(nextCheckpointIndex));
+                    timestepEndTime = nextSyncTime();
                     
                     // Set timestepEndTime to be no later than any expirationTime.
                     for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)

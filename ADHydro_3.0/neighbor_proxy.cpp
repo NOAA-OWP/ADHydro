@@ -312,7 +312,22 @@ bool WaterTransfer::checkInvariant() const
 
 bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
 {
-    return proxy.receiveNeighborAttributes(neighborsFinished, this->attributes);
+    double newZOffset = 0.0; // If necessary, calculate a new zOffset.  This is done here just because it is a place where all of the required information is available.
+                             // FIXME implement the full calculation from v2.0
+                             // FIXME problem with zTop of aquifer not being zSurface
+    
+    if ((MESH_SURFACE == destination.localEndpoint || MESH_SOIL == destination.localEndpoint || MESH_AQUIFER == destination.localEndpoint) &&
+        CHANNEL_SURFACE == destination.remoteEndpoint && ICEMASS != attributes.channelType && attributes.elementZTop > localAttributes.elementZTop)
+    {
+        newZOffset = attributes.elementZTop - localAttributes.elementZTop;
+    }
+    else if ((MESH_SURFACE == destination.remoteEndpoint || MESH_SOIL == destination.remoteEndpoint || MESH_AQUIFER == destination.remoteEndpoint) &&
+             CHANNEL_SURFACE == destination.localEndpoint && ICEMASS != localAttributes.channelType && localAttributes.elementZTop > attributes.elementZTop)
+    {
+        newZOffset = localAttributes.elementZTop - attributes.elementZTop;
+    }
+    
+    return proxy.receiveNeighborAttributes(neighborsFinished, newZOffset, attributes);
 }
 
 bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
@@ -433,7 +448,7 @@ bool NeighborProxy::sendNeighborMessage(std::map<size_t, std::vector<NeighborMes
     return error;
 }
 
-bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, const NeighborAttributes& remoteAttributes)
+bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, double newZOffset, const NeighborAttributes& remoteAttributes)
 {
     bool error = false; // Error flag.
     
@@ -450,6 +465,7 @@ bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, const N
     
     if (!error)
     {
+        zOffset               = newZOffset;
         attributes            = remoteAttributes;
         attributesInitialized = true;
         ++neighborsFinished; // When a NeighborProxy receives attributes it is finished with initialization.
@@ -830,8 +846,8 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     }
     else if (MESH_SURFACE == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
-        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementZTop, localAttributes.areaOrLength, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                                attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, remoteDepthOrHead);
+        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, localAttributes.elementZTop + zOffset, localAttributes.areaOrLength, localDepthOrHead,
+                                                attributes.elementZTop, attributes.elementZBottom, attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, remoteDepthOrHead);
     }
     else if (MESH_SURFACE == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
@@ -872,8 +888,8 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     }
     else if (MESH_SOIL == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
-        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                               attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop + zOffset, localAttributes.elementZBottom + zOffset, localDepthOrHead + zOffset, attributes.elementZTop,
+                                               attributes.elementZBottom, attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
     }
     else if (MESH_SOIL == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
@@ -916,8 +932,8 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     }
     else if (MESH_AQUIFER == localEndpoint && CHANNEL_SURFACE == remoteEndpoint)
     {
-        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop, localAttributes.elementZBottom, localDepthOrHead, attributes.elementZTop, attributes.elementZBottom,
-                                               attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, localAttributes.elementZTop + zOffset, localAttributes.elementZBottom + zOffset, localDepthOrHead + zOffset, attributes.elementZTop,
+                                               attributes.elementZBottom, attributes.slopeXOrBaseWidth, attributes.slopeYOrSideSlope, attributes.conductivity, attributes.porosityOrBedThickness, remoteDepthOrHead);
     }
     else if (MESH_AQUIFER == localEndpoint && BOUNDARY_INFLOW == remoteEndpoint)
     {
@@ -943,8 +959,8 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     }
     else if (CHANNEL_SURFACE == localEndpoint && MESH_SURFACE == remoteEndpoint)
     {
-        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, attributes.elementZTop, attributes.areaOrLength, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
-                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localDepthOrHead);
+        error = surfacewaterMeshChannelFlowRate(&nominalFlowRate, &dtNew, edgeLength, attributes.elementZTop + zOffset, attributes.areaOrLength, remoteDepthOrHead, localAttributes.elementZTop,
+                                                localAttributes.elementZBottom, localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localDepthOrHead);
         
         // Reverse the direction of flow because the local element is neighbor in the previous calculation.
         nominalFlowRate *= -1.0;
@@ -952,7 +968,7 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     else if ((CHANNEL_SURFACE == localEndpoint && MESH_SOIL    == remoteEndpoint) ||
              (CHANNEL_SURFACE == localEndpoint && MESH_AQUIFER == remoteEndpoint))
     {
-        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, attributes.elementZTop, attributes.elementZBottom, remoteDepthOrHead, localAttributes.elementZTop, localAttributes.elementZBottom,
+        error = groundwaterMeshChannelFlowRate(&nominalFlowRate, edgeLength, attributes.elementZTop + zOffset, attributes.elementZBottom + zOffset, remoteDepthOrHead + zOffset, localAttributes.elementZTop, localAttributes.elementZBottom,
                                                localAttributes.slopeXOrBaseWidth, localAttributes.slopeYOrSideSlope, localAttributes.conductivity, localAttributes.porosityOrBedThickness, localDepthOrHead);
         
         // Reverse the direction of flow because the local element is neighbor in the previous calculation.
