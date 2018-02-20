@@ -1466,6 +1466,25 @@ int garto_timestep(garto_domain* domain, double dt, double* surfacewater_depth, 
   double surfacewater_depth_old = *surfacewater_depth;
   int    error                   = false;
   int    No_flow_lower_bc        = false;   // No flow lower boundary condition is for certain testing problems, put inside garto_timestep().
+  int    ii;                                // Loop counter.
+  
+  // There is a problem if the fully saturated bin is epsilon equal to theta_s, but not exactly equal to theta_s.
+  if (epsilonEqual(domain->surface_front_theta[0], domain->parameters->theta_s) && domain->surface_front_theta[0] != domain->parameters->theta_s)
+  {
+      // Make the fully saturated bin exactly equal to theta_s.
+      domain->surface_front_theta[0]     = domain->parameters->theta_s;
+      domain->groundwater_front_theta[0] = domain->parameters->theta_s;
+      
+      // Set all other bins to non-existance.
+      for (ii = 1; ii <= domain->parameters->num_bins; ++ii)
+      {
+          domain->d_theta[ii]                 = 0.0;
+          domain->surface_front_theta[ii]     = domain->surface_front_theta[0];
+          domain->surface_front_depth[ii]     = domain->top_depth;
+          domain->groundwater_front_theta[ii] = domain->groundwater_front_theta[0];
+          domain->groundwater_front_depth[ii] = domain->bottom_depth;
+      }
+  }
   
   // Flow through saturated bin.
   garto_saturated_bin(domain, dt, surfacewater_depth, groundwater_recharge, water_table);
