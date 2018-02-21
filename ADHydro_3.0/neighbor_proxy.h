@@ -265,6 +265,7 @@ public:
 class NeighborMessage;
 class StateMessage;
 class WaterMessage;
+class InvariantMessage;
 
 // A NeighborProxy is how elements store their neighbor connections with other elements.  For each neighbor connection, two NeighborProxies are stored, one at each element.
 // The element where the NeighborProxy is stored is its local neighbor.  The other is its remote neighbor.  A NeighborProxy stores the destination information needed to
@@ -316,6 +317,18 @@ public:
     //
     // Returns: true if the invariant is violated, false otherwise.
     bool checkInvariant() const;
+    
+    // Send a message to the remote neighbor with the local values that the remote neighbor needs to check the invariant.
+    // If this is a boundary condition with no remote neighbor no message is sent.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages  - A container in which to put any message that needs to be sent.  Key is Region ID number of message destination.
+    // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
+    // destination       - The remote neighbor to send to.
+    bool sendInvariantMessage(std::map<size_t, std::vector<InvariantMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& destination);
     
     // Check that the values at this NeighborProxy match the corresponding values at the remote neighbor.
     //

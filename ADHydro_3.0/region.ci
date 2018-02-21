@@ -117,12 +117,17 @@ module region
                 {
                     serial
                     {
-                        long   year;   // For printing date and time of invariant check.
-                        long   month;  // For printing date and time of invariant check.
-                        long   day;    // For printing date and time of invariant check.
-                        long   hour;   // For printing date and time of invariant check.
-                        long   minute; // For printing date and time of invariant check.
-                        double second; // For printing date and time of invariant check.
+                        std::map<size_t,                    MeshElement>::iterator itMesh;           // Loop iterator.
+                        std::map<size_t,                 ChannelElement>::iterator itChannel;        // Loop iterator.
+                        std::map<size_t, std::vector<InvariantMessage> >::iterator itMessage;        // Loop iterator.
+                        std::map<size_t, std::vector<InvariantMessage> >           outgoingMessages; // Container to aggregate outgoing messages to other regions.  Key is region ID number of message destination.
+                                                                                                     // FIXME outgoingMessages could be made a member variable of Region to avoid repeated construction/destruction of vectors.
+                        long                                                       year;             // For printing date and time of invariant check.
+                        long                                                       month;            // For printing date and time of invariant check.
+                        long                                                       day;              // For printing date and time of invariant check.
+                        long                                                       hour;             // For printing date and time of invariant check.
+                        long                                                       minute;           // For printing date and time of invariant check.
+                        double                                                     second;           // For printing date and time of invariant check.
                         
                         // Print out that we are checking the invariant.
                         if (0 == thisIndex && 1 <= Readonly::verbosityLevel)
@@ -134,6 +139,53 @@ module region
                         if (checkInvariant())
                         {
                             CkExit();
+                        }
+                        
+                        elementsFinished = 0;
+                        
+                        // Loop over all elements, who will loop over all of their NeighborProxies telling them to send neighbor invariant messages.
+                        for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+                        {
+                            if (itMesh->second.sendNeighborInvariant(outgoingMessages, elementsFinished))
+                            {
+                                CkExit();
+                            }
+                        }
+                        
+                        for (itChannel = channelElements.begin(); itChannel != channelElements.end(); ++itChannel)
+                        {
+                            if (itChannel->second.sendNeighborInvariant(outgoingMessages, elementsFinished))
+                            {
+                                CkExit();
+                            }
+                        }
+                        
+                        // Send messages.
+                        for (itMessage = outgoingMessages.begin(); itMessage != outgoingMessages.end(); ++itMessage)
+                        {
+                            if (itMessage->first == thisIndex)
+                            {
+                                // Don't need to send a message to myself.  Just receive the message immediately.
+                                // FIXME will I send messages at all?
+                                receiveMessages(itMessage->second);
+                            }
+                            else
+                            {
+                                // FIXME what if the other region is on the same PE as me?  Shortcut further down?
+                                thisProxy[itMessage->first].sendNeighborInvariant(itMessage->second);
+                            }
+                        }
+                    }
+                    
+                    // Receive until all neighbor invariants are checked.
+                    while (meshElements.size() + channelElements.size() > elementsFinished)
+                    {
+                        when sendNeighborInvariant(const std::vector<InvariantMessage>& messages)
+                        {
+                            serial
+                            {
+                                receiveMessages(messages);
+                            }
                         }
                     }
                 }
@@ -430,6 +482,7 @@ module region
         entry void sendInitializeMeshElement(const MeshElement& element);
         entry void sendInitializeChannelElement(const ChannelElement& element);
         entry void sendNeighborAttributes(const std::vector<NeighborMessage>& messages);
+        entry void sendNeighborInvariant(const std::vector<InvariantMessage>& messages);
         entry void sendForcing(double forcingTime, double newNextForcingTime, std::map<size_t, EvapoTranspirationForcingStruct>& meshForcing, std::map<size_t, EvapoTranspirationForcingStruct>& channelForcing);
         entry void sendState(double messageTime, const std::vector<StateMessage>& messages);
         entry void sendWater(const std::vector<WaterMessage>& messages);

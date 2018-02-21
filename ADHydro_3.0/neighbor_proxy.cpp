@@ -403,6 +403,32 @@ bool NeighborProxy::checkInvariant() const
     return error;
 }
 
+bool NeighborProxy::sendInvariantMessage(std::map<size_t, std::vector<InvariantMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& destination)
+{
+    bool error = false; // Error flag.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = destination.checkInvariant();
+    }
+    
+    if (!error)
+    {
+        if (BOUNDARY_INFLOW == destination.remoteEndpoint || BOUNDARY_OUTFLOW == destination.remoteEndpoint)
+        {
+            // There is no remote neighbor.  Don't send the message and mark the NeighborProxy as finished.
+            ++neighborsFinished;
+        }
+        else
+        {
+            // Send the message.
+            outgoingMessages[neighborRegion].push_back(InvariantMessage(destination, *this));
+        }
+    }
+    
+    return error;
+}
+
 bool NeighborProxy::checkNeighborInvariant(size_t& neighborsFinished, const NeighborProxy& neighbor, const NeighborAttributes& localAttributes) const
 {
     bool error = false; // Error flag.
