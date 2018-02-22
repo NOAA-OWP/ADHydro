@@ -132,7 +132,7 @@ module region
                         // Print out that we are checking the invariant.
                         if (0 == thisIndex && 1 <= Readonly::verbosityLevel)
                         {
-                            julianToGregorian(Readonly::referenceDate + currentTime / ONE_DAY_IN_SECONDS, &year, &month, &day, &hour, &minute, &second);
+                            julianToGregorian(Readonly::referenceDate + currentTime / ONE_DAY_IN_SECONDS, &year, &month, &day, &hour, &minute, &second, true);
                             CkPrintf("Checking invariant at simulation time %.0lf, date and time %02ld/%02ld/%04ld %02ld:%02ld:%02.0lf\n", currentTime, month, day, year, hour, minute, second);
                         }
                         
