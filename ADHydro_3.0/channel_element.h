@@ -155,7 +155,7 @@ public:
     // timestepEndTime  - (s) Simulation time at the end of the current timestep specified as the number of seconds after referenceDate.  Can be negative to specify times before reference date.
     bool receiveMessage(const Message& message, size_t& elementsFinished, double currentTime, double timestepEndTime);
     
-    // Call sendNeighborAttributes on all NeighborProxies.
+    // Call sendNeighborMessage on all NeighborProxies.
     //
     // Returns: true if there is an error, false otherwise.
     //
@@ -164,6 +164,16 @@ public:
     // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
     // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
     bool sendNeighborAttributes(std::map<size_t, std::vector<NeighborMessage> >& outgoingMessages, size_t& elementsFinished);
+    
+    // Call sendInvariantMessage on all NeighborProxies.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // outgoingMessages - Container to aggregate outgoing messages to other Regions.  Key is Region ID number of message destination.
+    // elementsFinished - Number of elements in the current Region finished in the initialization phase.  May be incremented if this call causes this element to be finished.
+    bool sendNeighborInvariant(std::map<size_t, std::vector<InvariantMessage> >& outgoingMessages, size_t& elementsFinished);
     
     // Call calculateNominalFlowRate on all NeighborProxies.
     //

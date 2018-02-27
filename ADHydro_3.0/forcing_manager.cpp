@@ -205,7 +205,7 @@ bool ForcingManager::readAndSendForcing()
         // Print out that we are sending the forcing.
         if (0 == CkMyPe() && 1 <= Readonly::verbosityLevel)
         {
-            julianToGregorian(jultime[jultimeIndex], &year, &month, &day, &hour, &minute, &second);
+            julianToGregorian(jultime[jultimeIndex], &year, &month, &day, &hour, &minute, &second, true);
             CkPrintf("Reading forcing data for %02ld/%02ld/%04ld %02ld:%02ld:%02.0lf\n", month, day, year, hour, minute, second);
         }
         

@@ -226,6 +226,29 @@ bool ChannelElement::sendNeighborAttributes(std::map<size_t, std::vector<Neighbo
     return error;
 }
 
+bool ChannelElement::sendNeighborInvariant(std::map<size_t, std::vector<InvariantMessage> >& outgoingMessages, size_t& elementsFinished)
+{
+    bool                                                  error = false; // Error flag.
+    std::map<NeighborConnection, NeighborProxy>::iterator it;            // Loop iterator.
+    
+    // Don't error check parameters because it's a simple pass-through to NeighborProxy::sendInvariantMessage and it will be checked inside that method.
+    
+    neighborsFinished = 0;
+    
+    for (it = neighbors.begin(); !error && it != neighbors.end(); ++it)
+    {
+        error = it->second.sendInvariantMessage(outgoingMessages, neighborsFinished, it->first);
+    }
+    
+    // Check if this element is finished.
+    if (!error && neighbors.size() == neighborsFinished)
+    {
+        ++elementsFinished;
+    }
+    
+    return error;
+}
+
 bool ChannelElement::calculateNominalFlowRates(std::map<size_t, std::vector<StateMessage> >& outgoingMessages, size_t& elementsFinished, double currentTime)
 {
     bool                                                  error = false; // Error flag.

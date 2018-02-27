@@ -291,6 +291,21 @@ bool NeighborAttributes::checkInvariant() const
     return error;
 }
 
+bool NeighborAttributes::operator==(const NeighborAttributes& other) const
+{
+    return (elementX               == other.elementX &&
+            elementY               == other.elementY &&
+            elementZTop            == other.elementZTop &&
+            elementZBottom         == other.elementZBottom &&
+            areaOrLength           == other.areaOrLength &&
+            manningsN              == other.manningsN &&
+            conductivity           == other.conductivity &&
+            porosityOrBedThickness == other.porosityOrBedThickness &&
+            channelType            == other.channelType &&
+            slopeXOrBaseWidth      == other.slopeXOrBaseWidth &&
+            slopeYOrSideSlope      == other.slopeYOrSideSlope);
+}
+
 bool WaterTransfer::checkInvariant() const
 {
     bool error = false; // Error flag.
@@ -308,36 +323,6 @@ bool WaterTransfer::checkInvariant() const
     }
     
     return error;
-}
-
-bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
-{
-    double newZOffset = 0.0; // If necessary, calculate a new zOffset.  This is done here just because it is a place where all of the required information is available.
-                             // FIXME implement the full calculation from v2.0
-                             // FIXME problem with zTop of aquifer not being zSurface
-    
-    if ((MESH_SURFACE == destination.localEndpoint || MESH_SOIL == destination.localEndpoint || MESH_AQUIFER == destination.localEndpoint) &&
-        CHANNEL_SURFACE == destination.remoteEndpoint && ICEMASS != attributes.channelType && attributes.elementZTop > localAttributes.elementZTop)
-    {
-        newZOffset = attributes.elementZTop - localAttributes.elementZTop;
-    }
-    else if ((MESH_SURFACE == destination.remoteEndpoint || MESH_SOIL == destination.remoteEndpoint || MESH_AQUIFER == destination.remoteEndpoint) &&
-             CHANNEL_SURFACE == destination.localEndpoint && ICEMASS != localAttributes.channelType && localAttributes.elementZTop > attributes.elementZTop)
-    {
-        newZOffset = localAttributes.elementZTop - attributes.elementZTop;
-    }
-    
-    return proxy.receiveNeighborAttributes(neighborsFinished, newZOffset, attributes);
-}
-
-bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
-{
-    return proxy.receiveStateMessage(neighborsFinished, *this, localAttributes, localDepthOrHead, currentTime);
-}
-
-bool WaterMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
-{
-    return proxy.receiveWaterMessage(neighborsFinished, *this, currentTime, timestepEndTime);
 }
 
 bool NeighborProxy::checkInvariant() const
@@ -414,6 +399,95 @@ bool NeighborProxy::checkInvariant() const
             }
         }
     }
+    
+    return error;
+}
+
+bool NeighborProxy::sendInvariantMessage(std::map<size_t, std::vector<InvariantMessage> >& outgoingMessages, size_t& neighborsFinished, const NeighborConnection& destination)
+{
+    bool error = false; // Error flag.
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
+    {
+        error = destination.checkInvariant();
+    }
+    
+    if (!error)
+    {
+        if (BOUNDARY_INFLOW == destination.remoteEndpoint || BOUNDARY_OUTFLOW == destination.remoteEndpoint)
+        {
+            // There is no remote neighbor.  Don't send the message and mark the NeighborProxy as finished.
+            ++neighborsFinished;
+        }
+        else
+        {
+            // Send the message.
+            outgoingMessages[neighborRegion].push_back(InvariantMessage(destination, *this));
+        }
+    }
+    
+    return error;
+}
+
+bool NeighborProxy::checkNeighborInvariant(size_t& neighborsFinished, const NeighborProxy& neighbor, const NeighborAttributes& localAttributes) const
+{
+    bool error = false; // Error flag.
+    
+    if (!(neighbor.edgeLength == edgeLength))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: edgeLength must be equal to neighbor.edgeLength.\n");
+        error = true;
+    }
+    
+    if (!(-neighbor.edgeNormalX == edgeNormalX))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: edgeNormalX must be equal to -neighbor.edgeNormalX.\n");
+        error = true;
+    }
+    
+    if (!(-neighbor.edgeNormalY == edgeNormalY))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: edgeNormalY must be equal to -neighbor.edgeNormalY.\n");
+        error = true;
+    }
+    
+    if (!(neighbor.zOffset == zOffset))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: zOffset must be equal to neighbor.zOffset.\n");
+        error = true;
+    }
+    
+    if (!(neighbor.attributes == localAttributes))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: localAttributes must be equal to neighbor.attributes.\n");
+        error = true;
+    }
+    
+    if (!(-neighbor.nominalFlowRate == nominalFlowRate))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: nominalFlowRate must be equal to -neighbor.nominalFlowRate.\n");
+        error = true;
+    }
+    
+    if (!(neighbor.expirationTime == expirationTime))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: expirationTime must be equal to neighbor.expirationTime.\n");
+        error = true;
+    }
+    
+    if (!epsilonEqual(-(neighbor.outflowCumulativeShortTerm + neighbor.outflowCumulativeLongTerm), inflowCumulativeShortTerm + inflowCumulativeLongTerm))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: total inflow must be epsilon equal to the negative of neighbor's total outflow.\n");
+        error = true;
+    }
+     
+    if (!epsilonEqual(-(neighbor.inflowCumulativeShortTerm + neighbor.inflowCumulativeLongTerm), outflowCumulativeShortTerm + outflowCumulativeLongTerm))
+    {
+        CkError("ERROR in NeighborProxy::checkNeighborInvariant: total outflow must be epsilon equal to the negative of neighbor's total inflow.\n");
+        error = true;
+    }
+   
+    ++neighborsFinished;
     
     return error;
 }
@@ -1030,4 +1104,39 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
     }
     
     return error;
+}
+
+bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
+{
+    double newZOffset = 0.0; // If necessary, calculate a new zOffset.  This is done here just because it is a place where all of the required information is available.
+                             // FIXME implement the full calculation from v2.0
+                             // FIXME problem with zTop of aquifer not being zSurface
+    
+    if ((MESH_SURFACE == destination.localEndpoint || MESH_SOIL == destination.localEndpoint || MESH_AQUIFER == destination.localEndpoint) &&
+        CHANNEL_SURFACE == destination.remoteEndpoint && ICEMASS != attributes.channelType && attributes.elementZTop > localAttributes.elementZTop)
+    {
+        newZOffset = attributes.elementZTop - localAttributes.elementZTop;
+    }
+    else if ((MESH_SURFACE == destination.remoteEndpoint || MESH_SOIL == destination.remoteEndpoint || MESH_AQUIFER == destination.remoteEndpoint) &&
+             CHANNEL_SURFACE == destination.localEndpoint && ICEMASS != localAttributes.channelType && localAttributes.elementZTop > attributes.elementZTop)
+    {
+        newZOffset = localAttributes.elementZTop - attributes.elementZTop;
+    }
+    
+    return proxy.receiveNeighborAttributes(neighborsFinished, newZOffset, attributes);
+}
+
+bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
+{
+    return proxy.receiveStateMessage(neighborsFinished, *this, localAttributes, localDepthOrHead, currentTime);
+}
+
+bool WaterMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
+{
+    return proxy.receiveWaterMessage(neighborsFinished, *this, currentTime, timestepEndTime);
+}
+
+bool InvariantMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
+{
+    return proxy.checkNeighborInvariant(neighborsFinished, neighbor, localAttributes);
 }

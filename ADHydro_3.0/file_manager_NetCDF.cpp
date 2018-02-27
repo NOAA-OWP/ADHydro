@@ -165,7 +165,7 @@ bool FileManagerNetCDF::writeState(double checkpointTime, const TimePointState& 
     // Build filename and create file.
     if (!error)
     {
-        julianToGregorian(Readonly::referenceDate + (checkpointTime / ONE_DAY_IN_SECONDS), &year, &month, &day, &hour, &minute, &second);
+        julianToGregorian(Readonly::referenceDate + (checkpointTime / ONE_DAY_IN_SECONDS), &year, &month, &day, &hour, &minute, &second, true);
         
         filename << Readonly::checkpointDirectoryPath << "/state_" << std::setfill('0') << std::setw(4) << year << std::setw(2) << month << std::setw(2) << day
                  << std::setw(2) << hour << std::setw(2) << minute << std::fixed << std::setprecision(0) << std::setw(2) << second << ".nc";

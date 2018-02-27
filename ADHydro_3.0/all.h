@@ -356,15 +356,15 @@ inline double gregorianToJulian(long year, long month, long day, long hour, long
 //
 // Parameters:
 //
-// julian - Julian date.  Must be greater than or equal to 1721425.5.
-// year   - Scalar passed by reference will be filled in with Gregorian year.
-// month  - Scalar passed by reference will be filled in with Gregorian month,  1 to 12.
-// day    - Scalar passed by reference will be filled in with Gregorian day,    1 to 31.
-// hour   - Scalar passed by reference will be filled in with Gregorian hour,   0 to 23.
-// minute - Scalar passed by reference will be filled in with Gregorian minute, 0 to 59.
-// second - Scalar passed by reference will be filled in with Gregorian second
-//          including fractional second, 0 to 59.999999...
-inline void julianToGregorian(double julian, long* year, long* month, long* day, long* hour, long* minute, double* second)
+// julian               - Julian date.  Must be greater than or equal to 1721425.5.
+// year                 - Scalar passed by reference will be filled in with Gregorian year.
+// month                - Scalar passed by reference will be filled in with Gregorian month,                              1 to 12.
+// day                  - Scalar passed by reference will be filled in with Gregorian day,                                1 to 31.
+// hour                 - Scalar passed by reference will be filled in with Gregorian hour,                               0 to 23.
+// minute               - Scalar passed by reference will be filled in with Gregorian minute,                             0 to 59.
+// second               - Scalar passed by reference will be filled in with Gregorian second including fractional second, 0 to 59.999999...
+// roundToNearestSecond - if true, output will be rounded off to the nearest second.
+inline void julianToGregorian(double julian, long* year, long* month, long* day, long* hour, long* minute, double* second, bool roundToNearestSecond = false)
 {
   long   julianDay     = (long)julian;       // Julian day not including fractional day.
   double fractionalDay = julian - julianDay; // Fractional day since noon.
@@ -424,6 +424,23 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
       fractionalDay += 0.5;
     }
 
+  *second = fractionalDay * ONE_DAY_IN_SECONDS;
+
+  if (roundToNearestSecond)
+    {
+      *second = round(*second);
+      
+      if (*second >= ONE_DAY_IN_SECONDS)
+        {
+          *second -= ONE_DAY_IN_SECONDS;
+          julianDay++;
+        }
+    }
+
+  *hour      = (long) (*second / 3600.0);
+  *second   -= *hour * 3600.0;
+  *minute    = (long) (*second / 60.0);
+  *second   -= *minute * 60.0;
   julianDay -= 1721119L;
   *year      = (4L * julianDay - 1L) / 146097L;
   julianDay  = 4L * julianDay - 1L - 146097L * *year;
@@ -445,12 +462,6 @@ inline void julianToGregorian(double julian, long* year, long* month, long* day,
       *month -= 9L;
       (*year)++;
     }
-
-  *second  = fractionalDay * 24.0 * 3600.0;
-  *hour    = (long) (*second / 3600.0);
-  *second -= *hour * 3600.0;
-  *minute  = (long) (*second / 60.0);
-  *second -= *minute * 60.0;
 
   if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
     {
