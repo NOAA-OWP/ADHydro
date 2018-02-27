@@ -8159,7 +8159,10 @@ void FileManager::meshMassageVegetationAndSoilType()
   // Print out which elements still have invalid vegetation and soil type.
   if (2 <= ADHydro::verbosityLevel)
     {
-      CkPrintf("element\tvegetation type\tsoil type\n");
+      if (0 < newNumberOfRemainingElementsWithInvalidVegetationType || 0 < newNumberOfRemainingElementsWithInvalidSoilType)
+        {
+          CkPrintf("element\tvegetation type\tsoil type\n");
+        }
 
       for (ii = 0; ii < globalNumberOfMeshElements; ii++)
         {
@@ -8173,8 +8176,9 @@ void FileManager::meshMassageVegetationAndSoilType()
 
 int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
 {
-  int    ii;                // Loop counter.
+  int    ii, jj;            // Loop counters.
   int    neighbor = NOFLOW; // The channel element that meshElement will be connected to.
+  int    oldNeighbor;       // For detecting when neighbor has changed.
   double edgeZSurface;      // The surface Z coordinate of the center of a mesh edge.
   double edgeLength;        // The edge length to use for the new connection.
   
@@ -8343,8 +8347,43 @@ int FileManager::breakMeshDigitalDam(int meshElement, long long reachCode)
           neighbor = NOFLOW;
         }
     }
+
+  // If the channel element has a channel neighbor that isn't an icemass, and has fewer mesh neighbors, connect it to that one instead so that these
+  // connections don't bunch up on a single channel element.
+  if (NOFLOW != neighbor)
+    {
+      do
+        {
+          oldNeighbor = neighbor;
+
+          // find the number of mesh neighbors that the channel element has.
+          ii = 0;
+
+          while (ii < CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE && NOFLOW != channelMeshNeighbors[neighbor][ii])
+            {
+              ++ii;
+            }
+
+          // If the channel element has zero mesh neighbors then no other element can have fewer so we are done.
+          if (0 < ii)
+            {
+              --ii;
+
+              // Loop over the channel element's neighbors looking for one with fewer mesh neighbors.
+              for (jj = 0; oldNeighbor == neighbor && jj < CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE && NOFLOW != channelChannelNeighbors[neighbor][jj]; ++jj)
+                {
+                  if (!isBoundary(channelChannelNeighbors[neighbor][jj]) && ICEMASS != channelChannelType[channelChannelNeighbors[neighbor][jj]] &&
+                      NOFLOW == channelMeshNeighbors[channelChannelNeighbors[neighbor][jj]][ii])
+                    {
+                      neighbor = channelChannelNeighbors[neighbor][jj];
+                    }
+                }
+            }
+        }
+      while (oldNeighbor != neighbor);
+    }
   
-  // Connect the mesh element to that channel element
+  // Connect the mesh element to that channel element.
   if (NOFLOW != neighbor)
     {
       if (3 <= ADHydro::verbosityLevel)
@@ -8517,7 +8556,15 @@ double FileManager::breakChannelDigitalDam(int channelElement, int dammedChannel
   if (channelElementZBed[dammedChannelElement] > channelElementZBed[channelElement])
     {
       // channelElement is lower than dammedChannelElement.  Calculate the slope from dammedChannelElement to channelElement.
-      slope = (channelElementZBed[dammedChannelElement] - channelElementZBed[channelElement]) / (length + 0.5 * channelElementLength[channelElement]);
+      if (WATERBODY == channelChannelType[channelElement])
+        {
+          // When a digital dam is broken by a lower waterbody it tends to have a much lower bed so the streams leading up to it get incised too deeply.  Just make the slope be zero leading up to the waterbody.
+          slope = 0.0;
+        }
+      else
+        {
+          slope = (channelElementZBed[dammedChannelElement] - channelElementZBed[channelElement]) / (length + 0.5 * channelElementLength[channelElement]);
+        }
     }
   else if (WATERBODY == channelChannelType[channelElement])
     {

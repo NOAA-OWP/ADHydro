@@ -993,14 +993,6 @@ bool ChannelElement::calculateNominalFlowRateWithSurfacewaterMeshNeighbor(double
   // Calculate expiration time.
   if (!error)
     {
-      // FIXLATER decide if we want to do this
-      // Prevent out of bank flow out of streams because that results in really small timesteps.  Still allow out of bank flow out of waterbodies and icemasses.
-      if (STREAM == channelType && 0.0 > meshNeighbors[neighborProxyIndex].nominalFlowRate)
-        {
-          meshNeighbors[neighborProxyIndex].nominalFlowRate = 0.0;
-          regionalDtLimit                                   = 5.0;
-        }
-      
       meshNeighbors[neighborProxyIndex].nominalFlowRate *= -1.0; // Use negative of flow rate so that positive means flow out of the channel.
       meshNeighbors[neighborProxyIndex].expirationTime   = ADHydro::newExpirationTime(currentTime, regionalDtLimit);
     }
@@ -1230,6 +1222,9 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
   double topArea                 = (baseWidth + 2.0 * sideSlope * surfacewaterDepth) * elementLength;
                                                                                     // surface area of the water top surface in square meters.
   double waterSent;                                                                 // Cubic meters.
+
+// FIXME remove
+FILE* hydrographFile;
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(1721425.5 <= referenceDate))
@@ -1506,6 +1501,13 @@ bool ChannelElement::doPointProcessesAndSendOutflows(double referenceDate, doubl
                                                                               SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
                                                                                                                     waterSent)));
                 }
+// FIXME remove, save a hydrograph for channel outflow boundaries
+else if (OUTFLOW == (*itChannel).neighbor)
+{
+hydrographFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".txt")).c_str(), "a");
+fprintf(hydrographFile, "%d,\t%lf,\t%lf,\t%lf\n", elementNumber, currentTime, (*itChannel).nominalFlowRate, outwardFlowRateFraction);
+fclose(hydrographFile);
+}
             }
         }
 

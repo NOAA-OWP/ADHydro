@@ -1,9 +1,7 @@
 #include "groundwater.h"
 #include "adhydro.h"
 
-//#define COURANT_DIFFUSIVE (0.2)
-//NJF Testing courant change for surface water channels.  Probably don't need to change this, but am just in case
-#define COURANT_DIFFUSIVE (0.04) 
+#define COURANT_DIFFUSIVE (0.2)
 
 bool groundwaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowHeight, double edgeLength,
                                      double edgeNormalX, double edgeNormalY, double elementZBedrock, double elementArea, double elementSlopeX,

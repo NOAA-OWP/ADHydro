@@ -1,9 +1,7 @@
 #include "surfacewater.h"
 #include "adhydro.h"
 
-//#define COURANT_DIFFUSIVE (0.2)
-//NJF Testing smaller courant numbers to help alleviate osscilations at larger resolutions. 0.02 provides reasonable results, trying 0.04
-#define COURANT_DIFFUSIVE (0.04) 
+#define COURANT_DIFFUSIVE (0.2)
 
 bool surfacewaterMeshBoundaryFlowRate(double* flowRate, double* dtNew, BoundaryConditionEnum boundary, double inflowXVelocity, double inflowYVelocity,
                                       double inflowHeight, double edgeLength, double edgeNormalX, double edgeNormalY, double elementArea,
@@ -364,6 +362,7 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
   double channelTopWidth         = channelBaseWidth +                      // Width of channel at water surface in meters.
                                    2.0 * channelSideSlope * channelSurfacewaterDepth;
   double dtTemp;                                                           // Temporary variable for suggesting new timestep.
+  double fudgeFactor;                                                      // Used to prevent too small timesteps.  See comment below.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(NULL != flowRate))
@@ -451,7 +450,22 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
               *flowRate = sqrt(GRAVITY * meshSurfacewaterDepth) * meshSurfacewaterDepth * edgeLength;
               
               // Suggest new timestep.
-              dtTemp = COURANT_DIFFUSIVE * sqrt(2.0 * meshArea) / (2.0 * sqrt(GRAVITY * meshSurfacewaterDepth));
+              dtTemp = COURANT_DIFFUSIVE * std::min(sqrt(2.0 * meshArea), channelTopWidth) / (2.0 * sqrt(GRAVITY * meshSurfacewaterDepth));
+
+              // Flow over channel banks has to use the width of the channel as dx in the courant number calculation.  Because channels are narrow this results
+              // in small timesteps.  To speed up the simulation we arbitrarily multiply small timesteps by a factor, and to satisfy the courant criterion we
+              // divide the flow rate by the same factor.  This is non-physical, but we hope to show that the overall effect on the simulation is negligible.
+              if (1.0 > dtTemp)
+                {
+                  fudgeFactor = sqrt(1.0 / dtTemp);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  CkAssert(1.0 < fudgeFactor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                  dtTemp    *= fudgeFactor;
+                  *flowRate /= fudgeFactor;
+                }
               
               if (*dtNew > dtTemp)
                 {
@@ -476,8 +490,21 @@ bool surfacewaterMeshChannelFlowRate(double* flowRate, double* dtNew, double edg
               *flowRate = -sqrt(GRAVITY * channelSurfacewaterDepth) * channelSurfacewaterDepth * edgeLength;
               
               // Suggest new timestep.
-              dtTemp = COURANT_DIFFUSIVE * channelTopWidth / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
+              dtTemp = COURANT_DIFFUSIVE * std::min(sqrt(2.0 * meshArea), channelTopWidth) / (2.0 * sqrt(GRAVITY * channelSurfacewaterDepth));
               
+              // Prevent too small timesteps.  See comment above.
+              if (1.0 > dtTemp)
+                {
+                  fudgeFactor = sqrt(1.0 / dtTemp);
+
+#if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+                  CkAssert(1.0 < fudgeFactor);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
+
+                  dtTemp    *= fudgeFactor;
+                  *flowRate /= fudgeFactor;
+                }
+
               if (*dtNew > dtTemp)
                 {
                   *dtNew = dtTemp;
@@ -775,7 +802,7 @@ void surfacewaterWaterbodyWaterbodyFlowRate(double* flowRate, double* dtNew, dou
           *flowRate = sqrt(GRAVITY * elementSurfacewaterDepth) * elementSurfacewaterDepth * edgeLength;
           
           // Suggest new timestep.
-          dtTemp = COURANT_DIFFUSIVE * elementLength / (2.0 * sqrt(GRAVITY * elementSurfacewaterDepth));
+          dtTemp = COURANT_DIFFUSIVE * std::min(elementLength, neighborLength) / (2.0 * sqrt(GRAVITY * elementSurfacewaterDepth));
           
           if (*dtNew > dtTemp)
             {
@@ -803,7 +830,7 @@ void surfacewaterWaterbodyWaterbodyFlowRate(double* flowRate, double* dtNew, dou
           *flowRate = -sqrt(GRAVITY * neighborSurfacewaterDepth) * neighborSurfacewaterDepth * edgeLength;
           
           // Suggest new timestep.
-          dtTemp = COURANT_DIFFUSIVE * neighborLength / (2.0 * sqrt(GRAVITY * neighborSurfacewaterDepth));
+          dtTemp = COURANT_DIFFUSIVE * std::min(elementLength, neighborLength) / (2.0 * sqrt(GRAVITY * neighborSurfacewaterDepth));
           
           if (*dtNew > dtTemp)
             {

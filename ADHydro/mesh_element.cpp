@@ -2412,14 +2412,6 @@ bool MeshElement::calculateNominalFlowRateWithSurfacewaterChannelNeighbor(double
   // Calculate expiration time.
   if (!error)
     {
-      // FIXLATER decide if we want to do this
-      // Prevent out of bank flow out of streams because that results in really small timesteps.  Still allow out of bank flow out of waterbodies and icemasses.
-      if (STREAM == channelNeighbors[neighborProxyIndex].neighborChannelType && 0.0 > channelNeighbors[neighborProxyIndex].nominalFlowRate)
-        {
-          channelNeighbors[neighborProxyIndex].nominalFlowRate = 0.0;
-          regionalDtLimit                                      = 5.0;
-        }
-      
       channelNeighbors[neighborProxyIndex].expirationTime = ADHydro::newExpirationTime(currentTime, regionalDtLimit);
     }
   
