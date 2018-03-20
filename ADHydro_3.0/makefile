@@ -95,6 +95,9 @@ initialization_manager.o: initialization_manager.cpp      \
                           adhydro.h                       \
                           adhydro.decl.h                  \
                           checkpoint_manager.decl.h       \
+                          map_geometry.h                  \
+                          map_parameters.h                \
+                          time_point_state.h              \
                           forcing_manager.decl.h          \
                           region.decl.h                   \
                           mesh_element.h                  \

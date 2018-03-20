@@ -522,7 +522,7 @@ bool NeighborProxy::sendNeighborMessage(std::map<size_t, std::vector<NeighborMes
     return error;
 }
 
-bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, double newZOffset, const NeighborAttributes& remoteAttributes)
+bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, const NeighborAttributes& remoteAttributes)
 {
     bool error = false; // Error flag.
     
@@ -539,7 +539,6 @@ bool NeighborProxy::receiveNeighborAttributes(size_t& neighborsFinished, double 
     
     if (!error)
     {
-        zOffset               = newZOffset;
         attributes            = remoteAttributes;
         attributesInitialized = true;
         ++neighborsFinished; // When a NeighborProxy receives attributes it is finished with initialization.
@@ -1108,22 +1107,7 @@ bool NeighborProxy::nominalFlowRateCalculation(NeighborEndpointEnum localEndpoin
 
 bool NeighborMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const
 {
-    double newZOffset = 0.0; // If necessary, calculate a new zOffset.  This is done here just because it is a place where all of the required information is available.
-                             // FIXME implement the full calculation from v2.0
-                             // FIXME problem with zTop of aquifer not being zSurface
-    
-    if ((MESH_SURFACE == destination.localEndpoint || MESH_SOIL == destination.localEndpoint || MESH_AQUIFER == destination.localEndpoint) &&
-        CHANNEL_SURFACE == destination.remoteEndpoint && ICEMASS != attributes.channelType && attributes.elementZTop > localAttributes.elementZTop)
-    {
-        newZOffset = attributes.elementZTop - localAttributes.elementZTop;
-    }
-    else if ((MESH_SURFACE == destination.remoteEndpoint || MESH_SOIL == destination.remoteEndpoint || MESH_AQUIFER == destination.remoteEndpoint) &&
-             CHANNEL_SURFACE == destination.localEndpoint && ICEMASS != localAttributes.channelType && localAttributes.elementZTop > attributes.elementZTop)
-    {
-        newZOffset = localAttributes.elementZTop - attributes.elementZTop;
-    }
-    
-    return proxy.receiveNeighborAttributes(neighborsFinished, newZOffset, attributes);
+    return proxy.receiveNeighborAttributes(neighborsFinished, attributes);
 }
 
 bool StateMessage::receive(NeighborProxy& proxy, size_t& neighborsFinished, const NeighborAttributes& localAttributes, double localDepthOrHead, double currentTime, double timestepEndTime) const

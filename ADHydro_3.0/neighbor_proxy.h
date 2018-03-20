@@ -360,9 +360,8 @@ public:
     // Parameters:
     //
     // neighborsFinished - Number of NeighborProxies in the current element finished in the initialization phase.  May be incremented if this call causes this NeighborProxy to be finished.
-    // newZOffset        - When the attributes are received, a new zOffset is calculated, if applicable.  This value is simply stored in zOffset.
     // remoteAttributes  - The attributes that are being received.
-    bool receiveNeighborAttributes(size_t& neighborsFinished, double newZOffset, const NeighborAttributes& remoteAttributes);
+    bool receiveNeighborAttributes(size_t& neighborsFinished, const NeighborAttributes& remoteAttributes);
     
     // If nominalFlowRate has expired, begin the process of recalculating it.  This may require sending a message to the remote neighbor and waiting for a message in return.
     // In some situations nominalFlowRate can be calculated before leaving this method such as a neighbor in the same Region, or a boundary condition where there is no neighbor.

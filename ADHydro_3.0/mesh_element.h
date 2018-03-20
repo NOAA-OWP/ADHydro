@@ -69,9 +69,9 @@ public:
             evapoTranspirationState.zSnso[0]   = 0.0f;
             evapoTranspirationState.zSnso[1]   = 0.0f;
             evapoTranspirationState.zSnso[2]   = 0.0f;
-            evapoTranspirationState.zSnso[3]   = -0.05;
-            evapoTranspirationState.zSnso[4]   = -0.2;
-            evapoTranspirationState.zSnso[5]   = -0.5;
+            evapoTranspirationState.zSnso[3]   = -0.05f;
+            evapoTranspirationState.zSnso[4]   = -0.2f;
+            evapoTranspirationState.zSnso[5]   = -0.5f;
             evapoTranspirationState.zSnso[6]   = -1.0f;
             evapoTranspirationState.snowH      = 0.0f;
             evapoTranspirationState.snEqv      = 0.0f;

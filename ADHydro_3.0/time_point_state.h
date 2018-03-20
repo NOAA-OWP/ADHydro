@@ -3,8 +3,8 @@
 
 #include "checkpoint_manager_data_types.h"
 
-// TimePointState contains the state to be written to file for a single time point.  If any array dimension is zero applicable array pointers are NULL.
-// For parallel output, each TimePointState might only contain a slice of the total state with each processor getting a different slice.
+// A TimePointState contains the state to be written to file for a single time point.
+// For parallel I/O, each TimePointState might only contain a slice of the total state with each processor getting a different slice.
 class TimePointState
 {
 public:
@@ -59,68 +59,76 @@ public:
     size_t elementsReceived; // Number of both mesh and channel elements received.
     
     #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
-    bool*  meshStateReceived;    // 1D array of size localNumberOfMeshElements.     True if that element's state has been received.
-    bool*  channelStateReceived; // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
+    bool* meshStateReceived;    // 1D array of size localNumberOfMeshElements.     True if that element's state has been received.
+    bool* channelStateReceived; // 1D array of size localNumberOfChannelElements.  True if that element's state has been received.
     #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
     
+    // The following are pointers to dynamically allocated arrays that will contain the state data.
+    // Each variable is labeled as priority 1, 2, or 3.
+    // Priority 1 variables are necessary for the simulation to run.
+    // Priority 2 variables are used to calculate other variables, and/or have informational value.
+    // Priority 3 variables are used to calculate other variables, are redundant with other state data, and have no additional informational value.
+    // Pointers are all allocated, except if any array dimension is zero applicable array pointers are NULL.
+    // Priority 2 and 3 variables can be set to zero if data is unavailable.
+    
     // Mesh state.
-    EvapoTranspirationStateBlob* meshEvapoTranspirationState;        // 1D array of size localNumberOfMeshElements.
-    double*                      meshSurfaceWater;                   // 1D array of size localNumberOfMeshElements.
-    double*                      meshSurfaceWaterCreated;            // 1D array of size localNumberOfMeshElements.
-    GroundwaterModeEnum*         meshGroundwaterMode;                // 1D array of size localNumberOfMeshElements.
-    double*                      meshPerchedHead;                    // 1D array of size localNumberOfMeshElements.
-    VadoseZoneStateBlob*         meshSoilWater;                      // 1D array of size localNumberOfMeshElements.
-    double*                      meshSoilWaterCreated;               // 1D array of size localNumberOfMeshElements.
-    double*                      meshAquiferHead;                    // 1D array of size localNumberOfMeshElements.
-    VadoseZoneStateBlob*         meshAquiferWater;                   // 1D array of size localNumberOfMeshElements.
-    double*                      meshAquiferWaterCreated;            // 1D array of size localNumberOfMeshElements.
-    double*                      meshDeepGroundwater;                // 1D array of size localNumberOfMeshElements.
+    EvapoTranspirationStateBlob* meshEvapoTranspirationState;        // priority 1, 1D array of size localNumberOfMeshElements.
+    double*                      meshSurfaceWater;                   // priority 1, 1D array of size localNumberOfMeshElements.
+    double*                      meshSurfaceWaterCreated;            // priority 2, 1D array of size localNumberOfMeshElements.
+    GroundwaterModeEnum*         meshGroundwaterMode;                // priority 1, 1D array of size localNumberOfMeshElements.
+    double*                      meshPerchedHead;                    // priority 1, 1D array of size localNumberOfMeshElements.
+    VadoseZoneStateBlob*         meshSoilWater;                      // priority 1, 1D array of size localNumberOfMeshElements.
+    double*                      meshSoilWaterCreated;               // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshAquiferHead;                    // priority 1, 1D array of size localNumberOfMeshElements.
+    VadoseZoneStateBlob*         meshAquiferWater;                   // priority 1, 1D array of size localNumberOfMeshElements.
+    double*                      meshAquiferWaterCreated;            // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshDeepGroundwater;                // priority 1, 1D array of size localNumberOfMeshElements.
     
     // Mesh state for outputting point-process flows.
-    double*                      meshPrecipitationRate;              // 1D array of size localNumberOfMeshElements.
-    double*                      meshPrecipitationCumulative;        // 1D array of size localNumberOfMeshElements.
-    double*                      meshEvaporationRate;                // 1D array of size localNumberOfMeshElements.
-    double*                      meshEvaporationCumulative;          // 1D array of size localNumberOfMeshElements.
-    double*                      meshTranspirationRate;              // 1D array of size localNumberOfMeshElements.
-    double*                      meshTranspirationCumulative;        // 1D array of size localNumberOfMeshElements.
+    double*                      meshPrecipitationRate;              // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshPrecipitationCumulative;        // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshEvaporationRate;                // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshEvaporationCumulative;          // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshTranspirationRate;              // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshTranspirationCumulative;        // priority 2, 1D array of size localNumberOfMeshElements.
     
-    // Mesh state for outputting values derived from EvapoTranspirationStateBlob and GroundwaterStateBlob that are nice to have visible outside those opaque blobs.
-    double*                      meshCanopyWater;                    // 1D array of size localNumberOfMeshElements.
-    double*                      meshSnowWater;                      // 1D array of size localNumberOfMeshElements.
-    double*                      meshRootZoneWater;                  // 1D array of size localNumberOfMeshElements.
-    double*                      meshTotalGroundwater;               // 1D array of size localNumberOfMeshElements.
+    // Mesh state for outputting values derived from EvapoTranspirationStateBlob and VadoseZoneStateBlob that are nice to have visible outside those opaque blobs.
+    double*                      meshCanopyWater;                    // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshSnowWater;                      // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshRootZoneWater;                  // priority 2, 1D array of size localNumberOfMeshElements.
+    double*                      meshTotalGroundwater;               // priority 2, 1D array of size localNumberOfMeshElements.
     
     // Mesh neighbor state.
-    NeighborEndpointEnum*        meshNeighborLocalEndpoint;          // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    NeighborEndpointEnum*        meshNeighborRemoteEndpoint;         // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    size_t*                      meshNeighborRemoteElementNumber;    // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    double*                      meshNeighborNominalFlowRate;        // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    double*                      meshNeighborExpirationTime;         // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    double*                      meshNeighborInflowCumulative;       // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
-    double*                      meshNeighborOutflowCumulative;      // 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    NeighborEndpointEnum*        meshNeighborLocalEndpoint;          // priority 1, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    NeighborEndpointEnum*        meshNeighborRemoteEndpoint;         // priority 1, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    size_t*                      meshNeighborRemoteElementNumber;    // priority 1, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshNeighborNominalFlowRate;        // priority 1, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshNeighborExpirationTime;         // priority 1, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshNeighborInflowCumulative;       // priority 2, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
+    double*                      meshNeighborOutflowCumulative;      // priority 2, 2D array of size localNumberOfMeshElements * maximumNumberOfMeshNeighbors.
     
     // Channel state.
-    EvapoTranspirationStateBlob* channelEvapoTranspirationState;     // 1D array of size localNumberOfChannelElements.
-    double*                      channelSurfaceWater;                // 1D array of size localNumberOfChannelElements.
-    double*                      channelSurfaceWaterCreated;         // 1D array of size localNumberOfChannelElements.
+    EvapoTranspirationStateBlob* channelEvapoTranspirationState;     // priority 1, 1D array of size localNumberOfChannelElements.
+    double*                      channelSurfaceWater;                // priority 1, 1D array of size localNumberOfChannelElements.
+    double*                      channelSurfaceWaterCreated;         // priority 2, 1D array of size localNumberOfChannelElements.
     
     // Channel state for outputting point-process flows.
-    double*                      channelPrecipitationRate;           // 1D array of size localNumberOfChannelElements.
-    double*                      channelPrecipitationCumulative;     // 1D array of size localNumberOfChannelElements.
-    double*                      channelEvaporationRate;             // 1D array of size localNumberOfChannelElements.
-    double*                      channelEvaporationCumulative;       // 1D array of size localNumberOfChannelElements.
+    double*                      channelPrecipitationRate;           // priority 2, 1D array of size localNumberOfChannelElements.
+    double*                      channelPrecipitationCumulative;     // priority 2, 1D array of size localNumberOfChannelElements.
+    double*                      channelEvaporationRate;             // priority 2, 1D array of size localNumberOfChannelElements.
+    double*                      channelEvaporationCumulative;       // priority 2, 1D array of size localNumberOfChannelElements.
     
     // Channel state for outputting values derived from EvapoTranspirationStateBlob that are nice to have visible outside that opaque blob.
-    double*                      channelSnowWater;                   // 1D array of size localNumberOfChannelElements.
+    double*                      channelSnowWater;                   // priority 2, 1D array of size localNumberOfChannelElements.
     
     // Channel neighbor state.
-    NeighborEndpointEnum*        channelNeighborLocalEndpoint;       // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    NeighborEndpointEnum*        channelNeighborRemoteEndpoint;      // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    size_t*                      channelNeighborRemoteElementNumber; // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    double*                      channelNeighborNominalFlowRate;     // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    double*                      channelNeighborExpirationTime;      // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    double*                      channelNeighborInflowCumulative;    // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
-    double*                      channelNeighborOutflowCumulative;   // 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    NeighborEndpointEnum*        channelNeighborLocalEndpoint;       // priority 1, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    NeighborEndpointEnum*        channelNeighborRemoteEndpoint;      // priority 1, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    size_t*                      channelNeighborRemoteElementNumber; // priority 1, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelNeighborNominalFlowRate;     // priority 1, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelNeighborExpirationTime;      // priority 1, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelNeighborInflowCumulative;    // priority 2, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
+    double*                      channelNeighborOutflowCumulative;   // priority 2, 2D array of size localNumberOfChannelElements * maximumNumberOfChannelNeighbors.
 };
 
 #endif // __TIME_POINT_STATE_H__

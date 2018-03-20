@@ -360,7 +360,8 @@ bool ForcingManager::readAndSendForcing()
         
         for (size_t ii = 0; ii < Readonly::localNumberOfMeshElements; ++ii)
         {
-            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
+            // FIXME assert that initializationManager->parameterData has same start & local as Readonly.
+            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->parameterData->meshRegion[ii]].first[ii + Readonly::localMeshElementStart];
             
             forcingStruct.dz8w   = 20.0f;
             forcingStruct.sfcTmp = t2[ii] + ZERO_C_IN_KELVIN;   // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
@@ -379,7 +380,8 @@ bool ForcingManager::readAndSendForcing()
         
         for (size_t ii = 0; ii < Readonly::localNumberOfChannelElements; ++ii)
         {
-            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->meshRegion[ii]].second[ii + Readonly::localMeshElementStart];
+            // FIXME assert that initializationManager->parameterData has same start & local as Readonly.
+            EvapoTranspirationForcingStruct& forcingStruct = forcing[initializationManager->parameterData->channelRegion[ii]].second[ii + Readonly::localChannelElementStart];
             
             forcingStruct.dz8w   = 20.0f;
             forcingStruct.sfcTmp = t2_c[ii] + ZERO_C_IN_KELVIN;   // + ZERO_C_IN_KELVIN to convert from Celcius to Kelvin.
