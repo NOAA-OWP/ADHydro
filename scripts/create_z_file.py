@@ -70,6 +70,11 @@ if not os.path.isdir(output_directory_path):
 outputZFile   = os.path.join(output_directory_path, "mesh.1.z")
 if(args.channel):
     outputZFile = os.path.join(output_directory_path, "mesh.1.chan.z")
+
+# These are the variables that need to be set to filenames
+#inputMeshFile = "/share/CI-WATER_Simulation_Data/sugar_creek/ASCII/mesh.1.node"
+#inputDEMFile  = "/share/CI-WATER_Simulation_Data/sugar_creek/TauDEM/projected.tif"
+#outputZFile   = "/share/CI-WATER_Simulation_Data/sugar_creek/ASCII/mesh.1.z"
 with open(inputMeshFile, "r") as nodeFile:
   with open(outputZFile, "w") as zFile:
     layer          = QgsRasterLayer(inputDEMFile)
