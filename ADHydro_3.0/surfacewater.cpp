@@ -627,22 +627,46 @@ void surfacewaterStreamStreamFlowRate(double* flowRate, double* dtNew, double el
       velocityMagnitude = pow(averageRadius, 2.0 / 3.0) * sqrt(fabs(headSlope)) / averageManningsN;
       criticalVelocity  = sqrt(GRAVITY * averageDepth);
       
-      // diffusive wave flow assumes small velocities.  Cap the velocity at the critical velocity.
-      // FIXME discuss what we want to do here.  The really right thing to do is implement dynamic wave.
-      if (velocityMagnitude > criticalVelocity)
-        {
-          velocityMagnitude = criticalVelocity;
-        }
-      
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       ADHYDRO_ASSERT(0.0 < averageDepth && 0.0 != headSlope && 0.0 < averageArea && 0.0 < averageRadius && 0.0 < criticalVelocity);
 #endif // (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_SIMPLE)
       
-      // Calculate flow rate.
-      *flowRate = velocityDirection * velocityMagnitude * averageArea;
+      // diffusive wave flow assumes small velocities.  Cap the velocity at the critical velocity.
+      // FIXME discuss what we want to do here.  The really right thing to do is implement dynamic wave.
+      //
+      // There is something else going on here.  The flow is being calculated based on the average depth and area of the two elements.
+      // If water is flowing from a higher small element with shallow water to a lower large element with deep water,
+      // then the calculated flow rate can be high even though the sending element doesn't have that much water to send.
+      // This is the stability problem that Wencong put in the retention depth to fix.
+      // I still had situations where it was a problem so I'm trying a different fix.
+      // The flow rate will not be allowed to be higher than if the sending element were an outflow boundary.
+      // That calculates the critical velocity using only the properties of the sending element.
+      // This is reasonable because regardless of what is happening downstream the water
+      // going through the middle of the sending element should be capped at critical velocity.
+
+      dtTemp = *dtNew;
+
+      if (0.0 < velocityDirection)
+        {
+          surfacewaterChannelBoundaryFlowRate(flowRate, &dtTemp, OUTFLOW, 0.0, 0.0, elementLength, elementBaseWidth, elementSideSlope, elementSurfacewaterDepth);
+        }
+      else
+        {
+          surfacewaterChannelBoundaryFlowRate(flowRate, &dtTemp, OUTFLOW, 0.0, 0.0, neighborLength, neighborBaseWidth, neighborSideSlope, neighborSurfacewaterDepth);
+        }
       
-      // Suggest new timestep.
-      dtTemp = COURANT_DIFFUSIVE * distance / (velocityMagnitude + criticalVelocity);
+      // Calculate flow rate.
+      if (*flowRate <= velocityMagnitude * averageArea)
+        {
+          *flowRate *= velocityDirection;
+        }
+      else
+        {
+          *flowRate = velocityDirection * velocityMagnitude * averageArea;
+      
+          // Suggest new timestep.
+          dtTemp = COURANT_DIFFUSIVE * distance / (velocityMagnitude + criticalVelocity);
+        }
 
       if (*dtNew > dtTemp)
         {
