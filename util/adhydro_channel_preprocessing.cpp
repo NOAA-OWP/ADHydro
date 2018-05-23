@@ -141,8 +141,8 @@ typedef struct
   SHPObject*         shapes[SHAPES_SIZE];         // Shape object(s) of the link.  Streams will have only one.  Waterbodies may have more than one if they are
                                                   // multipart.  For moved streams and unused, NULL.
   double             length;                      // Meters.
-  double             upstreamContributingArea;    // For unmoved streams, contributing area in square meters at   upstream end of shape.  For others, 0.0.
-  double             downstreamContributingArea;  // For unmoved streams, contributing area in square meters at downstream end of shape.  For others, 0.0.
+  double             upstreamContributingArea;    // For streams, contributing area in square meters at   upstream end of shape.  For others, 0.0.
+  double             downstreamContributingArea;  // For streams, contributing area in square meters at downstream end of shape.  For others, 0.0.
   int                streamOrder;                 // For unmoved streams, stream order.  For others, 0.
   int                upstream[UPSTREAM_SIZE];     // Array indices of links upstream from this link or boundary condition codes.
   int                downstream[DOWNSTREAM_SIZE]; // Array indices of links downstream from this link or boundary condition codes.
@@ -175,6 +175,23 @@ double beginLocation(LinkElementStruct* element)
     }
   
   return location;
+}
+
+// Returns: The contributing area in square meters at a particular location along a stream.
+//
+// Parameters:
+//
+// upstreamContributingArea   - contributing area in square meters at   upstream end of shape.
+// downstreamContributingArea - contributing area in square meters at downstream end of shape.
+// lengthFraction             - Fraction of the length along the shape at the location to determine collecting area for.
+//                            - 0 is the upstream end of the shape, 1 is the downstream end of the shape.  Must be between 0 and 1.
+double contributingAreaAtLocation(double upstreamContributingArea, double downstreamContributingArea, double lengthFraction)
+{
+#if (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  assert(0.0 < upstreamContributingArea && upstreamContributingArea < downstreamContributingArea && 0.0 <= lengthFraction && 1.0 >= lengthFraction);
+#endif // (DEBUG_LEVEL & DEBUG_LEVEL_PRIVATE_FUNCTIONS_SIMPLE)
+  
+  return (1.0 - lengthFraction) * upstreamContributingArea + lengthFraction * downstreamContributingArea;
 }
 
 // As we construct the channel network it goes through some transitions when it doesn't quite pass the strictest form of the invariant.  These flags allow
@@ -286,7 +303,7 @@ bool channelNetworkCheckInvariant(ChannelLinkStruct* channels, int size)
               else
                 {
                   if (!((STREAM == channels[channels[ii].reachCode].type || PRUNED_STREAM == channels[channels[ii].reachCode].type) &&
-                        0.0 == channels[ii].upstreamContributingArea && 0.0 == channels[ii].downstreamContributingArea && 0 == channels[ii].streamOrder))
+                        0.0 < channels[ii].upstreamContributingArea && 0.0 < channels[ii].downstreamContributingArea && 0 == channels[ii].streamOrder))
                     {
                       fprintf(stderr, "ERROR in channelNetworkCheckInvariant, linkNo %d: moved stream link has invalid value(s).\n", ii);
                       error = true;
@@ -3494,10 +3511,13 @@ bool splitLink(ChannelLinkStruct* channels, int size, int linkNo, LinkElementStr
       allowLinkElementEndLocationsNotMonotonicallyIncreasing = false;
   
       // Update struct values.
-      channels[newLinkNo].type      = STREAM;
-      channels[newLinkNo].reachCode = channels[linkNo].reachCode;
-      channels[newLinkNo].length    = channels[linkNo].length - location;
-      channels[linkNo].length       = location;
+      channels[newLinkNo].type                       = STREAM;
+      channels[newLinkNo].reachCode                  = channels[linkNo].reachCode;
+      channels[newLinkNo].upstreamContributingArea   = contributingAreaAtLocation(channels[linkNo].upstreamContributingArea, channels[linkNo].downstreamContributingArea, location / channels[linkNo].length);
+      channels[newLinkNo].downstreamContributingArea = channels[linkNo].downstreamContributingArea;
+      channels[linkNo].downstreamContributingArea    = channels[newLinkNo].upstreamContributingArea;
+      channels[newLinkNo].length                     = channels[linkNo].length - location;
+      channels[linkNo].length                        = location;
       
 #if (DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_ASSERTIONS)
       // Can't move the first element in a link, and the movedTo element is after endElement so these must not be NULL.
@@ -5429,10 +5449,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
                 {
                   // Calculate contributing area as the weighted average of upstream and downstream contributing area weighted by the distance of this element
                   // along the link.  Divide by 1.0e6 to convert from square meters to square kilometers.
-                  contributingArea = ((1 - ((jj - channels[ii].elementStart + 0.5) / channels[ii].numberOfElements)) *
-                                      channels[ii].upstreamContributingArea +
-                                      (    ((jj - channels[ii].elementStart + 0.5) / channels[ii].numberOfElements)) *
-                                      channels[ii].downstreamContributingArea) / 1.0e6;
+                  contributingArea = contributingAreaAtLocation(channels[ii].upstreamContributingArea, channels[ii].downstreamContributingArea, (jj - channels[ii].elementStart + 0.5) / channels[ii].numberOfElements) / 1.0e6;
                   bankFullFlow     = pow(10.0, log10(contributingArea) * 0.7851283403 - 0.371348345); // Cubic meters per second.  Ref. FIXME Nels Frasier.
                   topWidth         = 7.70 * pow(bankFullFlow, 0.29); // Meters. Ref. Wohl and Merritt (2008) for plane-bed streams.
                   bankFullDepth    = 0.24 * pow(bankFullFlow, 0.38); // Meters. Ref. Wohl and Merritt (2008) for plane-bed streams.

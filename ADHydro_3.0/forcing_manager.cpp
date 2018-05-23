@@ -85,7 +85,7 @@ bool ForcingManager::readForcingTimes()
             }
             else if (!(0 < jultimeSize))
             {
-                CkError("ERROR in ForcingManager::readForcingTimes: No forcing data in NetCDF forcing file.\n");
+                CkError("ERROR in ForcingManager::readForcingTimes: dimension \"Time\" has length zero.  No forcing data in NetCDF forcing file.\n");
                 error = true;
             }
         }
@@ -152,9 +152,9 @@ bool ForcingManager::readForcingTimes()
         
         // Print a warning if we didn't find an entry no later than Readonly::simulationStartTime.
         // In that case, the first entry will still be used.
-        if (2 <= Readonly::verbosityLevel && !(nextForcingTime <= Readonly::simulationStartTime))
+        if (0 = CkMyPe() && 2 <= Readonly::verbosityLevel && !(nextForcingTime <= Readonly::simulationStartTime))
         {
-            CkError("WARNING in ForcingManager::readForcingTimes: first entry in forcing file is after simulation start time.\n");
+            CkError("WARNING in ForcingManager::readForcingTimes: the first entry in the forcing file is after simulation start time.  Using the first forcing data instance even though it is in the future.\n");
         }
     }
     
@@ -348,7 +348,7 @@ bool ForcingManager::readAndSendForcing()
         newIndex = skipEntriesNotMonotonicallyIncreasingInTime(&newForcingTime);
         
         // Print a warning if we are sending the last forcing time in the file.
-        if (2 <= Readonly::verbosityLevel && newIndex == jultimeSize)
+        if (0 == CkMyPe() && 2 <= Readonly::verbosityLevel && newIndex == jultimeSize)
         {
             CkError("WARNING in ForcingManager::readAndSendForcing: reading the last entry in the forcing file.  No more forcing will be loaded in the future for this run.\n");
         }
