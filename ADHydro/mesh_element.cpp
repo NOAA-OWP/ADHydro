@@ -1980,7 +1980,9 @@ MeshElement::MeshElement() :
   evapoTranspirationState(),
   underground(),
   meshNeighbors(),
-  channelNeighbors()
+  channelNeighbors(),
+  maxDepth(0.0),
+  maxDepthOutputIndex(0)
 {
   vertexX[0] = 0.0;
   vertexX[1] = 0.0;
@@ -2027,7 +2029,9 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   underground(groundwaterMethodInit, soilTypeInit, layerZBottomInit, slopeXInit, slopeYInit, conductivityInit, porosityInit, groundwaterHeadInit,
               groundwaterRechargeInit, groundwaterErrorInit, vadoseZoneInit),
   meshNeighbors(),
-  channelNeighbors()
+  channelNeighbors(),
+  maxDepth(0.0),
+  maxDepthOutputIndex(0)
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
@@ -2181,6 +2185,8 @@ void MeshElement::pup(PUP::er &p)
   p | underground;
   p | meshNeighbors;
   p | channelNeighbors;
+  p | maxDepth;
+  p | maxDepthOutputIndex;
 }
 
 bool MeshElement::checkInvariant()
@@ -2774,6 +2780,19 @@ bool MeshElement::receiveInflows(double currentTime, double timestepEndTime)
         }
       
       underground.receiveInflows(currentTime, timestepEndTime, elementArea);
+      
+      // FIXME keep permanently?
+      if (maxDepth < surfacewaterDepth)
+        {
+          maxDepth = surfacewaterDepth;
+        }
+      
+      if ((1000000.0 <= timestepEndTime && 0 == maxDepthOutputIndex) || (1200000.0 <= timestepEndTime && 1 == maxDepthOutputIndex) || (1400000.0 <= timestepEndTime && 2 == maxDepthOutputIndex) ||
+          (1600000.0 <= timestepEndTime && 3 == maxDepthOutputIndex) || (1814400.0 <= timestepEndTime && 4 == maxDepthOutputIndex))
+        {
+            ++maxDepthOutputIndex;
+            CkPrintf("time %lf mesh element %d maxDepth %lf\n", timestepEndTime, elementNumber, maxDepth);
+        }
     }
   
   return error;

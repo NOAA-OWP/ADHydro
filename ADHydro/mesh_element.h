@@ -767,6 +767,11 @@ public:
   // Neighbors.
   std::vector<MeshSurfacewaterMeshNeighborProxy>    meshNeighbors;
   std::vector<MeshSurfacewaterChannelNeighborProxy> channelNeighbors;
+  
+  // FIXME keep this permanently?
+  // These variables output the maximum water depth for the element over the entire simulation.
+  double maxDepth;
+  int    maxDepthOutputIndex;
 };
 
 #endif // __MESH_ELEMENT_H__
