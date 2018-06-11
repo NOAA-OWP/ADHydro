@@ -5952,7 +5952,7 @@ bool writeChannelNetwork(ChannelLinkStruct* channels, int size, const char* mesh
         {
           jj = channels[ii].downstream[0];
 
-          while (!isBoundary(jj) && PRUNED_STREAM == channels[jj].type)
+          while (!isBoundary(jj) && (channels[ii].reachCode == channels[jj].reachCode || PRUNED_STREAM == channels[jj].type))
             {
               jj = channels[jj].downstream[0];
             }
