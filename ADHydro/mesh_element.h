@@ -771,7 +771,8 @@ public:
   // FIXME keep this permanently?
   // These variables output the maximum water depth for the element over the entire simulation.
   double maxDepth;
-  int    maxDepthOutputIndex;
+  double maxDepthTime;
+  double depthArray[10];
 };
 
 #endif // __MESH_ELEMENT_H__

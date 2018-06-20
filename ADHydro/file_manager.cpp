@@ -12057,6 +12057,10 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.solDn  = swDown[ii];
           evapoTranspirationForcingInit.lwDn   = gLw[ii];
           evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec[ii] * 1000.0f); // * 1000.0f to convert from meters to millimeters.
+if (0.0 > evapoTranspirationForcingInit.prcp)
+{
+evapoTranspirationForcingInit.prcp = 0.0;
+}
           evapoTranspirationForcingInit.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
           evapoTranspirationForcingInit.pblh   = pblh[ii];
         }
@@ -12189,6 +12193,10 @@ void FileManager::handleSendInitializationMessages(CProxy_Region regionProxy)
           evapoTranspirationForcingInit.solDn  = swDown_c[ii];
           evapoTranspirationForcingInit.lwDn   = gLw_c[ii];
           evapoTranspirationForcingInit.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec_c[ii] * 1000.0f); // * 1000.0f to convert from meters to millimeters.
+if (0.0 > evapoTranspirationForcingInit.prcp)
+{
+evapoTranspirationForcingInit.prcp = 0.0;
+}
           evapoTranspirationForcingInit.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
           evapoTranspirationForcingInit.pblh   = pblh_c[ii];
         }

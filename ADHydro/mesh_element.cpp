@@ -1982,7 +1982,8 @@ MeshElement::MeshElement() :
   meshNeighbors(),
   channelNeighbors(),
   maxDepth(0.0),
-  maxDepthOutputIndex(0)
+  maxDepthTime(0.0),
+  depthArray()
 {
   vertexX[0] = 0.0;
   vertexX[1] = 0.0;
@@ -1990,6 +1991,16 @@ MeshElement::MeshElement() :
   vertexY[0] = 0.0;
   vertexY[1] = 0.0;
   vertexY[2] = 0.0;
+  depthArray[0] = 0.0;
+  depthArray[1] = 0.0;
+  depthArray[2] = 0.0;
+  depthArray[3] = 0.0;
+  depthArray[4] = 0.0;
+  depthArray[5] = 0.0;
+  depthArray[6] = 0.0;
+  depthArray[7] = 0.0;
+  depthArray[8] = 0.0;
+  depthArray[9] = 0.0;
 }
 
 MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetationTypeInit, int soilTypeInit, double vertexXInit[3], double vertexYInit[3],
@@ -2031,7 +2042,8 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   meshNeighbors(),
   channelNeighbors(),
   maxDepth(0.0),
-  maxDepthOutputIndex(0)
+  maxDepthTime(0.0),
+  depthArray()
 {
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(0 <= elementNumberInit && elementNumberInit < ADHydro::fileManagerProxy.ckLocalBranch()->globalNumberOfMeshElements))
@@ -2152,6 +2164,16 @@ MeshElement::MeshElement(int elementNumberInit, int catchmentInit, int vegetatio
   vertexY[0] = vertexYInit[0];
   vertexY[1] = vertexYInit[1];
   vertexY[2] = vertexYInit[2];
+  depthArray[0] = 0.0;
+  depthArray[1] = 0.0;
+  depthArray[2] = 0.0;
+  depthArray[3] = 0.0;
+  depthArray[4] = 0.0;
+  depthArray[5] = 0.0;
+  depthArray[6] = 0.0;
+  depthArray[7] = 0.0;
+  depthArray[8] = 0.0;
+  depthArray[9] = 0.0;
 }
 
 void MeshElement::pup(PUP::er &p)
@@ -2186,7 +2208,8 @@ void MeshElement::pup(PUP::er &p)
   p | meshNeighbors;
   p | channelNeighbors;
   p | maxDepth;
-  p | maxDepthOutputIndex;
+  p | maxDepthTime;
+  PUParray(p, depthArray, 10);
 }
 
 bool MeshElement::checkInvariant()
@@ -2747,8 +2770,10 @@ bool MeshElement::allInflowsArrived(double currentTime, double timestepEndTime)
 bool MeshElement::receiveInflows(double currentTime, double timestepEndTime)
 {
   bool                                                        error = false; // Error flag.
+  int                                                         ii;            // Loop counter.
   std::vector<MeshSurfacewaterMeshNeighborProxy>::iterator    itMesh;        // Loop iterator.
   std::vector<MeshSurfacewaterChannelNeighborProxy>::iterator itChannel;     // Loop iterator.
+  double                                                      depthSum = 0.0; // for calculating running average of depth.
   
 #if (DEBUG_LEVEL & DEBUG_LEVEL_PUBLIC_FUNCTIONS_SIMPLE)
   if (!(currentTime <= timestepEndTime))
@@ -2780,18 +2805,28 @@ bool MeshElement::receiveInflows(double currentTime, double timestepEndTime)
         }
       
       underground.receiveInflows(currentTime, timestepEndTime, elementArea);
+
+      depthSum = 0;
+
+      for (ii = 0; ii < 9; ii++)
+        {
+          depthArray[ii] = depthArray[ii + 1];
+          depthSum      += depthArray[ii];
+        }
+
+      depthArray[9] = surfacewaterDepth;
+      depthSum     += depthArray[9];
       
       // FIXME keep permanently?
-      if (maxDepth < surfacewaterDepth)
+      if (maxDepth < depthSum / 10.0)
         {
-          maxDepth = surfacewaterDepth;
+          maxDepth     = depthSum / 10.0;
+          maxDepthTime = timestepEndTime;
         }
       
-      if ((1000000.0 <= timestepEndTime && 0 == maxDepthOutputIndex) || (1200000.0 <= timestepEndTime && 1 == maxDepthOutputIndex) || (1400000.0 <= timestepEndTime && 2 == maxDepthOutputIndex) ||
-          (1600000.0 <= timestepEndTime && 3 == maxDepthOutputIndex) || (1814400.0 <= timestepEndTime && 4 == maxDepthOutputIndex))
+      if (ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime <= timestepEndTime)
         {
-            ++maxDepthOutputIndex;
-            CkPrintf("time %lf mesh element %d maxDepth %lf\n", timestepEndTime, elementNumber, maxDepth);
+          ADHydro::fileManagerProxy[0].sendMaxDepth(elementNumber, maxDepth, maxDepthTime);
         }
     }
   
