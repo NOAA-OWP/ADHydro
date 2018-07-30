@@ -1501,14 +1501,41 @@ FILE* hydrographFile;
                                                                               SimpleNeighborProxy::MaterialTransfer(currentTime, timestepEndTime,
                                                                                                                     waterSent)));
                 }
+            }
+
 // FIXME remove, save a hydrograph for channel outflow boundaries
-else if (OUTFLOW == (*itChannel).neighbor)
+if (OUTFLOW == (*itChannel).neighbor ||
+         (2546 == elementNumber && 2547 == itChannel->neighbor) ||
+         (7429 == elementNumber && 7447 == itChannel->neighbor) ||
+         (7462 == elementNumber && 7463 == itChannel->neighbor) ||
+         (7510 == elementNumber && 7512 == itChannel->neighbor) ||
+         (6926 == elementNumber && 6927 == itChannel->neighbor) ||
+         (7152 == elementNumber && 7163 == itChannel->neighbor) ||
+         (7646 == elementNumber && 7647 == itChannel->neighbor) ||
+         (7490 == elementNumber && 7491 == itChannel->neighbor) ||
+         (7373 == elementNumber && 7374 == itChannel->neighbor) ||
+         (6173 == elementNumber && 6174 == itChannel->neighbor) ||
+         (7409 == elementNumber && 7410 == itChannel->neighbor) ||
+         (6303 == elementNumber && 6304 == itChannel->neighbor) ||
+         (6309 == elementNumber && 6310 == itChannel->neighbor) ||
+         (6740 == elementNumber && 6741 == itChannel->neighbor) ||
+         (7553 == elementNumber && 7554 == itChannel->neighbor) ||
+         (7608 == elementNumber && 7609 == itChannel->neighbor) ||
+         (6992 == elementNumber && 6996 == itChannel->neighbor) ||
+         (6935 == elementNumber && 6936 == itChannel->neighbor) ||
+         (7041 == elementNumber && 7042 == itChannel->neighbor) ||
+         (7209 == elementNumber && 7210 == itChannel->neighbor) ||
+         (7062 == elementNumber && 7074 == itChannel->neighbor) ||
+         (7334 == elementNumber &&  988 == itChannel->neighbor) ||
+         (7342 == elementNumber && 7343 == itChannel->neighbor) ||
+         (7055 == elementNumber && 7065 == itChannel->neighbor))
 {
-hydrographFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".txt")).c_str(), "a");
+char numstr[21];
+sprintf(numstr, "%d", elementNumber);
+hydrographFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".") + std::string(numstr) + std::string(".txt")).c_str(), "a");
 fprintf(hydrographFile, "%d,\t%lf,\t%lf,\t%lf\n", elementNumber, currentTime, (*itChannel).nominalFlowRate, outwardFlowRateFraction);
 fclose(hydrographFile);
 }
-            }
         }
 
       for (itUndergroundMesh = undergroundMeshNeighbors.begin(); !error && itUndergroundMesh != undergroundMeshNeighbors.end(); ++itUndergroundMesh)
