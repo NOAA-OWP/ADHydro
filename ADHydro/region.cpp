@@ -2610,10 +2610,19 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itMeshSurfacewaterMeshNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itMeshSurfacewaterMeshNeighbor).region))
+{
               outgoingMessages[(*itMeshSurfacewaterMeshNeighbor).region]
                                .push_back(RegionMessage(MESH_SURFACEWATER_MESH_NEIGHBOR, (*itMeshSurfacewaterMeshNeighbor).neighbor,
                                                         (*itMeshSurfacewaterMeshNeighbor).reciprocalNeighborProxy,
                                                         (*itMesh).second.surfacewaterDepth, 0.0, SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itMeshSurfacewaterMeshNeighbor).nominalFlowRate = 0.0;
+(*itMeshSurfacewaterMeshNeighbor).expirationTime = INFINITY;
+}
             }
         }
       
@@ -2631,10 +2640,19 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itMeshSurfacewaterChannelNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itMeshSurfacewaterChannelNeighbor).region))
+{
               outgoingMessages[(*itMeshSurfacewaterChannelNeighbor).region]
                                .push_back(RegionMessage(CHANNEL_SURFACEWATER_MESH_NEIGHBOR, (*itMeshSurfacewaterChannelNeighbor).neighbor,
                                                         (*itMeshSurfacewaterChannelNeighbor).reciprocalNeighborProxy,
                                                         (*itMesh).second.surfacewaterDepth, 0.0, SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itMeshSurfacewaterChannelNeighbor).nominalFlowRate = 0.0;
+(*itMeshSurfacewaterChannelNeighbor).expirationTime = INFINITY;
+}
             }
         }
       
@@ -2647,11 +2665,20 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itMeshGroundwaterMeshNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itMeshGroundwaterMeshNeighbor).region))
+{
               outgoingMessages[(*itMeshGroundwaterMeshNeighbor).region]
                                .push_back(RegionMessage(MESH_GROUNDWATER_MESH_NEIGHBOR, (*itMeshGroundwaterMeshNeighbor).neighbor,
                                                         (*itMeshGroundwaterMeshNeighbor).reciprocalNeighborProxy,
                                                         (*itMesh).second.surfacewaterDepth, (*itMesh).second.underground.groundwaterHead,
                                                         SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itMeshGroundwaterMeshNeighbor).nominalFlowRate = 0.0;
+(*itMeshGroundwaterMeshNeighbor).expirationTime = INFINITY;
+}
             }
         }
       
@@ -2664,11 +2691,20 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itMeshGroundwaterChannelNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itMeshGroundwaterChannelNeighbor).region))
+{
               outgoingMessages[(*itMeshGroundwaterChannelNeighbor).region]
                                .push_back(RegionMessage(CHANNEL_GROUNDWATER_MESH_NEIGHBOR, (*itMeshGroundwaterChannelNeighbor).neighbor,
                                                         (*itMeshGroundwaterChannelNeighbor).reciprocalNeighborProxy,
                                                         (*itMesh).second.surfacewaterDepth, (*itMesh).second.underground.groundwaterHead,
                                                         SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itMeshGroundwaterChannelNeighbor).nominalFlowRate = 0.0;
+(*itMeshGroundwaterChannelNeighbor).expirationTime = INFINITY;
+}
             }
         }
     }
@@ -2684,10 +2720,19 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itChannelSurfacewaterMeshNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itChannelSurfacewaterMeshNeighbor).region))
+{
               outgoingMessages[(*itChannelSurfacewaterMeshNeighbor).region]
                                .push_back(RegionMessage(MESH_SURFACEWATER_CHANNEL_NEIGHBOR, (*itChannelSurfacewaterMeshNeighbor).neighbor,
                                                         (*itChannelSurfacewaterMeshNeighbor).reciprocalNeighborProxy,
                                                         (*itChannel).second.surfacewaterDepth, 0.0, SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itChannelSurfacewaterMeshNeighbor).nominalFlowRate = 0.0;
+(*itChannelSurfacewaterMeshNeighbor).expirationTime = INFINITY;
+}
             }
         }
       
@@ -2707,10 +2752,19 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itChannelSurfacewaterChannelNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itChannelSurfacewaterChannelNeighbor).region))
+{
               outgoingMessages[(*itChannelSurfacewaterChannelNeighbor).region]
                                .push_back(RegionMessage(CHANNEL_SURFACEWATER_CHANNEL_NEIGHBOR, (*itChannelSurfacewaterChannelNeighbor).neighbor,
                                                         (*itChannelSurfacewaterChannelNeighbor).reciprocalNeighborProxy,
                                                         (*itChannel).second.surfacewaterDepth, 0.0, SimpleNeighborProxy::MaterialTransfer()));
+}
+else
+{
+(*itChannelSurfacewaterChannelNeighbor).nominalFlowRate = 0.0;
+(*itChannelSurfacewaterChannelNeighbor).expirationTime = INFINITY;
+}
             }
         }
       
@@ -2723,10 +2777,19 @@ void Region::sendStateToExternalNeighbors()
             }
           else if ((*itChannelGroundwaterMeshNeighbor).expirationTime == currentTime)
             {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn((*itChannelGroundwaterMeshNeighbor).region))
+{
               outgoingMessages[(*itChannelGroundwaterMeshNeighbor).region]
                                .push_back(RegionMessage(MESH_GROUNDWATER_CHANNEL_NEIGHBOR, (*itChannelGroundwaterMeshNeighbor).neighbor,
                                                         (*itChannelGroundwaterMeshNeighbor).reciprocalNeighborProxy,
                                                         (*itChannel).second.surfacewaterDepth, 0.0, SimpleNeighborProxy::MaterialTransfer()));
+}                                                       
+else
+{
+(*itChannelGroundwaterMeshNeighbor).nominalFlowRate = 0.0;
+(*itChannelGroundwaterMeshNeighbor).expirationTime = INFINITY;
+}
             }
         }
     }
@@ -3747,6 +3810,17 @@ bool Region::massBalance(double& waterInDomain, double& externalFlows, double& w
     }
 
   return error;
+}
+
+void Region::sendMaxDepthForTurnedOffElements()
+{ 
+  if (ADHydro::fileManagerProxy.ckLocalBranch()->simulationEndTime <= timestepEndTime)
+    { 
+      for (itMesh = meshElements.begin(); itMesh != meshElements.end(); ++itMesh)
+        { 
+          ADHydro::fileManagerProxy[0].sendMaxDepth(itMesh->second.elementNumber, -1.0, 0.0);     
+        }
+    }
 }
 
 // Suppress warnings in the The Charm++ autogenerated code.
