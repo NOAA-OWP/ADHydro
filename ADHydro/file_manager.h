@@ -959,6 +959,9 @@ public:
   bool     stateFileOpen;     // Whether stateFileID refers to an open file.
   int      displayFileID;     // ID of display file.
   bool     displayFileOpen;   // Whether displayFileID refers to an open file.
+
+// FIXME
+int maxDepthValuesReceived;
 };
 
 #endif // __FILE_MANAGER_H__

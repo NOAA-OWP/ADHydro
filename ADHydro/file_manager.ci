@@ -236,6 +236,10 @@ module file_manager
                         newForcingData.solDn  = swDown[ii];
                         newForcingData.lwDn   = gLw[ii];
                         newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec[ii] * 1000.0f);  // * 1000.0f to convert from meters to millimeters.
+if (0.0 > newForcingData.prcp)
+{
+newForcingData.prcp = 0.0;
+}
                         newForcingData.tBot   = tslb[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh[ii];
                         
@@ -255,6 +259,10 @@ module file_manager
                         newForcingData.solDn  = swDown_c[ii];
                         newForcingData.lwDn   = gLw_c[ii];
                         newForcingData.prcp   = ADHydro::drainDownMode ? 0.0f : (tPrec_c[ii] * 1000.0f);  // * 1000.0f to convert from meters to millimeters.
+if (0.0 > newForcingData.prcp)
+{
+newForcingData.prcp = 0.0;
+}
                         newForcingData.tBot   = tslb_c[ii] + ZERO_C_IN_KELVIN;
                         newForcingData.pblh   = pblh_c[ii];
                         
@@ -337,6 +345,33 @@ module file_manager
       //    // No-op.
       //  }
       //}
+
+// FIXME keep permanently?
+serial
+{
+sdagCondition = (0 == CkMyPe() && 0.0 < ADHydro::simulationDuration);
+}
+if (sdagCondition)
+{
+serial
+{
+maxDepthValuesReceived = 0;
+}
+while (maxDepthValuesReceived < globalNumberOfMeshElements)
+{
+when sendMaxDepth(int meshElement, double maxDepth, double maxDepthTime)
+{
+serial
+{
+FILE* maxDepthFile;
+maxDepthFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".maxDepth.txt")).c_str(), "a");
+fprintf(maxDepthFile, "mesh element %06d maxDepth %lf maxDepthTime %lf\n", meshElement, maxDepth, maxDepthTime);
+fclose(maxDepthFile);
+++maxDepthValuesReceived;
+}
+}
+}
+}
       
       // Wait until all file managers finish before exiting.
       serial
@@ -358,5 +393,6 @@ module file_manager
                                                         double neighborSideSlope);
     // FIXME mass balance reduction still locks up so this can't be blocking
     //entry void massBalanceDone();
+entry void sendMaxDepth(int meshElement, double maxDepth, double maxDepthTime);
   }; // End group FileManager.
 }; // End module file_manager.

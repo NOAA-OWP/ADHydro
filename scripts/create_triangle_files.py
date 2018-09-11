@@ -10,73 +10,6 @@ import math
 import argparse
 import os
 
-from qgis.core import *
-qgishome = '/opt'
-app = QgsApplication([], True)
-app.setPrefixPath(qgishome, True)
-app.initQgis()
-
-parser = argparse.ArgumentParser(description="Create Triangle input files from pre-processed mesh shapefiles.")
-parser.add_argument('ADHydroMapDir', help='The ADHydro map directory containing ArcGIS and TauDEM sub-directories.')
-parser.add_argument('-o', '--outputDir', help='Optional output directory. By default, output will be put in ADHydroMapDir/ASCII')
-parser.add_argument('-b', '--base', help='Optional base name to add to files, i.e. <base>_catchments.shp. Defaults to mesh')
-parser.add_argument('-r', '--resolution', help='Stream resolutions to read (i.e. <base>_streams_20_meter.shp). By default looks for <base>_streams.shp.')
-parser.add_argument('-d', '--densify', help='Number of additional pilot points to add between line segments.', type=int, default=0)
-args = parser.parse_args()
-
-if args.densify:
-  if args.densify < 0:
-    parser.error("densify argument must be a positive integer")
-
-if not os.path.isdir(args.ADHydroMapDir):
-    parser.error("Directory '{}' does not exist.".format(args.ADHydroMapDir))
-
-meshPath = os.path.join(args.ADHydroMapDir, 'ArcGIS')
-netPath = os.path.join(args.ADHydroMapDir, 'TauDEM')
-
-if not os.path.isdir(meshPath):
-    parser.error("Directory '{}' does not exist.".format(meshPath))
-if not os.path.isdir(netPath):
-    parser.error("Directory '{}' does not exist.".format(netPath))
-
-if args.base:
-    input_catchment_file = os.path.join(meshPath, '{}_catchments.shp'.format(args.base))
-    input_waterbody_file = os.path.join(meshPath, '{}_waterbodies.shp'.format(args.base))
-    if args.resolution:
-        input_stream_file = os.path.join(meshPath, '{}_streams_{}_meter.shp'.format(args.base, args.resolution))
-    else:
-        input_stream_file = os.path.join(meshPath, '{}_streams.shp'.format(args.base))
-    input_original_stream_file = os.path.join(netPath, '{}_net.shp'.format(args.base))
-else:
-    # modify these to point to your files
-    input_catchment_file       = os.path.join(meshPath, "mesh_catchments.shp")
-    input_waterbody_file       = os.path.join(meshPath, "mesh_waterbodies.shp")
-    input_stream_file          = os.path.join(meshPath, "mesh_streams.shp")
-    input_original_stream_file = os.path.join(netPath,  "projectednet.shp")
-
-def fileNotFound(name):
-    parser.error("Could not find required file '{}'".format(name))
-
-if not os.path.isfile(input_catchment_file):
-    fileNotFound(input_catchment_file)
-if not os.path.isfile(input_waterbody_file):
-    fileNotFound(input_waterbody_file)
-if not os.path.isfile(input_stream_file):
-    fileNotFound(input_stream_file)
-if not os.path.isfile(input_original_stream_file):
-    fileNotFound(input_original_stream_file)
-
-output_directory_path = os.path.join(args.ADHydroMapDir, 'ASCII')
-if args.outputDir:
-    output_directory_path = args.outputDir
-if not os.path.isdir(output_directory_path):
-    print "'{}' directory does not exist, creating...".format(output_directory_path)
-    os.mkdir(output_directory_path)
-
-output_node_file           = os.path.join(output_directory_path, "mesh.node")
-output_poly_file           = os.path.join(output_directory_path, "mesh.poly")
-output_link_file           = os.path.join(output_directory_path, "mesh.1.link")
-
 # RCS 5/11/17
 # The above code has baked into it the directory structure that we currently use to organize all the different files that are produced when we make a mesh.
 # I don't like this for three reasons:
@@ -89,15 +22,16 @@ output_link_file           = os.path.join(output_directory_path, "mesh.1.link")
 # possibly with a couple groups like an input directory and an output directory where default names will be used.
 #
 # Here is how I originally specified the directories.  If you want to use this you can uncomment these lines and set file names here.
-#input_directory_path       = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
-#input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
-#input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
-#input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
-#input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
-#output_directory_path      = "/share/CI-WATER_Simulation_Data/upper_colorado_mesh"
-#output_node_file           = output_directory_path + "/" + "mesh.node"
-#output_poly_file           = output_directory_path + "/" + "mesh.poly"
-#output_link_file           = output_directory_path + "/" + "mesh.1.link"
+input_directory_path       = "/share/CI-WATER_Simulation_Data/sugar_creek/ArcGIS"
+input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
+input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
+input_road_file            = input_directory_path + "/" + "mesh_roads.shp"
+input_stream_file          = input_directory_path + "/" + "mesh_streams.shp"
+input_original_stream_file = input_directory_path + "/" + "projectednet.shp"
+output_directory_path      = "/share/CI-WATER_Simulation_Data/sugar_creek/ASCII"
+output_node_file           = output_directory_path + "/" + "mesh.node"
+output_poly_file           = output_directory_path + "/" + "mesh.poly"
+output_link_file           = output_directory_path + "/" + "mesh.1.link"
 
 # Reach codes of waterbodies are 14 digit integers, which can be represented in
 # a 64 bit int.  Make sure that a python int is large enough.
@@ -164,6 +98,8 @@ with open(output_node_file, "w") as node_file:
       catchment_provider       = catchment_layer.dataProvider()
       waterbody_layer          = QgsVectorLayer(input_waterbody_file,       "waterbody",       "ogr")
       waterbody_provider       = waterbody_layer.dataProvider()
+      road_layer               = QgsVectorLayer(input_road_file,            "road",            "ogr")
+      road_provider            = road_layer.dataProvider()
       stream_layer             = QgsVectorLayer(input_stream_file,          "stream",          "ogr")
       stream_provider          = stream_layer.dataProvider()
       original_stream_layer    = QgsVectorLayer(input_original_stream_file, "original_stream", "ogr")
@@ -195,23 +131,26 @@ with open(output_node_file, "w") as node_file:
       while catchment_provider.nextFeature(feature):
       """
       for feature in catchment_layer.getFeatures():
-        polygon = feature.geometry().asPolygon()
-        assert 0 < len(polygon) # No empty polygons.
-        boundary_marker = "0" # Catchment segments have no boundary marker.
-        for ring in polygon:
-          ring = densify(ring, args.densify)
-          firstnode = node
-          for point in ring:
-            node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
-            if node < firstnode + len(ring) - 1:
-              # Ordinary line segment from one node to the next.
-              poly_file.write(str(segment) + " " + str(node) + " " + str(node + 1)  + " " + boundary_marker + "\n")
-            else:
-              # Line segment from the last node in a closed polygon to its first node.
-              poly_file.write(str(segment) + " " + str(node) + " " + str(firstnode) + " " + boundary_marker + "\n")
-            node    += 1
-            segment += 1
-        region += 1
+        if feature.geometry() is not None:
+          polygon = feature.geometry().asPolygon()
+          assert 0 < len(polygon) # No empty polygons.
+          boundary_marker = "0" # Catchment segments have no boundary marker.
+          for ring in polygon:
+            #ring = densify(ring, args.densify)
+            firstnode = node
+            for point in ring:
+              node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
+              if node < firstnode + len(ring) - 1:
+                # Ordinary line segment from one node to the next.
+                poly_file.write(str(segment) + " " + str(node) + " " + str(node + 1)  + " " + boundary_marker + "\n")
+              else:
+                # Line segment from the last node in a closed polygon to its first node.
+                poly_file.write(str(segment) + " " + str(node) + " " + str(firstnode) + " " + boundary_marker + "\n")
+              node    += 1
+              segment += 1
+          region += 1
+        else:
+          print "Found empty feature in catchment file."
       #
       # Add the waterbody nodes and segments to the mesh.
       reachcodeindex = waterbody_provider.fieldNameIndex("ReachCode")
@@ -244,7 +183,7 @@ with open(output_node_file, "w") as node_file:
                     raise e
         else:
             reachcodelong = long(feature[reachcodeindex])
-
+        #
         assert isinstance(reachcodelong, long)  # Integer conversion must succeed.
         reachcode = int(reachcodelong) #TODO just use int conversion in the first place since this is the python impelementation, should use maxint
         # FIXLATER this search could be sped up by storing a map of reachcode -> linkno
@@ -259,7 +198,7 @@ with open(output_node_file, "w") as node_file:
         # mesh edge boundary.
         boundary_marker = str(linkno + 2)
         for ring in polygon:
-          ring = densify(ring, args.densify)
+          #ring = densify(ring, args.densify)
           firstnode = node
           for point in ring:
             node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
@@ -272,6 +211,29 @@ with open(output_node_file, "w") as node_file:
             node    += 1
             segment += 1
         hole += 1
+      #
+      # Add the road nodes and segments to the mesh.
+      """
+      catchment_provider.select()
+      while catchment_provider.nextFeature(feature):
+      """
+      for feature in road_layer.getFeatures():
+        polygon = feature.geometry().asPolygon()
+        assert 0 < len(polygon) # No empty polygons.
+        boundary_marker = "0" # Road segments have no boundary marker.
+        for ring in polygon:
+          #ring = densify(ring, args.densify)
+          firstnode = node
+          for point in ring:
+            node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
+            if node < firstnode + len(ring) - 1:
+              # Ordinary line segment from one node to the next.
+              poly_file.write(str(segment) + " " + str(node) + " " + str(node + 1)  + " " + boundary_marker + "\n")
+            else:
+              # Line segment from the last node in a closed polygon to its first node.
+              poly_file.write(str(segment) + " " + str(node) + " " + str(firstnode) + " " + boundary_marker + "\n")
+            node    += 1
+            segment += 1
       #
       # Add the stream nodes and segments to the mesh.
       linknoindex = stream_provider.fieldNameIndex("LINKNO")
@@ -291,7 +253,7 @@ with open(output_node_file, "w") as node_file:
         # mesh edge boundary.
         boundary_marker = str(linkno + 2)
         firstnode = node
-        polyline = densify(polyline, args.densify)
+        #polyline = densify(polyline, args.densify)
         for point in polyline:
           node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
           if node < firstnode + len(polyline) - 1:
@@ -325,16 +287,17 @@ with open(output_node_file, "w") as node_file:
       while catchment_provider.nextFeature(feature):
       """
       for feature in catchment_layer.getFeatures():
-        regionx, regiony = point_in_polygon(feature)
-        catchment_number = int(feature[catchmentindex])
-        assert isinstance(catchment_number, (int,long)) # Integer conversion must succeed.
-        assert 0 <= catchment_number # Catchment number must be non-negative.
-        # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
-        # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
-        region_attribute = str(catchment_number + 2)
-        area_constraint = "-1" # FIXME calculate a real area constraint.
-        poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + region_attribute + " " + area_constraint + "\n")
-        region += 1
+        if feature.geometry() is not None:
+          regionx, regiony = point_in_polygon(feature)
+          catchment_number = int(feature[catchmentindex])
+          assert isinstance(catchment_number, (int,long)) # Integer conversion must succeed.
+          assert 0 <= catchment_number # Catchment number must be non-negative.
+          # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
+          # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
+          region_attribute = str(catchment_number + 2)
+          area_constraint = "-1" # FIXME calculate a real area constraint.
+          poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + region_attribute + " " + area_constraint + "\n")
+          region += 1
       #
       # Fill in the number of segments and nodes at the beginning of the files.
       node_file.seek(0)

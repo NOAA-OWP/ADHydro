@@ -654,6 +654,63 @@ public:
   //                 means water was created.  Negative means water was
   //                 destroyed.
   bool massBalance(double& waterInDomain, double& externalFlows, double& waterError);
+
+  // Turn off needToCheckInvariant if DEBUG_LEVEL_INTERNAL_INVARIANTS is false.
+  //
+  // ADHydro can either check the invariant once on input data, or at every
+  // sync point.  If DEBUG_LEVEL_INTERNAL_INVARIANTS is false we will not be
+  // checking the invariant at every sync point so we need to turn off
+  // needToCheckInvariant after the first invariant check.
+  //
+  // This code would normally be in the .ci file, but #if isn't working in
+  // the .ci file so I'm wrapping this code in a member function.
+  void conditionallyTurnOffNeedToCheckInvariant()
+  {
+    // FIXME #if not working right in .ci file
+#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+    needToCheckInvariant = false;
+#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+  }
+
+  // FIXME decide if we want this permanently
+  // It is necessary to do this in the .cpp file because the scoping construct
+  // causes problems in the .ci file, and adhydro.h isn't included in the .h file.
+  void sendMaxDepthForTurnedOffElements();
+
+  // FIXME decide if we want this permanently
+  inline static bool regionIsTurnedOn(int regionNumber)
+  {
+      // To run the simulation normally on the entire map just always return true.
+      //return true;
+      return (  57 == regionNumber ||
+                65 == regionNumber ||   66 == regionNumber ||   77 == regionNumber ||
+                78 == regionNumber ||   96 == regionNumber ||   99 == regionNumber ||
+               100 == regionNumber ||  101 == regionNumber ||  105 == regionNumber ||
+               139 == regionNumber ||  141 == regionNumber ||  142 == regionNumber ||
+               146 == regionNumber ||  168 == regionNumber ||  235 == regionNumber ||
+               241 == regionNumber ||  242 == regionNumber ||  244 == regionNumber ||
+               283 == regionNumber ||  284 == regionNumber ||  286 == regionNumber ||
+               320 == regionNumber ||  321 == regionNumber ||
+               364 == regionNumber ||  367 == regionNumber ||  411 == regionNumber ||
+               424 == regionNumber ||  472 == regionNumber ||  479 == regionNumber ||
+               782 == regionNumber ||  928 == regionNumber ||  929 == regionNumber ||
+               930 == regionNumber ||  931 == regionNumber ||
+               932 == regionNumber ||  933 == regionNumber ||  934 == regionNumber ||
+               935 == regionNumber ||  937 == regionNumber ||  938 == regionNumber ||
+               964 == regionNumber ||  997 == regionNumber ||  998 == regionNumber ||
+               999 == regionNumber ||
+              1000 == regionNumber || 1001 == regionNumber || 1003 == regionNumber ||
+              1004 == regionNumber || 1005 == regionNumber || 1006 == regionNumber ||
+              1007 == regionNumber || 1008 == regionNumber || 1009 == regionNumber ||
+              1011 == regionNumber || 1013 == regionNumber || 1014 == regionNumber ||
+              1015 == regionNumber ||
+              1016 == regionNumber || 1018 == regionNumber || 1019 == regionNumber ||
+              1026 == regionNumber || 1028 == regionNumber || 1029 == regionNumber ||
+              1030 == regionNumber || 1031 == regionNumber || 1033 == regionNumber ||
+              1440 == regionNumber || 1441 == regionNumber || 1443 == regionNumber ||
+              1445 == regionNumber || 1447 == regionNumber || 1453 == regionNumber ||
+              1454 == regionNumber);
+  }
   
   // Elements.
   std::map<int, MeshElement>::size_type    numberOfMeshElements;    // During initialization the region waits until it has received this many mesh elements.
