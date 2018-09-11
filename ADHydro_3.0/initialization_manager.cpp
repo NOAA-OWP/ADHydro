@@ -3,6 +3,688 @@
 #include "readonly.h"
 #include "initialization_manager.def.h"
 
+#define MESH_ELEMENT_MESH_NEIGHBORS_SIZE (3)
+
+bool InitializationManager::readNodeAndZFiles(const char* nodeFilename, const char* zFilename, size_t* globalNumberOfNodes, size_t* localNumberOfNodes, size_t* localNodeStart, double** nodeX, double** nodeY, double** nodeZ)
+{
+    bool   error    = false;   // Error flag.
+    size_t ii;                 // Loop counter.
+    size_t numScanned;         // Used to check that fscanf scanned the correct number of inputs.
+    FILE*  nodeFile = NULL;    // The node file to read from.
+    FILE*  zFile    = NULL;    // The z file to read from.
+    size_t dimension;          // Used to check the dimensions in the files.
+    size_t numberOfAttributes; // Used to check the number of attributes in the files.
+    size_t boundary;           // Used to check the number of boundary markers in the files.
+    size_t numberCheck;        // Used to check numbers that are error checked but otherwise unused.
+    size_t index;              // Used to read node numbers.
+    double xCoordinate;        // Used to read coordinates from the files.
+    double yCoordinate;        // Used to read coordinates from the files.
+    double zCoordinate;        // Used to read coordinates from the files.
+    
+    // Open file.
+    nodeFile = fopen(nodeFilename, "r");
+    
+    if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+    {
+        if (!(NULL != nodeFile))
+        {
+            CkError("ERROR in InitializationManager::readNodeAndZFiles: could not open node file %s.\n", nodeFilename);
+            error = true;
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(nodeFile, "%lu %lu %lu %lu", globalNumberOfNodes, &dimension, &numberOfAttributes, &boundary);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(4 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: unable to read header from node file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(0 < globalNumberOfNodes && 2 == dimension && 0 == numberOfAttributes && 1 == boundary))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: invalid header in node file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Open file.
+    if (!error)
+    {
+        zFile = fopen(zFilename, "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != zFile))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: could not open z file %s.\n", zFilename);
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(zFile, "%lu %lu", &numberCheck, &dimension);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(2 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: unable to read header from z file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(*globalNumberOfNodes == numberCheck && 1 == dimension))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: invalid header in z file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Calculate local start and number and allocate arrays.
+    if (!error)
+    {
+        Readonly::localStartAndNumber(*localNodeStart, *localNumberOfNodes, *globalNumberOfNodes, CkNumPes(), CkMyPe());
+        
+        *nodeX = new double[*localNumberOfNodes];
+        *nodeY = new double[*localNumberOfNodes];
+        *nodeZ = new double[*localNumberOfNodes];
+    }
+    
+    // Read nodes.
+    for (ii = 0; !error && ii < *globalNumberOfNodes; ii++)
+    {
+        // Read node file.
+        numScanned = fscanf(nodeFile, "%lu %lf %lf %*d", &index, &xCoordinate, &yCoordinate);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(3 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: unable to read entry %d from node file.\n", ii);
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(ii == index))
+            {
+                CkError("ERROR in InitializationManager::readNodeAndZFiles: invalid node number in node file.  %d should be %d.\n", index, ii);
+                error = true;
+            }
+        }
+        
+        // Read z file.
+        if (!error)
+        {
+            numScanned = fscanf(zFile, "%lu %lf", &numberCheck, &zCoordinate);
+            
+            if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+            {
+                if (!(2 == numScanned))
+                {
+                    CkError("ERROR in InitializationManager::readNodeAndZFiles: unable to read entry %d from z file.\n", ii);
+                    error = true;
+                }
+            }
+            
+            if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+            {
+                if (!(index == numberCheck))
+                {
+                    CkError("ERROR in InitializationManager::readNodeAndZFiles: invalid node number in z file.  %d should be %d.\n", numberCheck, index);
+                    error = true;
+                }
+            }
+        }
+        
+        // Save values.
+        if (!error && *localNodeStart <= index && index < *localNodeStart + *localNumberOfNodes)
+        {
+            (*nodeX)[index - *localNodeStart] = xCoordinate;
+            (*nodeY)[index - *localNodeStart] = yCoordinate;
+            (*nodeZ)[index - *localNodeStart] = zCoordinate;
+        }
+    } // End read nodes.
+    
+    // Close the files.
+    if (NULL != nodeFile)
+    {
+        fclose(nodeFile);
+    }
+    
+    if (NULL != zFile)
+    {
+        fclose(zFile);
+    }
+    
+    return error;
+}
+
+void InitializationManager::initializeSimulationFromASCIIFiles()
+{
+    bool    error        = false;    // Error flag.
+    size_t  ii, jj;                  // Loop counters.
+    size_t  numScanned;              // Used to check that fscanf scanned the correct number of inputs.
+    FILE*   eleFile      = NULL;     // The ele      file to read from.
+    FILE*   neighFile    = NULL;     // The neigh    file to read from.
+    FILE*   landFile     = NULL;     // The land     file to read from.
+    FILE*   soilFile     = NULL;     // The soil     file to read from.
+    FILE*   chanEleFile  = NULL;     // The chan.ele file to read from.
+    size_t  globalNumberOfMeshNodes; // FIXME comment
+    size_t  localNumberOfMeshNodes;
+    size_t  localMeshNodeStart;
+    double* meshNodeX    = NULL;
+    double* meshNodeY    = NULL;
+    double* meshNodeZ    = NULL;
+    size_t  globalNumberOfMeshElements;
+    size_t  localNumberOfMeshElements;
+    size_t  localMeshElementStart;
+    int*    meshVertices;
+    int*    meshCatchment;
+    int*    meshMeshNeighbors;
+    int*    meshVegetationType;
+    int*    meshSoilType;
+    double* meshSoilDepth;
+    size_t  globalNumberOfChannelNodes;
+    size_t  localNumberOfChannelNodes;
+    size_t  localChannelNodeStart;
+    double* channelNodeX = NULL;
+    double* channelNodeY = NULL;
+    double* channelNodeZ = NULL;
+    size_t  globalNumberOfChannelElements; // FIXME comment
+    size_t  localNumberOfChannelElements;
+    size_t  localChannelElementStart;
+    size_t  dimension;                     // Used to check the dimensions in the files.
+    size_t  numberOfAttributes;            // Used to check the number of attributes in the files.
+    size_t  numberCheck;                   // Used to check numbers that are error checked but otherwise unused.
+    size_t  index;                         // Used to read node numbers.
+    int     vertex0;                       // Used to read vertices from the files.
+    int     vertex1;                       // Used to read vertices from the files.
+    int     vertex2;                       // Used to read vertices from the files.
+    int     catchment;                     // Used to read catchments from the files.
+    int     neighbor0;                     // Used to read neighbors from the files.
+    int     neighbor1;                     // Used to read neighbors from the files.
+    int     neighbor2;                     // Used to read neighbors from the files.
+    int     vegetationType;                // Used to read vegetation type from the files.
+    size_t  numberOfSoilLayers;            // Used to read the number of soil layers from the files.
+    int     soilTypeReader;                // Used to read multiple layers.
+    int     soilType;                      // The final value that will be associated with this element.
+    double  soilDepthReader;               // Used to read multiple layers.
+    double  soilDepth;                     // The final value that will be associated with this element.
+    
+    // Read mesh nodes.
+    error = readNodeAndZFiles(Readonly::meshNodeFilePath.c_str(), Readonly::meshZFilePath.c_str(), &globalNumberOfMeshNodes, &localNumberOfMeshNodes, &localMeshNodeStart, &meshNodeX, &meshNodeY, &meshNodeZ);
+    
+    // Open file.
+    if (!error)
+    {
+        eleFile = fopen(Readonly::meshElementFilePath.c_str(), "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != eleFile))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: could not open ele file %s.\n", Readonly::meshElementFilePath.c_str());
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(eleFile, "%lu %lu %lu", &globalNumberOfMeshElements, &dimension, &numberOfAttributes);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(3 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read header from ele file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(0 < globalNumberOfMeshElements && 3 == dimension && 1 == numberOfAttributes))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid header in ele file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Open file.
+    if (!error)
+    {
+        neighFile = fopen(Readonly::meshNeighborFilePath.c_str(), "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != neighFile))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: could not open neigh file %s.\n", Readonly::meshNeighborFilePath.c_str());
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(neighFile, "%lu %lu", &numberCheck, &dimension);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(2 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read header from neigh file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(globalNumberOfMeshElements == numberCheck && 3 == dimension))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid header in neigh file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Open file.
+    if (!error)
+    {
+        landFile = fopen(Readonly::meshLandFilePath.c_str(), "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != landFile))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: could not open land file %s.\n", Readonly::meshLandFilePath.c_str());
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(landFile, "%lu", &numberCheck);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(1 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read header from land file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(globalNumberOfMeshElements == numberCheck))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid header in land file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Open file.
+    if (!error)
+    {
+        soilFile = fopen(Readonly::meshSoilFilePath.c_str(), "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != soilFile))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: could not open soil file %s.\n", Readonly::meshSoilFilePath.c_str());
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(soilFile, "%lu", &numberCheck);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(1 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read header from soil file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(globalNumberOfMeshElements == numberCheck))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid header in soil file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Calculate local start and number and allocate arrays.
+    if (!error)
+    {
+        Readonly::localStartAndNumber(localMeshElementStart, localNumberOfMeshElements, globalNumberOfMeshElements, CkNumPes(), CkMyPe());
+        
+        meshVertices       = new int[   localNumberOfMeshElements * MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
+        meshCatchment      = new int[   localNumberOfMeshElements];
+        meshMeshNeighbors  = new int[   localNumberOfMeshElements * MESH_ELEMENT_MESH_NEIGHBORS_SIZE];
+        meshVegetationType = new int[   localNumberOfMeshElements];
+        meshSoilType       = new int[   localNumberOfMeshElements];
+        meshSoilDepth      = new double[localNumberOfMeshElements];
+    }
+    
+    // Read mesh elements.
+    for (ii = 0; !error && ii < globalNumberOfMeshElements; ii++)
+    {
+        // Read ele file.
+        numScanned = fscanf(eleFile, "%lu %d %d %d %d", &index, &vertex0, &vertex1, &vertex2, &catchment);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(5 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read entry %d from ele file.\n", ii);
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(ii == index))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid element number in ele file.  %d should be %d.\n", index, ii);
+                error = true;
+            }
+            
+            if (!(0 <= vertex0 && vertex0 < (int)globalNumberOfMeshNodes))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid vertex number %d in ele file.\n", index, vertex0);
+                error = true;
+            }
+            
+            if (!(0 <= vertex1 && vertex1 < (int)globalNumberOfMeshNodes))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid vertex number %d in ele file.\n", index, vertex1);
+                error = true;
+            }
+            
+            if (!(0 <= vertex2 && vertex2 < (int)globalNumberOfMeshNodes))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid vertex number %d in ele file.\n", index, vertex2);
+                error = true;
+            }
+        }
+        
+        // Read neigh file.
+        numScanned = fscanf(neighFile, "%lu %d %d %d", &numberCheck, &neighbor0, &neighbor1, &neighbor2);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(4 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read entry %d from neigh file.\n", ii);
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(index == numberCheck))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid element number in neigh file.  %d should be %d.\n", numberCheck, index);
+                error = true;
+            }
+            
+            if (!(isBoundary(neighbor0) || (0 <= neighbor0 && neighbor0 < (int)globalNumberOfMeshElements)))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid mesh neighbor number %d in neigh file.\n", index, neighbor0);
+                error = true;
+            }
+            
+            if (!(isBoundary(neighbor1) || (0 <= neighbor1 && neighbor1 < (int)globalNumberOfMeshElements)))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid mesh neighbor number %d in neigh file.\n", index, neighbor1);
+                error = true;
+            }
+            
+            if (!(isBoundary(neighbor2) || (0 <= neighbor2 && neighbor2 < (int)globalNumberOfMeshElements)))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid mesh neighbor number %d in neigh file.\n", index, neighbor2);
+                error = true;
+            }
+        }
+        
+        // Read land file.
+        numScanned = fscanf(landFile, "%lu %d", &numberCheck, &vegetationType);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(2 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read entry %d from land file.\n", ii);
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(index == numberCheck))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid element number in land file.  %d should be %d.\n", numberCheck, index);
+                error = true;
+            }
+            
+            if (!(1 <= vegetationType && 27 >= vegetationType))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid vegetation type number %d in land file.\n", index, vegetationType);
+                error = true;
+            }
+        }
+        
+        // Read soil file.
+        numScanned = fscanf(soilFile, "%lu %lu", &numberCheck, &numberOfSoilLayers);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(2 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read entry %d from soil file.\n", ii);
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(index == numberCheck))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid element number in soil file.  %d should be %d.\n", numberCheck, index);
+                error = true;
+            }
+            
+            if (!(0 <= numberOfSoilLayers))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid number of soil layers %d in soil file.\n", index, numberOfSoilLayers);
+                error = true;
+            }
+        }
+        
+        if (!error)
+        {
+            soilType  = -1;  // If there are no soil layers soilType will be left as -1 as a flag for no soil data, and soilDepth will be left as zero.
+            soilDepth = 0.0; // That element will have to get soil type and depth from a neighbor in meshMassage.
+            
+            // Loop through the soil layers of this element.
+            for (jj = 0; jj < numberOfSoilLayers; jj++)
+            {
+                numScanned = fscanf(soilFile, "%d,%lf", &soilTypeReader, &soilDepthReader);
+                
+                if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+                {
+                    if (!(2 == numScanned))
+                    {
+                        CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read entry %d soil layer %d from soil file.\n", ii, jj);
+                        error = true;
+                    }
+                }
+                
+                if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+                {
+                    if (!((1 <= soilTypeReader && 19 >= soilTypeReader) || -1 == soilTypeReader))
+                    {
+                        CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: invalid soil type %s in soil file.\n", index, soilTypeReader);
+                        error = true;
+                    }
+                    
+                    if (!(0.0 <= soilDepthReader))
+                    {
+                        CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: mesh element %d: soilDepthReader must be greater than or equal to zero.\n", index);
+                        error = true;
+                    }
+                }
+                
+                // Only save the first valid soil type.
+                if (-1 == soilType)
+                {
+                    soilType = soilTypeReader;
+                }
+                
+                // Save the sum of soil thicknesses.
+                soilDepth += soilDepthReader;
+            }
+        }
+        
+        // Save values.
+        if (!error && localMeshElementStart <= index && index < localMeshElementStart + localNumberOfMeshElements)
+        {
+            meshVertices[     (index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 0] = vertex0;
+            meshVertices[     (index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 1] = vertex1;
+            meshVertices[     (index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 2] = vertex2;
+            meshCatchment[     index - localMeshElementStart]                                         = catchment - 2;  // The .ele file stores catchment number plus two because zero and one are used by triangle.
+            meshMeshNeighbors[(index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 0] = neighbor0;
+            meshMeshNeighbors[(index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 1] = neighbor1;
+            meshMeshNeighbors[(index - localMeshElementStart) * MESH_ELEMENT_MESH_NEIGHBORS_SIZE + 2] = neighbor2;
+            meshVegetationType[index - localMeshElementStart]                                         = vegetationType;
+            meshSoilType[      index - localMeshElementStart]                                         = soilType;
+            meshSoilDepth[     index - localMeshElementStart]                                         = soilDepth;
+        }
+    } // End read mesh elements.
+    
+    // Close the files.
+    if (NULL != eleFile)
+    {
+        fclose(eleFile);
+    }
+    
+    if (NULL != neighFile)
+    {
+        fclose(neighFile);
+    }
+    
+    if (NULL != landFile)
+    {
+        fclose(landFile);
+    }
+    
+    if (NULL != soilFile)
+    {
+        fclose(soilFile);
+    }
+    
+    if (!error)
+    {
+        error = readNodeAndZFiles(Readonly::channelNodeFilePath.c_str(), Readonly::channelZFilePath.c_str(), &globalNumberOfChannelNodes, &localNumberOfChannelNodes, &localChannelNodeStart, &channelNodeX, &channelNodeY, &channelNodeZ);
+    }
+    
+    // Open file.
+    if (!error)
+    {
+        chanEleFile = fopen(Readonly::channelElementFilePath.c_str(), "r");
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(NULL != chanEleFile))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: could not open chan.ele file %s.\n", Readonly::channelElementFilePath.c_str());
+                error = true;
+            }
+        }
+    }
+    
+    // Read header.
+    if (!error)
+    {
+        numScanned = fscanf(chanEleFile, "%lu", &globalNumberOfChannelElements);
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_LIBRARY_ERRORS)
+        {
+            if (!(1 == numScanned))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: unable to read header from chan.ele file.\n");
+                error = true;
+            }
+        }
+        
+        if (DEBUG_LEVEL & DEBUG_LEVEL_USER_INPUT_SIMPLE)
+        {
+            if (!(0 < globalNumberOfChannelElements))
+            {
+                CkError("ERROR in InitializationManager::initializeSimulationFromASCIIFiles: invalid header in chan.ele file.\n");
+                error = true;
+            }
+        }
+    }
+    
+    // Calculate local start and number and allocate arrays.
+    if (!error)
+    {
+        Readonly::localStartAndNumber(localChannelElementStart, localNumberOfChannelElements, globalNumberOfChannelElements, CkNumPes(), CkMyPe());
+        
+        /*
+         *      channelElementVertices            = new int[localNumberOfChannelElements][XDMF_SIZE];
+         *      channelChannelType                = new ChannelTypeEnum[localNumberOfChannelElements];
+         *      channelReachCode                  = new long long[localNumberOfChannelElements];
+         *      channelElementBankFullDepth       = new double[localNumberOfChannelElements];
+         *      channelElementLength              = new double[localNumberOfChannelElements];
+         *      channelBaseWidth                  = new double[localNumberOfChannelElements];
+         *      channelSideSlope                  = new double[localNumberOfChannelElements];
+         *      channelMeshNeighbors              = new int[localNumberOfChannelElements][CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];
+         *      channelMeshNeighborsEdgeLength    = new double[localNumberOfChannelElements][CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE];
+         *      channelChannelNeighbors           = new int[localNumberOfChannelElements][CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
+         *      channelChannelNeighborsDownstream = new bool[localNumberOfChannelElements][CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE];
+         */
+    }
+    
+    contribute(CkCallback(CkCallback::ckExit));
+}
+
 // FIXME remove
 bool initializeHardcodedMap(MapGeometry& geometryData, MapParameters& parameterData, TimePointState& stateData)
 {

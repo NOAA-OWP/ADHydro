@@ -152,7 +152,7 @@ bool ForcingManager::readForcingTimes()
         
         // Print a warning if we didn't find an entry no later than Readonly::simulationStartTime.
         // In that case, the first entry will still be used.
-        if (0 = CkMyPe() && 2 <= Readonly::verbosityLevel && !(nextForcingTime <= Readonly::simulationStartTime))
+        if (0 == CkMyPe() && 2 <= Readonly::verbosityLevel && !(nextForcingTime <= Readonly::simulationStartTime))
         {
             CkError("WARNING in ForcingManager::readForcingTimes: the first entry in the forcing file is after simulation start time.  Using the first forcing data instance even though it is in the future.\n");
         }

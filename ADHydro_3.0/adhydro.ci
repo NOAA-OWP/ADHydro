@@ -18,6 +18,17 @@ mainmodule adhydro
     }; // End mainchare ADHydro.
     
     // Global readonly variables.
+    readonly std::string Readonly::meshNodeFilePath;
+    readonly std::string Readonly::meshZFilePath;
+    readonly std::string Readonly::meshElementFilePath;
+    readonly std::string Readonly::meshEdgeFilePath;
+    readonly std::string Readonly::meshNeighborFilePath;
+    readonly std::string Readonly::meshLandFilePath;
+    readonly std::string Readonly::meshSoilFilePath;
+    readonly std::string Readonly::channelNodeFilePath;
+    readonly std::string Readonly::channelZFilePath;
+    readonly std::string Readonly::channelElementFilePath;
+    readonly std::string Readonly::channelPruneFilePath;
     readonly std::string Readonly::noahMPMpTableFilePath;
     readonly std::string Readonly::noahMPVegParmFilePath;
     readonly std::string Readonly::noahMPSoilParmFilePath;

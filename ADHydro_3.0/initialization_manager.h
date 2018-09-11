@@ -15,9 +15,17 @@ class InitializationManager : public CBase_InitializationManager
 public:
     
     // Constructor.
-    inline InitializationManager() : geometryData(NULL), parameterData(NULL), stateData(NULL)
+    //
+    // Parameters:
+    //
+    // initializeFromASCIIFiles - If true, run in a special mode that just reads in ASCII files and outputs NetCDF files without running the simulation.  Otherwise, run in normal mode.
+    inline InitializationManager(bool initializeFromASCIIFiles) : geometryData(NULL), parameterData(NULL), stateData(NULL)
     {
-        if (initializeSimulation())
+        if (initializeFromASCIIFiles)
+        {
+            initializeSimulationFromASCIIFiles();
+        }
+        else if (initializeSimulation())
         {
             CkExit();
         }
@@ -39,6 +47,27 @@ public:
     TimePointState* stateData;
     
 private:
+    
+    // Read ASCII .node and .z files to get node coordinates.
+    //
+    // Returns: true if there is an error, false otherwise.
+    //
+    // Parameters:
+    //
+    // nodeFilename        - The name of the .node file to read.
+    // zFilename           - the name of the .z file to read.
+    // globalNumberOfNodes - Scalar passed by reference will be filled in with the global number of nodes in the file.
+    // localNumberOfNodes  - Scalar passed by reference will be filled in with the local number of nodes for this InitializationManager.
+    // localNodeStart      - Scalar passed by reference will be filled in with the start node for this InitializationManager.
+    // nodeX               - Pointer passed by reference will be set to point to a newly allocated array of size localNumberOfNodes containing the X coordinates of the nodes.
+    // nodeY               - Pointer passed by reference will be set to point to a newly allocated array of size localNumberOfNodes containing the Y coordinates of the nodes.
+    // nodeZ               - Pointer passed by reference will be set to point to a newly allocated array of size localNumberOfNodes containing the Z coordinates of the nodes.
+    bool readNodeAndZFiles(const char* nodeFilename, const char* zFilename, size_t* globalNumberOfNodes, size_t* localNumberOfNodes, size_t* localNodeStart, double** nodeX, double** nodeY, double** nodeZ);
+    
+    // Read in ASCII files and output NetCDF files without running the simulation.
+    //
+    // This function never returns.  On error or success it exits the program after doing it's job.
+    void initializeSimulationFromASCIIFiles();
     
     // Load initialization data from files and send it to simulation objects.
     //
