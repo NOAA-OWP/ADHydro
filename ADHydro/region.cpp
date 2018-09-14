@@ -1789,6 +1789,8 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   std::vector<simpleNeighborInfo>::iterator it;           // Loop iterator.
   std::vector<int>::iterator                itDiversion;  // Loop iterator.
   std::vector<int>::iterator                itDiversion2; // Loop iterator.
+  bool                                      needsOutflow;
+  bool                                      hasOutflow;
   
   // Most parameters are error checked in the ChannelElement constructor.
   
@@ -1842,6 +1844,33 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
       thisProxy[(*it).region].sendMeshSurfacewaterChannelNeighborInitMessage(
               (*it).neighbor, elementNumberInit, channelElements[elementNumberInit].meshNeighbors.size() - 1, channelTypeInit, elementXInit, elementYInit,
               elementZBankInit, elementZBedInit, baseWidthInit, sideSlopeInit);
+    }
+  
+  // If the channel element has a downstream neighbor that is turned off add an outflow boundary condition unless it already has one.
+  needsOutflow = false;
+  hasOutflow   = false;
+  
+  for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
+    {
+      if (!regionIsTurnedOn(it->region) && it->downstream)
+        {
+          needsOutflow = true;
+        }
+      
+      if (OUTFLOW == it->neighbor)
+        {
+          hasOutflow = true;
+        }
+    }
+  
+  if (needsOutflow && !hasOutflow)
+    {
+      if (2 <= ADHydro::verbosityLevel)
+        {
+          CkError("WARNING in Region::handleInitializeChannelElement: element %d has a downstream neighbor that is turned off.  Adding outflow boundary condition.\n", elementNumberInit);
+        }
+      
+      surfacewaterChannelNeighbors.push_back(simpleNeighborInfo(currentTime, 0.0, 0.0, 0.0, 0, OUTFLOW, 1.0, 1.0, 0.0, true));
     }
   
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
