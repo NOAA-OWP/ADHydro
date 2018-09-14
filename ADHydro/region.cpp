@@ -1852,7 +1852,7 @@ void Region::handleInitializeChannelElement(int elementNumberInit, ChannelTypeEn
   
   for (it = surfacewaterChannelNeighbors.begin(); it != surfacewaterChannelNeighbors.end(); ++it)
     {
-      if (!regionIsTurnedOn(it->region) && it->downstream)
+      if (regionIsTurnedOn(thisIndex) && !regionIsTurnedOn(it->region) && it->downstream)
         {
           needsOutflow = true;
         }
