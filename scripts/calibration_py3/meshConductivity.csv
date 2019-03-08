@@ -1,0 +1,15 @@
+land_cover,soil_texture,land_cover_percent,soil_cover_percent,percent_of_watershed,Ks_min,Ks_max
+deciduous forest,clay loam,12.21,16.45,2.01,0.05,0.5
+deciduous forest,sandy loam,12.21,23.49,2.87,0.3,2.4
+deciduous forest,sandy clay loam,12.21,41.72,5.09,0.1,0.5
+developed open,clay loam,34.27,11.33,3.88,0.03,0.4
+developed open,sandy loam,34.27,14.2,4.87,0.2,2
+developed open,sandy clay loam,34.27,58.53,20.06,0.05,0.3
+developed low,clay loam,26.14,9.26,2.42,0.05,0.5
+developed low,sandy loam,26.14,13.24,3.46,0.4,3.9
+developed low,loam,26.14,11.99,3.13,0.3,1.8
+developed low,sandy clay loam,26.14,59.81,15.63,0.05,1.5
+developed medium,clay loam,11.66,12.97,1.51,0.01,0.33
+developed medium,loam,11.66,12.63,1.47,0.2,0.85
+developed medium,sandy clay loam,11.66,61.64,7.19,0.05,0.4
+developed high,sandy clay loam,7.31,71.79,5.25,0.01,0.41

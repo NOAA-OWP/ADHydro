@@ -1,0 +1,16 @@
+index, land_cover, coverage, fixed, lower, upper
+1, water, 0.21, True, 0.02, 0.02
+2, wooded wetland, 0.52, True, 0.3, 0.3
+3, herbaceous wetland, 0.01, True, 0.6, 0.6
+4, barren land, 0.66, True, 0.08, 0.08
+5, shrub, 0.22, True, 0.06, 0.06
+6, grassland, 1.2, True, 0.4, 0.4
+7, pasture, 2.53, True, 0.25, 0.25
+8, cultivated, 0.01, True, 0.1, 0.1
+9, deciduous forest, 12.21, False, 0.04, 0.11
+10, evergreen forest, 2.61, True, 0.08, 0.08
+11, mixed forest, 0.44, True, 0.08, 0.08
+12, developed open, 34.27, False, 0.038, 0.07
+13, developed low, 26.14, False, 0.028, 0.06
+14, developed medium, 11.66, False, 0.018, 0.05
+15, developed high, 7.31, False, 0.013, 0.04
