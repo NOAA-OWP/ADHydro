@@ -408,11 +408,8 @@ module region
           
           serial
           {
-// FIXME #defines not working right in .ci file
-//#if !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
             // If debug level does not include internal invariants only check the invariant at most once at the beginning of the simulation.
-//            needToCheckInvariant = false;
-//#endif // !(DEBUG_LEVEL & DEBUG_LEVEL_INTERNAL_INVARIANTS)
+            conditionallyTurnOffNeedToCheckInvariant();
           }
         } // End if (currentTime == nextSyncTime).
         
@@ -425,6 +422,9 @@ module region
         }
         else // if (currentTime < simulationEndTime)
         {
+// FIXME decide if we want to keep this permanently
+if (regionIsTurnedOn(thisIndex))
+{
           // Advance time.
           
           // Step 1: Calculate nominal flow rates with neighbors.
@@ -480,6 +480,16 @@ module region
           {
             receiveInflowsAndAdvanceTime();
           }
+}
+else
+{
+serial
+{
+timestepEndTime = nextSyncTime;
+currentTime     = timestepEndTime;
+sendMaxDepthForTurnedOffElements();
+}
+}
         } // End if (currentTime < simulationEndTime).
       } // End while (!simulationFinished).
     }; // End entry void runUntilSimulationEnd();

@@ -346,8 +346,12 @@ newForcingData.prcp = 0.0;
       //  }
       //}
 
-// FIXME remove
-if (0 == CkMyPe())
+// FIXME keep permanently?
+serial
+{
+sdagCondition = (0 == CkMyPe() && 0.0 < ADHydro::simulationDuration);
+}
+if (sdagCondition)
 {
 serial
 {
@@ -359,10 +363,10 @@ when sendMaxDepth(int meshElement, double maxDepth, double maxDepthTime)
 {
 serial
 {
-//FILE* maxDepthFile;
-//maxDepthFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".maxDepth.txt")).c_str(), "a");
-//fprintf(maxDepthFile, "mesh element %06d maxDepth %lf maxDepthTime %lf\n", meshElement, maxDepth, maxDepthTime);
-//fclose(maxDepthFile);
+FILE* maxDepthFile;
+maxDepthFile = fopen((ADHydro::adhydroOutputStateFilePath + std::string(".maxDepth.txt")).c_str(), "a");
+fprintf(maxDepthFile, "mesh element %06d maxDepth %lf maxDepthTime %lf\n", meshElement, maxDepth, maxDepthTime);
+fclose(maxDepthFile);
 ++maxDepthValuesReceived;
 }
 }

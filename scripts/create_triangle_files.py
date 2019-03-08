@@ -131,23 +131,26 @@ with open(output_node_file, "w") as node_file:
       while catchment_provider.nextFeature(feature):
       """
       for feature in catchment_layer.getFeatures():
-        polygon = feature.geometry().asPolygon()
-        assert 0 < len(polygon) # No empty polygons.
-        boundary_marker = "0" # Catchment segments have no boundary marker.
-        for ring in polygon:
-          #ring = densify(ring, args.densify)
-          firstnode = node
-          for point in ring:
-            node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
-            if node < firstnode + len(ring) - 1:
-              # Ordinary line segment from one node to the next.
-              poly_file.write(str(segment) + " " + str(node) + " " + str(node + 1)  + " " + boundary_marker + "\n")
-            else:
-              # Line segment from the last node in a closed polygon to its first node.
-              poly_file.write(str(segment) + " " + str(node) + " " + str(firstnode) + " " + boundary_marker + "\n")
-            node    += 1
-            segment += 1
-        region += 1
+        if feature.geometry() is not None:
+          polygon = feature.geometry().asPolygon()
+          assert 0 < len(polygon) # No empty polygons.
+          boundary_marker = "0" # Catchment segments have no boundary marker.
+          for ring in polygon:
+            #ring = densify(ring, args.densify)
+            firstnode = node
+            for point in ring:
+              node_file.write(str(node) + " " + str(point.x()) + " " + str(point.y()) + "\n")
+              if node < firstnode + len(ring) - 1:
+                # Ordinary line segment from one node to the next.
+                poly_file.write(str(segment) + " " + str(node) + " " + str(node + 1)  + " " + boundary_marker + "\n")
+              else:
+                # Line segment from the last node in a closed polygon to its first node.
+                poly_file.write(str(segment) + " " + str(node) + " " + str(firstnode) + " " + boundary_marker + "\n")
+              node    += 1
+              segment += 1
+          region += 1
+        else:
+          print "Found empty feature in catchment file."
       #
       # Add the waterbody nodes and segments to the mesh.
       reachcodeindex = waterbody_provider.fieldNameIndex("ReachCode")
@@ -284,16 +287,17 @@ with open(output_node_file, "w") as node_file:
       while catchment_provider.nextFeature(feature):
       """
       for feature in catchment_layer.getFeatures():
-        regionx, regiony = point_in_polygon(feature)
-        catchment_number = int(feature[catchmentindex])
-        assert isinstance(catchment_number, (int,long)) # Integer conversion must succeed.
-        assert 0 <= catchment_number # Catchment number must be non-negative.
-        # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
-        # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
-        region_attribute = str(catchment_number + 2)
-        area_constraint = "-1" # FIXME calculate a real area constraint.
-        poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + region_attribute + " " + area_constraint + "\n")
-        region += 1
+        if feature.geometry() is not None:
+          regionx, regiony = point_in_polygon(feature)
+          catchment_number = int(feature[catchmentindex])
+          assert isinstance(catchment_number, (int,long)) # Integer conversion must succeed.
+          assert 0 <= catchment_number # Catchment number must be non-negative.
+          # The region attribute indicates which catchment.  Use catchment_number + 2 in the poly file because 0 is already used for no region attribute and to
+          # match stream linkno boundary markers where 1 is already used for mesh edge boundary.
+          region_attribute = str(catchment_number + 2)
+          area_constraint = "-1" # FIXME calculate a real area constraint.
+          poly_file.write(str(region) + " " + str(regionx) + " " + str(regiony) + " " + region_attribute + " " + area_constraint + "\n")
+          region += 1
       #
       # Fill in the number of segments and nodes at the beginning of the files.
       node_file.seek(0)

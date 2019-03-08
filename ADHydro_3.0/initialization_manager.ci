@@ -3,6 +3,6 @@ module initialization_manager
     group InitializationManager
     {
         // Constructor.
-        entry InitializationManager();
+        entry InitializationManager(bool initializeFromASCIIFiles);
     }; // End group InitializationManager.
 }; // End module initialization_manager.

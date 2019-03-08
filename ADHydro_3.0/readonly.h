@@ -89,6 +89,17 @@ public:
     static size_t getNumberOfCheckpoints();
     
     // Global readonly variables.  For usage see comments in the example superfile.
+    static std::string meshNodeFilePath;        // File from which to read geometry data.
+    static std::string meshZFilePath;           // File from which to read geometry data.
+    static std::string meshElementFilePath;     // File from which to read geometry data.
+    static std::string meshEdgeFilePath;        // File from which to read geometry data.
+    static std::string meshNeighborFilePath;    // File from which to read geometry data.
+    static std::string meshLandFilePath;        // File from which to read parameter data.
+    static std::string meshSoilFilePath;        // File from which to read parameter data.
+    static std::string channelNodeFilePath;     // File from which to read geometry data.
+    static std::string channelZFilePath;        // File from which to read geometry data.
+    static std::string channelElementFilePath;  // File from which to read geometry data.
+    static std::string channelPruneFilePath;    // File from which to read geometry data.
     static std::string noahMPMpTableFilePath;   // For initializing Noah-MP.
     static std::string noahMPVegParmFilePath;   // For initializing Noah-MP.
     static std::string noahMPSoilParmFilePath;  // For initializing Noah-MP.

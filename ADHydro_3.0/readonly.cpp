@@ -356,6 +356,17 @@ size_t Readonly::getNumberOfCheckpoints()
 }
 
 // Global readonly variables.
+std::string Readonly::meshNodeFilePath;
+std::string Readonly::meshZFilePath;
+std::string Readonly::meshElementFilePath;
+std::string Readonly::meshEdgeFilePath;
+std::string Readonly::meshNeighborFilePath;
+std::string Readonly::meshLandFilePath;
+std::string Readonly::meshSoilFilePath;
+std::string Readonly::channelNodeFilePath;
+std::string Readonly::channelZFilePath;
+std::string Readonly::channelElementFilePath;
+std::string Readonly::channelPruneFilePath;
 std::string Readonly::noahMPMpTableFilePath;
 std::string Readonly::noahMPVegParmFilePath;
 std::string Readonly::noahMPSoilParmFilePath;
