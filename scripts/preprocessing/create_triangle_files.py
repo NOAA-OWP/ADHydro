@@ -9,6 +9,7 @@ import sys
 import math
 import argparse
 import os
+import geopandas as gpd
 
 # RCS 5/11/17
 # The above code has baked into it the directory structure that we currently use to organize all the different files that are produced when we make a mesh.
@@ -22,7 +23,7 @@ import os
 # possibly with a couple groups like an input directory and an output directory where default names will be used.
 #
 # Here is how I originally specified the directories.  If you want to use this you can uncomment these lines and set file names here.
-input_directory_path       = "/share/CI-WATER_Simulation_Data/sugar_creek/ArcGIS"
+input_directory_path       = "/project/CI-WATER/data/maps/sugar_creek/ArcGIS"
 input_catchment_file       = input_directory_path + "/" + "mesh_catchments.shp"
 input_waterbody_file       = input_directory_path + "/" + "mesh_waterbodies.shp"
 input_road_file            = input_directory_path + "/" + "mesh_roads.shp"
@@ -32,6 +33,9 @@ output_directory_path      = "/share/CI-WATER_Simulation_Data/sugar_creek/ASCII"
 output_node_file           = output_directory_path + "/" + "mesh.node"
 output_poly_file           = output_directory_path + "/" + "mesh.poly"
 output_link_file           = output_directory_path + "/" + "mesh.1.link"
+
+
+
 
 # Reach codes of waterbodies are 14 digit integers, which can be represented in
 # a 64 bit int.  Make sure that a python int is large enough.
@@ -85,6 +89,45 @@ def densify(segments, n):
   new_segments.append(segments[-1])
   return new_segments
 
+"""
+To handle some geometry roundoff errors in Triangle, we need to align streams and catchments better
+when we are densifying one but not the other.  This code densifies the streams then unions the 
+points back into the catchment geometry before processing.
+"""
+import shapely
+
+def densify_shapely_line(line_string, n):
+    print line_string
+    if n == 0:
+        return line_string
+    new_lines = []
+    #Adding n points by making n+1 intervals
+    n = n + 1
+    #Loop through all coordinates except the last
+    for p1 , index in zip(line_string.coords[:-1], range(len(line_string.coords))):
+        p1 = shapely.geometry.Point(p1)
+        p2 = shapely.geometry.Point( line_string.coords[index+1] )
+        x_distance = (p2.x - p1.x)/float(n)
+        y_distance = (p2.y - p1.y)/float(n)
+        new_lines.append(p1)
+        for i in range(1,n):
+            nextX = p1.x + i*x_distance
+            nextY = p1.y + i*y_distance
+            new_lines.append(shapely.geometry.Point(nextX, nextY))
+    new_lines.append( shapely.geometry.Point( line_string.coords[-1]) )
+    ret = shapely.geometry.LineString(new_lines)
+    return ret
+
+catchments_df = gpd.read_file(input_catchment_file)
+streams_df = gpd.read_file(input_stream_file)
+streams_df.geometry = streams_df.geometry.apply(densify_shapely_line, args=(1,))
+
+catchments_df.geometry = catchments_df.geometry.union(streams_df.geometry)
+
+
+
+#Remove this line, for testing only
+#os._exit(1)
 with open(output_node_file, "w") as node_file:
   with open(output_poly_file, "w") as poly_file:
     with open(output_link_file, "w") as link_file:
