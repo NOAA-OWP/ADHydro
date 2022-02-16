@@ -3256,129 +3256,6 @@ bool FileManager::NetCDFCreateOrOpenForWriteDisplay(int* fileID)
           error = NetCDFCreateVariable(*fileID, "currentTime", NC_DOUBLE, 1, instancesDimensionID, 0, 0, "seconds",
                                        "Elapsed time since referenceDate.  Can be negative to indicate times before referenceDate.");
         }
- //NJF Adding these variables to display temporarily for scaling analysis, remove them!!! FIXME
- 
-int     meshMeshNeighborsSizeDimensionID;       // ID of dimension in NetCDF file.
-  int     meshChannelNeighborsSizeDimensionID;    // ID of dimension in NetCDF file.
-  int     channelMeshNeighborsSizeDimensionID;    // ID of dimension in NetCDF file.
-  int     channelChannelNeighborsSizeDimensionID; // ID of dimension in NetCDF file.
-if (!error)
-        {
-          error = NetCDFCreateDimension(*fileID, "meshMeshNeighborsSize", MESH_ELEMENT_MESH_NEIGHBORS_SIZE, &meshMeshNeighborsSizeDimensionID);
-        }
-      
-      if (!error)
-        {
-          error = NetCDFCreateDimension(*fileID, "meshChannelNeighborsSize", MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, &meshChannelNeighborsSizeDimensionID);
-        }
-if (!error)
-        {
-          error = NetCDFCreateDimension(*fileID, "channelMeshNeighborsSize", CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, &channelMeshNeighborsSizeDimensionID);
-        }
-      
-      if (!error)
-        {
-          error = NetCDFCreateDimension(*fileID, "channelChannelNeighborsSize", CHANNEL_ELEMENT_CHANNEL_NEIGHBORS_SIZE,
-                                        &channelChannelNeighborsSizeDimensionID);
-        }
- if (!error && NULL != meshSurfacewaterDepth)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters",
-                                       "Surfacewater depth of each mesh element.");
-        }
-if (!error && NULL != meshPrecipitationRate)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0, "meters/second",
-                                       "Instantaneous precipitation rate of each mesh element as a negative number.");
-        }
-if (!error && NULL != meshPrecipitationCumulativeShortTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
-                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
-                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
-        }
-      
-      if (!error && NULL != meshPrecipitationCumulativeLongTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, meshElementsDimensionID, 0,
-                                       "meters", "Part of cumulative precipitation that has fallen on each mesh element as a negative number.  Two buckets "
-                                       "are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
-        }
-if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowRate", NC_DOUBLE, 3, instancesDimensionID, meshElementsDimensionID,
-                                       meshChannelNeighborsSizeDimensionID, "meters^3/second",
-                                       "Instantaneous flow rate of surfacewater between a mesh element and its channel neighbor.  Positive means flow out of "
-                                       "the element into the neighbor.  Negative means flow into the element out of the neighbor.");
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", NC_DOUBLE, 3, instancesDimensionID,
-                                       meshElementsDimensionID, meshChannelNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
-                                       "between a mesh element and its channel neighbor.  Positive means flow out of the element into the neighbor.  Negative "
-                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
-                                       "cumulative flow add short term and long term.");
-        }
-      
-      if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", NC_DOUBLE, 3, instancesDimensionID,
-                                       meshElementsDimensionID, meshChannelNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
-                                       "between a mesh element and its channel neighbor.  Positive means flow out of the element into the neighbor.  Negative "
-                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
-                                       "cumulative flow add short term and long term.");
-        }
-     if (!error && NULL != channelSurfacewaterDepth)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterDepth", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
-                                       "Surfacewater depth of each channel element.");
-        }
-     if (!error && NULL != channelPrecipitationRate)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelPrecipitationRate", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters/second",
-                                       "Instantaneous precipitation rate of each channel element as a negative number.");
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeShortTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeShortTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
-                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
-                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
-        }
-      
-      if (!error && NULL != channelPrecipitationCumulativeLongTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelPrecipitationCumulativeLongTerm", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0,
-                                       "meters^3", "Part of cumulative precipitation that has fallen on each chanel element as a negative number.  Two "
-                                       "buckets are used to minimize roundoff error.  To find total cumulative precipitation add short term and long term.");
-        }
-if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowRate", NC_DOUBLE, 3, instancesDimensionID, channelElementsDimensionID,
-                                       channelMeshNeighborsSizeDimensionID, "meters^3/second",
-                                       "Instantaneous flow rate of surfacewater between a channel element and its mesh neighbor.  Positive means flow out of "
-                                       "the element into the neighbor.  Negative means flow into the element out of the neighbor.");
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", NC_DOUBLE, 3, instancesDimensionID,
-                                       channelElementsDimensionID, channelMeshNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
-                                       "between a channel element and its mesh neighbor.  Positive means flow out of the element into the neighbor.  Negative "
-                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
-                                       "cumulative flow add short term and long term.");
-        }
-      
-      if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-        {
-          error = NetCDFCreateVariable(*fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", NC_DOUBLE, 3, instancesDimensionID,
-                                       channelElementsDimensionID, channelMeshNeighborsSizeDimensionID, "meters^3", "Part of cumulative flow of surfacewater "
-                                       "between a channel element and its mesh neighbor.  Positive means flow out of the element into the neighbor.  Negative "
-                                       "means flow into the element out of the neighbor.  Two buckets are used to minimize roundoff error.  To find total "
-                                       "cumulative flow add short term and long term.");
-        }
- /*NJF Hacking Display file for debugging variables 
     
       if (!error && NULL != meshSurfacewaterDepth)
         {
@@ -3548,10 +3425,9 @@ if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
           error = NetCDFCreateVariable(*fileID, "channelSnowWaterEquivalent", NC_DOUBLE, 2, instancesDimensionID, channelElementsDimensionID, 0, "meters",
                                        "Total water (liquid and solid) in snow pack in meters of liquid water equivalent");
         }
-    
+    } 
   // FIXME else if not error the file was not created we could check that the dimensions and variables exist and the dimensions are the right size.
-*/
-  }
+
   if (error && fileOpen)
     {
       ncErrorCode = nc_close(*fileID);
@@ -6608,85 +6484,7 @@ bool FileManager::NetCDFWriteDisplay(int& fileID, bool& fileOpen)
     {
       error = NetCDFWriteVariable(fileID, "currentTime", displayInstance, 0, 1, 1, &currentTime);
     }
-  //FIXME the following are debug only variables to write to netcdf at display interval.  Remove these lines and unncomment old display var lines
- if (!error && NULL != meshSurfacewaterDepth)
-    {
-      error = NetCDFWriteVariable(fileID, "meshSurfacewaterDepth", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshSurfacewaterDepth);
-    }
-  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowRate)
-    {
-      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowRate", stateInstance, localMeshElementStart, localNumberOfMeshElements,
-                                  MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowRate);
-    }
-  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm", stateInstance, localMeshElementStart,
-                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeShortTerm);
-    }
-  
-  if (!error && NULL != meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm", stateInstance, localMeshElementStart,
-                                  localNumberOfMeshElements, MESH_ELEMENT_CHANNEL_NEIGHBORS_SIZE, meshSurfacewaterChannelNeighborsFlowCumulativeLongTerm);
-    }
-  if (!error && NULL != meshPrecipitationRate)
-    {
-      error = NetCDFWriteVariable(fileID, "meshPrecipitationRate", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1, meshPrecipitationRate);
-    }
-  
-  if (!error && NULL != meshPrecipitationCumulativeShortTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeShortTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                  meshPrecipitationCumulativeShortTerm);
-    }
-  
-  if (!error && NULL != meshPrecipitationCumulativeLongTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "meshPrecipitationCumulativeLongTerm", stateInstance, localMeshElementStart, localNumberOfMeshElements, 1,
-                                  meshPrecipitationCumulativeLongTerm);
-    }
-  if (!error && NULL != channelSurfacewaterDepth)
-    {
-      error = NetCDFWriteVariable(fileID, "channelSurfacewaterDepth", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                  channelSurfacewaterDepth);
-    }
-  
-  
-  if (!error && NULL != channelPrecipitationRate)
-    {
-      error = NetCDFWriteVariable(fileID, "channelPrecipitationRate", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                  channelPrecipitationRate);
-    }
-  
-  if (!error && NULL != channelPrecipitationCumulativeShortTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeShortTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                  channelPrecipitationCumulativeShortTerm);
-    }
-  
-  if (!error && NULL != channelPrecipitationCumulativeLongTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "channelPrecipitationCumulativeLongTerm", stateInstance, localChannelElementStart, localNumberOfChannelElements, 1,
-                                  channelPrecipitationCumulativeLongTerm);
-    }
-  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowRate)
-    {
-      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowRate", stateInstance, localChannelElementStart,
-                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowRate);
-    }
-  
-  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm", stateInstance, localChannelElementStart,
-                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeShortTerm);
-    }
-  
-  if (!error && NULL != channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm)
-    {
-      error = NetCDFWriteVariable(fileID, "channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm", stateInstance, localChannelElementStart,
-                                  localNumberOfChannelElements, CHANNEL_ELEMENT_MESH_NEIGHBORS_SIZE, channelSurfacewaterMeshNeighborsFlowCumulativeLongTerm);
-    }
- /* NJF Hacking display function to write out debugging analysis variables
+ 
   if (!error && NULL != meshSurfacewaterDepth)
     {
 
@@ -6856,7 +6654,7 @@ bool FileManager::NetCDFWriteDisplay(int& fileID, bool& fileOpen)
       
       error = NetCDFWriteVariable(fileID, "channelSnowWaterEquivalent", displayInstance, localChannelElementStart, localNumberOfChannelElements, 1, channelTempArray);
     }
-  */
+
   // Close the display file.
   if (fileOpen)
     {
